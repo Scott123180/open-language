@@ -53,3 +53,10 @@ When implementing transcription features, refer to [reference/TRANSCRIPTION_INTE
 - `TranscriptionEngine` class using `faster-whisper` with automatic CUDA/CPU fallback
 - CUDA library preloading strategy and threading/asyncio patterns
 - Dependencies: `faster-whisper`, `sounddevice`, `scipy`, `numpy` (plus optional NVIDIA CUDA packages)
+
+## Active Technologies
+- Python 3.11+ (backend), TypeScript/React 18 (frontend) + FastAPI, Uvicorn, SQLite (via SQLAlchemy), faster-whisper, Ollama Python client (llama3.1), Piper TTS, ffmpeg/pydub (audio conversion), React 18, Vite, React Query (001-speak-roleplay-chat)
+- SQLite — conversations, messages, vocabulary items, user settings (001-speak-roleplay-chat)
+
+## Recent Changes
+- 001-speak-roleplay-chat: Added Python 3.11+ (backend), TypeScript/React 18 (frontend) + FastAPI, Uvicorn, SQLite (via SQLAlchemy), faster-whisper, Ollama Python client (llama3.1), Piper TTS, ffmpeg/pydub (audio conversion), React 18, Vite, React Query

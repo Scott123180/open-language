@@ -89,13 +89,15 @@ verifying a result panel appears for each.
 ### User Story 4 — In-Chat Word and Phrase Translation (Priority: P2)
 
 The user can select any word or phrase in any chat message (their own or the AI's) and request a
-translation. This acts as an in-context dictionary lookup.
+translation. This acts as an in-context dictionary lookup. From the translation result, the user
+can save the word or phrase to a local vocabulary list for future flashcard practice.
 
 **Why this priority**: Vocabulary lookup during a conversation is a core learning behaviour. It
 does not block P1 but greatly enhances the learning loop.
 
-**Independent Test**: Can be tested by long-pressing or selecting text in a message and tapping
-"Translate Selection", then verifying a translation popover or panel appears.
+**Independent Test**: Can be tested by long-pressing or selecting text in a message, verifying a
+translation panel appears, then saving the word and confirming it persists in local storage after
+an app restart.
 
 **Acceptance Scenarios**:
 
@@ -104,27 +106,31 @@ does not block P1 but greatly enhances the learning loop.
    panel immediately without navigating away.
 2. **Given** a phrase (multiple words) is selected, **When** the user requests translation,
    **Then** a phrase-level translation is returned, not just word-by-word.
+3. **Given** an inline translation result is shown, **When** the user taps "Save Word",
+   **Then** the word/phrase and its translation are saved to local storage and a confirmation
+   is shown.
 
 ---
 
 ### User Story 5 — Suggested Responses Panel (Priority: P3)
 
-A collapsed panel in the chat screen, when expanded by the user, shows a set of contextually
-appropriate suggested replies in the target language. The user may tap a suggestion to insert it
-into their input (for speaking or typing), or ignore it entirely.
+A collapsed panel in the chat screen, when expanded by the user, shows one contextually
+appropriate suggested reply in the target language. The suggestion is read-only — the user must
+speak it aloud (via voice recording) or type it manually to use it. This deliberate friction
+reinforces active recall and production practice.
 
 **Why this priority**: Helpful for learners who are stuck, but the conversation works without it.
 It is an enhancement on top of a fully functional P1/P2 conversation.
 
 **Independent Test**: Can be tested by expanding the suggestions panel mid-conversation and
-verifying that suggestions are returned and one can be inserted into the input.
+verifying one suggestion is returned as read-only text that does not populate the input field.
 
 **Acceptance Scenarios**:
 
 1. **Given** the suggestions panel is collapsed, **When** the user taps the expand control,
-   **Then** 3–5 contextually appropriate replies are shown in the target language.
-2. **Given** suggestions are shown, **When** the user taps one, **Then** it is inserted into
-   the voice/text input field for the user to speak or submit.
+   **Then** one contextually appropriate reply is shown in the target language as read-only text.
+2. **Given** a suggestion is shown, **When** the user taps anywhere on the suggestion text,
+   **Then** nothing happens — it is not inserted into the input field or sent as a message.
 3. **Given** suggestions are shown, **When** the user taps "Close", **Then** the panel
    collapses without changing the input.
 
@@ -133,14 +139,15 @@ verifying that suggestions are returned and one can be inserted into the input.
 ### User Story 6 — Native-Language Expression Helper (Priority: P3)
 
 A collapsible sidebar or panel lets the user open a separate AI conversation in their native
-language where they can ask "How do I say X?" The user can copy or send the result back into the
-main role-play conversation input.
+language where they can ask "How do I say X?" The AI responds with the target-language equivalent.
+The helper is reference-only — the user must speak or type the result themselves to use it in the
+main conversation, reinforcing active production.
 
 **Why this priority**: Useful for learners who lack vocabulary for a thought they want to express,
 but is an advanced feature layered on top of the core conversation loop.
 
 **Independent Test**: Can be tested by opening the sidebar, asking a question in the native
-language, receiving a target-language suggestion, and using it in the main conversation.
+language, and verifying a target-language response appears as read-only text with no transfer control.
 
 **Acceptance Scenarios**:
 
@@ -148,9 +155,10 @@ language, receiving a target-language suggestion, and using it in the main conve
    **Then** a separate input area appears for native-language questions, independent of the main
    conversation.
 2. **Given** a native-language question is submitted, **When** the AI responds,
-   **Then** the response appears in the sidebar in the target language.
-3. **Given** a response is shown in the sidebar, **When** the user taps "Use This",
-   **Then** the text is inserted into the main conversation input field.
+   **Then** the response appears in the sidebar in the target language as read-only reference text.
+3. **Given** a response is shown in the sidebar, **When** the user returns focus to the main chat,
+   **Then** the main conversation context is fully preserved and the user may speak or type the
+   expression themselves.
 
 ---
 
@@ -240,8 +248,9 @@ verifying subsequent AI responses come from the newly selected model.
 - **FR-007**: Users MUST be able to type a response via keyboard as an alternative to voice input.
 - **FR-008**: Transcribed or typed user messages MUST be sent to the AI to continue the
   conversation in-character within the role-play scenario.
-- **FR-009**: The system MUST detect when the user's response is in a language other than the
-  target language and the AI MUST redirect the user back to the target language.
+- **FR-009**: The system MUST detect when the user's entire message is in a language other than
+  the target language and the AI MUST redirect the user back to the target language; isolated
+  foreign words within an otherwise target-language message do not trigger redirection.
 - **FR-010**: The AI MUST maintain role-play character throughout the conversation unless
   delivering an explicit learning-tool result (feedback, translation, etc.).
 
@@ -264,14 +273,19 @@ verifying subsequent AI responses come from the newly selected model.
   request a translation of that selection.
 - **FR-017**: Translation results for selected text MUST appear inline (tooltip or panel) without
   navigating away from the chat screen.
+- **FR-017b**: From the inline translation result, users MUST be able to save the selected word
+  or phrase to local storage for future flashcard practice; the flashcard practice feature itself
+  is out of scope but the save action and local storage of vocabulary items is in scope.
 
 **Suggested Responses**
 
 - **FR-018**: A collapsible suggestions panel MUST be available in the chat screen and MUST be
   collapsed by default.
-- **FR-019**: When expanded, the suggestions panel MUST display 3–5 contextually appropriate
-  replies in the target language based on the current conversation.
-- **FR-020**: Users MUST be able to insert a suggestion into their input field with a single tap.
+- **FR-019**: When expanded, the suggestions panel MUST display exactly 1 contextually appropriate
+  reply in the target language by default; the number of suggestions MUST be configurable in
+  Settings.
+- **FR-020**: Suggestions are displayed as read-only reference text; they MUST NOT be tappable to
+  send or insert. The user must speak or type the suggestion themselves to use it.
 
 **Expression Helper**
 
@@ -279,23 +293,27 @@ verifying subsequent AI responses come from the newly selected model.
   parallel native-language AI conversation.
 - **FR-022**: The expression-helper conversation context MUST be separate from the main role-play
   thread.
-- **FR-023**: Users MUST be able to transfer the AI's response from the expression-helper into
-  the main conversation input with a single action.
+- **FR-023**: Expression-helper responses are displayed as read-only reference text; there is no
+  transfer or insert action. The user must speak or type the expression themselves to use it in
+  the main conversation.
 
 **Persistence & History**
 
-- **FR-024**: Users MUST be able to end a chat at any time; the full conversation MUST be saved
-  locally before the user leaves the chat screen.
+- **FR-024**: Each message MUST be saved to local storage immediately when it is added to the
+  conversation, so no turns are lost if the app crashes or is force-closed.
+- **FR-024b**: Users MUST be able to end a chat at any time via "End Chat"; tapping it marks the
+  conversation as completed and returns the user to the home screen.
 - **FR-025**: Users MUST be able to access a chronological list of past conversations from the
   home screen.
 - **FR-026**: Each past conversation MUST be fully readable as a transcript.
 
 **Settings & Model Configuration**
 
-- **FR-027**: A settings screen MUST allow the user to view and change the LLM model used for
-  each AI task (conversation, grammar feedback, translation, alternative phrasing, suggested
-  responses).
-- **FR-028**: The system MUST use an `LLMProvider` interface so any configured model can be
+- **FR-027**: A settings screen MUST allow the user to view and change a single LLM model that
+  applies uniformly to all AI tasks (conversation, grammar feedback, translation, alternative
+  phrasing, suggested responses, and expression helper), and MUST allow the user to configure the
+  number of suggestions shown in the suggestions panel (default: 1).
+- **FR-028**: The system MUST use an `LLMProvider` interface so the configured model can be
   substituted without modifying conversation or learning-tool logic.
 
 ### Key Entities
@@ -308,8 +326,11 @@ verifying subsequent AI responses come from the newly selected model.
   (voice/keyboard), timestamp, and any associated learning-tool results.
 - **LearningToolResult**: A named result (grammar feedback, translation, alternative phrasing)
   attached to a Message. Cached so the user can re-read without re-fetching.
-- **ModelConfiguration**: The user's selected LLM model identifiers per task type, persisted in
-  local user settings.
+- **SavedVocabularyItem**: A word or phrase saved by the user from an inline translation result.
+  Contains the target-language word/phrase, its translation, the source conversation ID, and a
+  saved timestamp. Persisted locally for future flashcard practice (practice feature out of scope).
+- **ModelConfiguration**: The user's selected LLM model (single, applies to all tasks) and
+  suggestion count preference, persisted in local user settings.
 - **ScenarioProvider** *(interface)*: Abstracts scenario loading — static list initially; future
   implementations may be AI-generated or server-sourced.
 - **LLMProvider** *(interface)*: Abstracts LLM API calls — the configured model is injected at
@@ -326,8 +347,12 @@ verifying subsequent AI responses come from the newly selected model.
 - The 10 initial scenarios are common everyday situations: buying a train ticket, checking into a
   hotel, ordering at a restaurant, calling a doctor's office, asking for directions, interviewing
   for a job, renting a car, visiting a pharmacy, reporting a lost item, and boarding an airplane.
-- LLM calls require internet access; all LLM-dependent features degrade gracefully when offline,
-  showing a clear "unavailable" state rather than an error crash.
+- The LLM runs entirely on the user's local machine (e.g., via a locally hosted inference
+  server such as Ollama); no internet connection is required and no API credentials are needed.
+  All AI features — conversation, grammar feedback, translation, alternative phrasing, suggested
+  responses, and the expression helper — are fulfilled by this local model.
+- Because all inference is local, there is no "offline mode" distinction; the app is always
+  capable of AI features as long as the local model process is running.
 - Local storage is the only persistence mechanism for this proof-of-concept; cloud sync and
   backup are out of scope.
 
@@ -340,8 +365,7 @@ verifying subsequent AI responses come from the newly selected model.
 - **SC-002**: Voice transcription results appear on screen within 3 seconds of the user stopping
   a recording of 30 seconds or less.
 - **SC-003**: All per-message learning tools (grammar feedback, translate, alternative phrasing,
-  slow replay) return a visible result within 5 seconds of being tapped under normal network
-  conditions.
+  slow replay) return a visible result within 5 seconds of being tapped.
 - **SC-004**: Users can complete a 5-turn role-play conversation from scenario selection through
   "End Chat" without encountering a blocking error.
 - **SC-005**: A new LLM model selected in settings takes effect on the next message without an
@@ -350,3 +374,15 @@ verifying subsequent AI responses come from the newly selected model.
   history screen after the application is restarted.
 - **SC-007**: In usability testing, 90% of users can locate and successfully use the suggestions
   panel and expression-helper without being given explicit instructions.
+
+## Clarifications
+
+### Session 2026-03-17
+
+- Q: How are LLM API credentials stored and who provides them? → A: No credentials — the app runs entirely locally; all AI inference uses a local model with no internet or API key required.
+- Q: Is LLM model configuration per AI task or a single unified selection? → A: One model for all tasks.
+- Q: What triggers the wrong-language redirect — any foreign word, majority, or full message? → A: Only when the entire message is in the wrong language; isolated foreign words are ignored.
+- Q: Are messages saved incrementally per turn or only at session close? → A: Each message saved immediately on add; no data lost on crash.
+- Correction: Suggestions panel shows 1 reply by default (configurable in Settings); not 3–5.
+- Correction: Unknown words selected for translation can be saved to local storage (SavedVocabularyItem) for future flashcard practice; flashcard practice itself is out of scope.
+- Q: Does tapping a suggested response insert it into the input field or send it directly? → A: Neither — suggestions and expression-helper responses are read-only reference text; the user must speak or type them manually to reinforce active production.
