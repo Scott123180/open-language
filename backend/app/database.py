@@ -1,0 +1,50 @@
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+
+from app.config import get_settings
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+def _configure_sqlite(dbapi_conn, _connection_record):
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
+def create_db_engine():
+    settings = get_settings()
+    settings.db_path.parent.mkdir(parents=True, exist_ok=True)
+    engine = create_engine(
+        f"sqlite:///{settings.db_path}",
+        connect_args={"check_same_thread": False},
+    )
+    event.listen(engine, "connect", _configure_sqlite)
+    return engine
+
+
+_engine = create_db_engine()
+SessionLocal = sessionmaker(bind=_engine, autocommit=False, autoflush=False)
+
+
+def get_db() -> Session:
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def init_db() -> None:
+    from app.models import (  # noqa: F401
+        app_settings,
+        conversation,
+        learning_tool_result,
+        message,
+        vocabulary_item,
+    )
+
+    Base.metadata.create_all(bind=_engine)

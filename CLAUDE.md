@@ -46,6 +46,18 @@ Feature artifacts live alongside the feature branch. Templates at [.specify/temp
 | `tasks-template.md` | Phased tasks (Setup → Foundational → Story-level), dependency ordering, exact file paths |
 | `checklist-template.md` | Quality validation before completion |
 
+## Python Environment
+
+**Always use a virtual environment** — never install packages into the system Python or use `--break-system-packages`.
+
+- The backend venv lives at `backend/.venv/`
+- Create it if missing: `python3 -m venv backend/.venv`
+- Activate before any pip commands: `source backend/.venv/bin/activate` (or use the full path `backend/.venv/bin/pip`)
+- Install deps: `backend/.venv/bin/pip install -e ".[dev]"`
+- Run tests and tools through the venv: `backend/.venv/bin/pytest`, `backend/.venv/bin/ruff`, `backend/.venv/bin/black`
+
+Never run `pip install --break-system-packages`, `pip install --user`, or bare `pip install` outside a venv.
+
 ## Speech-to-Text Integration
 
 When implementing transcription features, refer to [reference/TRANSCRIPTION_INTEGRATION.md](reference/TRANSCRIPTION_INTEGRATION.md) which documents:

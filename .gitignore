@@ -206,3 +206,30 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 .claude
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/build/
+frontend/coverage/
+*.log
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Piper voice models (large binary files — download separately per quickstart.md)
+*.onnx
+*.onnx.json
+
+# Audio cache / temp files
+/tmp/
+backend/app/audio_cache/
+
+# Backend static (built frontend output)
+backend/static/
+
+# IDE
+.vscode/
+.idea/
