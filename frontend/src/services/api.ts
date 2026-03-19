@@ -90,9 +90,10 @@ export const completeConversation = (conversationId: number): Promise<Conversati
     body: JSON.stringify({ status: 'completed' }),
   })
 
-export const transcribeAudio = async (blob: Blob): Promise<{ text: string; detected_language: string | null }> => {
+export const transcribeAudio = async (blob: Blob, language?: string): Promise<{ text: string; detected_language: string | null }> => {
   const form = new FormData()
   form.append('file', blob, 'audio.wav')
+  if (language) form.append('language', language)
   const res = await fetch(`${BASE}/audio/transcribe`, { method: 'POST', body: form })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))

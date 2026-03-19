@@ -189,7 +189,7 @@ export default function Chat() {
     setIsProcessingVoice(true)
     try {
       const blob = await stopRecording()
-      const { text } = await api.transcribeAudio(blob)
+      const { text } = await api.transcribeAudio(blob, targetLanguage || undefined)
       if (text.trim()) {
         await sendMessage(text.trim(), 'voice')
       } else {

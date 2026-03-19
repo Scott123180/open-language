@@ -64,6 +64,7 @@ class WhisperSTTProvider(STTProvider):
             segments, info = model.transcribe(
                 str(audio_path),
                 language=language_hint,
+                task="transcribe",
                 beam_size=5,
             )
             text = " ".join(seg.text.strip() for seg in segments).strip()
@@ -78,6 +79,7 @@ class WhisperSTTProvider(STTProvider):
                     segments, info = model.transcribe(
                         str(audio_path),
                         language=language_hint,
+                        task="transcribe",
                         beam_size=5,
                     )
                     text = " ".join(seg.text.strip() for seg in segments).strip()

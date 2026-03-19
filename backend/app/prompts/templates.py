@@ -8,15 +8,16 @@ def build_roleplay_system_prompt(
     # character_description already contains the full role ("You are a ..."),
     # so use it directly without adding another "You are".
     return (
+        f"CRITICAL LANGUAGE RULE: You must write EXCLUSIVELY in {target_language}. "
+        f"This means zero {native_language} words, zero parenthetical translations like '(word)', "
+        f"zero {native_language} explanations, zero {native_language} anywhere — not even a single word. "
+        f"If you include ANY {native_language} in your response, you have failed.\n\n"
         f"{character_description}\n"
         f"Scenario: {scenario_title} — {scenario_description}\n\n"
-        f"LANGUAGE RULES — follow these absolutely:\n"
-        f"1. You MUST respond ONLY in {target_language}. Every single word must be in {target_language}.\n"
-        f"2. Do NOT use {native_language} or any other language under any circumstances.\n"
-        f"3. Do NOT include translations, parenthetical explanations, or {native_language} words anywhere in your response.\n"
-        f"4. If the user writes in {native_language}, reply only with a one-sentence prompt "
-        f"asking them to switch to {target_language}, written in {target_language}.\n"
-        f"5. Stay in character and keep the conversation focused on the scenario."
+        f"Additional rules:\n"
+        f"- If the user writes entirely in {native_language}, respond only with a short prompt "
+        f"asking them to use {target_language}, written in {target_language}.\n"
+        f"- Stay in character and keep the conversation focused on the scenario."
     )
 
 

@@ -1,7 +1,7 @@
 import asyncio
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from app.services.audio.conversion import convert_webm_to_wav
@@ -43,8 +43,10 @@ def get_tts_audio(
 @router.post("/audio/transcribe")
 async def transcribe_audio(
     file: UploadFile = File(...),
+    language: str | None = Form(None),
     stt: STTProvider = Depends(get_stt),
 ):
+    print(f"[transcribe] language hint received: {language!r}")
     audio_bytes = await file.read()
     if not audio_bytes:
         raise HTTPException(status_code=400, detail="Audio file is empty")
@@ -60,7 +62,9 @@ async def transcribe_audio(
 
     try:
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, stt.transcribe, wav_path)
+        result = await loop.run_in_executor(
+            None, stt.transcribe, wav_path, language
+        )
     except STTError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     finally:
