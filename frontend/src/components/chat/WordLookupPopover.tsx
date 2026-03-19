@@ -1,3 +1,5 @@
+import ReactMarkdown from 'react-markdown'
+
 interface WordLookupPopoverProps {
   word: string
   result: string | null
@@ -36,8 +38,10 @@ export default function WordLookupPopover({
     borderRadius: 'var(--radius)',
     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
     padding: '12px 14px',
-    minWidth: '200px',
-    maxWidth: '300px',
+    minWidth: '240px',
+    maxWidth: '420px',
+    maxHeight: '60vh',
+    overflowY: 'auto',
   }
 
   return (
@@ -73,9 +77,19 @@ export default function WordLookupPopover({
         <div style={{ fontSize: '0.85rem', color: 'var(--color-text)', marginBottom: '10px', minHeight: '20px' }}>
           {isLoading ? (
             <span role="status" style={spinnerStyle} />
-          ) : (
-            result && <span>{result}</span>
-          )}
+          ) : result ? (
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => <p style={{ margin: '0 0 6px' }}>{children}</p>,
+                strong: ({ children }) => <strong style={{ color: 'var(--color-text)' }}>{children}</strong>,
+                ul: ({ children }) => <ul style={{ margin: '4px 0', paddingLeft: '16px' }}>{children}</ul>,
+                ol: ({ children }) => <ol style={{ margin: '4px 0', paddingLeft: '16px' }}>{children}</ol>,
+                li: ({ children }) => <li style={{ marginBottom: '2px' }}>{children}</li>,
+              }}
+            >
+              {result}
+            </ReactMarkdown>
+          ) : null}
         </div>
 
         <button

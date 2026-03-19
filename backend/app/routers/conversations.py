@@ -99,6 +99,17 @@ def list_conversations(storage: StorageProvider = Depends(get_storage)):
     return [_conv_response(r) for r in storage.list_conversations()]
 
 
+@router.get("/conversations/{conversation_id}", response_model=ConversationResponse)
+def get_conversation(
+    conversation_id: int,
+    storage: StorageProvider = Depends(get_storage),
+):
+    conv = storage.get_conversation(conversation_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return _conv_response(conv)
+
+
 @router.get("/conversations/{conversation_id}/messages", response_model=list[MessageResponse])
 def get_conversation_messages(
     conversation_id: int,

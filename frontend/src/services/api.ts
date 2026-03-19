@@ -78,6 +78,9 @@ export const createConversation = (scenarioId: string): Promise<Conversation> =>
 export const getConversations = (): Promise<Conversation[]> =>
   apiFetch('/conversations')
 
+export const getConversation = (conversationId: number): Promise<Conversation> =>
+  apiFetch(`/conversations/${conversationId}`)
+
 export const getMessages = (conversationId: number): Promise<Message[]> =>
   apiFetch(`/conversations/${conversationId}/messages`)
 
@@ -106,6 +109,7 @@ async function readSseStream(
   onToken: (t: string) => void,
   onDone: (data: unknown) => void,
   onError: (e: string) => void,
+  onEvent?: (event: string, data: unknown) => void,
 ): Promise<void> {
   const reader = res.body?.getReader()
   if (!reader) { onError('No response body'); return }
@@ -126,6 +130,7 @@ async function readSseStream(
           if (parsed.token !== undefined) onToken(parsed.token)
           else if (parsed.done) onDone(parsed)
           else if (parsed.error) onError(parsed.error)
+          else if (parsed.event && onEvent) onEvent(parsed.event, parsed)
         } catch { /* ignore malformed */ }
       }
     }
@@ -161,28 +166,57 @@ export const streamChatMessage = async (
   await readSseStream(
     res,
     onToken,
-    (data) => {
-      const d = data as { message_id?: number; user_message_id?: number }
-      if (d.user_message_id) onUserSaved(d.user_message_id)
-      onDone(d as { message_id: number })
-    },
+    (data) => onDone(data as { message_id: number }),
     onError,
+    (event, data) => {
+      if (event === 'user_message_saved') {
+        const d = data as { message_id: number }
+        onUserSaved(d.message_id)
+      }
+    },
   )
 }
 
-export const checkGrammar = (messageId: number): Promise<LearningToolResult> =>
-  apiFetch('/learning/grammar', { method: 'POST', body: JSON.stringify({ message_id: messageId }) })
+export const checkGrammar = (messageId: number, content: string): Promise<LearningToolResult> =>
+  apiFetch('/learning/grammar', {
+    method: 'POST',
+    body: JSON.stringify({ message_id: messageId, content }),
+  })
 
-export const translateMessage = (messageId: number): Promise<LearningToolResult> =>
-  apiFetch('/learning/translate', { method: 'POST', body: JSON.stringify({ message_id: messageId }) })
+export const translateMessage = (
+  messageId: number,
+  content: string,
+  nativeLanguage: string,
+): Promise<LearningToolResult> =>
+  apiFetch('/learning/translate', {
+    method: 'POST',
+    body: JSON.stringify({ message_id: messageId, content, native_language: nativeLanguage }),
+  })
 
-export const getAlternativePhrasing = (messageId: number): Promise<LearningToolResult> =>
-  apiFetch('/learning/phrasing', { method: 'POST', body: JSON.stringify({ message_id: messageId }) })
+export const getAlternativePhrasing = (
+  messageId: number,
+  content: string,
+  targetLanguage: string,
+): Promise<LearningToolResult> =>
+  apiFetch('/learning/phrasing', {
+    method: 'POST',
+    body: JSON.stringify({ message_id: messageId, content, target_language: targetLanguage }),
+  })
 
-export const lookupWord = (messageId: number, selection: string): Promise<LearningToolResult> =>
+export const lookupWord = (
+  messageId: number,
+  selection: string,
+  targetLanguage: string,
+  nativeLanguage: string,
+): Promise<LearningToolResult> =>
   apiFetch('/learning/word-lookup', {
     method: 'POST',
-    body: JSON.stringify({ message_id: messageId, selection }),
+    body: JSON.stringify({
+      message_id: messageId,
+      selection,
+      target_language: targetLanguage,
+      native_language: nativeLanguage,
+    }),
   })
 
 export const saveVocabularyItem = (

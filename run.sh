@@ -27,21 +27,36 @@ VOICE_DIR="${OPEN_LANGUAGE_VOICE_DIR:-$HOME/.local/share/piper-voices}"
 TTS_VOICE="${OPEN_LANGUAGE_TTS_VOICE:-es_ES-davefx-medium}"
 OLLAMA_MODEL="${OLLAMA_MODEL:-llama3.1:8b}"
 
+usage() {
+  echo ""
+  echo "  Usage: ./run.sh [options]"
+  echo ""
+  echo "  Options:"
+  echo "    (none)     Install dependencies if needed, then start in dev mode"
+  echo "    --setup    Install dependencies only (venv, npm, model, voice)"
+  echo "    --start    Start services only (skip install)"
+  echo "    --prod     Production build + single-port server on :8000"
+  echo "    --help     Show this message"
+  echo ""
+  echo "  Prerequisites (apt): ffmpeg, espeak-ng"
+  echo "  Prerequisites (other): Python 3.11+, Node 20+, Ollama"
+  echo ""
+}
+
 MODE="all"
 PROD=false
+
+if [[ $# -eq 0 ]]; then
+  usage
+fi
+
 for arg in "$@"; do
   case "$arg" in
     --setup) MODE="setup" ;;
     --start) MODE="start" ;;
     --prod)  PROD=true ;;
-    --help|-h)
-      echo "Usage: $0 [--setup|--start|--prod]"
-      echo "  (no flag)  install if needed, then start in dev mode"
-      echo "  --setup    install dependencies only"
-      echo "  --start    start services (skip install)"
-      echo "  --prod     production build + single-port server"
-      exit 0 ;;
-    *) die "Unknown argument: $arg" ;;
+    --help|-h) usage; exit 0 ;;
+    *) usage; die "Unknown argument: $arg" ;;
   esac
 done
 

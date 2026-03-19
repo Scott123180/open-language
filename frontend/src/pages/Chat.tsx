@@ -30,12 +30,13 @@ export default function Chat() {
   const [openingDone, setOpeningDone] = useState(false)
   const [targetLanguage, setTargetLanguage] = useState('Spanish')
   const [nativeLanguage, setNativeLanguage] = useState('English')
+  const [scenarioTitle, setScenarioTitle] = useState('')
   const abortRef = useRef<AbortController | null>(null)
 
   const { startRecording, stopRecording, isRecording, error: recorderError } = useRecorder()
   const [micDenied, setMicDenied] = useState(false)
 
-  // Load settings to get language config
+  // Load settings and conversation metadata
   useEffect(() => {
     api.getSettings().then((settings) => {
       setTargetLanguage(settings.target_language)
@@ -43,7 +44,12 @@ export default function Chat() {
     }).catch(() => {
       // keep defaults
     })
-  }, [])
+    api.getConversation(convId).then((conv) => {
+      setScenarioTitle(conv.scenario_title)
+    }).catch(() => {
+      // keep empty
+    })
+  }, [convId])
 
   // Detect microphone permission denied
   useEffect(() => {
@@ -226,7 +232,14 @@ export default function Chat() {
           background: 'var(--color-surface)',
         }}
       >
-        <h1 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Chat</h1>
+        <div>
+          <h1 style={{ fontSize: '1.1rem', fontWeight: 600, margin: 0 }}>Chat</h1>
+          {scenarioTitle && (
+            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: 0 }}>
+              {scenarioTitle}
+            </p>
+          )}
+        </div>
         <button
           onClick={handleEndChat}
           style={{

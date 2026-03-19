@@ -60,7 +60,7 @@ export default function MessageBubble({
     setLookupLoading(true)
 
     try {
-      const data = await api.lookupWord(messageId, word)
+      const data = await api.lookupWord(messageId, word, targetLanguage, nativeLanguage)
       setLookupResult(data.result)
     } catch {
       setLookupResult('Error loading definition.')

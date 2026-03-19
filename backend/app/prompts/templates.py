@@ -5,14 +5,23 @@ def build_roleplay_system_prompt(
     target_language: str,
     native_language: str,
 ) -> str:
+    # character_description already contains the full role ("You are a ..."),
+    # so use it directly without adding another "You are".
     return (
-        f"You are {character_description}.\n"
+        f"{character_description}\n"
         f"Scenario: {scenario_title} — {scenario_description}\n\n"
-        f"ALWAYS respond in {target_language}. Do NOT use {native_language}.\n"
-        f"If the user's ENTIRE message is in {native_language}, reply ONLY with: "
-        f'"Por favor, responde en {target_language}."\n'
-        f"Stay in character and keep the conversation focused on the scenario."
+        f"LANGUAGE RULES — follow these absolutely:\n"
+        f"1. You MUST respond ONLY in {target_language}. Every single word must be in {target_language}.\n"
+        f"2. Do NOT use {native_language} or any other language under any circumstances.\n"
+        f"3. Do NOT include translations, parenthetical explanations, or {native_language} words anywhere in your response.\n"
+        f"4. If the user writes in {native_language}, reply only with a one-sentence prompt "
+        f"asking them to switch to {target_language}, written in {target_language}.\n"
+        f"5. Stay in character and keep the conversation focused on the scenario."
     )
+
+
+def build_open_chat_user_prompt(target_language: str) -> str:
+    return f"Begin the conversation in {target_language}."
 
 
 def build_grammar_prompt(message_content: str, native_language: str) -> str:

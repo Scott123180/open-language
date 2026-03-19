@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from app.prompts.templates import (
     build_helper_system_prompt,
+    build_open_chat_user_prompt,
     build_roleplay_system_prompt,
     build_suggestion_prompt,
 )
@@ -69,7 +70,10 @@ async def open_chat(
 
         # Stream LLM tokens
         loop = asyncio.get_event_loop()
-        messages = [ChatMessage(role="system", content=system_prompt)]
+        messages = [
+            ChatMessage(role="system", content=system_prompt),
+            ChatMessage(role="user", content=build_open_chat_user_prompt(conversation.target_language)),
+        ]
 
         def _stream_tokens():
             return list(llm.chat_stream(messages))

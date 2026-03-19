@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ReactMarkdown from 'react-markdown'
 import * as api from '../../services/api'
 
 interface LearningToolPanelProps {
@@ -23,6 +24,7 @@ const spinnerStyle: React.CSSProperties = {
 
 export default function LearningToolPanel({
   messageId,
+  content,
   targetLanguage,
   nativeLanguage,
   role,
@@ -48,11 +50,11 @@ export default function LearningToolPanel({
     try {
       let data: { result: string; cached: boolean }
       if (tool === 'grammar') {
-        data = await api.checkGrammar(messageId)
+        data = await api.checkGrammar(messageId, content)
       } else if (tool === 'translate') {
-        data = await api.translateMessage(messageId)
+        data = await api.translateMessage(messageId, content, nativeLanguage)
       } else {
-        data = await api.getAlternativePhrasing(messageId)
+        data = await api.getAlternativePhrasing(messageId, content, targetLanguage)
       }
       setCache((prev) => ({ ...prev, [tool]: data.result }))
       setActiveToolResult(data.result)
@@ -125,11 +127,18 @@ export default function LearningToolPanel({
             color: 'var(--color-text)',
           }}
         >
-          {activeToolResult}
+          <ReactMarkdown
+            components={{
+              p: ({ children }) => <p style={{ margin: '0 0 4px' }}>{children}</p>,
+              ul: ({ children }) => <ul style={{ margin: '4px 0', paddingLeft: '16px' }}>{children}</ul>,
+              ol: ({ children }) => <ol style={{ margin: '4px 0', paddingLeft: '16px' }}>{children}</ol>,
+              li: ({ children }) => <li style={{ marginBottom: '2px' }}>{children}</li>,
+            }}
+          >
+            {activeToolResult}
+          </ReactMarkdown>
         </div>
       )}
-      {/* suppress unused prop warnings — consumed by parent for context */}
-      <span style={{ display: 'none' }}>{targetLanguage}{nativeLanguage}</span>
     </div>
   )
 }
