@@ -28,6 +28,7 @@ export default function Chat() {
   const [textInput, setTextInput] = useState('')
   const [isProcessingVoice, setIsProcessingVoice] = useState(false)
   const [openingDone, setOpeningDone] = useState(false)
+  const [helperExpanded, setHelperExpanded] = useState(false)
   const [targetLanguage, setTargetLanguage] = useState('Spanish')
   const [nativeLanguage, setNativeLanguage] = useState('English')
   const [scenarioTitle, setScenarioTitle] = useState('')
@@ -290,7 +291,13 @@ export default function Chat() {
 
       <SuggestedResponsePanel conversationId={convId} isDisabled={isStreaming} />
 
-      <ExpressionHelperPanel targetLanguage={targetLanguage} nativeLanguage={nativeLanguage} />
+      {helperExpanded && (
+        <ExpressionHelperPanel
+          targetLanguage={targetLanguage}
+          nativeLanguage={nativeLanguage}
+          onClose={() => setHelperExpanded(false)}
+        />
+      )}
 
       {openingDone && (
         <footer
@@ -340,6 +347,7 @@ export default function Chat() {
           <button
             onClick={handleTextSubmit}
             disabled={inputDisabled || !textInput.trim()}
+            aria-label="Send message"
             style={{
               padding: '10px 18px',
               background:
@@ -352,7 +360,24 @@ export default function Chat() {
               cursor: inputDisabled || !textInput.trim() ? 'not-allowed' : 'pointer',
             }}
           >
-            Send
+            Send ↑
+          </button>
+          <button
+            onClick={() => setHelperExpanded((v) => !v)}
+            aria-label={helperExpanded ? 'Close expression helper' : 'Open expression helper'}
+            title="Expression Helper"
+            style={{
+              padding: '10px 12px',
+              background: helperExpanded ? 'var(--color-primary)' : 'var(--color-bg)',
+              color: helperExpanded ? '#fff' : 'var(--color-text-muted)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius)',
+              fontSize: '1.1rem',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            🗣️
           </button>
         </footer>
       )}

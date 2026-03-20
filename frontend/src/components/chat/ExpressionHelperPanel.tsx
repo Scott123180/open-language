@@ -4,6 +4,7 @@ import * as api from '../../services/api'
 interface ExpressionHelperPanelProps {
   targetLanguage: string
   nativeLanguage: string
+  onClose: () => void
 }
 
 interface HelperMessage {
@@ -15,8 +16,8 @@ interface HelperMessage {
 export default function ExpressionHelperPanel({
   targetLanguage,
   nativeLanguage,
+  onClose,
 }: ExpressionHelperPanelProps) {
-  const [expanded, setExpanded] = useState(false)
   const [messages, setMessages] = useState<HelperMessage[]>([])
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
@@ -81,36 +82,14 @@ export default function ExpressionHelperPanel({
     }
   }
 
-  if (!expanded) {
-    return (
-      <div style={{ padding: '8px 16px', borderTop: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
-        <button
-          onClick={() => setExpanded(true)}
-          aria-label="Open Expression Helper"
-          style={{
-            padding: '6px 14px',
-            fontSize: '0.85rem',
-            background: 'var(--color-bg)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius)',
-            color: 'var(--color-text-muted)',
-            cursor: 'pointer',
-          }}
-        >
-          🗣️ Expression Helper
-        </button>
-      </div>
-    )
-  }
-
   return (
     <div
       style={{
-        borderTop: '1px solid var(--color-border)',
-        background: 'var(--color-surface)',
+        borderTop: '2px solid var(--color-primary)',
+        background: 'var(--color-bg)',
         display: 'flex',
         flexDirection: 'column',
-        maxHeight: '320px',
+        maxHeight: '280px',
       }}
     >
       <div
@@ -118,28 +97,30 @@ export default function ExpressionHelperPanel({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '8px 16px',
+          padding: '6px 16px',
           borderBottom: '1px solid var(--color-border)',
+          background: 'var(--color-surface)',
         }}
       >
-        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
+        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-primary)' }}>
           🗣️ Expression Helper
-          <span style={{ fontSize: '0.72rem', fontStyle: 'italic', marginLeft: '6px' }}>
-            ({nativeLanguage} → {targetLanguage})
+          <span style={{ fontSize: '0.72rem', fontWeight: 400, fontStyle: 'italic', marginLeft: '6px', color: 'var(--color-text-muted)' }}>
+            {nativeLanguage} → {targetLanguage}
           </span>
         </span>
         <button
-          onClick={() => setExpanded(false)}
-          aria-label="Collapse Expression Helper"
+          onClick={onClose}
+          aria-label="Close Expression Helper"
           style={{
             background: 'none',
             border: 'none',
             cursor: 'pointer',
-            fontSize: '0.8rem',
+            fontSize: '1rem',
             color: 'var(--color-text-muted)',
+            lineHeight: 1,
           }}
         >
-          ▼ collapse
+          ✕
         </button>
       </div>
 
@@ -202,19 +183,19 @@ export default function ExpressionHelperPanel({
         <button
           onClick={handleSend}
           disabled={isStreaming || !input.trim()}
-          aria-label="Send to helper"
+          aria-label="Ask expression helper"
           style={{
             padding: '7px 14px',
-            background:
-              isStreaming || !input.trim() ? 'var(--color-border)' : 'var(--color-primary)',
-            color: isStreaming || !input.trim() ? 'var(--color-text-muted)' : '#fff',
+            background: 'transparent',
+            color: isStreaming || !input.trim() ? 'var(--color-text-muted)' : 'var(--color-primary)',
+            border: `1px solid ${isStreaming || !input.trim() ? 'var(--color-border)' : 'var(--color-primary)'}`,
             borderRadius: 'var(--radius)',
             fontSize: '0.85rem',
             fontWeight: 600,
             cursor: isStreaming || !input.trim() ? 'not-allowed' : 'pointer',
           }}
         >
-          Send
+          Ask →
         </button>
       </div>
     </div>

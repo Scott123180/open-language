@@ -43,8 +43,10 @@ def build_translation_prompt(message_content: str, native_language: str) -> str:
 
 def build_phrasing_prompt(message_content: str, target_language: str) -> str:
     return (
-        f"Provide two or three natural alternative ways to express the following "
-        f"in {target_language}. List each alternative on a new line.\n\n"
+        f"The following sentence was written in {target_language}. "
+        f"Rewrite it in two or three different ways that convey the same meaning, "
+        f"using different vocabulary or sentence structure. "
+        f"Do NOT reply to the sentence or continue the conversation — only rewrite it.\n\n"
         f'Original: """{message_content}"""'
     )
 

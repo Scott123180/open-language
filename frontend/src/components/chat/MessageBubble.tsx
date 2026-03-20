@@ -42,6 +42,7 @@ export default function MessageBubble({
   const [lookupResult, setLookupResult] = useState<string | null>(null)
   const [lookupLoading, setLookupLoading] = useState(false)
   const [lookupPosition, setLookupPosition] = useState<{ x: number; y: number } | null>(null)
+  const [lookupIsPhrase, setLookupIsPhrase] = useState(false)
 
   const handleSelectionEnd = async () => {
     if (!messageId) return
@@ -55,15 +56,19 @@ export default function MessageBubble({
       setLookupPosition({ x: rect.left + rect.width / 2, y: rect.bottom + window.scrollY })
     }
 
+    const isPhrase = word.includes(' ')
+    setLookupIsPhrase(isPhrase)
     setLookupWord(word)
     setLookupResult(null)
     setLookupLoading(true)
 
     try {
-      const data = await api.lookupWord(messageId, word, targetLanguage, nativeLanguage)
+      const data = isPhrase
+        ? await api.translateMessage(messageId, word, nativeLanguage)
+        : await api.lookupWord(messageId, word, targetLanguage, nativeLanguage)
       setLookupResult(data.result)
     } catch {
-      setLookupResult('Error loading definition.')
+      setLookupResult(isPhrase ? 'Error loading translation.' : 'Error loading definition.')
     } finally {
       setLookupLoading(false)
     }
@@ -153,7 +158,7 @@ export default function MessageBubble({
           word={lookupWord}
           result={lookupResult}
           isLoading={lookupLoading}
-          onSave={handleSaveWord}
+          onSave={lookupIsPhrase ? undefined : handleSaveWord}
           onClose={handleCloseLookup}
           position={lookupPosition}
         />
