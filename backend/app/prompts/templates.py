@@ -25,11 +25,19 @@ def build_open_chat_user_prompt(target_language: str) -> str:
     return f"Begin the conversation in {target_language}."
 
 
-def build_grammar_prompt(message_content: str, native_language: str) -> str:
+def build_grammar_prompt(
+    message_content: str, native_language: str, preceding_message: str | None = None
+) -> str:
+    context = (
+        f'Context (what the student was responding to): """{preceding_message}"""\n\n'
+        if preceding_message
+        else ""
+    )
     return (
-        f"You are a language tutor. Analyse the grammar of the following sentence "
+        f"You are a language tutor. Analyse the grammar of the student's sentence "
         f"and explain any errors or improvements in {native_language}.\n\n"
-        f'Sentence: """{message_content}"""'
+        f"{context}"
+        f'Student sentence: """{message_content}"""'
     )
 
 

@@ -178,10 +178,10 @@ export const streamChatMessage = async (
   )
 }
 
-export const checkGrammar = (messageId: number, content: string): Promise<LearningToolResult> =>
+export const checkGrammar = (messageId: number, content: string, precedingMessage?: string): Promise<LearningToolResult> =>
   apiFetch('/learning/grammar', {
     method: 'POST',
-    body: JSON.stringify({ message_id: messageId, content }),
+    body: JSON.stringify({ message_id: messageId, content, preceding_message: precedingMessage ?? null }),
   })
 
 export const translateMessage = (

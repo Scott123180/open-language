@@ -9,6 +9,9 @@ interface MessageBubbleProps {
   messageId?: number
   isStreaming?: boolean
   onPlaySlower?: () => void
+  onReplay?: () => void
+  isAudioPlaying?: boolean
+  precedingMessage?: string
   children?: ReactNode
   showLearningTools?: boolean
   targetLanguage?: string
@@ -31,6 +34,9 @@ export default function MessageBubble({
   messageId,
   isStreaming = false,
   onPlaySlower,
+  onReplay,
+  isAudioPlaying = false,
+  precedingMessage,
   children,
   showLearningTools = false,
   targetLanguage = '',
@@ -129,26 +135,12 @@ export default function MessageBubble({
             role={role}
             targetLanguage={targetLanguage}
             nativeLanguage={nativeLanguage}
+            onReplay={onReplay}
+            onPlaySlower={onPlaySlower}
+            isAudioPlaying={isAudioPlaying}
+            precedingMessage={precedingMessage}
           />
         </div>
-      )}
-
-      {!isUser && onPlaySlower && (
-        <button
-          onClick={onPlaySlower}
-          style={{
-            marginTop: '4px',
-            padding: '2px 10px',
-            fontSize: '0.78rem',
-            background: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius)',
-            color: 'var(--color-text-muted)',
-            cursor: 'pointer',
-          }}
-        >
-          🐢 Play Slower
-        </button>
       )}
 
       {children && <div style={{ marginTop: '4px' }}>{children}</div>}

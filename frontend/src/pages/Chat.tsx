@@ -29,6 +29,7 @@ export default function Chat() {
   const [isProcessingVoice, setIsProcessingVoice] = useState(false)
   const [openingDone, setOpeningDone] = useState(false)
   const [helperExpanded, setHelperExpanded] = useState(false)
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false)
   const [targetLanguage, setTargetLanguage] = useState('Spanish')
   const [nativeLanguage, setNativeLanguage] = useState('English')
   const [scenarioTitle, setScenarioTitle] = useState('')
@@ -204,7 +205,15 @@ export default function Chat() {
   }
 
   const playSlower = (msgId: number) => {
-    setAudioState({ src: `/api/audio/tts/${msgId}`, rate: 0.65 })
+    setIsAudioPlaying(true)
+    setAudioState(null)
+    setTimeout(() => setAudioState({ src: `/api/audio/tts/${msgId}`, rate: 0.65 }), 0)
+  }
+
+  const playNormal = (msgId: number) => {
+    setIsAudioPlaying(true)
+    setAudioState(null)
+    setTimeout(() => setAudioState({ src: `/api/audio/tts/${msgId}`, rate: 1.0 }), 0)
   }
 
   const listEndRef = useRef<HTMLDivElement>(null)
@@ -274,6 +283,13 @@ export default function Chat() {
             showLearningTools={msg.id != null && !msg.isStreaming}
             targetLanguage={targetLanguage}
             nativeLanguage={nativeLanguage}
+            isAudioPlaying={isAudioPlaying}
+            precedingMessage={i > 0 ? messages[i - 1].content : undefined}
+            onReplay={
+              msg.role === 'assistant' && msg.id != null
+                ? () => playNormal(msg.id as number)
+                : undefined
+            }
             onPlaySlower={
               msg.role === 'assistant' && msg.id != null
                 ? () => playSlower(msg.id as number)
@@ -382,7 +398,12 @@ export default function Chat() {
         </footer>
       )}
 
-      <AudioPlayer src={audioState?.src ?? null} autoPlay={true} playbackRate={audioState?.rate ?? 1.0} />
+      <AudioPlayer
+        src={audioState?.src ?? null}
+        autoPlay={true}
+        playbackRate={audioState?.rate ?? 1.0}
+        onEnded={() => setIsAudioPlaying(false)}
+      />
     </main>
   )
 }

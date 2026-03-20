@@ -4,6 +4,7 @@ export interface UseAudioResult {
   play: (src: string) => void
   stop: () => void
   setPlaybackRate: (rate: number) => void
+  setOnEnded: (cb: (() => void) | null) => void
   isPlaying: boolean
   error: Error | null
 }
@@ -13,12 +14,13 @@ export function useAudio(): UseAudioResult {
   const [isPlaying, setIsPlaying] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   const rateRef = useRef(1)
+  const onEndedRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     const audio = audioRef.current
 
     const onPlay = () => setIsPlaying(true)
-    const onEnded = () => setIsPlaying(false)
+    const onEnded = () => { setIsPlaying(false); onEndedRef.current?.() }
     const onPause = () => setIsPlaying(false)
     const onError = () => {
       setIsPlaying(false)
@@ -58,5 +60,9 @@ export function useAudio(): UseAudioResult {
     audioRef.current.playbackRate = rate
   }
 
-  return { play, stop, setPlaybackRate, isPlaying, error }
+  const setOnEnded = (cb: (() => void) | null) => {
+    onEndedRef.current = cb
+  }
+
+  return { play, stop, setPlaybackRate, setOnEnded, isPlaying, error }
 }

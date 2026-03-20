@@ -17,6 +17,7 @@ router = APIRouter(tags=["learning"])
 class GrammarRequest(BaseModel):
     message_id: int
     content: str
+    preceding_message: str | None = None
 
 
 class TranslateRequest(BaseModel):
@@ -45,7 +46,7 @@ async def grammar_check(
     llm: LLMProvider = Depends(get_llm),
     app_settings: AppSettingsRecord = Depends(get_app_settings),
 ):
-    prompt = build_grammar_prompt(req.content, app_settings.native_language)
+    prompt = build_grammar_prompt(req.content, app_settings.native_language, req.preceding_message)
 
     computed = False
 
