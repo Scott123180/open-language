@@ -239,6 +239,8 @@ export const getSuggestions = (conversationId: number): Promise<{ suggestions: s
 export const streamHelper = async (
   content: string,
   helperSessionId: string,
+  targetLanguage: string,
+  nativeLanguage: string,
   onToken: (t: string) => void,
   onDone: () => void,
   onError: (e: string) => void,
@@ -246,7 +248,12 @@ export const streamHelper = async (
   const res = await fetch(`${BASE}/chat/helper`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content, helper_session_id: helperSessionId }),
+    body: JSON.stringify({
+      message: content,
+      helper_session_id: helperSessionId,
+      target_language: targetLanguage,
+      native_language: nativeLanguage,
+    }),
   })
   if (!res.ok) { onError(`HTTP ${res.status}`); return }
   await readSseStream(res, onToken, () => onDone(), onError)

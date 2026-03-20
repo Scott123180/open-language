@@ -37,6 +37,8 @@ export default function ExpressionHelperPanel({
     await api.streamHelper(
       text,
       helperSessionId.current,
+      targetLanguage,
+      nativeLanguage,
       (token) => {
         setMessages((prev) => {
           const msgs = [...prev]

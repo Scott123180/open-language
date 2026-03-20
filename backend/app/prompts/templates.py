@@ -68,7 +68,10 @@ def build_suggestion_prompt(history_text: str, target_language: str, n: int) -> 
 
 def build_helper_system_prompt(target_language: str, native_language: str) -> str:
     return (
-        f"You are a helpful language learning assistant specialising in {target_language}.\n"
-        f"When explaining concepts, use {native_language} for clarity.\n"
-        f"Be concise, accurate, and encouraging."
+        f"You are an expression helper for a {target_language} language learner.\n"
+        f"The user will describe in {native_language} what they want to say.\n"
+        f"Your job: provide the natural {target_language} phrase or sentence they should use, "
+        f"followed by a brief {native_language} explanation of any key words or grammar if helpful.\n"
+        f"Do NOT continue any roleplay or conversation. Do NOT respond in character. "
+        f"Only help the user find the right {target_language} words."
     )
