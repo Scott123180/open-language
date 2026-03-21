@@ -34,6 +34,7 @@ Governance is defined in [.specify/memory/constitution.md](.specify/memory/const
 - **Simple UI** — single primary action per screen, immediate feedback, accessibility required
 - **Compartmentalization** — each feature domain has a defined public interface; no direct cross-module imports
 - Linting must pass before any merge; UI changes require a manual accessibility check
+- **Playwright E2E tests are mandatory for all frontend changes** — run `npm run test:e2e` before marking any frontend task complete
 
 ## Test-Driven Development (TDD)
 
@@ -50,6 +51,38 @@ TDD is non-negotiable. Every feature begins with a failing test.
 - Mock external dependencies (DB, HTTP, file I/O) at boundaries — never deep in business logic
 - Test names must describe behavior, not implementation: `test_returns_empty_list_when_no_results`, not `test_method_works`
 - Each test covers exactly one behavior; use `Arrange / Act / Assert` structure
+
+## Frontend E2E Testing (Playwright)
+
+All frontend changes **must** be accompanied by Playwright E2E tests and all existing tests must pass before a task is marked complete.
+
+**Test location**: `frontend/e2e/` — one spec file per page/feature area.
+
+**Commands**:
+```bash
+# Install browsers (first time only)
+cd frontend && npx playwright install chromium
+
+# Run all E2E tests (starts dev server automatically)
+npm run test:e2e
+
+# Run with browser UI for debugging
+npm run test:e2e:headed
+
+# Interactive UI mode
+npm run test:e2e:ui
+
+# Debug a specific test
+npm run test:e2e:debug
+```
+
+**Rules**:
+- Every new page or user-facing feature gets a corresponding spec file in `frontend/e2e/`
+- All API calls are intercepted via `page.route()` — no real backend required
+- SSE streaming endpoints use `route.fulfill({ headers: { 'Content-Type': 'text/event-stream' }, body: ... })` with the helpers in `frontend/e2e/fixtures.ts`
+- Test names describe the observable behavior, not implementation details
+- New shared mock data and SSE helpers go in `frontend/e2e/fixtures.ts`
+- `npm run test:e2e` must pass with zero failures before any frontend PR is merged
 
 ## SOLID Principles
 
