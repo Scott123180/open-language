@@ -5,8 +5,16 @@ from pydantic import BaseModel, Field
 
 from app.services.factory import get_storage
 from app.services.storage.base import AppSettingsRecord, StorageProvider
+from app.services.tts.voices import AVAILABLE_VOICES
 
 router = APIRouter(tags=["settings"])
+
+
+class VoiceResponse(BaseModel):
+    key: str
+    display_name: str
+    gender: str
+    locale: str
 
 
 class SettingsResponse(BaseModel):
@@ -35,6 +43,14 @@ def _to_response(record: AppSettingsRecord) -> SettingsResponse:
         suggestion_count=record.suggestion_count,
         updated_at=record.updated_at,
     )
+
+
+@router.get("/settings/voices", response_model=list[VoiceResponse])
+def get_voices_endpoint():
+    return [
+        VoiceResponse(key=v.key, display_name=v.display_name, gender=v.gender, locale=v.locale)
+        for v in AVAILABLE_VOICES
+    ]
 
 
 @router.get("/settings", response_model=SettingsResponse)

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import * as api from '../services/api'
+import type { VoiceOption } from '../services/api'
 import { useTheme } from '../hooks/useTheme'
 
 const LLM_OPTIONS = ['llama3.1', 'llama3.2', 'mistral']
@@ -13,6 +14,8 @@ const THEME_OPTIONS = [
 export default function Settings() {
   const { preference: themePreference, setTheme } = useTheme()
   const [llmModel, setLlmModel] = useState('llama3.1')
+  const [ttsVoice, setTtsVoice] = useState('')
+  const [voices, setVoices] = useState<VoiceOption[]>([])
   const [suggestionCount, setSuggestionCount] = useState(3)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -24,6 +27,7 @@ export default function Settings() {
       .getSettings()
       .then((settings) => {
         setLlmModel(settings.llm_model)
+        setTtsVoice(settings.tts_voice)
         setSuggestionCount(settings.suggestion_count)
         setIsLoading(false)
       })
@@ -32,12 +36,16 @@ export default function Settings() {
       })
   }, [])
 
+  useEffect(() => {
+    api.getVoices().then(setVoices).catch(() => {})
+  }, [])
+
   const handleSave = async () => {
     setIsSaving(true)
     setSuccessMessage(null)
     setErrorMessage(null)
     try {
-      await api.updateSettings({ llm_model: llmModel, suggestion_count: suggestionCount })
+      await api.updateSettings({ llm_model: llmModel, tts_voice: ttsVoice, suggestion_count: suggestionCount })
       setSuccessMessage('Settings saved.')
     } catch (e) {
       setErrorMessage(e instanceof Error ? e.message : 'Failed to save settings')
@@ -99,6 +107,31 @@ export default function Settings() {
               {LLM_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>
                   {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label htmlFor='tts-voice' style={{ fontWeight: 600 }}>
+              Voice
+            </label>
+            <select
+              id='tts-voice'
+              value={ttsVoice}
+              onChange={(e) => setTtsVoice(e.target.value)}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-surface)',
+                color: 'var(--color-text)',
+                fontSize: '1rem',
+              }}
+            >
+              {voices.map((v) => (
+                <option key={v.key} value={v.key}>
+                  {v.display_name}
                 </option>
               ))}
             </select>

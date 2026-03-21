@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { mockSettings } from './fixtures'
+import { mockSettings, mockVoices } from './fixtures'
 
 const SETTINGS_URL = '/settings'
 
@@ -13,6 +13,9 @@ async function setupSettingsRoutes(
     }
     return route.fulfill({ json: settings })
   })
+  await page.route('/api/settings/voices', (route) =>
+    route.fulfill({ json: mockVoices })
+  )
 }
 
 test.describe('Settings page', () => {
@@ -27,6 +30,9 @@ test.describe('Settings page', () => {
       await new Promise((r) => setTimeout(r, 200))
       await route.fulfill({ json: mockSettings })
     })
+    await page.route('/api/settings/voices', (route) =>
+      route.fulfill({ json: mockVoices })
+    )
     await page.goto(SETTINGS_URL)
     await expect(page.getByText('Loading settings…')).toBeVisible()
   })
@@ -75,6 +81,9 @@ test.describe('Settings page', () => {
       }
       return route.fulfill({ json: mockSettings })
     })
+    await page.route('/api/settings/voices', (route) =>
+      route.fulfill({ json: mockVoices })
+    )
     await page.goto(SETTINGS_URL)
 
     await page.getByLabel('LLM Model').selectOption('mistral')
@@ -99,6 +108,9 @@ test.describe('Settings page', () => {
       }
       return route.fulfill({ json: mockSettings })
     })
+    await page.route('/api/settings/voices', (route) =>
+      route.fulfill({ json: mockVoices })
+    )
     await page.goto(SETTINGS_URL)
     await page.getByRole('button', { name: /save/i }).click()
     await expect(page.getByRole('alert')).toContainText('Database unavailable')
@@ -112,6 +124,9 @@ test.describe('Settings page', () => {
       }
       return route.fulfill({ json: mockSettings })
     })
+    await page.route('/api/settings/voices', (route) =>
+      route.fulfill({ json: mockVoices })
+    )
     await page.goto(SETTINGS_URL)
     await page.getByRole('button', { name: /save/i }).click()
     await expect(page.getByRole('button', { name: /saving/i })).toBeVisible()
@@ -126,6 +141,9 @@ test.describe('Settings page', () => {
       }
       return route.fulfill({ json: mockSettings })
     })
+    await page.route('/api/settings/voices', (route) =>
+      route.fulfill({ json: mockVoices })
+    )
     await page.goto(SETTINGS_URL)
     await page.getByRole('button', { name: /save/i }).click()
     await expect(page.getByRole('button', { name: /saving/i })).toBeDisabled()
@@ -154,6 +172,9 @@ test.describe('Settings page', () => {
       }
       return route.fulfill({ json: mockSettings })
     })
+    await page.route('/api/settings/voices', (route) =>
+      route.fulfill({ json: mockVoices })
+    )
     await page.goto(SETTINGS_URL)
     // Pressing Enter on a number input inside a form triggers form submit
     await page.getByLabel('Suggestion Count (1–5)').press('Enter')
@@ -194,5 +215,45 @@ test.describe('Settings page', () => {
     // Second save — success message should still be visible (it gets cleared then re-shown)
     await page.getByRole('button', { name: /save/i }).click()
     await expect(page.getByRole('status')).toContainText('Settings saved.')
+  })
+
+  test('loads and displays current voice', async ({ page }) => {
+    await setupSettingsRoutes(page)
+    await page.goto(SETTINGS_URL)
+    await expect(page.getByLabel('Voice')).toHaveValue('es_ES-davefx-medium')
+  })
+
+  test('voice select shows all available voices', async ({ page }) => {
+    await setupSettingsRoutes(page)
+    await page.goto(SETTINGS_URL)
+    const select = page.getByLabel('Voice')
+    await expect(select.getByRole('option', { name: 'David (Spain)' })).toBeAttached()
+    await expect(select.getByRole('option', { name: 'Daniela (Argentina)' })).toBeAttached()
+  })
+
+  test('changing voice updates the select value', async ({ page }) => {
+    await setupSettingsRoutes(page)
+    await page.goto(SETTINGS_URL)
+    await page.getByLabel('Voice').selectOption('es_AR-daniela-high')
+    await expect(page.getByLabel('Voice')).toHaveValue('es_AR-daniela-high')
+  })
+
+  test('save button sends updated voice to API', async ({ page }) => {
+    let capturedBody: unknown = null
+    await page.route('/api/settings', (route) => {
+      if (route.request().method() === 'PUT') {
+        capturedBody = route.request().postDataJSON()
+        return route.fulfill({ json: mockSettings })
+      }
+      return route.fulfill({ json: mockSettings })
+    })
+    await page.route('/api/settings/voices', (route) =>
+      route.fulfill({ json: mockVoices })
+    )
+    await page.goto(SETTINGS_URL)
+    await page.getByLabel('Voice').selectOption('es_AR-daniela-high')
+    await page.getByRole('button', { name: /save/i }).click()
+    await expect(page.getByRole('status')).toContainText('Settings saved.')
+    expect(capturedBody).toMatchObject({ tts_voice: 'es_AR-daniela-high' })
   })
 })

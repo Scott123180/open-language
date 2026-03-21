@@ -53,6 +53,13 @@ export interface AppSettings {
   updated_at: string
 }
 
+export interface VoiceOption {
+  key: string
+  display_name: string
+  gender: string
+  locale: string
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...init?.headers },
@@ -270,3 +277,6 @@ export const getSettings = (): Promise<AppSettings> =>
 
 export const updateSettings = (updates: Partial<AppSettings>): Promise<AppSettings> =>
   apiFetch('/settings', { method: 'PUT', body: JSON.stringify(updates) })
+
+export const getVoices = (): Promise<VoiceOption[]> =>
+  apiFetch('/settings/voices')

@@ -141,41 +141,53 @@ setup_ollama_model() {
   fi
 }
 
-# ── Piper voice ───────────────────────────────────────────────────────────────
-setup_piper_voice() {
-  local onnx="$VOICE_DIR/${TTS_VOICE}.onnx"
-  local json="$VOICE_DIR/${TTS_VOICE}.onnx.json"
+# ── Piper voices ──────────────────────────────────────────────────────────────
+PIPER_VOICES=(
+  "es_ES-davefx-medium"
+  "es_AR-daniela-high"
+)
+
+download_voice() {
+  local voice="$1"
+  local onnx="$VOICE_DIR/${voice}.onnx"
+  local json="$VOICE_DIR/${voice}.onnx.json"
 
   if [[ -f "$onnx" && -f "$json" ]]; then
-    info "Piper voice '$TTS_VOICE' already present."
+    info "Piper voice '$voice' already present."
     return
   fi
 
-  info "Downloading Piper voice '$TTS_VOICE'..."
-  mkdir -p "$VOICE_DIR"
+  info "Downloading Piper voice '$voice'..."
 
   # Derive the HuggingFace path from the voice name: lang_REGION-name-quality
   # e.g. es_ES-davefx-medium → es/es_ES/davefx/medium/
-  local lang="${TTS_VOICE%%_*}"
-  local region="${TTS_VOICE%%-*}"
-  local rest="${TTS_VOICE#*-}"
+  local lang="${voice%%_*}"
+  local region="${voice%%-*}"
+  local rest="${voice#*-}"
   local name="${rest%-*}"
   local quality="${rest##*-}"
   local hf_base="https://huggingface.co/rhasspy/piper-voices/resolve/main/${lang}/${region}/${name}/${quality}"
 
   if command -v wget &>/dev/null; then
-    wget -q -P "$VOICE_DIR" "${hf_base}/${TTS_VOICE}.onnx" \
-      && wget -q -P "$VOICE_DIR" "${hf_base}/${TTS_VOICE}.onnx.json" \
-      || { rm -f "$onnx" "$json"; die "Failed to download Piper voice '$TTS_VOICE'. Check the voice name and your network connection."; }
+    wget -q -P "$VOICE_DIR" "${hf_base}/${voice}.onnx" \
+      && wget -q -P "$VOICE_DIR" "${hf_base}/${voice}.onnx.json" \
+      || { rm -f "$onnx" "$json"; die "Failed to download Piper voice '$voice'. Check the voice name and your network connection."; }
   elif command -v curl &>/dev/null; then
-    curl -sSL --fail -o "$onnx" "${hf_base}/${TTS_VOICE}.onnx" \
-      && curl -sSL --fail -o "$json" "${hf_base}/${TTS_VOICE}.onnx.json" \
-      || { rm -f "$onnx" "$json"; die "Failed to download Piper voice '$TTS_VOICE'. Check the voice name and your network connection."; }
+    curl -sSL --fail -o "$onnx" "${hf_base}/${voice}.onnx" \
+      && curl -sSL --fail -o "$json" "${hf_base}/${voice}.onnx.json" \
+      || { rm -f "$onnx" "$json"; die "Failed to download Piper voice '$voice'. Check the voice name and your network connection."; }
   else
     die "Neither wget nor curl found. Install one, then re-run setup."
   fi
 
-  success "Piper voice '$TTS_VOICE' downloaded."
+  success "Piper voice '$voice' downloaded."
+}
+
+setup_piper_voices() {
+  mkdir -p "$VOICE_DIR"
+  for voice in "${PIPER_VOICES[@]}"; do
+    download_voice "$voice"
+  done
 }
 
 # ── Launch services (dev mode) ────────────────────────────────────────────────
@@ -271,7 +283,7 @@ if [[ "$MODE" == "all" || "$MODE" == "setup" ]]; then
   setup_backend
   setup_frontend
   setup_ollama_model
-  setup_piper_voice
+  setup_piper_voices
   [[ "$MODE" == "setup" ]] && { success "Setup complete."; exit 0; }
 fi
 

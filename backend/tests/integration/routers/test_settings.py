@@ -65,3 +65,39 @@ def test_put_settings_suggestion_count_below_1_returns_422(client: TestClient) -
 def test_put_settings_suggestion_count_above_5_returns_422(client: TestClient) -> None:
     response = client.put("/api/settings", json={"suggestion_count": 6})
     assert response.status_code == 422
+
+
+def test_get_voices_returns_200(client: TestClient) -> None:
+    response = client.get("/api/settings/voices")
+    assert response.status_code == 200
+
+
+def test_get_voices_returns_list_with_at_least_one_item(client: TestClient) -> None:
+    response = client.get("/api/settings/voices")
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+
+
+def test_get_voices_each_item_has_required_fields(client: TestClient) -> None:
+    response = client.get("/api/settings/voices")
+    data = response.json()
+    for item in data:
+        assert "key" in item
+        assert "display_name" in item
+        assert "gender" in item
+        assert "locale" in item
+
+
+def test_get_voices_includes_default_voice(client: TestClient) -> None:
+    response = client.get("/api/settings/voices")
+    data = response.json()
+    keys = [item["key"] for item in data]
+    assert "es_ES-davefx-medium" in keys
+
+
+def test_get_voices_includes_at_least_one_female_voice(client: TestClient) -> None:
+    response = client.get("/api/settings/voices")
+    data = response.json()
+    female_voices = [item for item in data if item["gender"] == "female"]
+    assert len(female_voices) >= 1

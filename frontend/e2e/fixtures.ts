@@ -39,10 +39,15 @@ export const mockSettings = {
   llm_model: 'llama3.1',
   target_language: 'Spanish',
   native_language: 'English',
-  tts_voice: 'en_US-ryan-high',
+  tts_voice: 'es_ES-davefx-medium',
   suggestion_count: 3,
   updated_at: '2026-03-20T10:00:00Z',
 }
+
+export const mockVoices = [
+  { key: 'es_ES-davefx-medium', display_name: 'David (Spain)', gender: 'male', locale: 'es_ES' },
+  { key: 'es_AR-daniela-high', display_name: 'Daniela (Argentina)', gender: 'female', locale: 'es_AR' },
+]
 
 export const mockMessages = [
   {
