@@ -15,6 +15,7 @@ class ConversationRecord:
     started_at: datetime
     ended_at: datetime | None
     llm_model: str
+    custom_prompt: str | None = None
 
 
 @dataclass(frozen=True)
@@ -68,6 +69,7 @@ class StorageProvider(ABC):
         target_language: str,
         native_language: str,
         llm_model: str,
+        custom_prompt: str | None = None,
     ) -> ConversationRecord:
         """Create and return a new active conversation."""
         ...

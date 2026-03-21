@@ -12,6 +12,9 @@ export default function Home() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isStartingChat, setIsStartingChat] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [customPrompt, setCustomPrompt] = useState('')
+  const [isCustomExpanded, setIsCustomExpanded] = useState(false)
+  const [isStartingCustomChat, setIsStartingCustomChat] = useState(false)
 
   useEffect(() => {
     api
@@ -52,6 +55,20 @@ export default function Home() {
     }
   }
 
+  const handleStartCustomChat = async () => {
+    if (!customPrompt.trim()) return
+    setIsStartingCustomChat(true)
+    setError(null)
+    try {
+      const conversation = await api.createConversation(null, customPrompt.trim())
+      navigate(`/chat/${conversation.id}`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to start chat')
+    } finally {
+      setIsStartingCustomChat(false)
+    }
+  }
+
   return (
     <main
       style={{
@@ -85,6 +102,85 @@ export default function Home() {
           isStartingChat={isStartingChat}
         />
       )}
+      <div style={{ maxWidth: '480px', width: '100%' }}>
+        <button
+          onClick={() => setIsCustomExpanded((v) => !v)}
+          aria-expanded={isCustomExpanded}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--color-primary)',
+            cursor: 'pointer',
+            fontSize: '0.9rem',
+            padding: '4px 0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <span style={{ fontSize: '0.75rem' }}>{isCustomExpanded ? '▼' : '▶'}</span>
+          Write your own scenario
+        </button>
+        {isCustomExpanded && (
+          <div
+            style={{
+              background: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius)',
+              boxShadow: 'var(--shadow)',
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              marginTop: '8px',
+            }}
+          >
+            <label
+              htmlFor="custom-prompt"
+              style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}
+            >
+              Describe the situation and who the AI should play
+            </label>
+            <textarea
+              id="custom-prompt"
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              placeholder="e.g. You are a barista at a busy coffee shop. The customer wants a complicated order and you are slightly impatient."
+              rows={4}
+              style={{
+                width: '100%',
+                padding: '10px',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius)',
+                background: 'var(--color-bg)',
+                color: 'var(--color-text)',
+                fontSize: '0.9rem',
+                lineHeight: 1.5,
+                resize: 'vertical',
+                boxSizing: 'border-box',
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={handleStartCustomChat}
+                disabled={!customPrompt.trim() || isStartingCustomChat}
+                style={{
+                  padding: '10px 24px',
+                  background: 'var(--color-primary)',
+                  borderRadius: 'var(--radius)',
+                  color: '#fff',
+                  fontWeight: 600,
+                  fontSize: '1rem',
+                  opacity: !customPrompt.trim() || isStartingCustomChat ? 0.6 : 1,
+                  cursor: !customPrompt.trim() || isStartingCustomChat ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {isStartingCustomChat ? 'Starting…' : 'Start Chat'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </main>
   )
 }

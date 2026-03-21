@@ -29,6 +29,7 @@ def _conv_to_record(c: Conversation) -> ConversationRecord:
         started_at=c.started_at,
         ended_at=c.ended_at,
         llm_model=c.llm_model,
+        custom_prompt=c.custom_prompt,
     )
 
 
@@ -89,6 +90,7 @@ class SQLiteStorageProvider(StorageProvider):
         target_language: str,
         native_language: str,
         llm_model: str,
+        custom_prompt: str | None = None,
     ) -> ConversationRecord:
         conv = Conversation(
             scenario_id=scenario_id,
@@ -98,6 +100,7 @@ class SQLiteStorageProvider(StorageProvider):
             llm_model=llm_model,
             status=ConversationStatus.ACTIVE,
             started_at=datetime.now(UTC),
+            custom_prompt=custom_prompt,
         )
         self._db.add(conv)
         self._db.commit()

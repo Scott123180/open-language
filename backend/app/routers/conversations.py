@@ -16,7 +16,8 @@ router = APIRouter(tags=["conversations"])
 
 
 class CreateConversationRequest(BaseModel):
-    scenario_id: str
+    scenario_id: str | None = None
+    custom_prompt: str | None = None
 
 
 class ConversationResponse(BaseModel):
@@ -29,6 +30,7 @@ class ConversationResponse(BaseModel):
     started_at: datetime
     ended_at: datetime | None
     llm_model: str
+    custom_prompt: str | None
 
 
 class MessageResponse(BaseModel):
@@ -56,6 +58,7 @@ def _conv_response(r: ConversationRecord) -> ConversationResponse:
         started_at=r.started_at,
         ended_at=r.ended_at,
         llm_model=r.llm_model,
+        custom_prompt=r.custom_prompt,
     )
 
 
@@ -80,16 +83,28 @@ def create_conversation(
     storage: StorageProvider = Depends(get_storage),
     app_settings: AppSettingsRecord = Depends(get_app_settings),
 ):
-    scenarios = provider.get_all()
-    scenario = next((s for s in scenarios if s.id == req.scenario_id), None)
-    if scenario is None:
-        raise HTTPException(status_code=404, detail="Scenario not found")
+    if req.custom_prompt and req.custom_prompt.strip():
+        scenario_id = "custom"
+        scenario_title = "Custom Scenario"
+        custom_prompt = req.custom_prompt.strip()
+    elif req.scenario_id:
+        scenarios = provider.get_all()
+        scenario = next((s for s in scenarios if s.id == req.scenario_id), None)
+        if scenario is None:
+            raise HTTPException(status_code=404, detail="Scenario not found")
+        scenario_id = scenario.id
+        scenario_title = scenario.title
+        custom_prompt = None
+    else:
+        raise HTTPException(status_code=400, detail="Either scenario_id or custom_prompt is required")
+
     record = storage.create_conversation(
-        scenario_id=scenario.id,
-        scenario_title=scenario.title,
+        scenario_id=scenario_id,
+        scenario_title=scenario_title,
         target_language=app_settings.target_language,
         native_language=app_settings.native_language,
         llm_model=app_settings.llm_model,
+        custom_prompt=custom_prompt,
     )
     return _conv_response(record)
 

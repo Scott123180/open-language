@@ -1,7 +1,7 @@
 import enum
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import DateTime, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -29,3 +29,4 @@ class Conversation(Base):
     )
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     llm_model: Mapped[str] = mapped_column(String(100), nullable=False)
+    custom_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -48,3 +48,20 @@ def init_db() -> None:
     )
 
     Base.metadata.create_all(bind=_engine)
+    _migrate_db()
+
+
+def _migrate_db() -> None:
+    """Apply additive schema migrations for existing databases."""
+    with _engine.connect() as conn:
+        _add_column_if_missing(conn, "conversations", "custom_prompt TEXT")
+
+
+def _add_column_if_missing(conn, table: str, column_definition: str) -> None:
+    from sqlalchemy import text
+
+    try:
+        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column_definition}"))
+        conn.commit()
+    except Exception:
+        pass  # Column already exists — SQLite raises OperationalError

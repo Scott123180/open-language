@@ -16,6 +16,7 @@ export interface Conversation {
   started_at: string
   ended_at: string | null
   llm_model: string
+  custom_prompt: string | null
 }
 
 export interface Message {
@@ -72,8 +73,13 @@ export const getNextScenario = (excludeId?: string): Promise<Scenario> => {
   return apiFetch(`/scenarios/next${qs}`)
 }
 
-export const createConversation = (scenarioId: string): Promise<Conversation> =>
-  apiFetch('/conversations', { method: 'POST', body: JSON.stringify({ scenario_id: scenarioId }) })
+export const createConversation = (scenarioId: string | null, customPrompt?: string): Promise<Conversation> =>
+  apiFetch('/conversations', {
+    method: 'POST',
+    body: JSON.stringify(
+      customPrompt ? { custom_prompt: customPrompt } : { scenario_id: scenarioId },
+    ),
+  })
 
 export const getConversations = (): Promise<Conversation[]> =>
   apiFetch('/conversations')

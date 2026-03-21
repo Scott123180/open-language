@@ -29,6 +29,20 @@ from app.services.tts.base import TTSProvider
 router = APIRouter(tags=["chat"])
 
 
+def _resolve_scenario_context(
+    conversation,
+    provider: ScenarioProvider,
+) -> tuple[str, str]:
+    """Return (scenario_description, character_description) for building the system prompt."""
+    if conversation.custom_prompt:
+        return "a custom scenario defined by the user", conversation.custom_prompt
+    all_scenarios = provider.get_all()
+    scenario = next((s for s in all_scenarios if s.id == conversation.scenario_id), None)
+    if scenario is not None:
+        return scenario.description, scenario.ai_context_prompt
+    return "an everyday scenario", "a helpful conversation partner"
+
+
 def _tts_cache_dir(settings: AppSettingsRecord) -> Path:
     # Use home dir based cache path
     return Path.home() / ".open-language" / "tts_cache"
@@ -47,16 +61,7 @@ async def open_chat(
     if conversation is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    # Fetch scenario to get description and ai_context_prompt
-    all_scenarios = provider.get_all()
-    scenario = next((s for s in all_scenarios if s.id == conversation.scenario_id), None)
-    if scenario is not None:
-        scenario_description = scenario.description
-        character_description = scenario.ai_context_prompt
-    else:
-        scenario_description = "an everyday scenario"
-        character_description = "a helpful conversation partner"
-
+    scenario_description, character_description = _resolve_scenario_context(conversation, provider)
     system_prompt = build_roleplay_system_prompt(
         scenario_title=conversation.scenario_title,
         scenario_description=scenario_description,
@@ -131,16 +136,7 @@ async def send_message(
     if conversation is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    # Fetch scenario for system prompt
-    all_scenarios = provider.get_all()
-    scenario = next((s for s in all_scenarios if s.id == conversation.scenario_id), None)
-    if scenario is not None:
-        scenario_description = scenario.description
-        character_description = scenario.ai_context_prompt
-    else:
-        scenario_description = "an everyday scenario"
-        character_description = "a helpful conversation partner"
-
+    scenario_description, character_description = _resolve_scenario_context(conversation, provider)
     system_prompt = build_roleplay_system_prompt(
         scenario_title=conversation.scenario_title,
         scenario_description=scenario_description,
