@@ -4,9 +4,11 @@ import * as api from '../services/api'
 import type { Scenario } from '../services/api'
 import ScenarioCard from '../components/scenario/ScenarioCard'
 import ErrorBanner from '../components/shared/ErrorBanner'
+import { useTheme } from '../hooks/useTheme'
 
 export default function Home() {
   const navigate = useNavigate()
+  const { preference, setTheme } = useTheme()
   const [currentScenario, setCurrentScenario] = useState<Scenario | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -82,13 +84,30 @@ export default function Home() {
       }}
     >
       <h1 style={{ fontSize: '1.75rem', fontWeight: 700 }}>Open Language</h1>
-      <nav style={{ display: 'flex', gap: '16px' }}>
+      <nav style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
         <Link to="/history" style={{ color: 'var(--color-primary)' }}>
           Past Chats
         </Link>
         <Link to="/settings" style={{ color: 'var(--color-primary)' }}>
           Settings
         </Link>
+        <button
+          onClick={() => setTheme(preference === 'dark' ? 'light' : 'dark')}
+          aria-label={preference === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title='Toggle theme'
+          style={{
+            background: 'none',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius)',
+            padding: '4px 10px',
+            fontSize: '1rem',
+            color: 'var(--color-text-muted)',
+            cursor: 'pointer',
+            minHeight: '44px',
+          }}
+        >
+          {preference === 'dark' ? '☀️' : '🌙'}
+        </button>
       </nav>
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
       {isLoading && <p aria-live="polite">Loading scenario…</p>}

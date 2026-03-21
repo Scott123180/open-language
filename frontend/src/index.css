@@ -22,6 +22,44 @@
   background: var(--color-bg);
 }
 
+[data-theme='dark'] {
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-surface: #1e293b;
+  --color-bg: #0f172a;
+  --color-text: #f1f5f9;
+  --color-text-muted: #94a3b8;
+  --color-border: #334155;
+  --color-error: #ef4444;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme='light'] {
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-surface: #ffffff;
+  --color-bg: #f8fafc;
+  --color-text: #0f172a;
+  --color-text-muted: #64748b;
+  --color-border: #e2e8f0;
+  --color-error: #dc2626;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-primary: #3b82f6;
+    --color-primary-hover: #2563eb;
+    --color-surface: #1e293b;
+    --color-bg: #0f172a;
+    --color-text: #f1f5f9;
+    --color-text-muted: #94a3b8;
+    --color-border: #334155;
+    --color-error: #ef4444;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+}
+
 body {
   min-height: 100vh;
 }

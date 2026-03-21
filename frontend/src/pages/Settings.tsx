@@ -1,10 +1,17 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import * as api from '../services/api'
+import { useTheme } from '../hooks/useTheme'
 
 const LLM_OPTIONS = ['llama3.1', 'llama3.2', 'mistral']
+const THEME_OPTIONS = [
+  { value: 'light' as const, label: 'Light' },
+  { value: 'dark' as const, label: 'Dark' },
+  { value: 'system' as const, label: 'System' },
+]
 
 export default function Settings() {
+  const { preference: themePreference, setTheme } = useTheme()
   const [llmModel, setLlmModel] = useState('llama3.1')
   const [suggestionCount, setSuggestionCount] = useState(3)
   const [isLoading, setIsLoading] = useState(true)
@@ -95,6 +102,32 @@ export default function Settings() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ fontWeight: 600 }}>Theme</span>
+            <div role='group' aria-label='Theme' style={{ display: 'flex', gap: '8px' }}>
+              {THEME_OPTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type='button'
+                  aria-pressed={themePreference === value}
+                  onClick={() => setTheme(value)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 'var(--radius)',
+                    border: '1px solid var(--color-border)',
+                    background: themePreference === value ? 'var(--color-primary)' : 'var(--color-surface)',
+                    color: themePreference === value ? '#fff' : 'var(--color-text)',
+                    fontWeight: themePreference === value ? 600 : 400,
+                    cursor: 'pointer',
+                    minHeight: '44px',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
