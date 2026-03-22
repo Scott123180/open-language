@@ -55,6 +55,7 @@ def _migrate_db() -> None:
     """Apply additive schema migrations for existing databases."""
     with _engine.connect() as conn:
         _add_column_if_missing(conn, "conversations", "custom_prompt TEXT")
+        _add_column_if_missing(conn, "app_settings", "whisper_model VARCHAR(50) NOT NULL DEFAULT 'base'")
 
 
 def _add_column_if_missing(conn, table: str, column_definition: str) -> None:

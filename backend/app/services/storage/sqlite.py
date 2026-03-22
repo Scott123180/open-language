@@ -75,6 +75,7 @@ def _settings_to_record(s: AppSettings) -> AppSettingsRecord:
         native_language=s.native_language,
         tts_voice=s.tts_voice,
         suggestion_count=s.suggestion_count,
+        whisper_model=s.whisper_model,
         updated_at=s.updated_at,
     )
 

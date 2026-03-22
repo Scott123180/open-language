@@ -20,6 +20,7 @@ _DEFAULT_SETTINGS = AppSettingsRecord(
     native_language="English",
     tts_voice="es_ES-mls-medium",
     suggestion_count=1,
+    whisper_model="base",
     updated_at=datetime.datetime.now(datetime.timezone.utc),
 )
 
@@ -98,6 +99,7 @@ def test_suggestions_parses_numbered_lines(tmp_path: Path) -> None:
         native_language="English",
         tts_voice="es_ES-mls-medium",
         suggestion_count=2,
+    whisper_model="base",
         updated_at=datetime.datetime.now(datetime.timezone.utc),
     )
     session, storage_instance, _stub_llm = _make_client_fixture(

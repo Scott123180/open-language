@@ -34,7 +34,25 @@ def test_get_settings_returns_correct_shape(client: TestClient) -> None:
     assert "native_language" in data
     assert "tts_voice" in data
     assert "suggestion_count" in data
+    assert "whisper_model" in data
     assert "updated_at" in data
+
+
+def test_get_settings_returns_default_whisper_model(client: TestClient) -> None:
+    response = client.get("/api/settings")
+    assert response.status_code == 200
+    assert response.json()["whisper_model"] == "base"
+
+
+def test_put_settings_updates_whisper_model(client: TestClient) -> None:
+    response = client.put("/api/settings", json={"whisper_model": "small"})
+    assert response.status_code == 200
+    assert response.json()["whisper_model"] == "small"
+
+
+def test_put_settings_invalid_whisper_model_returns_422(client: TestClient) -> None:
+    response = client.put("/api/settings", json={"whisper_model": "large-v3"})
+    assert response.status_code == 422
 
 
 def test_put_settings_updates_suggestion_count(client: TestClient) -> None:
@@ -87,6 +105,8 @@ def test_get_voices_each_item_has_required_fields(client: TestClient) -> None:
         assert "display_name" in item
         assert "gender" in item
         assert "locale" in item
+        assert "quality" in item
+        assert "speaking_rate" in item
 
 
 def test_get_voices_includes_default_voice(client: TestClient) -> None:

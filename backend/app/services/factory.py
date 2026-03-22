@@ -44,8 +44,14 @@ def get_tts(app_settings: AppSettingsRecord = Depends(get_app_settings)) -> TTSP
     return PiperTTSProvider(voice_name=app_settings.tts_voice, voice_dir=settings.voice_dir)
 
 
-def get_stt() -> STTProvider:
+_stt_providers: dict[str, "STTProvider"] = {}
+
+
+def get_stt(app_settings: AppSettingsRecord = Depends(get_app_settings)) -> STTProvider:
     from app.services.stt.whisper import WhisperSTTProvider
 
-    settings = get_settings()
-    return WhisperSTTProvider(model_size=settings.whisper_model, device=settings.whisper_device)
+    model_size = app_settings.whisper_model
+    if model_size not in _stt_providers:
+        settings = get_settings()
+        _stt_providers[model_size] = WhisperSTTProvider(model_size=model_size, device=settings.whisper_device)
+    return _stt_providers[model_size]

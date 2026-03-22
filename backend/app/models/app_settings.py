@@ -18,6 +18,7 @@ class AppSettings(Base):
     native_language: Mapped[str] = mapped_column(String(20), nullable=False, default="en")
     tts_voice: Mapped[str] = mapped_column(String(200), nullable=False, default="es_ES-davefx-medium")
     suggestion_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    whisper_model: Mapped[str] = mapped_column(String(50), nullable=False, default="base")
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

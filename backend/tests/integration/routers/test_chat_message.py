@@ -30,6 +30,7 @@ _DEFAULT_SETTINGS = AppSettingsRecord(
     native_language="en",
     tts_voice="es_ES-mls-medium",
     suggestion_count=3,
+    whisper_model="base",
     updated_at=datetime.datetime.now(datetime.timezone.utc),
 )
 

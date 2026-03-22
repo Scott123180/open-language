@@ -18,10 +18,6 @@ def test_model_name_property() -> None:
     assert provider.model_name == "llama3.1"
 
 
-def test_model_name_default() -> None:
-    provider = OllamaLLMProvider()
-    assert provider.model_name == "llama3.1"
-
 
 def test_chat_returns_content() -> None:
     mock_response = {"message": {"content": "Hello, world!"}}

@@ -50,6 +50,7 @@ export interface AppSettings {
   native_language: string
   tts_voice: string
   suggestion_count: number
+  whisper_model: string
   updated_at: string
 }
 
@@ -58,6 +59,8 @@ export interface VoiceOption {
   display_name: string
   gender: string
   locale: string
+  quality: string
+  speaking_rate: string
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {

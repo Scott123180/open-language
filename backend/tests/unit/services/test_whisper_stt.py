@@ -93,6 +93,7 @@ class TestWhisperSTTProviderTranscribe:
         mock_model.transcribe.assert_called_once_with(
             str(Path("/fake/audio.wav")),
             language="es",
+            task="transcribe",
             beam_size=5,
         )
 
@@ -102,6 +103,7 @@ class TestWhisperSTTProviderTranscribe:
         mock_model.transcribe.assert_called_once_with(
             str(Path("/fake/audio.wav")),
             language=None,
+            task="transcribe",
             beam_size=5,
         )
 

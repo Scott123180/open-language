@@ -41,12 +41,13 @@ export const mockSettings = {
   native_language: 'English',
   tts_voice: 'es_ES-davefx-medium',
   suggestion_count: 3,
+  whisper_model: 'base',
   updated_at: '2026-03-20T10:00:00Z',
 }
 
 export const mockVoices = [
-  { key: 'es_ES-davefx-medium', display_name: 'David (Spain)', gender: 'male', locale: 'es_ES' },
-  { key: 'es_AR-daniela-high', display_name: 'Daniela (Argentina)', gender: 'female', locale: 'es_AR' },
+  { key: 'es_ES-davefx-medium', display_name: 'David (Spain)', gender: 'male', locale: 'es_ES', quality: 'medium', speaking_rate: 'natural' },
+  { key: 'es_AR-daniela-high', display_name: 'Daniela (Argentina)', gender: 'female', locale: 'es_AR', quality: 'high', speaking_rate: 'fast' },
 ]
 
 export const mockMessages = [

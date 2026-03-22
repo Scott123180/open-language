@@ -32,8 +32,8 @@ def test_synthesize_calls_voice_synthesize(tmp_path: Path) -> None:
             mock_wave_open.return_value.__exit__ = MagicMock(return_value=False)
             provider.synthesize("Hola mundo", output_path)
 
-        mock_voice.synthesize.assert_called_once()
-        args = mock_voice.synthesize.call_args[0]
+        mock_voice.synthesize_wav.assert_called_once()
+        args = mock_voice.synthesize_wav.call_args[0]
         assert args[0] == "Hola mundo"
 
 
@@ -54,7 +54,7 @@ def test_synthesize_creates_parent_directories(tmp_path: Path) -> None:
 
 def test_synthesize_raises_tts_error_on_exception(tmp_path: Path) -> None:
     mock_voice = MagicMock()
-    mock_voice.synthesize.side_effect = RuntimeError("piper failed")
+    mock_voice.synthesize_wav.side_effect = RuntimeError("piper failed")
 
     provider = PiperTTSProvider(voice_name="es_ES-mls-medium", voice_dir=tmp_path)
     provider._voice = mock_voice

@@ -231,6 +231,59 @@ test.describe('Settings page', () => {
     await expect(select.getByRole('option', { name: 'Daniela (Argentina)' })).toBeAttached()
   })
 
+  test('selected voice shows gender, country, quality, and pace detail', async ({ page }) => {
+    await setupSettingsRoutes(page)
+    await page.goto(SETTINGS_URL)
+    const metaLine = page.locator('p').filter({ hasText: /Male|Female/ })
+    await expect(metaLine).toContainText('Male')
+    await expect(metaLine).toContainText('Spain')
+    await expect(metaLine).toContainText('Medium quality')
+    const paceLine = page.locator('p').filter({ hasText: /Pace:/ })
+    await expect(paceLine).toContainText('Natural')
+    await expect(paceLine).toContainText('Conversational native speed')
+  })
+
+  test('loads and displays current speech recognition model', async ({ page }) => {
+    await setupSettingsRoutes(page)
+    await page.goto(SETTINGS_URL)
+    await expect(page.getByLabel('Speech Recognition Model')).toHaveValue('base')
+  })
+
+  test('speech recognition model select shows all three options', async ({ page }) => {
+    await setupSettingsRoutes(page)
+    await page.goto(SETTINGS_URL)
+    const select = page.getByLabel('Speech Recognition Model')
+    await expect(select.getByRole('option', { name: /Base/ })).toBeAttached()
+    await expect(select.getByRole('option', { name: /Small/ })).toBeAttached()
+    await expect(select.getByRole('option', { name: /Medium/ })).toBeAttached()
+  })
+
+  test('changing speech recognition model updates the select value', async ({ page }) => {
+    await setupSettingsRoutes(page)
+    await page.goto(SETTINGS_URL)
+    await page.getByLabel('Speech Recognition Model').selectOption('medium')
+    await expect(page.getByLabel('Speech Recognition Model')).toHaveValue('medium')
+  })
+
+  test('save button sends updated whisper model to API', async ({ page }) => {
+    let capturedBody: unknown = null
+    await page.route('/api/settings', (route) => {
+      if (route.request().method() === 'PUT') {
+        capturedBody = route.request().postDataJSON()
+        return route.fulfill({ json: mockSettings })
+      }
+      return route.fulfill({ json: mockSettings })
+    })
+    await page.route('/api/settings/voices', (route) =>
+      route.fulfill({ json: mockVoices })
+    )
+    await page.goto(SETTINGS_URL)
+    await page.getByLabel('Speech Recognition Model').selectOption('small')
+    await page.getByRole('button', { name: /save/i }).click()
+    await expect(page.getByRole('status')).toContainText('Settings saved.')
+    expect(capturedBody).toMatchObject({ whisper_model: 'small' })
+  })
+
   test('changing voice updates the select value', async ({ page }) => {
     await setupSettingsRoutes(page)
     await page.goto(SETTINGS_URL)

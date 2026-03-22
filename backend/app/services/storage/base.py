@@ -57,6 +57,7 @@ class AppSettingsRecord:
     native_language: str
     tts_voice: str
     suggestion_count: int
+    whisper_model: str
     updated_at: datetime
 
 

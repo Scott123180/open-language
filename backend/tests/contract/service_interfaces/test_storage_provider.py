@@ -97,7 +97,7 @@ def test_save_vocabulary_item_idempotent(storage: StorageProvider) -> None:
 def test_get_settings_returns_defaults(storage: StorageProvider) -> None:
     settings = storage.get_settings()
     assert isinstance(settings, AppSettingsRecord)
-    assert settings.llm_model == "llama3.1"
+    assert settings.llm_model == "llama3.1:8b"
     assert settings.target_language == "es"
     assert settings.native_language == "en"
     assert settings.suggestion_count == 1

@@ -38,3 +38,9 @@ def test_davefx_is_the_first_voice() -> None:
 def test_at_least_one_female_voice_exists() -> None:
     female_voices = [v for v in AVAILABLE_VOICES if v.gender == "female"]
     assert len(female_voices) >= 1, "Expected at least one female voice"
+
+
+def test_each_voice_has_valid_speaking_rate() -> None:
+    valid_rates = {"slow", "natural", "fast"}
+    for voice in AVAILABLE_VOICES:
+        assert voice.speaking_rate in valid_rates, f"Invalid speaking_rate '{voice.speaking_rate}' for {voice.key}"

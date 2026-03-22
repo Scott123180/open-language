@@ -15,6 +15,11 @@ class VoiceResponse(BaseModel):
     display_name: str
     gender: str
     locale: str
+    quality: str
+    speaking_rate: str
+
+
+WHISPER_MODEL_OPTIONS = frozenset({"base", "small", "medium"})
 
 
 class SettingsResponse(BaseModel):
@@ -23,6 +28,7 @@ class SettingsResponse(BaseModel):
     native_language: str
     tts_voice: str
     suggestion_count: int
+    whisper_model: str
     updated_at: datetime
 
 
@@ -32,6 +38,7 @@ class UpdateSettingsRequest(BaseModel):
     native_language: str | None = None
     tts_voice: str | None = None
     suggestion_count: int | None = Field(None, ge=1, le=5)
+    whisper_model: str | None = Field(None, pattern="^(base|small|medium)$")
 
 
 def _to_response(record: AppSettingsRecord) -> SettingsResponse:
@@ -41,6 +48,7 @@ def _to_response(record: AppSettingsRecord) -> SettingsResponse:
         native_language=record.native_language,
         tts_voice=record.tts_voice,
         suggestion_count=record.suggestion_count,
+        whisper_model=record.whisper_model,
         updated_at=record.updated_at,
     )
 
@@ -48,7 +56,7 @@ def _to_response(record: AppSettingsRecord) -> SettingsResponse:
 @router.get("/settings/voices", response_model=list[VoiceResponse])
 def get_voices_endpoint():
     return [
-        VoiceResponse(key=v.key, display_name=v.display_name, gender=v.gender, locale=v.locale)
+        VoiceResponse(key=v.key, display_name=v.display_name, gender=v.gender, locale=v.locale, quality=v.quality, speaking_rate=v.speaking_rate)
         for v in AVAILABLE_VOICES
     ]
 
