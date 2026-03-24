@@ -1,4 +1,3 @@
-import pytest
 from app.prompts.templates import (
     build_grammar_prompt,
     build_helper_system_prompt,
@@ -69,6 +68,7 @@ def test_build_helper_system_prompt_contains_languages() -> None:
 
 # ---- Additional coverage for T080 ----
 
+
 def test_build_word_lookup_prompt_contains_target_language() -> None:
     result = build_word_lookup_prompt("madrugada", "Spanish", "English")
     assert "Spanish" in result
@@ -77,6 +77,16 @@ def test_build_word_lookup_prompt_contains_target_language() -> None:
 def test_build_word_lookup_prompt_contains_native_language() -> None:
     result = build_word_lookup_prompt("madrugada", "Spanish", "English")
     assert "English" in result
+
+
+def test_build_word_lookup_prompt_includes_sentence_context_when_provided() -> None:
+    result = build_word_lookup_prompt("hambre", "Spanish", "English", "Tengo mucha hambre hoy.")
+    assert "Tengo mucha hambre hoy." in result
+
+
+def test_build_word_lookup_prompt_omits_context_clause_when_none() -> None:
+    result = build_word_lookup_prompt("hambre", "Spanish", "English", None)
+    assert "as used in the sentence" not in result
 
 
 def test_build_suggestion_prompt_contains_history_text() -> None:

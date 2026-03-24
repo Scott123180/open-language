@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <style>
+    /* Light mode: teal tile, warm off-white symbol */
+    .tile   { fill: #0d9488; }
+    .symbol { fill: #faf9f7; }
+    /* Dark mode: brighter teal tile, near-black symbol — stays legible against dark browser chrome */
+    @media (prefers-color-scheme: dark) {
+      .tile   { fill: #2dd4bf; }
+      .symbol { fill: #0f172a; }
+    }
+  </style>
+
+  <!-- Rounded tile background (rx=3 reads as "clearly rounded" at 16px) -->
+  <rect width="16" height="16" rx="3" class="tile"/>
+
+  <!--
+    Speech bubble: body + tail as a single path to avoid sub-pixel gaps.
+    Body occupies x=2–14, y=2–11 with Q-bezier rounded corners (~rx 2).
+    Tail is a triangle emerging from bottom-left (x=4–7, y=11–14).
+  -->
+  <path class="symbol" d="
+    M 4 2
+    L 12 2
+    Q 14 2 14 4
+    L 14 9
+    Q 14 11 12 11
+    L 7 11
+    L 4 14
+    L 4 11
+    Q 2 11 2 9
+    L 2 4
+    Q 2 2 4 2
+    Z
+  "/>
+</svg>

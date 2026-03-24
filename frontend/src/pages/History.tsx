@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import * as api from '../services/api'
 import type { Conversation, Message } from '../services/api'
+import { IconArrowLeft } from '../components/shared/icons'
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -62,8 +63,8 @@ export default function History() {
       }}
     >
       <h1 style={{ fontSize: '1.75rem', fontWeight: 700 }}>Past Chats</h1>
-      <Link to='/' style={{ color: 'var(--color-primary)', alignSelf: 'flex-start' }}>
-        ← Back to Home
+      <Link to='/' className='back-link' style={{ alignSelf: 'flex-start' }}>
+        <IconArrowLeft size={14} /> Back to Home
       </Link>
 
       {isLoading && <p aria-live='polite'>Loading…</p>}
@@ -91,7 +92,7 @@ export default function History() {
               style={{
                 background: 'var(--color-surface)',
                 border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius)',
+                borderRadius: 'var(--radius-lg)',
                 overflow: 'hidden',
               }}
             >
@@ -118,7 +119,7 @@ export default function History() {
                 <span
                   style={{
                     fontSize: '0.75rem',
-                    color: conv.status === 'completed' ? 'var(--color-success, green)' : 'var(--color-primary)',
+                    color: conv.status === 'completed' ? 'var(--color-success)' : 'var(--color-text-muted)',
                   }}
                 >
                   {conv.status}
@@ -163,10 +164,11 @@ export default function History() {
                       <span
                         style={{
                           padding: '8px 12px',
-                          borderRadius: 'var(--radius)',
-                          background: msg.role === 'user' ? 'var(--color-primary)' : 'var(--color-border)',
-                          color: msg.role === 'user' ? '#fff' : 'var(--color-text)',
-                          fontSize: '0.9rem',
+                          borderRadius: 'var(--radius-lg)',
+                          background: msg.role === 'user' ? 'var(--color-primary)' : 'var(--color-surface-raised)',
+                          color: msg.role === 'user' ? 'var(--color-text-on-primary)' : 'var(--color-text)',
+                          fontSize: 'var(--text-sm)',
+                          lineHeight: 'var(--leading-relaxed)',
                         }}
                       >
                         {msg.content}

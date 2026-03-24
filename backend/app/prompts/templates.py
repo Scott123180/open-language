@@ -59,9 +59,19 @@ def build_phrasing_prompt(message_content: str, target_language: str) -> str:
     )
 
 
-def build_word_lookup_prompt(word: str, target_language: str, native_language: str) -> str:
+def build_word_lookup_prompt(
+    word: str,
+    target_language: str,
+    native_language: str,
+    sentence_context: str | None = None,
+) -> str:
+    context_clause = (
+        f' as used in the sentence: "{sentence_context}"'
+        if sentence_context
+        else ""
+    )
     return (
-        f'Look up the {target_language} word "{word}".\n'
+        f'Look up the {target_language} word "{word}"{context_clause}.\n'
         f"Provide: definition, part of speech, and an example sentence. "
         f"Respond in {native_language}."
     )

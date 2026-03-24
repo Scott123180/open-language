@@ -52,6 +52,19 @@ TDD is non-negotiable. Every feature begins with a failing test.
 - Test names must describe behavior, not implementation: `test_returns_empty_list_when_no_results`, not `test_method_works`
 - Each test covers exactly one behavior; use `Arrange / Act / Assert` structure
 
+## UI Design System
+
+All frontend UI work must follow the design system documented in [docs/design-system.md](docs/design-system.md). Key rules enforced by the design system:
+
+- **Never hardcode hex colors** — use CSS custom property tokens from `index.css`
+- **Never hardcode `#fff` as text on a primary background** — use `var(--color-text-on-primary)`
+- **Navigation text uses `--color-text`**, not `--color-primary` (avoids the blue-on-dark-blue contrast failure in dark mode)
+- **Cards use `--radius-lg` (12px)**, not `--radius` (8px)
+- **Shadows use `--shadow-sm/md/lg`** (warm-tinted), not raw `box-shadow` values
+- **Back links use `--color-text-muted`**, not `--color-primary`
+- The design language is **warm minimal**: stone neutrals + teal primary, Plus Jakarta Sans typeface, generous line heights for reading contexts
+- Refer to `docs/design-system.md` for the full token reference, component patterns, dark mode rules, and do/don't guide
+
 ## Frontend E2E Testing (Playwright)
 
 All frontend changes **must** be accompanied by Playwright E2E tests and all existing tests must pass before a task is marked complete.
@@ -199,6 +212,8 @@ When implementing transcription features, refer to [reference/TRANSCRIPTION_INTE
 ## Active Technologies
 - Python 3.11+ (backend), TypeScript/React 18 (frontend) + FastAPI, Uvicorn, SQLite (via SQLAlchemy), faster-whisper, Ollama Python client (llama3.1), Piper TTS, ffmpeg/pydub (audio conversion), React 18, Vite, React Query (001-speak-roleplay-chat)
 - SQLite — conversations, messages, vocabulary items, user settings (001-speak-roleplay-chat)
+- Python 3.12 (backend), TypeScript 5.4 / React 18.3 (frontend) (002-vocabulary-flashcards)
+- SQLite with WAL mode and foreign keys enabled; schema migration via `_add_column_if_missing()` for existing tables, `create_all()` for new tables (002-vocabulary-flashcards)
 
 ## Recent Changes
 - 001-speak-roleplay-chat: Added Python 3.11+ (backend), TypeScript/React 18 (frontend) + FastAPI, Uvicorn, SQLite (via SQLAlchemy), faster-whisper, Ollama Python client (llama3.1), Piper TTS, ffmpeg/pydub (audio conversion), React 18, Vite, React Query

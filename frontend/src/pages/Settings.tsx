@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import * as api from '../services/api'
 import type { VoiceOption } from '../services/api'
 import { useTheme } from '../hooks/useTheme'
+import { IconArrowLeft } from '../components/shared/icons'
 
 const LLM_OPTIONS = ['llama3.1', 'llama3.2', 'mistral']
 const WHISPER_MODEL_OPTIONS = [
@@ -74,8 +75,8 @@ export default function Settings() {
       }}
     >
       <h1 style={{ fontSize: '1.75rem', fontWeight: 700 }}>Settings</h1>
-      <Link to='/' style={{ color: 'var(--color-primary)', alignSelf: 'flex-start' }}>
-        ← Back to Home
+      <Link to='/' className='back-link' style={{ alignSelf: 'flex-start' }}>
+        <IconArrowLeft size={14} /> Back to Home
       </Link>
 
       {isLoading && <p aria-live='polite'>Loading settings…</p>}
@@ -212,7 +213,7 @@ export default function Settings() {
                     borderRadius: 'var(--radius)',
                     border: '1px solid var(--color-border)',
                     background: themePreference === value ? 'var(--color-primary)' : 'var(--color-surface)',
-                    color: themePreference === value ? '#fff' : 'var(--color-text)',
+                    color: themePreference === value ? 'var(--color-text-on-primary)' : 'var(--color-text)',
                     fontWeight: themePreference === value ? 600 : 400,
                     cursor: 'pointer',
                     minHeight: '44px',
@@ -248,7 +249,7 @@ export default function Settings() {
           </div>
 
           {successMessage && (
-            <p role='status' style={{ color: 'var(--color-success, green)', fontWeight: 600 }}>
+            <p role='status' style={{ color: 'var(--color-success)', fontWeight: 600 }}>
               {successMessage}
             </p>
           )}
@@ -265,7 +266,7 @@ export default function Settings() {
             style={{
               padding: '12px 24px',
               background: isSaving ? 'var(--color-border)' : 'var(--color-primary)',
-              color: isSaving ? 'var(--color-text-muted)' : '#fff',
+              color: isSaving ? 'var(--color-text-muted)' : 'var(--color-text-on-primary)',
               borderRadius: 'var(--radius)',
               fontWeight: 600,
               fontSize: '1rem',

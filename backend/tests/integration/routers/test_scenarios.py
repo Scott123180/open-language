@@ -1,4 +1,5 @@
 """Integration tests for the /api/scenarios router."""
+
 import pytest
 from fastapi.testclient import TestClient
 

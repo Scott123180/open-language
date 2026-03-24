@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import * as api from '../../services/api'
+import { IconMessageCircle } from '../shared/icons'
 
 interface ExpressionHelperPanelProps {
   targetLanguage: string
@@ -102,8 +103,9 @@ export default function ExpressionHelperPanel({
           background: 'var(--color-surface)',
         }}
       >
-        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-primary)' }}>
-          🗣️ Expression Helper
+        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-primary)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+          <IconMessageCircle size={13} />
+          Expression Helper
           <span style={{ fontSize: '0.72rem', fontWeight: 400, fontStyle: 'italic', marginLeft: '6px', color: 'var(--color-text-muted)' }}>
             {nativeLanguage} → {targetLanguage}
           </span>

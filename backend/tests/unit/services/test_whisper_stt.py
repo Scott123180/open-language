@@ -1,4 +1,5 @@
 """Unit tests for WhisperSTTProvider."""
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 

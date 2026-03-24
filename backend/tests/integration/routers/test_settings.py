@@ -1,4 +1,5 @@
 """Integration tests for the /api/settings router."""
+
 from pathlib import Path
 
 import pytest

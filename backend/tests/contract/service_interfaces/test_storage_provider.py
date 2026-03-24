@@ -1,11 +1,12 @@
-import pytest
 from pathlib import Path
+
+import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.services.storage.sqlite import SQLiteStorageProvider
 from app.services.storage.base import AppSettingsRecord, StorageProvider
+from app.services.storage.sqlite import SQLiteStorageProvider
 
 
 def _configure_sqlite(dbapi_conn, _):
@@ -23,13 +24,14 @@ def storage(tmp_path: Path) -> StorageProvider:
         connect_args={"check_same_thread": False},
     )
     event.listen(engine, "connect", _configure_sqlite)
-    import app.models.conversation  # noqa: F401
-    import app.models.message  # noqa: F401
-    import app.models.learning_tool_result  # noqa: F401
-    import app.models.vocabulary_item  # noqa: F401
     import app.models.app_settings  # noqa: F401
+    import app.models.conversation  # noqa: F401
+    import app.models.learning_tool_result  # noqa: F401
+    import app.models.message  # noqa: F401
+    import app.models.vocabulary_item  # noqa: F401
+
     Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(bind=engine)
+    Session = sessionmaker(bind=engine)  # noqa: N806
     session = Session()
     yield SQLiteStorageProvider(session)
     session.close()
@@ -52,8 +54,11 @@ def test_create_conversation_get_conversation_round_trip(storage: StorageProvide
 
 def test_save_message_get_messages_ordered(storage: StorageProvider) -> None:
     conv = storage.create_conversation(
-        scenario_id="s1", scenario_title="S1", target_language="es",
-        native_language="en", llm_model="llama3.1",
+        scenario_id="s1",
+        scenario_title="S1",
+        target_language="es",
+        native_language="en",
+        llm_model="llama3.1",
     )
     storage.save_message(conv.id, "user", "Hello")
     storage.save_message(conv.id, "assistant", "Hola")
@@ -66,8 +71,11 @@ def test_save_message_get_messages_ordered(storage: StorageProvider) -> None:
 
 def test_get_or_create_learning_result_calls_compute_once(storage: StorageProvider) -> None:
     conv = storage.create_conversation(
-        scenario_id="s1", scenario_title="S1", target_language="es",
-        native_language="en", llm_model="llama3.1",
+        scenario_id="s1",
+        scenario_title="S1",
+        target_language="es",
+        native_language="en",
+        llm_model="llama3.1",
     )
     msg = storage.save_message(conv.id, "user", "Hello")
     call_count = 0
@@ -85,8 +93,11 @@ def test_get_or_create_learning_result_calls_compute_once(storage: StorageProvid
 
 def test_save_vocabulary_item_idempotent(storage: StorageProvider) -> None:
     conv = storage.create_conversation(
-        scenario_id="s1", scenario_title="S1", target_language="es",
-        native_language="en", llm_model="llama3.1",
+        scenario_id="s1",
+        scenario_title="S1",
+        target_language="es",
+        native_language="en",
+        llm_model="llama3.1",
     )
     storage.save_vocabulary_item("hola", "hello", "es", "en", conv.id)
     storage.save_vocabulary_item("hola", "hello", "es", "en", conv.id)

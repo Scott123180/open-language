@@ -1,4 +1,6 @@
 """Integration tests for POST /api/chat/{id}/open SSE endpoint."""
+
+import datetime
 import json
 from collections.abc import Iterator
 from pathlib import Path
@@ -21,8 +23,6 @@ from app.services.storage.sqlite import SQLiteStorageProvider
 from app.services.tts.base import TTSProvider
 from tests.integration.conftest import make_test_session
 
-import datetime
-
 _DEFAULT_SETTINGS = AppSettingsRecord(
     llm_model="llama3.1",
     target_language="es",
@@ -30,7 +30,7 @@ _DEFAULT_SETTINGS = AppSettingsRecord(
     tts_voice="es_ES-mls-medium",
     suggestion_count=3,
     whisper_model="base",
-    updated_at=datetime.datetime.now(datetime.timezone.utc),
+    updated_at=datetime.datetime.now(datetime.UTC),
 )
 
 _VALID_SCENARIO_ID = "buy-train-ticket"
@@ -63,6 +63,7 @@ class StubTTSProvider(TTSProvider):
         output_path.parent.mkdir(parents=True, exist_ok=True)
         # Write a minimal valid WAV header (44 bytes) + no audio data
         import struct
+
         with open(output_path, "wb") as f:
             # RIFF header
             f.write(b"RIFF")
@@ -71,15 +72,15 @@ class StubTTSProvider(TTSProvider):
             # fmt chunk
             f.write(b"fmt ")
             f.write(struct.pack("<I", 16))  # subchunk size
-            f.write(struct.pack("<H", 1))   # PCM
-            f.write(struct.pack("<H", 1))   # mono
+            f.write(struct.pack("<H", 1))  # PCM
+            f.write(struct.pack("<H", 1))  # mono
             f.write(struct.pack("<I", 16000))  # sample rate
             f.write(struct.pack("<I", 32000))  # byte rate
-            f.write(struct.pack("<H", 2))   # block align
+            f.write(struct.pack("<H", 2))  # block align
             f.write(struct.pack("<H", 16))  # bits per sample
             # data chunk
             f.write(b"data")
-            f.write(struct.pack("<I", 0))   # no audio data
+            f.write(struct.pack("<I", 0))  # no audio data
 
 
 @pytest.fixture
@@ -115,7 +116,7 @@ def _parse_sse_lines(raw_text: str) -> list[dict]:
     events = []
     for line in raw_text.splitlines():
         if line.startswith("data: "):
-            payload = line[len("data: "):]
+            payload = line[len("data: ") :]
             events.append(json.loads(payload))
     return events
 

@@ -1,8 +1,20 @@
+import { IconMic, IconStop } from '../shared/icons'
+
 interface RecordButtonProps {
   isRecording: boolean
   isProcessing: boolean
   onStartRecording: () => void
   onStopRecording: () => void
+}
+
+const spinnerStyle: React.CSSProperties = {
+  display: 'inline-block',
+  width: '18px',
+  height: '18px',
+  border: '2px solid var(--color-border)',
+  borderTopColor: 'var(--color-text-muted)',
+  borderRadius: '50%',
+  animation: 'spin 0.6s linear infinite',
 }
 
 const baseStyle: React.CSSProperties = {
@@ -12,10 +24,9 @@ const baseStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  fontSize: '1.2rem',
   flexShrink: 0,
   outline: 'none',
-  transition: 'box-shadow 0.15s, background 0.15s',
+  transition: 'box-shadow var(--transition-base), background var(--transition-base)',
 }
 
 export default function RecordButton({
@@ -31,12 +42,12 @@ export default function RecordButton({
         disabled
         style={{
           ...baseStyle,
-          background: 'var(--color-border)',
-          color: 'var(--color-text-muted)',
+          background: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
           cursor: 'not-allowed',
         }}
       >
-        <span aria-hidden='true'>⏳</span>
+        <span role="status" style={spinnerStyle} />
       </button>
     )
   }
@@ -48,13 +59,12 @@ export default function RecordButton({
         onClick={onStopRecording}
         style={{
           ...baseStyle,
-          background: '#dc2626',
-          color: '#fff',
+          background: 'var(--color-error)',
+          color: 'var(--color-text-on-primary)',
           animation: 'pulse 1.2s ease-in-out infinite',
-          boxShadow: '0 0 0 4px rgba(220,38,38,0.3)',
         }}
       >
-        <span aria-hidden='true'>⏹</span>
+        <IconStop size={18} strokeWidth={2} />
       </button>
     )
   }
@@ -66,10 +76,10 @@ export default function RecordButton({
       style={{
         ...baseStyle,
         background: 'var(--color-primary)',
-        color: '#fff',
+        color: 'var(--color-text-on-primary)',
       }}
     >
-      <span aria-hidden='true'>🎤</span>
+      <IconMic size={18} strokeWidth={2} />
     </button>
   )
 }

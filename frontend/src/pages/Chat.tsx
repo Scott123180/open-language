@@ -7,6 +7,7 @@ import AudioPlayer from '../components/shared/AudioPlayer'
 import ErrorBanner from '../components/shared/ErrorBanner'
 import SuggestedResponsePanel from '../components/chat/SuggestedResponsePanel'
 import ExpressionHelperPanel from '../components/chat/ExpressionHelperPanel'
+import { IconMessageCircle } from '../components/shared/icons'
 import { useRecorder } from '../hooks/useRecorder'
 
 interface LocalMessage {
@@ -234,18 +235,51 @@ export default function Chat() {
     >
       <header
         style={{
-          display: 'flex',
-          justifyContent: 'space-between',
+          display: 'grid',
+          gridTemplateColumns: 'auto 1fr auto',
           alignItems: 'center',
-          padding: '12px 16px',
+          gap: '12px',
+          padding: '0 16px',
+          height: '52px',
           borderBottom: '1px solid var(--color-border)',
           background: 'var(--color-surface)',
         }}
       >
+        <button
+          onClick={() => navigate('/')}
+          aria-label="Back to Home"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            background: 'none',
+            border: 'none',
+            color: 'var(--color-text-muted)',
+            cursor: 'pointer',
+            fontSize: '0.85rem',
+            padding: '6px 8px',
+            borderRadius: 'var(--radius-md)',
+            minWidth: 'unset',
+            minHeight: 'unset',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--color-bg)'
+            e.currentTarget.style.color = 'var(--color-text)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'none'
+            e.currentTarget.style.color = 'var(--color-text-muted)'
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Home
+        </button>
         <div>
-          <h1 style={{ fontSize: '1.1rem', fontWeight: 600, margin: 0 }}>Chat</h1>
+          <h1 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0, color: 'var(--color-text)' }}>Chat</h1>
           {scenarioTitle && (
-            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: 0 }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', margin: 0, lineHeight: 1.2 }}>
               {scenarioTitle}
             </p>
           )}
@@ -253,10 +287,12 @@ export default function Chat() {
         <button
           onClick={handleEndChat}
           style={{
-            padding: '8px 16px',
+            padding: '5px 14px',
             background: 'var(--color-error)',
-            color: '#fff',
-            borderRadius: 'var(--radius)',
+            color: 'var(--color-text-on-primary)',
+            borderRadius: 'var(--radius-md)',
+            fontSize: '0.85rem',
+            minHeight: 'unset',
           }}
         >
           End Chat
@@ -279,6 +315,7 @@ export default function Chat() {
             role={msg.role}
             content={msg.content}
             messageId={msg.id}
+            conversationId={convId}
             isStreaming={msg.isStreaming}
             showLearningTools={msg.id != null && !msg.isStreaming}
             targetLanguage={targetLanguage}
@@ -352,7 +389,7 @@ export default function Chat() {
             style={{
               flex: 1,
               padding: '10px 14px',
-              borderRadius: 'var(--radius)',
+              borderRadius: 'var(--radius-md)',
               border: '1px solid var(--color-border)',
               fontSize: '1rem',
               background: inputDisabled ? 'var(--color-bg)' : 'var(--color-surface)',
@@ -370,8 +407,8 @@ export default function Chat() {
                 inputDisabled || !textInput.trim()
                   ? 'var(--color-border)'
                   : 'var(--color-primary)',
-              color: inputDisabled || !textInput.trim() ? 'var(--color-text-muted)' : '#fff',
-              borderRadius: 'var(--radius)',
+              color: inputDisabled || !textInput.trim() ? 'var(--color-text-muted)' : 'var(--color-text-on-primary)',
+              borderRadius: 'var(--radius-md)',
               fontWeight: 600,
               cursor: inputDisabled || !textInput.trim() ? 'not-allowed' : 'pointer',
             }}
@@ -383,17 +420,19 @@ export default function Chat() {
             aria-label={helperExpanded ? 'Close expression helper' : 'Open expression helper'}
             title="Expression Helper"
             style={{
-              padding: '10px 12px',
+              padding: '0 12px',
               background: helperExpanded ? 'var(--color-primary)' : 'var(--color-bg)',
-              color: helperExpanded ? '#fff' : 'var(--color-text-muted)',
+              color: helperExpanded ? 'var(--color-text-on-primary)' : 'var(--color-text-muted)',
               border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius)',
-              fontSize: '1.1rem',
+              borderRadius: 'var(--radius-md)',
               cursor: 'pointer',
               flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            🗣️
+            <IconMessageCircle size={18} />
           </button>
         </footer>
       )}

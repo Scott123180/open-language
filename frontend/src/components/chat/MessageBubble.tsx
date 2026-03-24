@@ -7,6 +7,7 @@ interface MessageBubbleProps {
   role: 'user' | 'assistant'
   content: string
   messageId?: number
+  conversationId?: number
   isStreaming?: boolean
   onPlaySlower?: () => void
   onReplay?: () => void
@@ -32,6 +33,7 @@ export default function MessageBubble({
   role,
   content,
   messageId,
+  conversationId,
   isStreaming = false,
   onPlaySlower,
   onReplay,
@@ -71,7 +73,7 @@ export default function MessageBubble({
     try {
       const data = isPhrase
         ? await api.translateMessage(messageId, word, nativeLanguage)
-        : await api.lookupWord(messageId, word, targetLanguage, nativeLanguage)
+        : await api.lookupWord(messageId, word, targetLanguage, nativeLanguage, content)
       setLookupResult(data.result)
     } catch {
       setLookupResult(isPhrase ? 'Error loading translation.' : 'Error loading definition.')
@@ -80,13 +82,9 @@ export default function MessageBubble({
     }
   }
 
-  const handleSaveWord = async (word: string) => {
-    if (!lookupResult || !messageId) return
-    try {
-      await api.saveVocabularyItem(word, lookupResult, messageId)
-    } catch {
-      // best-effort save
-    }
+  const handleSaveWord = async (word: string): Promise<void> => {
+    if (!lookupResult) return
+    await api.saveVocabularyItem(word, lookupResult, conversationId)
     handleCloseLookup()
   }
 
@@ -116,11 +114,12 @@ export default function MessageBubble({
         style={{
           maxWidth: '75%',
           padding: '10px 14px',
-          borderRadius: 'var(--radius)',
+          borderRadius: 'var(--radius-lg)',
           background: isUser ? 'var(--color-primary)' : 'var(--color-surface)',
-          color: isUser ? '#fff' : 'var(--color-text)',
+          color: isUser ? 'var(--color-text-on-primary)' : 'var(--color-text)',
           border: isUser ? 'none' : '1px solid var(--color-border)',
-          boxShadow: 'var(--shadow)',
+          boxShadow: 'var(--shadow-sm)',
+          lineHeight: 'var(--leading-relaxed)',
         }}
       >
         <span>{content}</span>

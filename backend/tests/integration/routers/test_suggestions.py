@@ -1,4 +1,5 @@
 """Integration tests for POST /api/chat/{id}/suggestions endpoint (T097)."""
+
 import datetime
 from collections.abc import Iterator
 from pathlib import Path
@@ -13,7 +14,6 @@ from app.services.storage.base import AppSettingsRecord
 from app.services.storage.sqlite import SQLiteStorageProvider
 from tests.integration.conftest import make_test_session
 
-
 _DEFAULT_SETTINGS = AppSettingsRecord(
     llm_model="llama3.1",
     target_language="Spanish",
@@ -21,7 +21,7 @@ _DEFAULT_SETTINGS = AppSettingsRecord(
     tts_voice="es_ES-mls-medium",
     suggestion_count=1,
     whisper_model="base",
-    updated_at=datetime.datetime.now(datetime.timezone.utc),
+    updated_at=datetime.datetime.now(datetime.UTC),
 )
 
 
@@ -99,8 +99,8 @@ def test_suggestions_parses_numbered_lines(tmp_path: Path) -> None:
         native_language="English",
         tts_voice="es_ES-mls-medium",
         suggestion_count=2,
-    whisper_model="base",
-        updated_at=datetime.datetime.now(datetime.timezone.utc),
+        whisper_model="base",
+        updated_at=datetime.datetime.now(datetime.UTC),
     )
     session, storage_instance, _stub_llm = _make_client_fixture(
         tmp_path, settings, "1. Buenas tardes\n2. Hola\n"

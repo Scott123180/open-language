@@ -56,7 +56,7 @@ def _tool_to_record(r: LearningToolResult) -> LearningToolResultRecord:
     )
 
 
-def _vocab_to_record(v: VocabularyItem) -> VocabularyItemRecord:
+def _vocab_to_record(v: VocabularyItem, *, already_saved: bool = False) -> VocabularyItemRecord:
     return VocabularyItemRecord(
         id=v.id,
         word=v.word,
@@ -65,6 +65,7 @@ def _vocab_to_record(v: VocabularyItem) -> VocabularyItemRecord:
         native_language=v.native_language,
         source_conversation_id=v.source_conversation_id,
         saved_at=v.saved_at,
+        already_saved=already_saved,
     )
 
 
@@ -211,7 +212,12 @@ class SQLiteStorageProvider(StorageProvider):
             .first()
         )
         if existing:
-            return _vocab_to_record(existing)
+            existing.saved_at = datetime.now(UTC)
+            if source_conversation_id is not None:
+                existing.source_conversation_id = source_conversation_id
+            self._db.commit()
+            self._db.refresh(existing)
+            return _vocab_to_record(existing, already_saved=True)
         item = VocabularyItem(
             word=word,
             translation=translation,

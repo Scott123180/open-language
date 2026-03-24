@@ -1,4 +1,5 @@
 """Unit tests for the voice catalog."""
+
 from app.services.tts.voices import AVAILABLE_VOICES
 
 
@@ -43,4 +44,6 @@ def test_at_least_one_female_voice_exists() -> None:
 def test_each_voice_has_valid_speaking_rate() -> None:
     valid_rates = {"slow", "natural", "fast"}
     for voice in AVAILABLE_VOICES:
-        assert voice.speaking_rate in valid_rates, f"Invalid speaking_rate '{voice.speaking_rate}' for {voice.key}"
+        assert (
+            voice.speaking_rate in valid_rates
+        ), f"Invalid speaking_rate '{voice.speaking_rate}' for {voice.key}"

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import * as api from '../../services/api'
+import { IconLightbulb } from '../shared/icons'
 
 interface SuggestedResponsePanelProps {
   conversationId: number
@@ -67,9 +68,13 @@ export default function SuggestedResponsePanel({
             borderRadius: 'var(--radius)',
             color: 'var(--color-text-muted)',
             cursor: isDisabled ? 'not-allowed' : 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
           }}
         >
-          💡 Suggestions
+          <IconLightbulb size={13} />
+          Suggestions
         </button>
       ) : (
         <div>
@@ -81,8 +86,9 @@ export default function SuggestedResponsePanel({
               marginBottom: '8px',
             }}
           >
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
-              💡 Suggestions <span style={{ fontSize: '0.75rem', fontStyle: 'italic' }}>(read only)</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <IconLightbulb size={13} />
+              Suggestions <span style={{ fontSize: '0.75rem', fontStyle: 'italic', fontWeight: 400 }}>(read only)</span>
             </span>
             <button
               onClick={handleCollapse}

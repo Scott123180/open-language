@@ -37,6 +37,7 @@ class WordLookupRequest(BaseModel):
     selection: str
     target_language: str
     native_language: str
+    sentence_context: str | None = None
 
 
 @router.post("/learning/grammar")
@@ -55,7 +56,7 @@ async def grammar_check(
         computed = True
         return llm.chat([ChatMessage(role="user", content=prompt)])
 
-    result_record = storage.get_or_create_learning_result(req.message_id, "grammar", None, _compute)
+    result_record = storage.get_or_create_learning_result(req.message_id, "grammar", req.content, _compute)
     return {"result": result_record.result, "cached": not computed}
 
 
@@ -75,7 +76,7 @@ async def translate(
         return llm.chat([ChatMessage(role="user", content=prompt)])
 
     result_record = storage.get_or_create_learning_result(
-        req.message_id, "translation", None, _compute
+        req.message_id, "translation", req.content, _compute
     )
     return {"result": result_record.result, "cached": not computed}
 
@@ -97,7 +98,7 @@ async def alternative_phrasing(
         return llm.chat([ChatMessage(role="user", content=prompt)])
 
     result_record = storage.get_or_create_learning_result(
-        req.message_id, "alternative_phrasing", None, _compute
+        req.message_id, "alternative_phrasing", req.content, _compute
     )
     return {"result": result_record.result, "cached": not computed}
 
@@ -108,7 +109,7 @@ async def word_lookup(
     storage: StorageProvider = Depends(get_storage),
     llm: LLMProvider = Depends(get_llm),
 ):
-    prompt = build_word_lookup_prompt(req.selection, req.target_language, req.native_language)
+    prompt = build_word_lookup_prompt(req.selection, req.target_language, req.native_language, req.sentence_context)
 
     computed = False
 

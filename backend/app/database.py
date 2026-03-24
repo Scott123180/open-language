@@ -46,6 +46,7 @@ def init_db() -> None:
         message,
         vocabulary_item,
     )
+    import app.flashcards.models  # noqa: F401 — registers flashcard tables with Base
 
     Base.metadata.create_all(bind=_engine)
     _migrate_db()
@@ -56,6 +57,13 @@ def _migrate_db() -> None:
     with _engine.connect() as conn:
         _add_column_if_missing(conn, "conversations", "custom_prompt TEXT")
         _add_column_if_missing(conn, "app_settings", "whisper_model VARCHAR(50) NOT NULL DEFAULT 'base'")
+        _add_column_if_missing(
+            conn, "vocabulary_items", "classification VARCHAR(20) NOT NULL DEFAULT 'not_practiced'"
+        )
+        _add_column_if_missing(
+            conn, "vocabulary_items", "manual_override BOOLEAN NOT NULL DEFAULT FALSE"
+        )
+        _add_column_if_missing(conn, "vocabulary_items", "tts_cache_path VARCHAR(500)")
 
 
 def _add_column_if_missing(conn, table: str, column_definition: str) -> None:

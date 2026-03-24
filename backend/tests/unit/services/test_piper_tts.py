@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.services.tts.piper import PiperTTSProvider
 from app.services.tts.base import TTSError
+from app.services.tts.piper import PiperTTSProvider
 
 
 def test_voice_name_property(tmp_path: Path) -> None:
@@ -20,12 +20,12 @@ def test_synthesize_calls_voice_synthesize(tmp_path: Path) -> None:
 
     with patch.dict("sys.modules", {"piper": MagicMock(), "piper.voice": MagicMock()}):
         import piper.voice as pv
+
         pv.PiperVoice = mock_piper_voice_cls
 
         provider = PiperTTSProvider(voice_name="es_ES-mls-medium", voice_dir=tmp_path)
         provider._voice = mock_voice  # inject already-loaded voice to skip load()
 
-        import wave
         with patch("wave.open") as mock_wave_open:
             mock_wav_file = MagicMock()
             mock_wave_open.return_value.__enter__ = MagicMock(return_value=mock_wav_file)

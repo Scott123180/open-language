@@ -1,8 +1,9 @@
 """Integration tests for POST /api/audio/transcribe."""
+
 import io
 import struct
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -25,8 +26,8 @@ def _minimal_wav_bytes() -> bytes:
     buf.write(b"WAVE")
     buf.write(b"fmt ")
     buf.write(struct.pack("<I", 16))
-    buf.write(struct.pack("<H", 1))   # PCM
-    buf.write(struct.pack("<H", 1))   # mono
+    buf.write(struct.pack("<H", 1))  # PCM
+    buf.write(struct.pack("<H", 1))  # mono
     buf.write(struct.pack("<I", 16000))
     buf.write(struct.pack("<I", 32000))
     buf.write(struct.pack("<H", 2))
@@ -106,7 +107,9 @@ def test_transcribe_stt_error_returns_422(client_with_stub_stt: TestClient):
     from app.services.stt.base import STTError
 
     class FailingSTTProvider(STTProvider):
-        def transcribe(self, audio_path: Path, language_hint: str | None = None) -> TranscriptionResult:
+        def transcribe(
+            self, audio_path: Path, language_hint: str | None = None
+        ) -> TranscriptionResult:
             raise STTError("Model failed to load")
 
     app.dependency_overrides[get_stt] = lambda: FailingSTTProvider()

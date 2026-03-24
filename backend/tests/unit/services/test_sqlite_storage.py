@@ -1,6 +1,7 @@
 import time
-import pytest
 from pathlib import Path
+
+import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
@@ -23,13 +24,14 @@ def storage(tmp_path: Path) -> SQLiteStorageProvider:
         connect_args={"check_same_thread": False},
     )
     event.listen(engine, "connect", _configure_sqlite)
-    import app.models.conversation  # noqa: F401
-    import app.models.message  # noqa: F401
-    import app.models.learning_tool_result  # noqa: F401
-    import app.models.vocabulary_item  # noqa: F401
     import app.models.app_settings  # noqa: F401
+    import app.models.conversation  # noqa: F401
+    import app.models.learning_tool_result  # noqa: F401
+    import app.models.message  # noqa: F401
+    import app.models.vocabulary_item  # noqa: F401
+
     Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(bind=engine)
+    Session = sessionmaker(bind=engine)  # noqa: N806
     session = Session()
     yield SQLiteStorageProvider(session)
     session.close()
@@ -87,6 +89,7 @@ def test_list_vocabulary_most_recently_saved_first(storage: SQLiteStorageProvide
 
 
 # ---- get_or_create_learning_result caching tests (T079) ----
+
 
 def test_get_or_create_calls_compute_once_on_first_call(storage: SQLiteStorageProvider) -> None:
     conv = _make_conv(storage)

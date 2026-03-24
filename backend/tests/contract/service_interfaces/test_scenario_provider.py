@@ -1,4 +1,5 @@
 import pytest
+
 from app.services.scenario.base import Scenario, ScenarioProvider
 from app.services.scenario.static import StaticScenarioProvider
 
@@ -29,9 +30,7 @@ def test_get_random_exclude_id_never_returns_excluded(provider: ScenarioProvider
         if len(all_scenarios) <= 1:
             continue
         results = {provider.get_random(exclude_id=scenario.id).id for _ in range(20)}
-        assert scenario.id not in results, (
-            f"get_random() returned excluded id '{scenario.id}'"
-        )
+        assert scenario.id not in results, f"get_random() returned excluded id '{scenario.id}'"
 
 
 def test_get_random_no_consecutive_repeats(provider: ScenarioProvider) -> None:

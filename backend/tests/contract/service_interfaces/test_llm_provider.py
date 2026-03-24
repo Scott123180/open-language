@@ -1,5 +1,4 @@
-from app.services.llm.base import LLMProvider, ChatMessage, LLMError
-import pytest
+from app.services.llm.base import ChatMessage, LLMProvider
 
 
 class StubLLMProvider(LLMProvider):

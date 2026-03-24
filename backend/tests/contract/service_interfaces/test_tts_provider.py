@@ -1,8 +1,10 @@
-import wave
 import struct
+import wave
 from pathlib import Path
-from app.services.tts.base import TTSProvider, TTSError
+
 import pytest
+
+from app.services.tts.base import TTSError, TTSProvider
 
 
 class StubTTSProvider(TTSProvider):
@@ -13,11 +15,11 @@ class StubTTSProvider(TTSProvider):
     def synthesize(self, text: str, output_path: Path) -> None:
         if not text.strip():
             raise TTSError("Empty text")
-        with wave.open(str(output_path), 'w') as f:
+        with wave.open(str(output_path), "w") as f:
             f.setnchannels(1)
             f.setsampwidth(2)
             f.setframerate(22050)
-            f.writeframes(struct.pack('<100h', *[0] * 100))
+            f.writeframes(struct.pack("<100h", *[0] * 100))
 
 
 def test_synthesize_creates_wav(tmp_path):

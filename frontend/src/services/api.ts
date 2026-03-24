@@ -225,6 +225,7 @@ export const lookupWord = (
   selection: string,
   targetLanguage: string,
   nativeLanguage: string,
+  sentenceContext?: string,
 ): Promise<LearningToolResult> =>
   apiFetch('/learning/word-lookup', {
     method: 'POST',
@@ -233,6 +234,7 @@ export const lookupWord = (
       selection,
       target_language: targetLanguage,
       native_language: nativeLanguage,
+      sentence_context: sentenceContext ?? null,
     }),
   })
 

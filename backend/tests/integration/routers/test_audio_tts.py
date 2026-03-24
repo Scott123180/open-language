@@ -1,4 +1,6 @@
 """Integration tests for GET /api/audio/tts/{message_id}."""
+
+import datetime
 import struct
 from pathlib import Path
 
@@ -12,8 +14,6 @@ from app.services.storage.sqlite import SQLiteStorageProvider
 from app.services.tts.base import TTSProvider
 from tests.integration.conftest import make_test_session
 
-import datetime
-
 _DEFAULT_SETTINGS = AppSettingsRecord(
     llm_model="llama3.1",
     target_language="es",
@@ -21,7 +21,7 @@ _DEFAULT_SETTINGS = AppSettingsRecord(
     tts_voice="es_ES-mls-medium",
     suggestion_count=3,
     whisper_model="base",
-    updated_at=datetime.datetime.now(datetime.timezone.utc),
+    updated_at=datetime.datetime.now(datetime.UTC),
 )
 
 

@@ -1,8 +1,10 @@
-from pathlib import Path
-from app.services.stt.base import STTProvider, TranscriptionResult, STTError
-import pytest
-import wave
 import struct
+import wave
+from pathlib import Path
+
+import pytest
+
+from app.services.stt.base import STTError, STTProvider, TranscriptionResult
 
 
 class StubSTTProvider(STTProvider):
@@ -13,11 +15,11 @@ class StubSTTProvider(STTProvider):
 
 
 def make_wav(path: Path):
-    with wave.open(str(path), 'w') as f:
+    with wave.open(str(path), "w") as f:
         f.setnchannels(1)
         f.setsampwidth(2)
         f.setframerate(16000)
-        data = struct.pack('<1000h', *[0] * 1000)
+        data = struct.pack("<1000h", *[0] * 1000)
         f.writeframes(data)
 
 

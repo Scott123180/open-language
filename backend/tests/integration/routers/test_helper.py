@@ -1,16 +1,15 @@
 """Integration tests for POST /api/chat/helper SSE endpoint (T103)."""
+
 import json
-import datetime
 from collections.abc import Iterator
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.routers.chat import _helper_sessions
 from app.services.factory import get_llm
 from app.services.llm.base import ChatMessage, LLMProvider
-from app.routers.chat import _helper_sessions
 
 
 class StubLLMProvider(LLMProvider):
@@ -35,7 +34,7 @@ def _parse_sse(raw: str) -> list[dict]:
     events = []
     for line in raw.splitlines():
         if line.startswith("data: "):
-            events.append(json.loads(line[len("data: "):]))
+            events.append(json.loads(line[len("data: ") :]))
     return events
 
 

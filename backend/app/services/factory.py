@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_db
+from app.flashcards.services.sqlite_storage import SQLiteFlashcardStorageProvider
+from app.flashcards.services.storage import FlashcardStorageProvider
 from app.services.llm.base import LLMProvider
 from app.services.scenario.base import ScenarioProvider
 from app.services.scenario.static import StaticScenarioProvider
@@ -25,6 +27,10 @@ def get_scenario_provider() -> ScenarioProvider:
 
 def get_storage(db: Session = Depends(get_db)) -> StorageProvider:
     return SQLiteStorageProvider(db)
+
+
+def get_flashcard_storage(db: Session = Depends(get_db)) -> FlashcardStorageProvider:
+    return SQLiteFlashcardStorageProvider(db)
 
 
 def get_app_settings(storage: StorageProvider = Depends(get_storage)) -> AppSettingsRecord:

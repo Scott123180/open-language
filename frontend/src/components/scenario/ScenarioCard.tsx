@@ -20,8 +20,8 @@ export default function ScenarioCard({
       style={{
         background: 'var(--color-surface)',
         border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius)',
-        boxShadow: 'var(--shadow)',
+        borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--shadow-sm)',
         padding: '24px',
         display: 'flex',
         flexDirection: 'column',
@@ -41,7 +41,7 @@ export default function ScenarioCard({
             padding: '8px 16px',
             background: 'none',
             border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius)',
+            borderRadius: 'var(--radius-md)',
             color: 'var(--color-text)',
             opacity: isLoading ? 0.6 : 1,
           }}
@@ -54,8 +54,8 @@ export default function ScenarioCard({
           style={{
             padding: '10px 24px',
             background: 'var(--color-primary)',
-            borderRadius: 'var(--radius)',
-            color: '#fff',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--color-text-on-primary)',
             fontWeight: 600,
             fontSize: '1rem',
             opacity: isLoading || isStartingChat ? 0.6 : 1,

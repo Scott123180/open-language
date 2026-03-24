@@ -24,9 +24,9 @@ export default function ErrorBanner({ message, onDismiss }: ErrorBannerProps) {
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '12px 16px',
-        backgroundColor: '#fef2f2',
+        backgroundColor: 'var(--color-error-subtle)',
         border: '1px solid var(--color-error)',
-        borderRadius: 'var(--radius)',
+        borderRadius: 'var(--radius-md)',
         color: 'var(--color-error)',
         gap: '12px',
       }}

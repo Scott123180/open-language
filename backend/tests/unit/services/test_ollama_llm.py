@@ -1,9 +1,9 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
-from app.services.llm.ollama import OllamaLLMProvider
 from app.services.llm.base import ChatMessage, LLMError
+from app.services.llm.ollama import OllamaLLMProvider
 
 
 def _make_messages() -> list[ChatMessage]:
@@ -16,7 +16,6 @@ def _make_messages() -> list[ChatMessage]:
 def test_model_name_property() -> None:
     provider = OllamaLLMProvider(model="llama3.1")
     assert provider.model_name == "llama3.1"
-
 
 
 def test_chat_returns_content() -> None:

@@ -1,4 +1,5 @@
 """Integration tests for learning tool endpoints (T077, T078, T087)."""
+
 import datetime
 from collections.abc import Iterator
 from pathlib import Path
@@ -13,7 +14,6 @@ from app.services.storage.base import AppSettingsRecord
 from app.services.storage.sqlite import SQLiteStorageProvider
 from tests.integration.conftest import make_test_session
 
-
 _DEFAULT_SETTINGS = AppSettingsRecord(
     llm_model="llama3.1",
     target_language="Spanish",
@@ -21,7 +21,7 @@ _DEFAULT_SETTINGS = AppSettingsRecord(
     tts_voice="es_ES-mls-medium",
     suggestion_count=3,
     whisper_model="base",
-    updated_at=datetime.datetime.now(datetime.timezone.utc),
+    updated_at=datetime.datetime.now(datetime.UTC),
 )
 
 
@@ -75,11 +75,14 @@ def _create_message(storage: SQLiteStorageProvider) -> int:
 
 # ---- Grammar ----
 
+
 def test_grammar_returns_result_and_not_cached(client_and_deps) -> None:
     client, storage, stub_llm = client_and_deps
     msg_id = _create_message(storage)
 
-    response = client.post("/api/learning/grammar", json={"message_id": msg_id, "content": "Tengo hambre"})
+    response = client.post(
+        "/api/learning/grammar", json={"message_id": msg_id, "content": "Tengo hambre"}
+    )
 
     assert response.status_code == 200
     data = response.json()
@@ -94,7 +97,9 @@ def test_grammar_second_call_returns_cached(client_and_deps) -> None:
     client.post("/api/learning/grammar", json={"message_id": msg_id, "content": "Tengo hambre"})
     assert stub_llm.call_count == 1
 
-    response = client.post("/api/learning/grammar", json={"message_id": msg_id, "content": "Tengo hambre"})
+    response = client.post(
+        "/api/learning/grammar", json={"message_id": msg_id, "content": "Tengo hambre"}
+    )
 
     assert response.status_code == 200
     data = response.json()
@@ -105,6 +110,7 @@ def test_grammar_second_call_returns_cached(client_and_deps) -> None:
 
 
 # ---- Translate ----
+
 
 def test_translate_returns_result(client_and_deps) -> None:
     client, storage, stub_llm = client_and_deps
@@ -123,6 +129,7 @@ def test_translate_returns_result(client_and_deps) -> None:
 
 # ---- Phrasing ----
 
+
 def test_phrasing_returns_result(client_and_deps) -> None:
     client, storage, stub_llm = client_and_deps
     msg_id = _create_message(storage)
@@ -139,6 +146,7 @@ def test_phrasing_returns_result(client_and_deps) -> None:
 
 
 # ---- Word Lookup (T087) ----
+
 
 def test_word_lookup_returns_result(client_and_deps) -> None:
     client, storage, stub_llm = client_and_deps
@@ -186,11 +194,21 @@ def test_word_lookup_different_selections_are_separate(client_and_deps) -> None:
 
     client.post(
         "/api/learning/word-lookup",
-        json={"message_id": msg_id, "selection": "hambre", "target_language": "Spanish", "native_language": "English"},
+        json={
+            "message_id": msg_id,
+            "selection": "hambre",
+            "target_language": "Spanish",
+            "native_language": "English",
+        },
     )
     response = client.post(
         "/api/learning/word-lookup",
-        json={"message_id": msg_id, "selection": "sed", "target_language": "Spanish", "native_language": "English"},
+        json={
+            "message_id": msg_id,
+            "selection": "sed",
+            "target_language": "Spanish",
+            "native_language": "English",
+        },
     )
 
     assert response.status_code == 200

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import * as api from '../../services/api'
+import { IconPlay, IconClock, IconCheck, IconGlobe, IconArrowLeftRight } from '../shared/icons'
 
 interface LearningToolPanelProps {
   messageId: number
@@ -147,7 +148,8 @@ export default function LearningToolPanel({
             onClick={() => { setPlayingMode('normal'); onReplay() }}
             aria-label="Replay"
           >
-            ▶ Replay
+            <IconPlay size={10} strokeWidth={2.5} />
+            Replay
           </button>
         )}
         {!isUser && onPlaySlower && (
@@ -161,7 +163,8 @@ export default function LearningToolPanel({
             onClick={() => { setPlayingMode('slower'); onPlaySlower() }}
             aria-label="Play slower"
           >
-            🐢 Slower
+            <IconClock size={10} />
+            Slower
           </button>
         )}
 
@@ -178,7 +181,7 @@ export default function LearningToolPanel({
             disabled={loadingTool !== null}
             aria-label="Grammar check"
           >
-            {loadingTool === 'grammar' ? <span role="status" style={spinnerStyle} /> : '✓'}
+            {loadingTool === 'grammar' ? <span role="status" style={spinnerStyle} /> : <IconCheck size={10} strokeWidth={2.5} />}
             Grammar
           </button>
         )}
@@ -188,7 +191,7 @@ export default function LearningToolPanel({
           disabled={loadingTool !== null}
           aria-label="Translate"
         >
-          {loadingTool === 'translate' ? <span role="status" style={spinnerStyle} /> : '🌐'}
+          {loadingTool === 'translate' ? <span role="status" style={spinnerStyle} /> : <IconGlobe size={10} />}
           Translate
         </button>
         {isUser && (
@@ -198,7 +201,7 @@ export default function LearningToolPanel({
             disabled={loadingTool !== null}
             aria-label="Alternative phrasing"
           >
-            {loadingTool === 'phrasing' ? <span role="status" style={spinnerStyle} /> : '↔'}
+            {loadingTool === 'phrasing' ? <span role="status" style={spinnerStyle} /> : <IconArrowLeftRight size={10} />}
             Phrasing
           </button>
         )}

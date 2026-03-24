@@ -1,14 +1,15 @@
 """Integration tests for the /api/conversations router."""
+
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services.factory import get_scenario_provider, get_storage, get_app_settings
+from app.services.factory import get_app_settings, get_scenario_provider, get_storage
 from app.services.scenario.static import StaticScenarioProvider
-from app.services.storage.sqlite import SQLiteStorageProvider
 from app.services.storage.base import AppSettingsRecord
+from app.services.storage.sqlite import SQLiteStorageProvider
 from tests.integration.conftest import make_test_session
 
 _VALID_SCENARIO_ID = "buy-train-ticket"
@@ -115,6 +116,7 @@ def test_list_conversations_ordered_newest_first_with_correct_shape(client: Test
 
     # Verify descending order by started_at
     from datetime import datetime
+
     dates = [datetime.fromisoformat(item["started_at"].replace("Z", "+00:00")) for item in items]
     assert dates == sorted(dates, reverse=True)
 
@@ -122,9 +124,6 @@ def test_list_conversations_ordered_newest_first_with_correct_shape(client: Test
 # T110 — GET /api/conversations/{id}/messages returns messages in created_at ASC order
 def test_get_conversation_messages_ordered_asc(client: TestClient) -> None:
     import time
-    from pathlib import Path
-    from tests.integration.conftest import make_test_session
-    from app.services.storage.sqlite import SQLiteStorageProvider
 
     # Create conversation via API first
     create_resp = client.post("/api/conversations", json={"scenario_id": _VALID_SCENARIO_ID})
@@ -144,6 +143,7 @@ def test_get_conversation_messages_ordered_asc(client: TestClient) -> None:
     assert len(messages) == 2
 
     from datetime import datetime
+
     dates = [datetime.fromisoformat(m["created_at"].replace("Z", "+00:00")) for m in messages]
     assert dates[0] <= dates[1]
     assert messages[0]["content"] == "First message"

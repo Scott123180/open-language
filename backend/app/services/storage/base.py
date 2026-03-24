@@ -48,6 +48,7 @@ class VocabularyItemRecord:
     native_language: str
     source_conversation_id: int | None
     saved_at: datetime
+    already_saved: bool = False
 
 
 @dataclass(frozen=True)

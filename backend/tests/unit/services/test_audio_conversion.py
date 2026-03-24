@@ -1,4 +1,5 @@
 """Unit tests for convert_webm_to_wav()."""
+
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -25,7 +26,7 @@ def test_subprocess_called_with_correct_ffmpeg_args(tmp_path: Path):
         return MagicMock(returncode=0)
 
     with patch("app.services.audio.conversion.subprocess.run", side_effect=fake_run) as mock_run:
-        result = convert_webm_to_wav(b"\x00\x01\x02\x03")
+        result = convert_webm_to_wav(b"\x00\x01\x02\x03")  # noqa: F841
 
     mock_run.assert_called_once()
     call_args = mock_run.call_args[0][0]  # positional first arg (the list)
@@ -84,9 +85,11 @@ def test_raises_runtime_error_on_ffmpeg_failure():
             stderr=b"FFmpeg error: invalid input",
         )
 
-    with patch("app.services.audio.conversion.subprocess.run", side_effect=fake_run):
-        with pytest.raises(RuntimeError, match="FFmpeg conversion failed"):
-            convert_webm_to_wav(b"\x00\x01\x02\x03")
+    with (
+        patch("app.services.audio.conversion.subprocess.run", side_effect=fake_run),
+        pytest.raises(RuntimeError, match="FFmpeg conversion failed"),
+    ):
+        convert_webm_to_wav(b"\x00\x01\x02\x03")
 
 
 def test_acodec_pcm_s16le_in_args():

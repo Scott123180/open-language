@@ -1,9 +1,17 @@
 from datetime import UTC, datetime
+from enum import Enum
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+
+
+class WordClassification(str, Enum):
+    NOT_PRACTICED = "not_practiced"
+    DIFFICULT = "difficult"
+    ALMOST_LEARNED = "almost_learned"
+    LEARNED = "learned"
 
 
 class VocabularyItem(Base):
@@ -21,3 +29,8 @@ class VocabularyItem(Base):
     saved_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
+    classification: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=WordClassification.NOT_PRACTICED.value
+    )
+    manual_override: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    tts_cache_path: Mapped[str | None] = mapped_column(String(500), nullable=True)

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 
 const POPOVER_WIDTH = 420
@@ -7,7 +8,7 @@ interface WordLookupPopoverProps {
   word: string
   result: string | null
   isLoading: boolean
-  onSave?: (word: string) => void
+  onSave?: (word: string) => Promise<void>
   onClose: () => void
   position?: { x: number; y: number }
 }
@@ -30,6 +31,19 @@ export default function WordLookupPopover({
   onClose,
   position,
 }: WordLookupPopoverProps) {
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+  const handleSave = async () => {
+    if (!onSave) return
+    setSaveState('saving')
+    try {
+      await onSave(word)
+      setSaveState('saved')
+    } catch {
+      setSaveState('error')
+    }
+  }
+
   const clampedLeft = position
     ? Math.min(
         Math.max(position.x - POPOVER_WIDTH / 2, POPOVER_MARGIN),
@@ -119,22 +133,49 @@ export default function WordLookupPopover({
         </div>
 
         {onSave && (
-          <button
-            onClick={() => onSave(word)}
-            disabled={!result}
-            style={{
-              width: '100%',
-              padding: '6px 12px',
-              background: result ? 'var(--color-primary)' : 'var(--color-border)',
-              color: result ? '#fff' : 'var(--color-text-muted)',
-              borderRadius: 'var(--radius)',
-              fontSize: '0.82rem',
-              fontWeight: 600,
-              cursor: result ? 'pointer' : 'not-allowed',
-            }}
-          >
-            Save Word
-          </button>
+          <>
+            <button
+              onClick={handleSave}
+              disabled={!result || saveState === 'saving' || saveState === 'saved'}
+              style={{
+                width: '100%',
+                padding: '6px 12px',
+                background:
+                  saveState === 'saved'
+                    ? '#22c55e'
+                    : result && saveState !== 'saving'
+                      ? 'var(--color-primary)'
+                      : 'var(--color-border)',
+                color: result && saveState !== 'saving' ? '#fff' : 'var(--color-text-muted)',
+                borderRadius: 'var(--radius)',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                cursor:
+                  !result || saveState === 'saving' || saveState === 'saved'
+                    ? 'not-allowed'
+                    : 'pointer',
+              }}
+            >
+              {saveState === 'saving'
+                ? 'Saving…'
+                : saveState === 'saved'
+                  ? 'Saved!'
+                  : 'Save Word'}
+            </button>
+            {saveState === 'error' && (
+              <p
+                role="alert"
+                style={{
+                  margin: '6px 0 0',
+                  fontSize: '0.8rem',
+                  color: '#ef4444',
+                  textAlign: 'center',
+                }}
+              >
+                Couldn't save — please try again.
+              </p>
+            )}
+          </>
         )}
       </div>
     </>

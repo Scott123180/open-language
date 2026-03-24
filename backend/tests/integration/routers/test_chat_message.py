@@ -1,4 +1,6 @@
 """Integration tests for POST /api/chat/{id}/message SSE endpoint."""
+
+import datetime
 import json
 import struct
 from collections.abc import Iterator
@@ -22,8 +24,6 @@ from app.services.storage.sqlite import SQLiteStorageProvider
 from app.services.tts.base import TTSProvider
 from tests.integration.conftest import make_test_session
 
-import datetime
-
 _DEFAULT_SETTINGS = AppSettingsRecord(
     llm_model="llama3.1",
     target_language="es",
@@ -31,7 +31,7 @@ _DEFAULT_SETTINGS = AppSettingsRecord(
     tts_voice="es_ES-mls-medium",
     suggestion_count=3,
     whisper_model="base",
-    updated_at=datetime.datetime.now(datetime.timezone.utc),
+    updated_at=datetime.datetime.now(datetime.UTC),
 )
 
 _VALID_SCENARIO_ID = "buy-train-ticket"
@@ -111,7 +111,7 @@ def _parse_sse_lines(raw_text: str) -> list[dict]:
     events = []
     for line in raw_text.splitlines():
         if line.startswith("data: "):
-            payload = line[len("data: "):]
+            payload = line[len("data: ") :]
             events.append(json.loads(payload))
     return events
 
@@ -218,7 +218,7 @@ def test_send_message_user_message_persisted(client_and_storage) -> None:
         json={"content": "Buenos dias", "input_source": "keyboard"},
     ) as response:
         response.read()
-        raw = response.text
+        _raw = response.text  # noqa: F841
 
     messages = storage.get_messages(conv_id)
     user_messages = [m for m in messages if m.role == "user"]
