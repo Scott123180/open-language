@@ -1,4 +1,6 @@
+import ReactMarkdown from 'react-markdown'
 import type { DeckCardItem, PracticeMode } from '../../services/flashcardsApi'
+import { IconVolume } from '../shared/icons'
 
 interface Props {
   card: DeckCardItem
@@ -36,16 +38,18 @@ export default function CardPrompt({ card, mode, nativeWord, isFlipped, onFlip }
     >
       {mode === 'listen' ? (
         <div
+          aria-label="Listen to the audio and recall the word"
           style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
             fontSize: '1rem',
             color: 'var(--color-text-muted)',
-            textAlign: 'center',
           }}
-          aria-label="Listen to the audio and recall the word"
         >
-          🎧 Listen and recall
+          <IconVolume size={20} /> Listen and recall
         </div>
-      ) : (
+      ) : mode === 'recall' ? (
         <div
           style={{
             fontSize: '2rem',
@@ -56,6 +60,19 @@ export default function CardPrompt({ card, mode, nativeWord, isFlipped, onFlip }
           }}
         >
           {prompt}
+        </div>
+      ) : (
+        <div
+          className="markdown-body"
+          style={{
+            fontSize: '0.95rem',
+            color: 'var(--color-text)',
+            lineHeight: 1.6,
+            width: '100%',
+            textAlign: 'left',
+          }}
+        >
+          <ReactMarkdown>{prompt ?? ''}</ReactMarkdown>
         </div>
       )}
 
@@ -73,15 +90,17 @@ export default function CardPrompt({ card, mode, nativeWord, isFlipped, onFlip }
               {card.word}
             </div>
           )}
-          {answer && mode !== 'fill_blank' && (
-            <div
-              style={{
-                fontSize: '1.5rem',
-                textAlign: 'center',
-                color: 'var(--color-text-muted)',
-              }}
-            >
+          {answer && mode === 'produce' && (
+            <div style={{ fontSize: '1.5rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
               {answer}
+            </div>
+          )}
+          {answer && mode !== 'produce' && mode !== 'fill_blank' && (
+            <div
+              className="markdown-body"
+              style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', lineHeight: 1.6, width: '100%', textAlign: 'left' }}
+            >
+              <ReactMarkdown>{answer}</ReactMarkdown>
             </div>
           )}
         </>

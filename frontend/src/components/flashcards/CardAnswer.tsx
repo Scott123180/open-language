@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ReactMarkdown from 'react-markdown'
 import * as api from '../../services/flashcardsApi'
 import type { LlmCacheType } from '../../services/flashcardsApi'
 
@@ -58,7 +59,7 @@ export default function CardAnswer({ vocabularyItemId, isFlipped }: Props) {
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius)',
               background: activeType === cacheType ? 'var(--color-primary)' : 'var(--color-surface)',
-              color: activeType === cacheType ? '#fff' : 'var(--color-text)',
+              color: activeType === cacheType ? 'var(--color-text-on-primary)' : 'var(--color-text)',
               cursor: 'pointer',
             }}
           >
@@ -72,17 +73,16 @@ export default function CardAnswer({ vocabularyItemId, isFlipped }: Props) {
       )}
 
       {infoState.content && !infoState.loading && (
-        <p
+        <div
           style={{
             fontSize: '0.9rem',
             lineHeight: 1.6,
             color: 'var(--color-text)',
-            margin: 0,
-            whiteSpace: 'pre-wrap',
           }}
+          className="markdown-body"
         >
-          {infoState.content}
-        </p>
+          <ReactMarkdown>{infoState.content}</ReactMarkdown>
+        </div>
       )}
 
       {infoState.error && (

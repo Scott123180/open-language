@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
 from app.flashcards.services.storage import FlashcardStorageProvider
+from app.services.llm.base import ChatMessage
 
 
 class LlmCacheService:
@@ -32,7 +31,6 @@ class LlmCacheService:
             cache_type="fill_blank",
             language=language,
             content=sentence,
-            generated_at=datetime.now(UTC),
         )
         return sentence
 
@@ -57,7 +55,6 @@ class LlmCacheService:
             cache_type=cache_type,
             language=language,
             content=content,
-            generated_at=datetime.now(UTC),
         )
         return content
 
@@ -69,7 +66,7 @@ class LlmCacheService:
             f"Create one natural sentence in {language} that uses the word '{word}'. "
             f"Replace the word with ___ in the sentence. Return only the sentence."
         )
-        return self._llm_client.generate(prompt)
+        return self._llm_client.chat([ChatMessage(role="user", content=prompt)])
 
     def _generate_content(self, word: str, cache_type: str, language: str) -> str:
         """Generate contextual information for a word using the LLM client."""
@@ -82,4 +79,4 @@ class LlmCacheService:
             "similar": f"List synonyms, antonyms, and easily confused words for '{word}' in {language}.",
         }
         prompt = prompts.get(cache_type, f"Explain the word '{word}' in {language}.")
-        return self._llm_client.generate(prompt)
+        return self._llm_client.chat([ChatMessage(role="user", content=prompt)])

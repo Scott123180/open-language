@@ -100,7 +100,7 @@ test.describe('FlashcardDecks page', () => {
   })
 
   test('shows deck list', async ({ page }) => {
-    await expect(page.getByText('Deck — Mar 22, 2026')).toBeVisible()
+    await expect(page.getByText('Recall · Mixed Review')).toBeVisible()
   })
 
   test('shows Practice button for each deck', async ({ page }) => {
@@ -111,9 +111,10 @@ test.describe('FlashcardDecks page', () => {
     await expect(page.getByText(/2 cards/i)).toBeVisible()
   })
 
-  test('New Deck button opens config panel', async ({ page }) => {
+  test('New Deck button opens wizard modal', async ({ page }) => {
     await page.getByRole('button', { name: /new deck/i }).click()
-    await expect(page.getByText('Configure Deck')).toBeVisible()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await expect(page.getByText('How many cards?')).toBeVisible()
   })
 })
 

@@ -164,9 +164,9 @@ test.describe('Flashcards word list', () => {
   })
 })
 
-// ── T047: Deck config panel tests ─────────────────────────────────────────────
+// ── T047: Deck creation wizard tests ──────────────────────────────────────────
 
-test.describe('Deck configuration panel', () => {
+test.describe('Deck creation wizard', () => {
   test.beforeEach(async ({ page }) => {
     const deckList = [
       {
@@ -201,41 +201,87 @@ test.describe('Deck configuration panel', () => {
     await page.goto('/flashcards/decks')
   })
 
-  test('New Deck button shows config panel', async ({ page }) => {
+  test('New Deck button opens wizard modal', async ({ page }) => {
     await page.getByRole('button', { name: /new deck/i }).click()
-    await expect(page.getByText('Configure Deck')).toBeVisible()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await expect(page.getByText('How many cards?')).toBeVisible()
   })
 
-  test('config panel shows size presets', async ({ page }) => {
+  test('step 1 shows size preset tiles', async ({ page }) => {
     await page.getByRole('button', { name: /new deck/i }).click()
     await expect(page.getByRole('button', { name: '10' })).toBeVisible()
     await expect(page.getByRole('button', { name: '20' })).toBeVisible()
     await expect(page.getByRole('button', { name: '40' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /custom/i })).toBeVisible()
   })
 
-  test('config panel has practice mode dropdown', async ({ page }) => {
-    await page.getByRole('button', { name: /new deck/i }).click()
-    await expect(page.getByRole('combobox', { name: /practice mode/i })).toBeVisible()
-  })
-
-  test('config panel has algorithm dropdown', async ({ page }) => {
-    await page.getByRole('button', { name: /new deck/i }).click()
-    await expect(page.getByRole('combobox', { name: /generation algorithm/i })).toBeVisible()
-  })
-
-  test('Generate button creates deck and closes panel', async ({ page }) => {
+  test('Next advances from size step to practice mode step', async ({ page }) => {
     await page.getByRole('button', { name: /new deck/i }).click()
     await page.getByRole('button', { name: '10' }).click()
-    await page.getByRole('button', { name: /generate/i }).click()
-    // Panel closes after successful creation
-    await expect(page.getByText('Configure Deck')).not.toBeVisible()
+    await page.getByRole('button', { name: /next/i }).click()
+    await expect(page.getByText('How do you want to practice?')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Recall See the word, recall its translation' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /produce/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /fill in the blank/i })).toBeVisible()
   })
 
-  test('Cancel button closes config panel', async ({ page }) => {
+  test('Next advances from practice mode step to word selection step', async ({ page }) => {
     await page.getByRole('button', { name: /new deck/i }).click()
-    await expect(page.getByText('Configure Deck')).toBeVisible()
+    await page.getByRole('button', { name: '10' }).click()
+    await page.getByRole('button', { name: /next/i }).click()
+    await page.getByRole('button', { name: /next/i }).click()
+    await expect(page.getByText('Which words?')).toBeVisible()
+    await expect(page.getByRole('button', { name: /mixed review/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /new words/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /difficult/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /almost learned/i })).toBeVisible()
+  })
+
+  test('Back returns to previous step', async ({ page }) => {
+    await page.getByRole('button', { name: /new deck/i }).click()
+    await page.getByRole('button', { name: '10' }).click()
+    await page.getByRole('button', { name: /next/i }).click()
+    await expect(page.getByText('How do you want to practice?')).toBeVisible()
+    await page.getByRole('button', { name: /back/i }).click()
+    await expect(page.getByText('How many cards?')).toBeVisible()
+  })
+
+  test('Generate Deck creates deck and closes modal', async ({ page }) => {
+    await page.getByRole('button', { name: /new deck/i }).click()
+    await page.getByRole('button', { name: '10' }).click()
+    await page.getByRole('button', { name: /next/i }).click()
+    await page.getByRole('button', { name: /next/i }).click()
+    await page.getByRole('button', { name: /generate deck/i }).click()
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+  })
+
+  test('Cancel button on step 1 closes modal', async ({ page }) => {
+    await page.getByRole('button', { name: /new deck/i }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByRole('button', { name: /cancel/i }).click()
-    await expect(page.getByText('Configure Deck')).not.toBeVisible()
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+  })
+
+  test('Close button dismisses modal', async ({ page }) => {
+    await page.getByRole('button', { name: /new deck/i }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.getByRole('button', { name: /close/i }).click()
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+  })
+
+  test('Escape key dismisses modal', async ({ page }) => {
+    await page.getByRole('button', { name: /new deck/i }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+  })
+
+  test('clicking backdrop dismisses modal', async ({ page }) => {
+    await page.getByRole('button', { name: /new deck/i }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.mouse.click(10, 10)
+    await expect(page.getByRole('dialog')).not.toBeVisible()
   })
 })
 

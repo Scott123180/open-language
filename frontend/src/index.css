@@ -293,3 +293,33 @@ svg[aria-hidden="true"] { vertical-align: middle; }
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Hide browser number input spinners — inconsistent with design system */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Markdown rendered output (CardAnswer info panels) */
+.markdown-body p { margin: 0 0 8px; }
+.markdown-body p:last-child { margin-bottom: 0; }
+.markdown-body ul, .markdown-body ol { padding-left: 20px; margin: 0 0 8px; }
+.markdown-body li { margin-bottom: 4px; }
+.markdown-body strong { font-weight: var(--weight-semibold); }
+.markdown-body em { font-style: italic; }
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  margin: 12px 0 4px;
+  color: var(--color-text);
+}
+.markdown-body code {
+  font-size: 0.85em;
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+}

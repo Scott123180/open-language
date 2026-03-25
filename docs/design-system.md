@@ -319,6 +319,182 @@ Use `--color-text-muted` with hover to `--color-text`. Never use `--color-primar
 
 Sticky, 56px tall (`--nav-height`), `--color-surface` background, bottom border in `--color-border`. Contains: app name (left, `--weight-bold`, `--text-md`) and theme toggle (right, `.theme-toggle` class).
 
+### Modal Dialogs
+
+Use a modal when the user must make a decision that **interrupts the current context** — creating a new item, confirming a destructive action, or entering a focused sub-task. The backdrop signals "you are in a sub-task; everything else is paused."
+
+**Never use an inline-expanding panel for creation flows.** Inline panels keep existing content visible and scrollable, which competes for attention. A modal enforces focus.
+
+**Structure:**
+
+```tsx
+{/* Backdrop — sibling to dialog, not parent */}
+<div
+  aria-hidden="true"
+  onClick={onClose}
+  style={{
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(28, 25, 23, 0.5)',  /* warm near-black, matches shadow color */
+    backdropFilter: 'blur(4px)',
+    zIndex: 40,
+  }}
+/>
+
+{/* Dialog */}
+<div
+  role="dialog"
+  aria-modal="true"
+  aria-label="[descriptive label]"
+  style={{
+    position: 'fixed',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: 'min(480px, calc(100vw - 48px))',
+    maxHeight: 'calc(100vh - 64px)',
+    overflowY: 'auto',
+    background: 'var(--color-surface)',
+    borderRadius: 'var(--radius-xl)',    /* 16px — large surface */
+    boxShadow: 'var(--shadow-lg)',
+    padding: '32px',
+    zIndex: 50,
+  }}
+>
+  {/* Close button — top-right, always visible */}
+  <button
+    onClick={onClose}
+    aria-label="Close"
+    style={{ position: 'absolute', top: '16px', right: '16px', ... }}
+  >
+    ×
+  </button>
+  {/* Content */}
+</div>
+```
+
+**Rules:**
+- Backdrop and dialog are **siblings**, not parent/child — click events on the dialog do not bubble to the backdrop.
+- Use `backdropFilter: blur(4px)` to visually recede the background without hiding it entirely.
+- Always wire `Escape` to close: `document.addEventListener('keydown', ...)` in a `useEffect` that cleans up on unmount.
+- `role="dialog"` + `aria-modal="true"` + `aria-label` are required for screen reader support.
+- The close `×` character is permitted per the icon rules (Unicode text character, not emoji), but must have `aria-label="Close"`.
+- Width uses `min(480px, calc(100vw - 48px))` to stay within viewport on mobile.
+- `zIndex` convention: backdrop at 40, dialog at 50.
+
+---
+
+### Stepped Wizard
+
+Use a stepped wizard when a creation or configuration flow has **3 or more independent decisions** that would overwhelm a single form. Each step presents exactly one question, enforcing the "one primary action per screen" principle at the micro-flow level.
+
+**When to use a wizard vs a single form:**
+- ≥ 3 distinct, independent decisions → wizard
+- 1–2 related fields → single form within a modal
+- A destructive confirmation → single modal, no steps
+
+**Progress dots:**
+
+```tsx
+{Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+  <div
+    key={i}
+    style={{
+      height: '8px',
+      width: i === step ? '24px' : '8px',   /* active dot expands */
+      borderRadius: '9999px',
+      background: i === step
+        ? 'var(--color-primary)'
+        : i < step
+        ? 'var(--color-primary-subtle)'      /* completed */
+        : 'var(--color-border)',             /* upcoming */
+      transition: 'width 150ms ease, background 150ms ease',
+    }}
+  />
+))}
+```
+
+**Step heading structure:**
+
+Each step gets a large heading (`1.75rem`, `font-weight: 700`, `letter-spacing: -0.02em`) phrased as a question ("How many cards?"), a small uppercase step counter above it, and a one-line subtitle in muted text below.
+
+```
+Step 1 of 3          ← --text-xs, uppercase, muted
+How many cards?      ← 1.75rem, bold, -0.02em tracking
+Choose a session size. You can always create more decks later.  ← --text-sm, muted
+```
+
+**Navigation pattern:**
+- Step 1: **Cancel** (ghost, left) + **Next →** (primary, right)
+- Middle steps: **Back** (outlined, left) + **Next →** (primary, right)
+- Final step: **Back** (outlined, left) + **Generate / Submit** (primary, right)
+- "Generate" only appears on the final step — never prematurely.
+- The Back button preserves all previously entered state.
+
+---
+
+### Selection Tile Cards
+
+Use selection tiles — not `<select>` dropdowns — when the user needs to **choose one option from a small set (2–6)** and the options benefit from visible descriptions.
+
+**Why not dropdowns:**
+- Dropdowns hide all options until clicked — the user cannot survey their choices at a glance.
+- Option descriptions cannot be shown in `<option>` elements without hacks.
+- Dropdowns are visually subordinate; tiles make the decision feel intentional.
+
+**Tile anatomy:**
+
+```tsx
+<button
+  onClick={() => setValue(option.value)}
+  style={{
+    padding: '16px 20px',
+    border: `2px solid ${selected ? 'var(--color-primary)' : 'var(--color-border)'}`,
+    borderRadius: 'var(--radius-lg)',
+    background: selected ? 'var(--color-primary-subtle)' : 'var(--color-surface)',
+    cursor: 'pointer',
+    textAlign: 'left',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    transition: 'border-color 80ms ease, background 80ms ease',
+    width: '100%',
+  }}
+>
+  <span style={{ fontSize: '1.125rem', fontWeight: 600, color: selected ? 'var(--color-primary-text)' : 'var(--color-text)' }}>
+    {option.label}
+  </span>
+  <span style={{ fontSize: '0.875rem', color: selected ? 'var(--color-primary-text)' : 'var(--color-text-muted)' }}>
+    {option.description}
+  </span>
+</button>
+```
+
+**Selected state:** `--color-primary-subtle` background + `--color-primary` border + `--color-primary-text` for all text within the tile. Never use `#fff` on teal backgrounds.
+
+**Numeric tiles** (e.g., card count presets): use `1.75rem` bold for the number, a short sublabel in muted text on the right, row layout (`flex-direction: row`, `justify-content: space-between`).
+
+**Custom entry tile:** treat "Custom" as a fourth tile that, when selected, expands to reveal a large `<input type="number">` inside itself. Do not render the input as a separate sibling element in the row — this avoids the width-constrained, label-truncation problem of inline inputs.
+
+```tsx
+{/* Custom tile — self-contained */}
+<button onClick={() => setUseCustom(true)} style={tileStyle(useCustom)}>
+  <span>Custom</span>
+  {useCustom && (
+    <input
+      type="number"
+      autoFocus
+      onClick={(e) => e.stopPropagation()}  /* prevent tile toggle on input click */
+      style={{ fontSize: '1.75rem', fontWeight: 700, textAlign: 'center', width: '100%', ... }}
+    />
+  )}
+</button>
+```
+
+**Layout:** stack tiles vertically with `gap: 10px`. Do not use a grid — vertical stacking makes scanning and tapping easier on narrow viewports.
+
+---
+
 ### Forms & Inputs
 
 ```css
@@ -457,6 +633,193 @@ These are typographic characters, not emoji — they inherit color, scale with f
 
 ---
 
+## Data Cards & List Items
+
+When a screen shows a list of user-created items (decks, sessions, conversations), each item carries multiple types of information. Without deliberate structure, all fields render at the same visual weight and the list becomes unreadable at scale.
+
+### The three-layer model
+
+Every data card must be designed around three distinct layers. Each layer has a different visual weight and a different job:
+
+| Layer | Job | Visual treatment |
+|---|---|---|
+| **Identity** | What *type* of thing is this? | Prominent icons, bold label, top of the card |
+| **Status** | How is it *doing*? When was it last used? | Color-coded values, progress bars, relative time |
+| **Action** | What can I *do* with it? | Primary button (one), secondary button (one max) |
+
+If you can't immediately answer "what is this thing?" from the identity layer alone, the card is under-designed.
+
+### Identity marks
+
+Use the feature's own icon vocabulary as a visual fingerprint on each card. Two cards with different configurations should look visually distinct before the user reads a single word.
+
+- Group the icons in a raised container (`--color-surface-raised` background, `--radius-md`) on the left edge of the card
+- Size: 20px — large enough to read at a glance, not so large they dominate
+- Color: `--color-primary` — the teal tint signals "this is the type identifier"
+- Stack vertically when showing two related icons (e.g., mode icon above algorithm icon)
+
+```tsx
+<div style={{
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '10px 8px',
+  background: 'var(--color-surface-raised)',
+  borderRadius: 'var(--radius-md)',
+  color: 'var(--color-primary)',
+  flexShrink: 0,
+}}>
+  {modeIcon}
+  {algorithmIcon}
+</div>
+```
+
+### Card title: derived from configuration, not from timestamp
+
+**Never use a timestamp as the primary title of a data card.** Auto-generated names like "Deck — Mar 22, 2026" are low-information — the date is already expressed by the status layer. The title slot is the most prominent text on the card; it should answer "what IS this?"
+
+Derive the title from the item's configuration:
+```tsx
+// Good — tells the user what kind of deck this is
+{MODE_LABELS[deck.practice_mode]} · {ALGO_LABELS[deck.algorithm]}
+
+// Bad — tells the user when it was made, which belongs in the status layer
+{deck.name}  // "Deck — Mar 22, 2026"
+```
+
+### Status badges
+
+Use a pill badge to surface a discrete state that changes the meaning of the card. The most common case is "New" for items that have never been interacted with.
+
+```tsx
+{isNew && (
+  <span style={{
+    fontSize: '0.7rem',
+    fontWeight: 600,
+    letterSpacing: '0.05em',
+    textTransform: 'uppercase',
+    background: 'var(--color-primary-subtle)',
+    color: 'var(--color-primary-text)',
+    borderRadius: '9999px',
+    padding: '2px 8px',
+  }}>
+    New
+  </span>
+)}
+```
+
+Rules:
+- Badges sit inline with the card title, not below it
+- One badge maximum per card — if you need two, reconsider the information architecture
+- Use `--color-primary-subtle` / `--color-primary-text` for neutral state badges ("New", "Active")
+- Use `--color-warning-subtle` / `--color-warning` for time-sensitive badges ("Due", "Expiring")
+- Use `--color-error-subtle` / `--color-error` for problem badges ("Failed", "Blocked")
+
+### Progress bars
+
+A thin horizontal bar communicates a 0–100% value faster than a number. Use for accuracy, completion, and progress metrics.
+
+```tsx
+<div style={{
+  flex: 1,
+  height: '4px',
+  background: 'var(--color-border)',
+  borderRadius: '9999px',
+  overflow: 'hidden',
+}}>
+  <div style={{
+    height: '100%',
+    width: `${value * 100}%`,
+    background: fillColor,
+    borderRadius: '9999px',
+    transition: 'width 300ms ease',
+  }} />
+</div>
+```
+
+Always pair the bar with a numeric label on the same row — the bar gives instant gestalt, the number gives precision:
+
+```tsx
+<div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+  <div style={{ flex: 1 }}>  {/* bar */} </div>
+  <span style={{ fontSize: '0.75rem', fontWeight: 600, flexShrink: 0 }}>72%</span>
+</div>
+```
+
+Bar height: 4px is the standard. 6px for more prominent progress (e.g., a full-width section bar). Never exceed 8px — taller bars read as filled buttons, not progress indicators.
+
+### Color-coded status values
+
+Accuracy, scores, and health metrics should use a three-tier color system. Apply the color to both the progress bar fill and the accompanying numeric label so they read as a unit:
+
+| Threshold | Color token | Meaning |
+|---|---|---|
+| ≥ 80% | `--color-success` | Doing well |
+| 60–79% | `--color-warning` | Needs attention |
+| < 60% | `--color-error` | Struggling |
+
+```ts
+function accuracyColor(accuracy: number): string {
+  if (accuracy >= 0.8) return 'var(--color-success)'
+  if (accuracy >= 0.6) return 'var(--color-warning)'
+  return 'var(--color-error)'
+}
+```
+
+Never use raw green/yellow/red hex values. Always use the semantic tokens — they adapt to dark mode automatically.
+
+### Timestamps
+
+Use a short formatted date ("Mar 22") for recency fields on data cards. Omit the year when it matches the current year. Use `toLocaleDateString` with `{ month: 'short', day: 'numeric' }` — never hardcode a format string.
+
+### Full card structure example
+
+```tsx
+<li style={{
+  background: 'var(--color-surface)',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-lg)',   /* always --radius-lg for list cards */
+  padding: '16px 20px',
+  display: 'flex',
+  gap: '16px',
+  alignItems: 'flex-start',
+  boxShadow: 'var(--shadow-sm)',
+}}>
+  {/* Layer 1: Identity */}
+  <div style={{ ...identityBlockStyle }}>
+    {typeIconA}
+    {typeIconB}
+  </div>
+
+  {/* Layer 2: Status */}
+  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <span style={{ fontWeight: 600, fontSize: '1rem' }}>{derivedTitle}</span>
+      {isNew && <NewBadge />}
+    </div>
+    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+      {subtitle} · {relativeTime(item.last_active_at)}
+    </div>
+    {accuracy != null && <AccuracyBar value={accuracy} />}
+  </div>
+
+  {/* Layer 3: Actions — stacked vertically, right-aligned */}
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
+    <PrimaryButton />
+    <SecondaryButton />
+  </div>
+</li>
+```
+
+Key rules:
+- Cards in lists always use `--radius-lg` (12px), never `--radius` / `--radius-md`
+- Always include `box-shadow: var(--shadow-sm)` — lifts the card off the background subtly
+- Action buttons stack **vertically** on the right when there are two — horizontal stacking pushes content too wide on narrow viewports
+- `flex: 1; min-width: 0` on the status column prevents text overflow bleeding outside the card
+
+---
+
 ## Do's and Don'ts
 
 | Do | Don't |
@@ -464,8 +827,15 @@ These are typographic characters, not emoji — they inherit color, scale with f
 | Use `var(--color-text-on-primary)` for text on primary backgrounds | Hardcode `#fff` or `#000` on colored backgrounds |
 | Use `--color-text-muted` for secondary nav, back links | Use `--color-primary` for navigation text (blue-on-blue-dark problem) |
 | Add `--color-error-subtle` for error message backgrounds | Hardcode `#fef2f2` |
-| Use `--radius-lg` (12px) for cards | Use `--radius` / 8px for cards (too sharp) |
+| Use `--radius-lg` (12px) for cards and list items | Use `--radius` / 8px for cards (too sharp) |
 | Use `--shadow-sm` (warm-tinted) | Use `box-shadow: 0 1px 3px rgba(0,0,0,0.1)` (cold shadow) |
 | Build hierarchy with font size and weight | Add decorative borders, backgrounds, or gradients for hierarchy |
 | Keep the content column at `--width-content` (480px) | Widen content for "breathing room" — whitespace comes from page padding |
 | Use `var(--color-success)` directly | Use `var(--color-success, green)` — the fallback means the token is undefined |
+| Use short formatted dates ("Mar 22") for recency fields on cards | Hardcode date format strings — use `toLocaleDateString` with options |
+| Derive card titles from item configuration (mode, type, category) | Use auto-generated timestamp names ("Deck — Mar 22, 2026") as the primary title |
+| Color-code accuracy/score values with success/warning/error tokens | Show raw percentages in muted text with no visual encoding |
+| Use `--color-surface-raised` for icon identity blocks within cards | Leave icon identity areas with no background distinction |
+| Use a modal with blurred backdrop for creation/configuration flows | Expand inline panels that leave existing content visible and competing for attention |
+| Use stepped wizards for flows with ≥ 3 independent decisions | Put all options in one dense form when choices benefit from focused attention |
+| Use selection tile cards for small option sets (2–6) with descriptions | Use `<select>` dropdowns that hide options until clicked |

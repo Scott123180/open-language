@@ -4,10 +4,36 @@ interface Props {
   onRate: (rating: Rating) => void
 }
 
-const RATINGS: Array<{ rating: Rating; label: string; color: string }> = [
-  { rating: 'didnt_know', label: "Didn't Know", color: '#ef4444' },
-  { rating: 'guessed', label: 'Guessed Correctly', color: '#f59e0b' },
-  { rating: 'knew_it', label: 'Knew It', color: '#22c55e' },
+interface RatingOption {
+  rating: Rating
+  label: string
+  bg: string
+  color: string
+  border: string
+}
+
+const RATINGS: RatingOption[] = [
+  {
+    rating: 'didnt_know',
+    label: "Didn't Know",
+    bg: 'var(--color-error-subtle)',
+    color: 'var(--color-error)',
+    border: 'var(--color-error)',
+  },
+  {
+    rating: 'guessed',
+    label: 'Guessed',
+    bg: 'var(--color-surface-raised)',
+    color: 'var(--color-warning)',
+    border: 'var(--color-warning)',
+  },
+  {
+    rating: 'knew_it',
+    label: 'Knew It',
+    bg: 'var(--color-success-subtle)',
+    color: 'var(--color-success)',
+    border: 'var(--color-success)',
+  },
 ]
 
 export default function SelfAssessmentBar({ onRate }: Props) {
@@ -21,7 +47,7 @@ export default function SelfAssessmentBar({ onRate }: Props) {
         flexWrap: 'wrap',
       }}
     >
-      {RATINGS.map(({ rating, label, color }) => (
+      {RATINGS.map(({ rating, label, bg, color, border }) => (
         <button
           key={rating}
           aria-label={label}
@@ -29,12 +55,13 @@ export default function SelfAssessmentBar({ onRate }: Props) {
           style={{
             padding: '10px 20px',
             borderRadius: 'var(--radius)',
-            border: `2px solid ${color}`,
-            background: 'transparent',
+            border: `1px solid ${border}`,
+            background: bg,
             color: color,
-            fontWeight: 600,
-            fontSize: '0.9rem',
+            fontWeight: 'var(--weight-semibold)' as never,
+            fontSize: 'var(--text-sm)',
             cursor: 'pointer',
+            transition: 'var(--transition-base)',
           }}
         >
           {label}
