@@ -18,50 +18,69 @@ const makeWord = (overrides: Partial<WordListItemType> = {}): WordListItemType =
 
 describe('WordListItem', () => {
   it('renders the word', () => {
-    render(<WordListItem word={makeWord()} onDelete={vi.fn()} onClassify={vi.fn()} />)
+    render(<WordListItem word={makeWord()} onDelete={vi.fn()} />)
     expect(screen.getByText('bonjour')).toBeInTheDocument()
   })
 
   it('renders the translation', () => {
-    render(<WordListItem word={makeWord()} onDelete={vi.fn()} onClassify={vi.fn()} />)
+    render(<WordListItem word={makeWord()} onDelete={vi.fn()} />)
     expect(screen.getByText('hello')).toBeInTheDocument()
   })
 
   it('renders the classification badge', () => {
-    render(<WordListItem word={makeWord({ classification: 'difficult' })} onDelete={vi.fn()} onClassify={vi.fn()} />)
-    // Badge span and dropdown option both show "Difficult" — use getAllByText
-    const matches = screen.getAllByText(/difficult/i)
-    expect(matches.length).toBeGreaterThanOrEqual(1)
-    expect(matches.some((el) => el.tagName.toLowerCase() === 'span')).toBe(true)
+    render(<WordListItem word={makeWord({ classification: 'difficult' })} onDelete={vi.fn()} />)
+    const badge = screen.getByText(/difficult/i)
+    expect(badge.tagName.toLowerCase()).toBe('span')
   })
 
   it('renders a delete button', () => {
-    render(<WordListItem word={makeWord()} onDelete={vi.fn()} onClassify={vi.fn()} />)
-    expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument()
+    render(<WordListItem word={makeWord()} onDelete={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /delete bonjour/i })).toBeInTheDocument()
   })
 
-  it('calls onDelete when delete button is clicked', () => {
+  it('shows confirm prompt on first delete click', () => {
+    render(<WordListItem word={makeWord()} onDelete={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /delete bonjour/i }))
+    expect(screen.getByRole('button', { name: /delete\?/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument()
+  })
+
+  it('calls onDelete after confirming', () => {
     const onDelete = vi.fn()
-    render(<WordListItem word={makeWord()} onDelete={onDelete} onClassify={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: /delete/i }))
+    render(<WordListItem word={makeWord()} onDelete={onDelete} />)
+    fireEvent.click(screen.getByRole('button', { name: /delete bonjour/i }))
+    fireEvent.click(screen.getByRole('button', { name: /delete\?/i }))
     expect(onDelete).toHaveBeenCalledWith(1)
   })
 
-  it('calls onClassify when classification is changed', () => {
-    const onClassify = vi.fn()
-    render(<WordListItem word={makeWord()} onDelete={vi.fn()} onClassify={onClassify} />)
-    const select = screen.getByRole('combobox', { name: /change classification/i })
-    fireEvent.change(select, { target: { value: 'difficult' } })
-    expect(onClassify).toHaveBeenCalledWith(1, 'difficult')
+  it('cancels delete and restores trash button', () => {
+    const onDelete = vi.fn()
+    render(<WordListItem word={makeWord()} onDelete={onDelete} />)
+    fireEvent.click(screen.getByRole('button', { name: /delete bonjour/i }))
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(onDelete).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: /delete bonjour/i })).toBeInTheDocument()
   })
 
-  it('shows all classification options in the classify dropdown', () => {
-    render(<WordListItem word={makeWord()} onDelete={vi.fn()} onClassify={vi.fn()} />)
-    const select = screen.getByRole('combobox', { name: /change classification/i })
-    const options = Array.from(select.querySelectorAll('option')).map((o) => o.value)
-    expect(options).toContain('not_practiced')
-    expect(options).toContain('difficult')
-    expect(options).toContain('almost_learned')
-    expect(options).toContain('learned')
+  it('does not render a checkbox when onToggleSelect is not provided', () => {
+    render(<WordListItem word={makeWord()} onDelete={vi.fn()} />)
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+  })
+
+  it('renders a checkbox when onToggleSelect is provided', () => {
+    render(<WordListItem word={makeWord()} onDelete={vi.fn()} onToggleSelect={vi.fn()} isSelected={false} />)
+    expect(screen.getByRole('checkbox')).toBeInTheDocument()
+  })
+
+  it('calls onToggleSelect when checkbox is clicked', () => {
+    const onToggleSelect = vi.fn()
+    render(<WordListItem word={makeWord()} onDelete={vi.fn()} onToggleSelect={onToggleSelect} isSelected={false} />)
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(onToggleSelect).toHaveBeenCalledWith(1)
+  })
+
+  it('checkbox is checked when isSelected is true', () => {
+    render(<WordListItem word={makeWord()} onDelete={vi.fn()} onToggleSelect={vi.fn()} isSelected={true} />)
+    expect(screen.getByRole('checkbox')).toBeChecked()
   })
 })

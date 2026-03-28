@@ -155,6 +155,28 @@ class TestDeleteWord:
         assert response.status_code == 404
 
 
+class TestBulkDeleteWords:
+    def test_deletes_multiple_words(self, client, three_words):
+        ids = [three_words[0].id, three_words[1].id]
+        response = client.request("DELETE", "/api/flashcards/words", json={"ids": ids})
+        assert response.status_code == 200
+        assert response.json()["deleted"] == 2
+
+        list_response = client.get("/api/flashcards/words")
+        remaining = list_response.json()
+        assert len(remaining) == 1
+        assert remaining[0]["word"] == "oui"
+
+    def test_returns_zero_deleted_for_missing_ids(self, client):
+        response = client.request("DELETE", "/api/flashcards/words", json={"ids": [9998, 9999]})
+        assert response.status_code == 200
+        assert response.json()["deleted"] == 0
+
+    def test_rejects_empty_ids_list(self, client):
+        response = client.request("DELETE", "/api/flashcards/words", json={"ids": []})
+        assert response.status_code == 422
+
+
 # ---------------------------------------------------------------------------
 # T066 — GET /api/flashcards/words/{id}/info/{cache_type}
 # ---------------------------------------------------------------------------

@@ -68,6 +68,14 @@ class ClassificationUpdateRequest(BaseModel):
     classification: WordClassificationEnum
 
 
+class BulkDeleteRequest(BaseModel):
+    ids: list[int] = Field(..., min_length=1)
+
+
+class BulkDeleteResponse(BaseModel):
+    deleted: int
+
+
 # ---------------------------------------------------------------------------
 # Decks
 # ---------------------------------------------------------------------------

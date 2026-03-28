@@ -162,11 +162,14 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 // Word library endpoints
 // ---------------------------------------------------------------------------
 
+export type WordSort = 'saved_at_desc' | 'saved_at_asc' | 'word_asc' | 'classification_desc'
+
 export interface WordFilters {
   classification?: WordClassification[]
   date_from?: string
   date_to?: string
   search?: string
+  date_preset?: 'week' | 'month'
 }
 
 export function fetchWords(filters: WordFilters = {}): Promise<WordListItem[]> {
@@ -191,6 +194,13 @@ export function updateClassification(
 
 export function deleteWord(id: number): Promise<void> {
   return apiFetch<void>(`/words/${id}`, { method: 'DELETE' })
+}
+
+export function deleteWords(ids: number[]): Promise<{ deleted: number }> {
+  return apiFetch<{ deleted: number }>('/words', {
+    method: 'DELETE',
+    body: JSON.stringify({ ids }),
+  })
 }
 
 export function fetchWordInfo(id: number, cacheType: LlmCacheType): Promise<LlmCacheResponse> {

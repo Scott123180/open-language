@@ -10,6 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 
 from app.flashcards.schemas import (
+    BulkDeleteRequest,
+    BulkDeleteResponse,
     CardResultRequest,
     CardResultResponse,
     ClassificationUpdateRequest,
@@ -103,6 +105,15 @@ def patch_word_classification(
         saved_at=updated.saved_at,
         source_conversation_id=updated.source_conversation_id,
     )
+
+
+@router.delete("/words", response_model=BulkDeleteResponse)
+def bulk_delete_words(
+    body: BulkDeleteRequest,
+    storage: FlashcardStorageProvider = Depends(_storage),
+) -> BulkDeleteResponse:
+    deleted = storage.delete_words(body.ids)
+    return BulkDeleteResponse(deleted=deleted)
 
 
 @router.delete("/words/{vocabulary_item_id}", status_code=204)

@@ -123,32 +123,88 @@ test.describe('Flashcards word list', () => {
     await expect(page.getByText('merci')).not.toBeVisible()
   })
 
-  test('delete word removes it from the list', async ({ page }) => {
-    await page.route('/api/flashcards/words/1', (route) => {
+  test('delete word shows confirm prompt then removes it', async ({ page }) => {
+    let deleted = false
+    await page.route('/api/flashcards/words**', (route) => {
       if (route.request().method() === 'DELETE') {
+        deleted = true
         return route.fulfill({ status: 204, body: '' })
       }
+      return route.fulfill({ json: deleted ? mockWords.filter((w) => w.id !== 1) : mockWords })
     })
-    const wordsAfterDelete = mockWords.filter((w) => w.id !== 1)
-    await page.route('/api/flashcards/words**', (route) => route.fulfill({ json: wordsAfterDelete }))
 
-    const deleteButtons = page.getByRole('button', { name: /delete/i })
-    await deleteButtons.first().click()
+    await page.getByRole('button', { name: /delete bonjour/i }).click()
+    await expect(page.getByRole('button', { name: /delete\?/i })).toBeVisible()
+    await page.getByRole('button', { name: /delete\?/i }).click()
     await expect(page.getByText('bonjour')).not.toBeVisible()
   })
 
-  test('classify dropdown updates word classification', async ({ page }) => {
-    const updatedWord = { ...mockWords[0], classification: 'difficult' }
-    await page.route('/api/flashcards/words/1/classification', (route) => {
-      if (route.request().method() === 'PATCH') {
-        return route.fulfill({ json: updatedWord })
-      }
-    })
-    const updatedWords = [updatedWord, ...mockWords.slice(1)]
-    await page.route('/api/flashcards/words**', (route) => route.fulfill({ json: updatedWords }))
+  test('delete cancel restores trash button without deleting', async ({ page }) => {
+    await page.getByRole('button', { name: /delete bonjour/i }).click()
+    await page.getByRole('button', { name: /cancel/i }).first().click()
+    await expect(page.getByText('bonjour')).toBeVisible()
+    await expect(page.getByRole('button', { name: /delete bonjour/i })).toBeVisible()
+  })
 
-    const selects = page.getByRole('combobox', { name: /change classification/i })
-    await selects.first().selectOption('difficult')
+  test('sort dropdown changes word order', async ({ page }) => {
+    const sortSelect = page.getByRole('combobox', { name: /sort/i })
+    await expect(sortSelect).toBeVisible()
+    await sortSelect.selectOption('word_asc')
+    await expect(sortSelect).toHaveValue('word_asc')
+  })
+
+  test('This week chip sets date filter', async ({ page }) => {
+    await page.route('/api/flashcards/words**', (route) => {
+      const url = new URL(route.request().url())
+      const dateFrom = url.searchParams.get('date_from')
+      const filtered = dateFrom ? mockWords.filter((w) => w.saved_at >= dateFrom) : mockWords
+      return route.fulfill({ json: filtered })
+    })
+    await page.getByRole('button', { name: /this week/i }).click()
+    await expect(page.getByRole('button', { name: /this week/i })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('This month chip toggles off when clicked again', async ({ page }) => {
+    await page.getByRole('button', { name: /this month/i }).click()
+    await expect(page.getByRole('button', { name: /this month/i })).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('button', { name: /this month/i }).click()
+    await expect(page.getByRole('button', { name: /this month/i })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('Select button enters selection mode with checkboxes', async ({ page }) => {
+    await page.getByRole('button', { name: /delete multiple/i }).click()
+    await expect(page.getByRole('checkbox').first()).toBeVisible()
+  })
+
+  test('bulk delete: select words then confirm deletion', async ({ page }) => {
+    let bulkDeleted = false
+    await page.route('/api/flashcards/words**', (route) => {
+      if (route.request().method() === 'DELETE') {
+        bulkDeleted = true
+        return route.fulfill({ json: { deleted: 2 } })
+      }
+      return route.fulfill({ json: bulkDeleted ? [mockWords[2]] : mockWords })
+    })
+
+    await page.getByRole('button', { name: /delete multiple/i }).click()
+    const checkboxes = page.getByRole('checkbox')
+    await checkboxes.nth(0).click()
+    await checkboxes.nth(1).click()
+    await expect(page.getByText(/2 words selected/i)).toBeVisible()
+    await page.getByRole('button', { name: /delete 2 words/i }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.getByRole('dialog').getByRole('button', { name: /^delete$/i }).click()
+    expect(bulkDeleted).toBe(true)
+  })
+
+  test('bulk delete: cancel modal keeps words', async ({ page }) => {
+    await page.getByRole('button', { name: /delete multiple/i }).click()
+    await page.getByRole('checkbox').first().click()
+    await page.getByRole('button', { name: /delete 1 word/i }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.getByRole('dialog').getByRole('button', { name: /cancel/i }).click()
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+    await expect(page.getByText('bonjour')).toBeVisible()
   })
 
   test('navigates to home via back button', async ({ page }) => {

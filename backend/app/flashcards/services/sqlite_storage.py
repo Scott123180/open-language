@@ -195,6 +195,16 @@ class SQLiteFlashcardStorageProvider(FlashcardStorageProvider):
         self._db.delete(row)
         self._db.commit()
 
+    def delete_words(self, ids: list[int]) -> int:
+        count = 0
+        for wid in ids:
+            row = self._db.get(VocabularyItem, wid)
+            if row is not None:
+                self._db.delete(row)
+                count += 1
+        self._db.commit()
+        return count
+
     def update_word_tts_path(self, vocabulary_item_id: int, tts_path: str) -> WordRecord:
         row = self._db.get(VocabularyItem, vocabulary_item_id)
         row.tts_cache_path = tts_path

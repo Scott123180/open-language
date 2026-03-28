@@ -153,6 +153,11 @@ class FlashcardStorageProvider(ABC):
         ...
 
     @abstractmethod
+    def delete_words(self, ids: list[int]) -> int:
+        """Delete multiple words by ID. Returns count of words deleted."""
+        ...
+
+    @abstractmethod
     def update_word_tts_path(self, vocabulary_item_id: int, tts_path: str) -> WordRecord:
         """Persist TTS cache path for a vocabulary word."""
         ...

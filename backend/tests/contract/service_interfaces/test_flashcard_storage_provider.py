@@ -25,6 +25,7 @@ REQUIRED_WORD_METHODS = {
     "get_word",
     "update_word_classification",
     "delete_word",
+    "delete_words",
     "update_word_tts_path",
 }
 
