@@ -147,6 +147,7 @@ def get_word_info(
         cache_type=cache_type.value,
         word=word.word,
         language=word.target_language,
+        native_language=word.native_language,
     )
     if content is None:
         raise HTTPException(
@@ -309,6 +310,7 @@ def _build_cards_data(
             vocabulary_item_id=w.id,
             word=w.word,
             language=w.target_language,
+            native_language=w.native_language,
         )
         cards.append(
             {

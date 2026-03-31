@@ -198,11 +198,13 @@ export default function Home() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '14px',
                 flexShrink: 0,
               }}
             >
-              {isCustomExpanded ? '−' : '+'}
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <line x1="5" y1="0" x2="5" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{ display: isCustomExpanded ? 'none' : 'block' }} />
+                <line x1="0" y1="5" x2="10" y2="5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
             </span>
             Write your own scenario
           </button>

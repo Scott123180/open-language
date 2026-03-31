@@ -1,12 +1,13 @@
 """Integration tests for the /api/conversations router."""
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services.factory import get_app_settings, get_scenario_provider, get_storage
+from app.services.factory import get_app_settings, get_llm, get_scenario_provider, get_storage
 from app.services.scenario.static import StaticScenarioProvider
 from app.services.storage.base import AppSettingsRecord
 from app.services.storage.sqlite import SQLiteStorageProvider
@@ -30,10 +31,12 @@ def client(tmp_path: Path):
     db_file = tmp_path / "test.db"
     session, _engine = make_test_session(str(db_file))
     storage_instance = SQLiteStorageProvider(session)
+    mock_llm = MagicMock()
 
     app.dependency_overrides[get_scenario_provider] = lambda: StaticScenarioProvider()
     app.dependency_overrides[get_storage] = lambda: storage_instance
     app.dependency_overrides[get_app_settings] = lambda: _DEFAULT_SETTINGS
+    app.dependency_overrides[get_llm] = lambda: mock_llm
 
     with TestClient(app) as c:
         yield c
@@ -148,3 +151,25 @@ def test_get_conversation_messages_ordered_asc(client: TestClient) -> None:
     assert dates[0] <= dates[1]
     assert messages[0]["content"] == "First message"
     assert messages[1]["content"] == "Second message"
+
+
+def test_create_custom_conversation_uses_llm_generated_title(client: TestClient) -> None:
+    mock_llm = client.app.dependency_overrides[get_llm]()
+    mock_llm.chat.return_value = "Ordering Coffee at a Cafe"
+
+    response = client.post("/api/conversations", json={"custom_prompt": "I want to practice ordering coffee"})
+
+    assert response.status_code == 201
+    assert response.json()["scenario_title"] == "Custom Scenario: Ordering Coffee at a Cafe"
+
+
+def test_create_custom_conversation_falls_back_when_llm_fails(client: TestClient) -> None:
+    from app.services.llm.base import LLMError
+
+    mock_llm = client.app.dependency_overrides[get_llm]()
+    mock_llm.chat.side_effect = LLMError("unavailable")
+
+    response = client.post("/api/conversations", json={"custom_prompt": "I want to practice ordering coffee"})
+
+    assert response.status_code == 201
+    assert response.json()["scenario_title"] == "Custom Scenario"

@@ -1,4 +1,5 @@
 from app.prompts.templates import (
+    build_custom_title_prompt,
     build_grammar_prompt,
     build_helper_system_prompt,
     build_phrasing_prompt,
@@ -110,3 +111,14 @@ def test_build_phrasing_prompt_contains_message_content() -> None:
     content = "I want to buy a ticket."
     result = build_phrasing_prompt(content, "Spanish")
     assert content in result
+
+
+def test_build_custom_title_prompt_contains_custom_prompt() -> None:
+    description = "ordering coffee at a cafe"
+    result = build_custom_title_prompt(description)
+    assert description in result
+
+
+def test_build_custom_title_prompt_requests_short_title() -> None:
+    result = build_custom_title_prompt("some scenario")
+    assert "title" in result.lower()

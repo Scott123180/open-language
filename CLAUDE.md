@@ -2,6 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Shell Command Rules
+
+- **Never chain commands with `&&`, `;`, or `|` in a single Bash call.** Run each command as a separate tool call so the user can approve each one individually. Chained commands force approval of the entire chain as a unit, which prevents granular review.
+- Exception: purely read-only pipeline operations (e.g. `cat file | grep pattern`) are acceptable since they have no side effects.
+
 ## Project Overview
 
 **Open-Language** is a language learning application being built using **SpecKit** (v0.3.0), a specification-driven development (SDD) framework. The repository currently contains the project scaffolding, governance rules, and workflow automation — application code is generated through the SDD workflow.

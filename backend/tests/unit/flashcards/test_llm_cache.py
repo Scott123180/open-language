@@ -42,7 +42,7 @@ class TestGetFillBlankSentence:
 
         service = LlmCacheService(storage=mock_storage)
         result = service.get_fill_blank_sentence(
-            vocabulary_item_id=1, word="bonjour", language="fr"
+            vocabulary_item_id=1, word="bonjour", language="fr", native_language="en"
         )
 
         assert result == "Je dis ___ à tout le monde."
@@ -55,7 +55,7 @@ class TestGetFillBlankSentence:
         service = LlmCacheService(storage=mock_storage, llm_client=None)
         with patch.object(service, "_generate_sentence", return_value="Elle dit ___ chaque matin."):
             result = service.get_fill_blank_sentence(
-                vocabulary_item_id=2, word="bonjour", language="fr"
+                vocabulary_item_id=2, word="bonjour", language="fr", native_language="en"
             )
 
         assert result == "Elle dit ___ chaque matin."
@@ -69,7 +69,7 @@ class TestGetFillBlankSentence:
             service, "_generate_sentence", side_effect=RuntimeError("LLM unavailable")
         ):
             result = service.get_fill_blank_sentence(
-                vocabulary_item_id=3, word="merci", language="fr"
+                vocabulary_item_id=3, word="merci", language="fr", native_language="en"
             )
 
         assert result is None
@@ -91,7 +91,7 @@ class TestGetFillBlankSentence:
 
         service = LlmCacheService(storage=mock_storage, llm_client=None)
         with patch.object(service, "_generate_sentence") as mock_gen:
-            service.get_fill_blank_sentence(vocabulary_item_id=4, word="merci", language="fr")
+            service.get_fill_blank_sentence(vocabulary_item_id=4, word="merci", language="fr", native_language="en")
             mock_gen.assert_not_called()
 
     def test_cache_key_uses_word_and_language(self, mock_storage):
@@ -100,7 +100,7 @@ class TestGetFillBlankSentence:
 
         service = LlmCacheService(storage=mock_storage, llm_client=None)
         with patch.object(service, "_generate_sentence", return_value="Sentence here."):
-            service.get_fill_blank_sentence(vocabulary_item_id=5, word="au revoir", language="fr")
+            service.get_fill_blank_sentence(vocabulary_item_id=5, word="au revoir", language="fr", native_language="en")
 
         mock_storage.get_llm_cache.assert_called_with(5, "fill_blank", "fr")
 
@@ -125,7 +125,7 @@ class TestGetOrGenerate:
 
         service = LlmCacheService(storage=mock_storage, llm_client=None)
         result = service.get_or_generate(
-            vocabulary_item_id=1, cache_type="meanings", word="bonjour", language="fr"
+            vocabulary_item_id=1, cache_type="meanings", word="bonjour", language="fr", native_language="en"
         )
         assert result == "hello: greeting word"
         mock_storage.set_llm_cache.assert_not_called()
@@ -137,7 +137,7 @@ class TestGetOrGenerate:
         service = LlmCacheService(storage=mock_storage, llm_client=None)
         with patch.object(service, "_generate_content", return_value="Some meanings."):
             result = service.get_or_generate(
-                vocabulary_item_id=2, cache_type="meanings", word="bonjour", language="fr"
+                vocabulary_item_id=2, cache_type="meanings", word="bonjour", language="fr", native_language="en"
             )
         assert result == "Some meanings."
         mock_storage.set_llm_cache.assert_called_once()
@@ -149,7 +149,7 @@ class TestGetOrGenerate:
         service = LlmCacheService(storage=mock_storage, llm_client=None)
         with patch.object(service, "_generate_content", return_value="Spanish meanings."):
             service.get_or_generate(
-                vocabulary_item_id=1, cache_type="meanings", word="hola", language="es"
+                vocabulary_item_id=1, cache_type="meanings", word="hola", language="es", native_language="en"
             )
         mock_storage.get_llm_cache.assert_called_with(1, "meanings", "es")
 
@@ -159,6 +159,6 @@ class TestGetOrGenerate:
         service = LlmCacheService(storage=mock_storage, llm_client=None)
         with patch.object(service, "_generate_content", side_effect=RuntimeError("LLM down")):
             service.get_or_generate(
-                vocabulary_item_id=3, cache_type="usage", word="merci", language="fr"
+                vocabulary_item_id=3, cache_type="usage", word="merci", language="fr", native_language="en"
             )
         # result discarded; just verifying no exception raised

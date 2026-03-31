@@ -3,7 +3,9 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from app.services.factory import get_app_settings, get_scenario_provider, get_storage
+from app.prompts.templates import build_custom_title_prompt
+from app.services.factory import get_app_settings, get_llm, get_scenario_provider, get_storage
+from app.services.llm.base import ChatMessage, LLMError, LLMProvider
 from app.services.scenario.base import ScenarioProvider
 from app.services.storage.base import (
     AppSettingsRecord,
@@ -47,6 +49,14 @@ class PatchConversationRequest(BaseModel):
     status: str
 
 
+def _generate_custom_scenario_title(llm: LLMProvider, custom_prompt: str) -> str:
+    try:
+        title = llm.chat([ChatMessage(role="user", content=build_custom_title_prompt(custom_prompt))])
+        return f"Custom Scenario: {title.strip()}"
+    except LLMError:
+        return "Custom Scenario"
+
+
 def _conv_response(r: ConversationRecord) -> ConversationResponse:
     return ConversationResponse(
         id=r.id,
@@ -82,11 +92,12 @@ def create_conversation(
     provider: ScenarioProvider = Depends(get_scenario_provider),
     storage: StorageProvider = Depends(get_storage),
     app_settings: AppSettingsRecord = Depends(get_app_settings),
+    llm: LLMProvider = Depends(get_llm),
 ):
     if req.custom_prompt and req.custom_prompt.strip():
         scenario_id = "custom"
-        scenario_title = "Custom Scenario"
         custom_prompt = req.custom_prompt.strip()
+        scenario_title = _generate_custom_scenario_title(llm, custom_prompt)
     elif req.scenario_id:
         scenarios = provider.get_all()
         scenario = next((s for s in scenarios if s.id == req.scenario_id), None)

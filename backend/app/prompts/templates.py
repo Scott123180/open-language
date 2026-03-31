@@ -71,9 +71,19 @@ def build_word_lookup_prompt(
         else ""
     )
     return (
+        f"You are a language tutor. The student is a native {native_language} speaker learning {target_language}.\n"
         f'Look up the {target_language} word "{word}"{context_clause}.\n'
-        f"Provide: definition, part of speech, and an example sentence. "
-        f"Respond in {native_language}."
+        f"Provide: definition, part of speech, and an example sentence in {target_language}.\n"
+        f"IMPORTANT: Write your entire response in {native_language}. Do not respond in {target_language}.\n"
+        f"Do not include any preamble, greeting, or commentary — respond with only the definition content."
+    )
+
+
+def build_custom_title_prompt(custom_prompt: str) -> str:
+    return (
+        f"Generate a short title (4-6 words) for a language practice conversation "
+        f"based on this scenario: \"{custom_prompt}\". "
+        f"Return only the title, no quotes, no punctuation at the end."
     )
 
 
