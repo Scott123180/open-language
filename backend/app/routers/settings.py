@@ -56,7 +56,14 @@ def _to_response(record: AppSettingsRecord) -> SettingsResponse:
 @router.get("/settings/voices", response_model=list[VoiceResponse])
 def get_voices_endpoint():
     return [
-        VoiceResponse(key=v.key, display_name=v.display_name, gender=v.gender, locale=v.locale, quality=v.quality, speaking_rate=v.speaking_rate)
+        VoiceResponse(
+            key=v.key,
+            display_name=v.display_name,
+            gender=v.gender,
+            locale=v.locale,
+            quality=v.quality,
+            speaking_rate=v.speaking_rate,
+        )
         for v in AVAILABLE_VOICES
     ]
 

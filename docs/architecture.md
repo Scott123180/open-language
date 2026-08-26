@@ -1,6 +1,6 @@
 # Open Language — Architecture
 
-**Status:** Living document · **Last updated:** 2026-08-24 · **Audience:** human contributors and LLM agents
+**Status:** Living document · **Last updated:** 2026-08-25 · **Audience:** human contributors and LLM agents
 
 This document explains what Open Language is, how it is put together, and — most importantly — **why** it
 is put together that way. Where a decision looks unusual, the rationale is stated inline rather than left
@@ -318,9 +318,13 @@ changes so far have been purely additive (new tables, new nullable/defaulted col
 production fleet to coordinate. `_add_column_if_missing()` swallows the `OperationalError` that SQLite
 raises when the column already exists.
 
-> **This is technical debt with a known expiry date.** It cannot express a rename, a type change, a data
-> backfill, or a rollback, and the bare `except: pass` hides genuine failures. The moment a change is not
-> purely additive, this needs to become Alembic. Flagged here so nobody discovers it mid-incident.
+`_add_column_if_missing()` tolerates exactly one failure — SQLite's `duplicate column name` — and
+re-raises everything else, so a missing table or a malformed definition surfaces instead of leaving the
+schema quietly wrong.
+
+> **This is technical debt with a known expiry date.** It still cannot express a rename, a type change, a
+> data backfill, or a rollback. The moment a change is not purely additive, this needs to become Alembic.
+> Flagged here so nobody discovers it mid-incident.
 
 ---
 
@@ -556,12 +560,14 @@ Points worth internalising:
   unidirectional, so WebSocket bidirectionality is wasted complexity; `EventSource` was rejected because
   it cannot send a POST body and the conversation history has to go up with the request.
 
-> **Known gap.** `chat.py` currently does `token_list = await loop.run_in_executor(None, _stream_tokens)`
-> where `_stream_tokens` does `list(llm.chat_stream(...))`. That materialises the entire response before
-> the first SSE frame is emitted, then replays the tokens instantly. The transport, the client parser, and
-> the provider all support true incremental streaming — only this one call collapses it. The perceived
-> "typing" effect is currently a fiction. Fixing it means bridging the sync generator to the async
-> generator (e.g. a queue fed by the executor thread) rather than draining it into a list.
+> **Accepted decision — batched tokens, streamed transport.** `chat.py` does
+> `token_list = await loop.run_in_executor(None, _stream_tokens)` where `_stream_tokens` does
+> `list(llm.chat_stream(...))`. That materialises the whole response before the first SSE frame, then
+> replays the tokens instantly, so the "typing" effect is cosmetic rather than real. This is a deliberate
+> trade: bridging a sync generator running in an executor thread to an async generator needs a queue and
+> its own cancellation handling, and on a local model the whole response arrives in a couple of seconds
+> anyway. The transport, the client parser, and `LLMProvider.chat_stream` all support true incremental
+> streaming already, so this stays a one-function change whenever the latency starts to matter.
 
 ### 6.2 Prompt construction
 
@@ -620,10 +626,11 @@ sentence has practised nothing. The expression helper also keeps its own convers
 (`_helper_sessions`, keyed by a client-generated session id) so that asking "how do I say X?" never
 pollutes the role-play context.
 
-> **Known gap.** `_helper_sessions` is a plain module-level dict — it is lost on restart and grows without
-> bound. Acceptable for a single-user local app where helper threads are throwaway; it is the one piece of
-> conversational state not in SQLite, and it should be either persisted or explicitly TTL'd if the feature
-> grows.
+Helper threads live in `HelperSessionStore` ([helper_sessions.py](../backend/app/services/helper_sessions.py)),
+injected through `factory.get_helper_sessions()`. They are the one piece of conversational state not in
+SQLite — deliberately, because a throwaway "how do I say X?" lookup is not learning history worth keeping.
+The store is bounded rather than unbounded: least-recently-used eviction past 50 threads and a 2-hour idle
+expiry, so a long-running process cannot accumulate them without limit.
 
 ### 6.4 Flashcards: the learning loop
 
@@ -740,15 +747,11 @@ still in acquisition and is eligible for every deck. Once Learned, `_filter_srs_
 removes the word from new decks until `next_due_at` has passed — which is what stops decks from being
 clogged with words the learner already owns.
 
-> **Known bug.** `SpacedRepetitionService.update_schedule()` calls
-> `storage.upsert_srs_schedule(..., last_practiced_at=now, ...)`, but neither the
-> `FlashcardStorageProvider` ABC nor `SQLiteFlashcardStorageProvider` accepts a `last_practiced_at`
-> keyword — the implementation sets it internally. This raises `TypeError` on the path where a word is
-> promoted to Learned at session end. It survives because `tests/unit/flashcards/test_srs_service.py`
-> covers only the two pure methods, `compute_next_stage` and `compute_next_due_at`, and never calls
-> `update_schedule` — a genuine hole in an otherwise 90%-gated suite. Fix by dropping the argument at
-> the call site in [srs.py:41](../backend/app/flashcards/services/srs.py#L41) — the stored value is
-> unchanged either way — and add the missing test first.
+`update_schedule()` takes its storage as a typed `FlashcardStorageProvider` parameter, so a call that
+does not match the interface is a type error rather than a runtime surprise — this method previously
+passed an argument the interface does not accept and raised `TypeError` whenever a word was promoted to
+Learned, because the unit tests covered only the two pure methods and never exercised the persistence
+path. `TestUpdateSchedule` now covers it.
 
 ---
 
@@ -829,9 +832,9 @@ enforcement is mechanical, not cultural — coverage thresholds fail the build.
 
 ```mermaid
 flowchart TB
-    subgraph BE["Backend — pytest, 323 test functions"]
+    subgraph BE["Backend — pytest, 345 test functions"]
         B1["tests/unit/<br/>pure logic: classification, SRS,<br/>deck algorithms, prompts, storage"]
-        B2["tests/integration/<br/>routers via httpx, fake providers"]
+        B2["tests/integration/<br/>routers via httpx,<br/>LLM and TTS providers stubbed"]
         B3["tests/contract/service_interfaces/<br/>every ABC has a contract test —<br/>any implementation must satisfy it"]
     end
 
@@ -851,10 +854,12 @@ Two conventions deserve emphasis:
 - **Contract tests are the guarantee behind the ABC layer.** `tests/contract/service_interfaces/` tests the
   *interface*, not an implementation. Swapping Ollama for another backend means making the new class pass
   `test_llm_provider.py` — the contract is executable, not prose. This is Liskov Substitution with teeth.
-- **E2E tests never touch a real backend.** Every API call is intercepted with `page.route()`, and SSE
-  endpoints are faked with `route.fulfill({ headers: {'Content-Type': 'text/event-stream'}, body })` using
-  the helpers in `frontend/e2e/fixtures.ts`. Consequence: the suite runs with no Ollama, no models, no
-  GPU — which is the only reason it can be a mandatory pre-merge gate.
+- **No test touches a real model.** On the frontend, every API call is intercepted with `page.route()`,
+  and SSE endpoints are faked with `route.fulfill({ headers: {'Content-Type': 'text/event-stream'}, body })`
+  using the helpers in `frontend/e2e/fixtures.ts`. On the backend, the flashcard integration fixtures
+  override `get_llm` and `get_tts` with deterministic stubs. Both matter for the same reason: results must
+  not depend on whether an Ollama daemon or a Piper voice happens to be installed on the machine running
+  the suite, which is the only way this can be a mandatory pre-merge gate.
 
 Commands:
 
@@ -960,6 +965,7 @@ open-language/
 │       ├── prompts/templates.py All LLM prompts, pure functions
 │       ├── services/
 │       │   ├── factory.py       DI composition root
+│       │   ├── helper_sessions.py  Bounded, expiring helper threads
 │       │   ├── llm/             base.py ABC + ollama.py
 │       │   ├── stt/             base.py ABC + whisper.py
 │       │   ├── tts/             base.py ABC + piper.py + voices.py
@@ -1043,9 +1049,12 @@ Collected from the sections above so they are findable in one place:
 
 | Item | Where | Severity |
 |---|---|---|
-| SSE streaming is materialised into a list before emission — no real token-by-token streaming | `app/routers/chat.py` | Behavioural; user-visible as fake typing |
-| `upsert_srs_schedule()` called with an unsupported `last_practiced_at` kwarg → `TypeError` when a word is promoted to Learned; `update_schedule` has no test covering it | `app/flashcards/services/srs.py:41` | Bug on a live code path |
-| `_helper_sessions` is an unbounded in-memory dict, lost on restart | `app/routers/chat.py` | Minor for single-user; needs persistence or TTL if the feature grows |
-| `_add_column_if_missing()` swallows all exceptions; cannot express renames, type changes, or backfills | `app/database.py` | Fine while changes stay additive; replace with Alembic otherwise |
-| A stray `backend/~/.open-language/app.db` exists from a literal-tilde path created outside the app | repo root | Cosmetic; gitignored, safe to delete |
-| A debug `print()` remains in the transcribe endpoint | `app/routers/audio.py` | Cosmetic; should be `logger.debug` |
+| Token streaming is batched, not incremental — the typing effect is cosmetic | `app/routers/chat.py` | Accepted trade-off; revisit if perceived latency matters |
+| `_add_column_if_missing()` cannot express renames, type changes, or backfills | `app/database.py` | Fine while changes stay additive; replace with Alembic otherwise |
+
+**Resolved 2026-08-25:** the `upsert_srs_schedule()` signature mismatch that raised `TypeError` when a word
+was promoted to Learned; unbounded `_helper_sessions` state; `_add_column_if_missing()` swallowing every
+exception; a debug `print()` in the transcribe endpoint; a `from_cache` flag that always reported `true`;
+two integration tests that silently depended on a real Ollama and Piper being installed; a
+mixed-review deck test that failed roughly one run in five because its fixture issued the same word id to
+two classifications; and a stray `backend/~/` scratch database left by a literal-tilde path.

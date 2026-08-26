@@ -65,11 +65,7 @@ def build_word_lookup_prompt(
     native_language: str,
     sentence_context: str | None = None,
 ) -> str:
-    context_clause = (
-        f' as used in the sentence: "{sentence_context}"'
-        if sentence_context
-        else ""
-    )
+    context_clause = f' as used in the sentence: "{sentence_context}"' if sentence_context else ""
     return (
         f"You are a language tutor. The student is a native {native_language} speaker learning {target_language}.\n"
         f'Look up the {target_language} word "{word}"{context_clause}.\n'
@@ -82,7 +78,7 @@ def build_word_lookup_prompt(
 def build_custom_title_prompt(custom_prompt: str) -> str:
     return (
         f"Generate a short title (4-6 words) for a language practice conversation "
-        f"based on this scenario: \"{custom_prompt}\". "
+        f'based on this scenario: "{custom_prompt}". '
         f"Return only the title, no quotes, no punctuation at the end."
     )
 

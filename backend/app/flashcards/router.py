@@ -32,8 +32,8 @@ from app.flashcards.schemas import (
     WordClassificationEnum,
     WordListItem,
 )
-from app.flashcards.services.storage import FlashcardStorageProvider
 from app.flashcards.services.llm_cache import LlmCacheService
+from app.flashcards.services.storage import FlashcardStorageProvider
 from app.services.factory import get_flashcard_storage, get_llm, get_tts
 from app.services.llm.base import LLMProvider
 from app.services.tts.base import TTSProvider
@@ -134,12 +134,13 @@ def get_word_info(
     storage: FlashcardStorageProvider = Depends(_storage),
     llm: LLMProvider = Depends(get_llm),
 ) -> LlmCacheResponse:
-    from datetime import UTC
-    from datetime import datetime as _dt
-
     word = storage.get_word(vocabulary_item_id)
     if word is None:
         raise HTTPException(status_code=404, detail="Word not found.")
+
+    # Read the cache before generating: get_or_generate writes on a miss, so a
+    # lookup afterwards would report every response as cached.
+    cached = storage.get_llm_cache(vocabulary_item_id, cache_type.value, word.target_language)
 
     llm_cache = LlmCacheService(storage=storage, llm_client=llm)
     content = llm_cache.get_or_generate(
@@ -154,13 +155,16 @@ def get_word_info(
             status_code=503,
             detail="LLM service unavailable. Please try again shortly.",
         )
-    cached = storage.get_llm_cache(vocabulary_item_id, cache_type.value, word.target_language)
+
+    stored = cached or storage.get_llm_cache(
+        vocabulary_item_id, cache_type.value, word.target_language
+    )
     return LlmCacheResponse(
         vocabulary_item_id=vocabulary_item_id,
         cache_type=cache_type,
         content=content,
         from_cache=cached is not None,
-        generated_at=cached.generated_at if cached else _dt.now(UTC),
+        generated_at=stored.generated_at if stored else datetime.now(UTC),
     )
 
 

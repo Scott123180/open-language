@@ -316,11 +316,25 @@ def test_missed_deck_returns_422_when_no_didnt_know(client, session):
 # ---------------------------------------------------------------------------
 
 
-def test_tts_returns_503_when_no_cache(client, two_words):
+def test_tts_synthesizes_wav_on_first_request(client, two_words):
     word_id = two_words[0].id
+
     res = client.get(f"/api/flashcards/tts/{word_id}")
-    # TTS generation is deferred; expect 503 placeholder
-    assert res.status_code == 503
+
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "audio/wav"
+    assert res.content.startswith(b"RIFF")
+
+
+def test_tts_serves_the_cached_file_on_repeat_request(client, two_words):
+    word_id = two_words[0].id
+    first = client.get(f"/api/flashcards/tts/{word_id}")
+
+    second = client.get(f"/api/flashcards/tts/{word_id}")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.content == first.content
 
 
 def test_tts_returns_404_for_missing_word(client):

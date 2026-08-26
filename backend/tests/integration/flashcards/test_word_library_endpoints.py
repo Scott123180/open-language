@@ -206,10 +206,21 @@ class TestWordInfoEndpoint:
         res = client.get("/api/flashcards/words/9999/info/meanings")
         assert res.status_code == 404
 
-    def test_returns_503_when_llm_unavailable_and_no_cache(self, client, word):
-        """No cached content and no LLM configured → 503."""
-        res = client.get(f"/api/flashcards/words/{word.id}/info/meanings")
+    def test_returns_503_when_llm_unavailable_and_no_cache(self, client_without_llm, word):
+        """No cached content and the local model is not running → 503."""
+        res = client_without_llm.get(f"/api/flashcards/words/{word.id}/info/meanings")
+
         assert res.status_code == 503
+        assert "unavailable" in res.json()["detail"].lower()
+
+    def test_generates_and_caches_content_on_cache_miss(self, client, word):
+        first = client.get(f"/api/flashcards/words/{word.id}/info/meanings")
+        second = client.get(f"/api/flashcards/words/{word.id}/info/meanings")
+
+        assert first.status_code == 200
+        assert first.json()["from_cache"] is False
+        assert second.json()["from_cache"] is True
+        assert second.json()["content"] == first.json()["content"]
 
     def test_cache_type_is_respected(self, client, word, db_session):
         from datetime import UTC, datetime

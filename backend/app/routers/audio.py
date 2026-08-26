@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -9,6 +10,8 @@ from app.services.factory import get_storage, get_stt, get_tts
 from app.services.storage.base import StorageProvider
 from app.services.stt.base import STTError, STTProvider
 from app.services.tts.base import TTSProvider
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["audio"])
 
@@ -46,7 +49,7 @@ async def transcribe_audio(
     language: str | None = Form(None),
     stt: STTProvider = Depends(get_stt),
 ):
-    print(f"[transcribe] language hint received: {language!r}")
+    logger.debug("Transcription requested with language hint %r", language)
     audio_bytes = await file.read()
     if not audio_bytes:
         raise HTTPException(status_code=400, detail="Audio file is empty")
@@ -62,9 +65,7 @@ async def transcribe_audio(
 
     try:
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None, stt.transcribe, wav_path, language
-        )
+        result = await loop.run_in_executor(None, stt.transcribe, wav_path, language)
     except STTError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     finally:

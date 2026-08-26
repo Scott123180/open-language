@@ -7,6 +7,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.flashcards.services.sqlite_storage import SQLiteFlashcardStorageProvider
 from app.flashcards.services.storage import FlashcardStorageProvider
+from app.services.helper_sessions import HelperSessionStore
 from app.services.llm.base import LLMProvider
 from app.services.scenario.base import ScenarioProvider
 from app.services.scenario.static import StaticScenarioProvider
@@ -23,6 +24,15 @@ def _get_scenario_provider() -> ScenarioProvider:
 
 def get_scenario_provider() -> ScenarioProvider:
     return _get_scenario_provider()
+
+
+@lru_cache
+def _get_helper_sessions() -> HelperSessionStore:
+    return HelperSessionStore()
+
+
+def get_helper_sessions() -> HelperSessionStore:
+    return _get_helper_sessions()
 
 
 def get_storage(db: Session = Depends(get_db)) -> StorageProvider:
@@ -59,5 +69,7 @@ def get_stt(app_settings: AppSettingsRecord = Depends(get_app_settings)) -> STTP
     model_size = app_settings.whisper_model
     if model_size not in _stt_providers:
         settings = get_settings()
-        _stt_providers[model_size] = WhisperSTTProvider(model_size=model_size, device=settings.whisper_device)
+        _stt_providers[model_size] = WhisperSTTProvider(
+            model_size=model_size, device=settings.whisper_device
+        )
     return _stt_providers[model_size]

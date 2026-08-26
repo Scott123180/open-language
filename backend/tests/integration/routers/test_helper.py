@@ -7,8 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.routers.chat import _helper_sessions
-from app.services.factory import get_llm
+from app.services.factory import get_helper_sessions, get_llm
 from app.services.llm.base import ChatMessage, LLMProvider
 
 
@@ -41,9 +40,10 @@ def _parse_sse(raw: str) -> list[dict]:
 @pytest.fixture(autouse=True)
 def clear_helper_sessions():
     """Ensure helper session state is clean for each test."""
-    _helper_sessions.clear()
+    store = get_helper_sessions()
+    store.clear()
     yield
-    _helper_sessions.clear()
+    store.clear()
 
 
 @pytest.fixture

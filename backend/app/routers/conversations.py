@@ -51,7 +51,9 @@ class PatchConversationRequest(BaseModel):
 
 def _generate_custom_scenario_title(llm: LLMProvider, custom_prompt: str) -> str:
     try:
-        title = llm.chat([ChatMessage(role="user", content=build_custom_title_prompt(custom_prompt))])
+        title = llm.chat(
+            [ChatMessage(role="user", content=build_custom_title_prompt(custom_prompt))]
+        )
         return f"Custom Scenario: {title.strip()}"
     except LLMError:
         return "Custom Scenario"
@@ -107,7 +109,9 @@ def create_conversation(
         scenario_title = scenario.title
         custom_prompt = None
     else:
-        raise HTTPException(status_code=400, detail="Either scenario_id or custom_prompt is required")
+        raise HTTPException(
+            status_code=400, detail="Either scenario_id or custom_prompt is required"
+        )
 
     record = storage.create_conversation(
         scenario_id=scenario_id,

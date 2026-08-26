@@ -66,3 +66,69 @@ class TestNextDueAt:
         for stage in range(1, len(STAGE_INTERVALS) + 1):
             due = service.compute_next_due_at(stage=stage, from_time=now)
             assert due > now
+
+
+class _RecordingSrsStorage:
+    """Storage double whose SRS methods mirror FlashcardStorageProvider exactly.
+
+    The signatures deliberately omit **kwargs so that calling upsert_srs_schedule
+    with an argument the real interface does not accept raises TypeError here,
+    exactly as it would against SQLiteFlashcardStorageProvider.
+    """
+
+    def __init__(self, existing_schedule=None) -> None:
+        self.existing_schedule = existing_schedule
+        self.upserts: list[dict] = []
+
+    def get_srs_schedule(self, vocabulary_item_id: int):
+        return self.existing_schedule
+
+    def upsert_srs_schedule(self, vocabulary_item_id: int, interval_stage: int, next_due_at):
+        record = {
+            "vocabulary_item_id": vocabulary_item_id,
+            "interval_stage": interval_stage,
+            "next_due_at": next_due_at,
+        }
+        self.upserts.append(record)
+        return record
+
+
+class TestUpdateSchedule:
+    def test_creates_schedule_when_word_has_none(self, service):
+        storage = _RecordingSrsStorage(existing_schedule=None)
+
+        service.update_schedule(vocabulary_item_id=7, rating="knew_it", storage=storage)
+
+        assert len(storage.upserts) == 1
+        assert storage.upserts[0]["vocabulary_item_id"] == 7
+
+    def test_knew_it_advances_persisted_stage(self, service):
+        storage = _RecordingSrsStorage(existing_schedule=_make_schedule(stage=2))
+
+        service.update_schedule(vocabulary_item_id=1, rating="knew_it", storage=storage)
+
+        assert storage.upserts[0]["interval_stage"] == 3
+
+    def test_didnt_know_resets_persisted_stage(self, service):
+        storage = _RecordingSrsStorage(existing_schedule=_make_schedule(stage=5))
+
+        service.update_schedule(vocabulary_item_id=1, rating="didnt_know", storage=storage)
+
+        assert storage.upserts[0]["interval_stage"] == 1
+
+    def test_guessed_holds_persisted_stage(self, service):
+        storage = _RecordingSrsStorage(existing_schedule=_make_schedule(stage=4))
+
+        service.update_schedule(vocabulary_item_id=1, rating="guessed", storage=storage)
+
+        assert storage.upserts[0]["interval_stage"] == 4
+
+    def test_next_due_at_matches_the_new_stage_interval(self, service):
+        storage = _RecordingSrsStorage(existing_schedule=_make_schedule(stage=1))
+        before = datetime.now(UTC)
+
+        service.update_schedule(vocabulary_item_id=1, rating="knew_it", storage=storage)
+
+        next_due = storage.upserts[0]["next_due_at"]
+        expected_days = STAGE_INTERVALS[1]  # stage 2 after advancing from stage 1
+        assert abs((next_due - before).days - expected_days) <= 1

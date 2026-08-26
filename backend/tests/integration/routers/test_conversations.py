@@ -157,7 +157,9 @@ def test_create_custom_conversation_uses_llm_generated_title(client: TestClient)
     mock_llm = client.app.dependency_overrides[get_llm]()
     mock_llm.chat.return_value = "Ordering Coffee at a Cafe"
 
-    response = client.post("/api/conversations", json={"custom_prompt": "I want to practice ordering coffee"})
+    response = client.post(
+        "/api/conversations", json={"custom_prompt": "I want to practice ordering coffee"}
+    )
 
     assert response.status_code == 201
     assert response.json()["scenario_title"] == "Custom Scenario: Ordering Coffee at a Cafe"
@@ -169,7 +171,9 @@ def test_create_custom_conversation_falls_back_when_llm_fails(client: TestClient
     mock_llm = client.app.dependency_overrides[get_llm]()
     mock_llm.chat.side_effect = LLMError("unavailable")
 
-    response = client.post("/api/conversations", json={"custom_prompt": "I want to practice ordering coffee"})
+    response = client.post(
+        "/api/conversations", json={"custom_prompt": "I want to practice ordering coffee"}
+    )
 
     assert response.status_code == 201
     assert response.json()["scenario_title"] == "Custom Scenario"

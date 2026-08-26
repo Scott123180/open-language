@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+from app.flashcards.services.storage import FlashcardStorageProvider
+
 # Days per interval stage: stage 1 = 1 day, stage 2 = 3 days, ...
 STAGE_INTERVALS: list[int] = [1, 3, 7, 14, 30, 60, 120]
 
@@ -28,7 +30,7 @@ class SpacedRepetitionService:
         self,
         vocabulary_item_id: int,
         rating: str,
-        storage,
+        storage: FlashcardStorageProvider,
     ) -> None:
         schedule = storage.get_srs_schedule(vocabulary_item_id)
         current_stage = schedule.interval_stage if schedule else 1
@@ -38,6 +40,5 @@ class SpacedRepetitionService:
         storage.upsert_srs_schedule(
             vocabulary_item_id=vocabulary_item_id,
             interval_stage=next_stage,
-            last_practiced_at=now,
             next_due_at=next_due,
         )

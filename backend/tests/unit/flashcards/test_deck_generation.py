@@ -160,9 +160,9 @@ class TestMixedReviewStrategy:
     def test_returns_correct_total_size(self):
         pool = (
             [_make_word(i, "difficult") for i in range(1, 11)]
-            + [_make_word(i + 10, "almost_learned") for i in range(10)]
-            + [_make_word(i + 20, "not_practiced") for i in range(10)]
-            + [_make_word(i + 30, "learned") for i in range(10)]
+            + [_make_word(i + 11, "almost_learned") for i in range(10)]
+            + [_make_word(i + 21, "not_practiced") for i in range(10)]
+            + [_make_word(i + 31, "learned") for i in range(10)]
         )
         result = self.service.select_words(pool, 20, "mixed_review")
         assert len(result) == 20
@@ -292,9 +292,9 @@ class TestMixedReviewRatios:
     def test_large_pool_respects_ratios_approximately(self):
         pool = (
             [_make_word(i, "difficult") for i in range(1, 21)]
-            + [_make_word(i + 20, "almost_learned") for i in range(20)]
-            + [_make_word(i + 40, "not_practiced") for i in range(20)]
-            + [_make_word(i + 60, "learned") for i in range(20)]
+            + [_make_word(i + 21, "almost_learned") for i in range(20)]
+            + [_make_word(i + 41, "not_practiced") for i in range(20)]
+            + [_make_word(i + 61, "learned") for i in range(20)]
         )
         result = self.service.select_words(pool, 20, "mixed_review")
         assert len(result) == 20
@@ -309,9 +309,9 @@ class TestMixedReviewRatios:
     def test_result_never_exceeds_requested_size(self):
         pool = (
             [_make_word(i, "difficult") for i in range(1, 11)]
-            + [_make_word(i + 10, "almost_learned") for i in range(10)]
-            + [_make_word(i + 20, "not_practiced") for i in range(10)]
-            + [_make_word(i + 30, "learned") for i in range(10)]
+            + [_make_word(i + 11, "almost_learned") for i in range(10)]
+            + [_make_word(i + 21, "not_practiced") for i in range(10)]
+            + [_make_word(i + 31, "learned") for i in range(10)]
         )
         for size in [5, 10, 15, 20]:
             result = self.service.select_words(pool, size, "mixed_review")
@@ -319,7 +319,7 @@ class TestMixedReviewRatios:
 
     def test_no_duplicate_words_in_result(self):
         pool = [_make_word(i, "difficult") for i in range(1, 11)] + [
-            _make_word(i + 10, "almost_learned") for i in range(10)
+            _make_word(i + 11, "almost_learned") for i in range(10)
         ]
         result = self.service.select_words(pool, 10, "mixed_review")
         ids = [w.id for w in result]

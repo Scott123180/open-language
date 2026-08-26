@@ -16,11 +16,13 @@ from app.prompts.templates import (
 )
 from app.services.factory import (
     get_app_settings,
+    get_helper_sessions,
     get_llm,
     get_scenario_provider,
     get_storage,
     get_tts,
 )
+from app.services.helper_sessions import HelperSessionStore
 from app.services.llm.base import ChatMessage, LLMError, LLMProvider
 from app.services.scenario.base import ScenarioProvider
 from app.services.storage.base import AppSettingsRecord, StorageProvider
@@ -77,7 +79,9 @@ async def open_chat(
         loop = asyncio.get_event_loop()
         messages = [
             ChatMessage(role="system", content=system_prompt),
-            ChatMessage(role="user", content=build_open_chat_user_prompt(conversation.target_language)),
+            ChatMessage(
+                role="user", content=build_open_chat_user_prompt(conversation.target_language)
+            ),
         ]
 
         def _stream_tokens():
@@ -237,9 +241,6 @@ async def get_suggestions(
     return {"suggestions": suggestions[: app_settings.suggestion_count]}
 
 
-_helper_sessions: dict[str, list[dict]] = {}
-
-
 class HelperRequest(BaseModel):
     message: str
     helper_session_id: str
@@ -251,13 +252,15 @@ class HelperRequest(BaseModel):
 async def chat_helper(
     req: HelperRequest,
     llm: LLMProvider = Depends(get_llm),
+    helper_sessions: HelperSessionStore = Depends(get_helper_sessions),
 ):
-    session_history = _helper_sessions.setdefault(req.helper_session_id, [])
-
     system_prompt = build_helper_system_prompt(req.target_language, req.native_language)
 
     messages = [ChatMessage(role="system", content=system_prompt)]
-    messages.extend([ChatMessage(role=m["role"], content=m["content"]) for m in session_history])
+    messages.extend(
+        ChatMessage(role=turn.role, content=turn.content)
+        for turn in helper_sessions.get_history(req.helper_session_id)
+    )
     messages.append(ChatMessage(role="user", content=req.message))
 
     async def event_stream():
@@ -278,8 +281,11 @@ async def chat_helper(
             yield f"data: {json.dumps({'token': token})}\n\n"
 
         full_response = "".join(tokens)
-        session_history.append({"role": "user", "content": req.message})
-        session_history.append({"role": "assistant", "content": full_response})
+        helper_sessions.append_exchange(
+            session_id=req.helper_session_id,
+            user_message=req.message,
+            assistant_message=full_response,
+        )
 
         yield f"data: {json.dumps({'done': True})}\n\n"
 

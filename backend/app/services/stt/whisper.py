@@ -1,3 +1,4 @@
+import contextlib
 import ctypes
 import os
 from pathlib import Path
@@ -24,10 +25,10 @@ def _preload_nvidia_libs() -> None:
             continue
         for fname in os.listdir(lib_dir):
             if fname.endswith(".so") or ".so." in fname:
-                try:
+                # Best-effort preload: a library that will not load here is one
+                # ctranslate2 does not need on this machine.
+                with contextlib.suppress(OSError):
                     ctypes.cdll.LoadLibrary(os.path.join(lib_dir, fname))
-                except OSError:
-                    pass
 
 
 _preload_nvidia_libs()
