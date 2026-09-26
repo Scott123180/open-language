@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import {
   mockSettings,
   mockConversation,
+  emptyConversationFeedback,
   makeOpenSseBody,
   makeMessageSseBody,
   makeHelperSseBody,
@@ -24,6 +25,12 @@ async function setupChatRoutes(page: import('@playwright/test').Page) {
     }
     return route.fulfill({ json: mockConversation })
   })
+  await page.route('/api/conversations/1/messages', (route) =>
+    route.fulfill({ json: [] }),
+  )
+  await page.route('/api/corrections/conversations/1', (route) =>
+    route.fulfill({ json: emptyConversationFeedback }),
+  )
   await page.route('/api/chat/1/open', (route) =>
     route.fulfill({
       status: 200,
@@ -281,5 +288,97 @@ test.describe('Chat page — learning tools', () => {
 
   test('replay button appears on completed assistant message', async ({ page }) => {
     await expect(page.getByRole('button', { name: /replay/i }).first()).toBeVisible()
+  })
+})
+
+test.describe('Chat page — resuming a conversation', () => {
+  const existingMessages = [
+    {
+      id: 1,
+      conversation_id: 1,
+      role: 'assistant',
+      content: '¡Hola! ¿Cómo estás?',
+      input_source: null,
+      created_at: '2026-03-20T10:00:00Z',
+      tts_audio_path: null,
+    },
+    {
+      id: 2,
+      conversation_id: 1,
+      role: 'user',
+      content: 'Quiero un café con leche.',
+      input_source: 'keyboard',
+      created_at: '2026-03-20T10:01:00Z',
+      tts_audio_path: null,
+    },
+  ]
+
+  test('restores the existing transcript', async ({ page }) => {
+    await setupChatRoutes(page)
+    await page.route('/api/conversations/1/messages', (route) =>
+      route.fulfill({ json: existingMessages }),
+    )
+    await page.goto(CHAT_URL)
+
+    await expect(page.getByText('¡Hola! ¿Cómo estás?')).toBeVisible()
+    await expect(page.getByText('Quiero un café con leche.')).toBeVisible()
+  })
+
+  test('does not re-open a conversation that already has messages', async ({ page }) => {
+    let openCalls = 0
+    await setupChatRoutes(page)
+    await page.route('/api/conversations/1/messages', (route) =>
+      route.fulfill({ json: existingMessages }),
+    )
+    await page.route('/api/chat/1/open', (route) => {
+      openCalls += 1
+      return route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+        body: OPEN_SSE_BODY,
+      })
+    })
+    await page.goto(CHAT_URL)
+
+    await expect(page.getByText('Quiero un café con leche.')).toBeVisible()
+    await expect(page.getByLabel('Type a message')).toBeVisible()
+    expect(openCalls).toBe(0)
+  })
+
+  test('still opens an empty conversation', async ({ page }) => {
+    let openCalls = 0
+    await setupChatRoutes(page)
+    await page.route('/api/chat/1/open', (route) => {
+      openCalls += 1
+      return route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+        body: OPEN_SSE_BODY,
+      })
+    })
+    await page.goto(CHAT_URL)
+
+    await expect(page.getByText('¡Hola! ¿Cómo estás?')).toBeVisible()
+    expect(openCalls).toBe(1)
+  })
+
+  test('a restored conversation can be continued', async ({ page }) => {
+    await setupChatRoutes(page)
+    await page.route('/api/conversations/1/messages', (route) =>
+      route.fulfill({ json: existingMessages }),
+    )
+    await page.route('/api/chat/1/message', (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+        body: makeMessageSseBody(10, ['Claro,', ' aquí tiene.'], 11),
+      }),
+    )
+    await page.goto(CHAT_URL)
+
+    await page.getByLabel('Type a message').fill('Gracias')
+    await page.getByRole('button', { name: /send/i }).click()
+
+    await expect(page.getByText('Claro, aquí tiene.')).toBeVisible()
   })
 })

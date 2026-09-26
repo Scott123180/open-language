@@ -141,7 +141,7 @@ test.describe('FlashcardPractice page — Recall mode', () => {
   test('shows self-assessment buttons after flip', async ({ page }) => {
     await page.getByRole('button', { name: /flip/i }).click()
     await expect(page.getByRole('button', { name: /didn't know/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /guessed correctly/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^guessed$/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /knew it/i })).toBeVisible()
   })
 

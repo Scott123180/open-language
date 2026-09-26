@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import * as api from '../services/api'
-import type { VoiceOption } from '../services/api'
+import type { CorrectionMode, VoiceOption } from '../services/api'
 import { useTheme } from '../hooks/useTheme'
 import { IconArrowLeft } from '../components/shared/icons'
 
@@ -11,6 +11,13 @@ const WHISPER_MODEL_OPTIONS = [
   { value: 'small', label: 'Small — balanced' },
   { value: 'medium', label: 'Medium — slower, higher accuracy' },
 ]
+const CORRECTION_MODE_OPTIONS: { value: CorrectionMode; label: string; description: string }[] = [
+  { value: 'off', label: 'Off', description: 'No corrections — the conversation runs as it always has.' },
+  { value: 'gentle', label: 'Gentle', description: 'The character restates your sentence correctly inside its own reply.' },
+  { value: 'strict', label: 'Strict', description: 'The conversation pauses so you can see the correction and try again.' },
+]
+const CORRECTION_MODE_HINT_ID = 'correction-mode-hint'
+const CORRECTION_MODE_WARNING_ID = 'correction-mode-warning'
 const THEME_OPTIONS = [
   { value: 'light' as const, label: 'Light' },
   { value: 'dark' as const, label: 'Dark' },
@@ -24,6 +31,7 @@ export default function Settings() {
   const [ttsVoice, setTtsVoice] = useState('')
   const [voices, setVoices] = useState<VoiceOption[]>([])
   const [suggestionCount, setSuggestionCount] = useState(3)
+  const [correctionMode, setCorrectionMode] = useState<CorrectionMode>('off')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -37,6 +45,7 @@ export default function Settings() {
         setWhisperModel(settings.whisper_model)
         setTtsVoice(settings.tts_voice)
         setSuggestionCount(settings.suggestion_count)
+        setCorrectionMode(settings.correction_mode)
         setIsLoading(false)
       })
       .catch(() => {
@@ -53,7 +62,13 @@ export default function Settings() {
     setSuccessMessage(null)
     setErrorMessage(null)
     try {
-      await api.updateSettings({ llm_model: llmModel, whisper_model: whisperModel, tts_voice: ttsVoice, suggestion_count: suggestionCount })
+      await api.updateSettings({
+        llm_model: llmModel,
+        whisper_model: whisperModel,
+        tts_voice: ttsVoice,
+        suggestion_count: suggestionCount,
+        correction_mode: correctionMode,
+      })
       setSuccessMessage('Settings saved.')
     } catch (e) {
       setErrorMessage(e instanceof Error ? e.message : 'Failed to save settings')
@@ -198,6 +213,97 @@ export default function Settings() {
               )
             })()}
           </div>
+
+          <fieldset
+            aria-describedby={`${CORRECTION_MODE_HINT_ID} ${CORRECTION_MODE_WARNING_ID}`}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+              border: 'none',
+              padding: 0,
+              margin: 0,
+            }}
+          >
+            <legend style={{ fontWeight: 600, padding: 0 }}>Correction Feedback</legend>
+            {CORRECTION_MODE_OPTIONS.map(({ value, label, description }) => (
+              <label
+                key={value}
+                htmlFor={`correction-mode-${value}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  padding: '10px 12px',
+                  borderRadius: 'var(--radius-lg)',
+                  border: '1px solid var(--color-border)',
+                  background:
+                    correctionMode === value ? 'var(--color-surface-raised)' : 'var(--color-surface)',
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  id={`correction-mode-${value}`}
+                  type='radio'
+                  name='correction-mode'
+                  value={value}
+                  checked={correctionMode === value}
+                  onChange={() => setCorrectionMode(value)}
+                  aria-labelledby={`correction-mode-${value}-label`}
+                  aria-describedby={`correction-mode-${value}-description`}
+                  style={{ marginTop: '3px' }}
+                />
+                <span style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span
+                    id={`correction-mode-${value}-label`}
+                    style={{ fontWeight: 600, color: 'var(--color-text)' }}
+                  >
+                    {label}
+                  </span>
+                  <span
+                    id={`correction-mode-${value}-description`}
+                    style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}
+                  >
+                    {description}
+                  </span>
+                </span>
+              </label>
+            ))}
+            <p
+              id={CORRECTION_MODE_HINT_ID}
+              style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-muted)' }}
+            >
+              Gentle and Strict run an extra language-model pass over each message before the
+              character answers. Without a GPU this can add several seconds per turn. A check that
+              takes too long is skipped so the conversation continues.
+            </p>
+            <aside
+              id={CORRECTION_MODE_WARNING_ID}
+              role='note'
+              aria-label='Correction accuracy'
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                borderLeft: '3px solid var(--color-warning)',
+                background: 'var(--color-surface-raised)',
+                borderRadius: 'var(--radius-lg)',
+                boxShadow: 'var(--shadow-sm)',
+                padding: '10px 14px',
+                lineHeight: 'var(--leading-relaxed)',
+              }}
+            >
+              <span style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--color-warning)' }}>
+                Corrections are experimental
+              </span>
+              <span style={{ fontSize: '0.85rem', color: 'var(--color-text)' }}>
+                Corrections come from the language model you selected above, and they can be wrong —
+                a small local model often flags sentences that were already correct. Treat a
+                correction as a reason to double-check, not as the last word. Accuracy improves with
+                a larger model, at the cost of a slower reply.
+              </span>
+            </aside>
+          </fieldset>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={{ fontWeight: 600 }}>Theme</span>

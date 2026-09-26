@@ -51,7 +51,33 @@ export interface AppSettings {
   tts_voice: string
   suggestion_count: number
   whisper_model: string
+  correction_mode: CorrectionMode
   updated_at: string
+}
+
+export type CorrectionMode = 'off' | 'gentle' | 'strict'
+
+export type FeedbackKind = 'correction' | 'repeat_request'
+
+export interface FeedbackNoteData {
+  id: number
+  message_id: number
+  kind: FeedbackKind
+  category: string | null
+  error_fragment: string | null
+  corrected_text: string | null
+  explanation: string
+  mode: 'gentle' | 'strict'
+  rank: number
+  created_at: string
+}
+
+export interface ConversationFeedback {
+  conversation_id: number
+  awaiting_retry: boolean
+  awaiting_clarification: boolean
+  consecutive_corrected_attempts: number
+  feedback: FeedbackNoteData[]
 }
 
 export interface VoiceOption {
@@ -106,7 +132,14 @@ export const completeConversation = (conversationId: number): Promise<Conversati
     body: JSON.stringify({ status: 'completed' }),
   })
 
-export const transcribeAudio = async (blob: Blob, language?: string): Promise<{ text: string; detected_language: string | null }> => {
+export interface TranscriptionResult {
+  text: string
+  detected_language: string | null
+  confidence: number | null
+  is_low_confidence: boolean
+}
+
+export const transcribeAudio = async (blob: Blob, language?: string): Promise<TranscriptionResult> => {
   const form = new FormData()
   form.append('file', blob, 'audio.wav')
   if (language) form.append('language', language)
@@ -165,30 +198,43 @@ export const streamChatOpen = async (
   await readSseStream(res, onToken, onDone as (d: unknown) => void, onError)
 }
 
+export interface FeedbackEventData {
+  message_id: number
+  awaiting_retry: boolean
+  notes: FeedbackNoteData[]
+}
+
 export const streamChatMessage = async (
   conversationId: number,
   content: string,
   inputSource: 'voice' | 'keyboard',
   onUserSaved: (messageId: number) => void,
   onToken: (t: string) => void,
-  onDone: (data: { message_id: number }) => void,
+  onDone: (data: { message_id: number | null }) => void,
   onError: (e: string) => void,
+  onFeedback?: (data: FeedbackEventData) => void,
+  transcriptionConfidence?: number,
 ): Promise<void> => {
+  const body: Record<string, unknown> = { content, input_source: inputSource }
+  // 0.0 is a meaningful confidence (hallucination-on-silence), so test for null.
+  if (transcriptionConfidence != null) body.transcription_confidence = transcriptionConfidence
   const res = await fetch(`${BASE}/chat/${conversationId}/message`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content, input_source: inputSource }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) { onError(`HTTP ${res.status}`); return }
   await readSseStream(
     res,
     onToken,
-    (data) => onDone(data as { message_id: number }),
+    (data) => onDone(data as { message_id: number | null }),
     onError,
     (event, data) => {
       if (event === 'user_message_saved') {
         const d = data as { message_id: number }
         onUserSaved(d.message_id)
+      } else if (event === 'feedback') {
+        onFeedback?.(data as FeedbackEventData)
       }
     },
   )
@@ -285,3 +331,6 @@ export const updateSettings = (updates: Partial<AppSettings>): Promise<AppSettin
 
 export const getVoices = (): Promise<VoiceOption[]> =>
   apiFetch('/settings/voices')
+
+export const getConversationFeedback = (conversationId: number): Promise<ConversationFeedback> =>
+  apiFetch(`/corrections/conversations/${conversationId}`)

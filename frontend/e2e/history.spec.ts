@@ -132,7 +132,7 @@ test.describe('History page', () => {
       route.fulfill({ json: { id: 's1', title: 'Coffee Shop', description: 'Cafe' } }),
     )
     await page.goto(HISTORY_URL)
-    await page.getByRole('link', { name: '← Back to Home' }).click()
+    await page.getByRole('link', { name: 'Back to Home' }).click()
     await expect(page).toHaveURL('/')
     await expect(page.getByRole('heading', { name: 'Open Language' })).toBeVisible()
   })

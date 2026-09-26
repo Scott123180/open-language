@@ -29,3 +29,16 @@ class LLMProvider(ABC):
     def model_name(self) -> str:
         """The model identifier in use."""
         ...
+
+
+class StructuredLLMProvider(ABC):
+    """Chat with output constrained to a JSON Schema.
+
+    Deliberately separate from LLMProvider: streaming consumers have no use for
+    a JSON method, and the corrections module has no use for streaming (ISP).
+    """
+
+    @abstractmethod
+    def chat_json(self, messages: list[ChatMessage], schema: dict) -> str:
+        """Return raw JSON text conforming to schema. Raises LLMError on failure."""
+        ...

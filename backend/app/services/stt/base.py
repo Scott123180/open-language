@@ -11,6 +11,9 @@ class STTError(Exception):
 class TranscriptionResult:
     text: str
     detected_language: str | None
+    # Defaulted so every existing STTProvider stays valid (LSP). None means
+    # "no confidence information", which is never treated as low confidence.
+    confidence: float | None = None
 
 
 class STTProvider(ABC):

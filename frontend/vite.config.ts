@@ -1,4 +1,5 @@
-import { defineConfig } from 'vite'
+// vitest/config re-exports Vite's defineConfig with the `test` key typed.
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
@@ -23,9 +24,14 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
+    // T093: Vitest owns src/ only. The specs under e2e/ are Playwright's and
+    // throw at collection under Vitest, which would fail `npm test` outright.
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
+      // Application source only: e2e/ is Playwright's source, not code under test.
+      include: ['src/**/*.{ts,tsx}'],
       thresholds: {
         lines: 90,
         functions: 90,

@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     ollama_model: str = "llama3.1:8b"
     whisper_model: str = "base"
     whisper_device: str = "auto"
+    low_confidence_threshold: float = 0.55
+    correction_timeout_seconds: float = 8.0
     host: str = "127.0.0.1"
     port: int = 8000
 

@@ -50,3 +50,30 @@ describe('WordLookupPopover', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('WordLookupPopover — markdown rendering', () => {
+  const markdown = [
+    'A **greeting** used casually.',
+    '',
+    '- informal',
+    '- friendly',
+    '',
+    '1. hola',
+    '2. buenas',
+  ].join('\n')
+
+  it('renders bold, bulleted and numbered content from the model', () => {
+    render(<WordLookupPopover {...baseProps} result={markdown} />)
+
+    expect(screen.getByText('greeting').tagName.toLowerCase()).toBe('strong')
+    expect(screen.getAllByRole('list')).toHaveLength(2)
+    expect(screen.getAllByRole('listitem')).toHaveLength(4)
+  })
+
+  it('renders both a bulleted and a numbered list', () => {
+    const { container } = render(<WordLookupPopover {...baseProps} result={markdown} />)
+
+    expect(container.querySelector('ul')).toBeInTheDocument()
+    expect(container.querySelector('ol')).toBeInTheDocument()
+  })
+})

@@ -133,3 +133,77 @@ def test_transcribe_stt_error_returns_422(client_with_stub_stt: TestClient):
     finally:
         fake_wav_path.unlink(missing_ok=True)
         app.dependency_overrides[get_stt] = lambda: StubSTTProvider()
+
+
+class ConfidentStubSTT(STTProvider):
+    def __init__(self, confidence: float | None) -> None:
+        self._confidence = confidence
+
+    def transcribe(self, audio_path: Path, language_hint: str | None = None):
+        return TranscriptionResult(
+            text="hola mundo", detected_language="es", confidence=self._confidence
+        )
+
+
+def _transcribe_with(client: TestClient) -> dict:
+    wav_bytes = _minimal_wav_bytes()
+    fake_wav_path = Path("/tmp/fake_confidence_audio.wav")
+    fake_wav_path.write_bytes(wav_bytes)
+    try:
+        with patch("app.routers.audio.convert_webm_to_wav", return_value=fake_wav_path):
+            response = client.post(
+                "/api/audio/transcribe",
+                files={"file": ("audio.webm", wav_bytes, "audio/webm")},
+            )
+    finally:
+        fake_wav_path.unlink(missing_ok=True)
+    assert response.status_code == 200
+    return response.json()
+
+
+def _client_with(confidence: float | None):
+    app.dependency_overrides[get_stt] = lambda: ConfidentStubSTT(confidence)
+    client = TestClient(app)
+    client.__enter__()
+    return client
+
+
+class TestTranscribeReportsConfidence:
+    """FR-010: three states, and the client must not collapse them."""
+
+    def _run(self, confidence: float | None) -> dict:
+        client = _client_with(confidence)
+        try:
+            return _transcribe_with(client)
+        finally:
+            client.__exit__(None, None, None)
+            app.dependency_overrides.clear()
+
+    def test_returns_the_confidence_value(self) -> None:
+        body = self._run(0.82)
+
+        assert body["confidence"] == 0.82
+
+    def test_a_high_confidence_is_not_low(self) -> None:
+        assert self._run(0.82)["is_low_confidence"] is False
+
+    def test_a_value_below_the_threshold_is_low(self) -> None:
+        assert self._run(0.2)["is_low_confidence"] is True
+
+    def test_null_is_passed_through_and_is_not_low(self) -> None:
+        body = self._run(None)
+
+        assert body["confidence"] is None
+        assert body["is_low_confidence"] is False
+
+    def test_zero_is_low(self) -> None:
+        body = self._run(0.0)
+
+        assert body["confidence"] == 0.0
+        assert body["is_low_confidence"] is True
+
+    def test_the_existing_fields_are_unchanged(self) -> None:
+        body = self._run(0.82)
+
+        assert body["text"] == "hola mundo"
+        assert body["detected_language"] == "es"

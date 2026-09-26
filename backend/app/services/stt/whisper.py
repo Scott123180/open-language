@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from app.services.stt.base import STTError, STTProvider, TranscriptionResult
+from app.services.stt.confidence import aggregate_confidence
 
 _CUDA_KEYWORDS = ("cuda", "cublas", "libcuda", "cufft", "cudnn")
 
@@ -61,30 +62,31 @@ class WhisperSTTProvider(STTProvider):
 
     def transcribe(self, audio_path: Path, language_hint: str | None = None) -> TranscriptionResult:
         try:
-            model = self._get_model()
-            segments, info = model.transcribe(
-                str(audio_path),
-                language=language_hint,
-                task="transcribe",
-                beam_size=5,
-            )
-            text = " ".join(seg.text.strip() for seg in segments).strip()
-            return TranscriptionResult(
-                text=text,
-                detected_language=info.language,
-            )
+            return self._run(self._get_model(), audio_path, language_hint)
         except Exception as e:
             if self._device != "cpu" and any(k in str(e).lower() for k in _CUDA_KEYWORDS):
-                model = self._reload_cpu()
-                try:
-                    segments, info = model.transcribe(
-                        str(audio_path),
-                        language=language_hint,
-                        task="transcribe",
-                        beam_size=5,
-                    )
-                    text = " ".join(seg.text.strip() for seg in segments).strip()
-                    return TranscriptionResult(text=text, detected_language=info.language)
-                except Exception as cpu_e:
-                    raise STTError(str(cpu_e)) from cpu_e
+                return self._retry_on_cpu(audio_path, language_hint, e)
             raise STTError(str(e)) from e
+
+    def _run(self, model, audio_path: Path, language_hint: str | None) -> TranscriptionResult:
+        segments, info = model.transcribe(
+            str(audio_path),
+            language=language_hint,
+            task="transcribe",
+            beam_size=5,
+        )
+        segments = list(segments)
+        text = " ".join(seg.text.strip() for seg in segments).strip()
+        return TranscriptionResult(
+            text=text,
+            detected_language=info.language,
+            confidence=aggregate_confidence(segments),
+        )
+
+    def _retry_on_cpu(
+        self, audio_path: Path, language_hint: str | None, cuda_error: Exception
+    ) -> TranscriptionResult:
+        try:
+            return self._run(self._reload_cpu(), audio_path, language_hint)
+        except Exception as cpu_e:
+            raise STTError(str(cpu_e)) from cpu_e

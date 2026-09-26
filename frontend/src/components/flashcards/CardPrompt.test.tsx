@@ -7,6 +7,7 @@ const makeCard = (overrides: Partial<DeckCardItem> = {}): DeckCardItem => ({
   position: 0,
   vocabulary_item_id: 1,
   word: 'bonjour',
+  translation: null,
   fill_blank_sentence: null,
   ...overrides,
 })

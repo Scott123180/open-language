@@ -191,6 +191,7 @@ flowchart TB
         R6["vocabulary"]:::r
         R7["settings"]:::r
         R8["flashcards"]:::r
+        R9["corrections"]:::r
     end
 
     subgraph L2["Composition — app/services/factory.py"]
@@ -204,6 +205,10 @@ flowchart TB
         I4["StorageProvider"]:::i
         I5["ScenarioProvider"]:::i
         I6["FlashcardStorageProvider"]:::i
+        I7["StructuredLLMProvider"]:::i
+        I8["CorrectionStorageProvider"]:::i
+        I9["CorrectionEvaluator"]:::i
+        I10["CorrectionStrategy"]:::i
     end
 
     subgraph L4["Implementations"]
@@ -213,6 +218,8 @@ flowchart TB
         C4["SQLiteStorageProvider"]:::c
         C5["StaticScenarioProvider"]:::c
         C6["SQLiteFlashcardStorageProvider"]:::c
+        C7["SQLiteCorrectionStorageProvider"]:::c
+        C8["Off / Gentle / StrictCorrectionStrategy"]:::c
     end
 
     subgraph L5["Domain services — pure logic, no I/O where possible"]
@@ -223,6 +230,8 @@ flowchart TB
         S5["AnalyticsService"]:::s
         S6["LlmCacheService"]:::s
         S7["prompts/templates.py"]:::s
+        S8["LlmCorrectionEvaluator"]:::s
+        S9["CorrectionPauseTracker"]:::s
     end
 
     L1 --> L2
@@ -253,10 +262,15 @@ and it buys three things:
 flowchart LR
     DB["get_db<br/>SQLAlchemy Session"] --> ST["get_storage<br/>SQLiteStorageProvider"]
     DB --> FST["get_flashcard_storage<br/>SQLiteFlashcardStorageProvider"]
+    DB --> CST["get_correction_storage<br/>SQLiteCorrectionStorageProvider"]
     ST --> AS["get_app_settings<br/>AppSettingsRecord from DB"]
     AS --> LLM["get_llm<br/>model = settings.llm_model"]
     AS --> TTS["get_tts<br/>voice = settings.tts_voice"]
     AS --> STT["get_stt<br/>model = settings.whisper_model"]
+    AS --> SLLM["get_structured_llm<br/>constrained JSON output"]
+    AS --> CS["get_correction_strategy<br/>mode = settings.correction_mode"]
+    SLLM --> CS
+    CST --> CS
     SC["get_scenario_provider<br/>lru_cache singleton"]
 
     LLM --> EP(["router endpoint"])
@@ -333,7 +347,9 @@ schema quietly wrong.
 ```mermaid
 erDiagram
     CONVERSATIONS ||--o{ MESSAGES : "has"
+    CONVERSATIONS ||--o| CONVERSATION_CORRECTION_STATE : "paused by"
     MESSAGES ||--o{ LEARNING_TOOL_RESULTS : "caches"
+    MESSAGES ||--o{ MESSAGE_FEEDBACK : "annotated by"
     CONVERSATIONS ||--o{ VOCABULARY_ITEMS : "sourced from"
     VOCABULARY_ITEMS ||--o{ DECK_CARDS : "appears as"
     VOCABULARY_ITEMS ||--o{ CARD_RESULTS : "rated in"
@@ -613,7 +629,105 @@ Two prompt-design decisions carry real product weight:
   on the same model and the same conversation text, so without `Do NOT continue any roleplay` the model
   drifts back into character and answers as the ticket agent instead of as a tutor.
 
-### 6.3 The "no shortcuts" pedagogy, expressed in architecture
+### 6.3 Corrective feedback: one seam, three modes
+
+Feature 003 adds grammar correction during practice. The learner picks a mode in Settings —
+**Off**, **Gentle**, or **Strict** — and it applies to every conversation from their next message on.
+
+The whole feature hangs off a single decision object. `CorrectionStrategy.plan_turn(context)` returns a
+frozen `TurnPlan`, and the chat router acts on that plan **identically regardless of which strategy
+produced it**:
+
+```text
+TurnPlan(
+    feedback: tuple[FeedbackDraft, ...]   # notes to persist, 0..2
+    generate_reply: bool                  # False only for a flagged Strict turn
+    reply_prompt_suffix: str | None       # the Gentle recast instruction
+)
+```
+
+`build_correction_strategy(mode, evaluator, storage)` in `app/corrections/__init__.py` is the **only**
+place in the codebase where a mode string becomes behaviour. No router, service, or component branches
+on the mode again. An unrecognised stored value falls back to Off, so a bad row can never stop a
+conversation working.
+
+| Mode | Evaluator call | Reply generated? | What the learner sees |
+|---|---|---|---|
+| Off | none | yes | nothing new — byte-identical to the pre-feature stream |
+| Gentle | yes | yes, same turn | the character restates the corrected form in its own words |
+| Strict | yes | **no**, when a mistake is found | a correction note, and the scenario waits for a retry |
+
+**Why evaluate before generating.** FR-016 forbids a character reply for a flagged Strict turn "whether
+shown, withheld, or stored". The decision not to generate must therefore be made *before* any tokens
+exist. Gentle reuses the same evaluator so there is one detection path, not two.
+
+**The cost, and how it is paid.** Gentle and Strict run a second LLM call per turn. Three things keep
+that honest rather than mysterious: the call is wrapped in `asyncio.wait_for` with a configurable
+`correction_timeout_seconds` (8 s default); a `checking` status line appears under the learner's message
+so the wait is legible; and the Settings control states plainly that a slow check is skipped so the
+conversation continues.
+
+**Failing open is the whole resilience story.** Timeout, `LLMError`, and unparseable model output all
+produce the same outcome: an empty plan, an ordinary reply, no error surfaced, a `warning` logged. A
+missed correction costs one learning moment; a blocked turn costs the conversation. The SSE stream for a
+failed evaluation is asserted to be identical to the Off-mode stream.
+
+```mermaid
+flowchart TB
+    M["learner message"] --> SAVE["save user message<br/>emit user_message_saved"]
+    SAVE --> PLAN{"strategy.plan_turn<br/>under wait_for(8s)"}
+    PLAN -->|"timeout / LLMError"| NULL["empty plan<br/>log warning"]
+    PLAN -->|"plan"| FB{"feedback?"}
+    NULL --> FB
+    FB -->|"yes, non-gentle"| EMIT["emit feedback frame"]
+    FB -->|"no"| REPLY
+    EMIT --> GEN{"generate_reply?"}
+    GEN -->|"false"| DONE["done · message_id: null<br/>no assistant row, no TTS"]
+    GEN -->|"true"| REPLY["stream reply<br/>+ reply_prompt_suffix"]
+    REPLY --> DONE2["done · message_id: N"]
+
+    style NULL fill:#d9770620,stroke:#d97706
+    style DONE fill:#0d948820,stroke:#0d9488
+```
+
+**Two tables, both owned by the corrections module** (`app/corrections/models.py`), created by
+`create_all()` like the flashcard tables:
+
+- **`message_feedback`** — one app note attached to one learner message, discriminated by `kind`
+  (`correction` | `repeat_request`). Insert-only: no code path rewrites a row, which is what makes FR-004
+  ("changing the mode must not alter feedback already in the transcript") true structurally rather than
+  by convention. At most two corrections per message, ordered by `rank`.
+- **`conversation_correction_state`** — the Strict pause, keyed one-to-one on `conversation_id`. Holds
+  `consecutive_corrected_attempts` and `awaiting_clarification`. `awaiting_retry` is **derived, never
+  stored**, so it cannot disagree with the counters it comes from.
+
+**The pause cannot deadlock.** `CorrectionPauseTracker` counts *attempts*, not matching errors. After two
+consecutive corrected attempts the next message is answered whatever it contains — including a brand-new
+mistake. That makes "the learner can never be trapped" a structural property, not a probabilistic one.
+
+**Correction text can never be spoken.** `GET /audio/tts/{id}` synthesises `messages.content`, and
+feedback lives in a separate table with no message id of its own. A flagged Strict turn ends with
+`done · message_id: null`, so the client has nothing to request audio for. There is no code path from a
+note to Piper.
+
+**Transcription confidence gates the whole thing.** `app/services/stt/confidence.py` aggregates
+per-segment Whisper signals into one number: drop segments carrying no speech, force low confidence on a
+repetition loop, then take the **token-weighted** mean of `avg_logprob` (it is already a per-token mean,
+so token count is the correct weight) and exponentiate. Three states are stored and must not be
+collapsed:
+
+| Stored | Meaning | Corrected? |
+|---|---|---|
+| `NULL` | no confidence information — typed input | **yes**, evaluated normally |
+| `0.0` | text present, every segment read as silence | no — hallucination-on-silence |
+| `< 0.55` | genuinely unclear speech | no |
+
+The `NULL` row is load-bearing: typed input has no confidence and must never be gated. The rule is
+`confidence is not None and confidence < threshold`, so `NULL` falls through and `0.0` does not. A
+confidence supplied alongside `input_source="keyboard"` is ignored and stored as `NULL` — the value is
+client-supplied, and this closes the only way it could be misused.
+
+### 6.4 The "no shortcuts" pedagogy, expressed in architecture
 
 Suggested responses and the expression helper are deliberately **read-only**. There is no tap-to-insert,
 no copy-to-input, no send button. From FR-020 and FR-023, and from the clarification session:
@@ -632,7 +746,7 @@ SQLite — deliberately, because a throwaway "how do I say X?" lookup is not lea
 The store is bounded rather than unbounded: least-recently-used eviction past 50 threads and a 2-hour idle
 expiry, so a long-running process cannot accumulate them without limit.
 
-### 6.4 Flashcards: the learning loop
+### 6.5 Flashcards: the learning loop
 
 ```mermaid
 flowchart TB
@@ -679,7 +793,7 @@ a new algorithm is a new class plus a registry entry, with no edit to any existi
 algorithm names fall back to random selection rather than raising, so a stale deck config cannot brick the
 screen.
 
-### 6.5 Classification: a pure function with a documented precedence order
+### 6.6 Classification: a pure function with a documented precedence order
 
 `app/flashcards/services/classification.py` has **no I/O at all**. It takes a list of rating strings
 (most recent first, max five) plus the current classification, and returns the new classification. That
@@ -725,7 +839,7 @@ the flag. The override survives exactly one session, after which the automatic s
 rationale: a manual correction is a one-off nudge, not a permanent opt-out, and a word silently frozen
 forever would quietly corrupt the learner's own analytics.
 
-### 6.6 Spaced repetition
+### 6.7 Spaced repetition
 
 `SpacedRepetitionService` advances a word along a fixed ladder of intervals, in days:
 
@@ -944,7 +1058,8 @@ open-language/
 │
 ├── specs/                       Per-feature artifacts (the "why" archive)
 │   ├── 001-speak-roleplay-chat/
-│   └── 002-vocabulary-flashcards/
+│   ├── 002-vocabulary-flashcards/
+│   └── 003-corrective-feedback-mode/
 │
 ├── docs/
 │   ├── design-system.md         Tokens, components, dark mode, a11y
@@ -967,22 +1082,30 @@ open-language/
 │       │   ├── factory.py       DI composition root
 │       │   ├── helper_sessions.py  Bounded, expiring helper threads
 │       │   ├── llm/             base.py ABC + ollama.py
-│       │   ├── stt/             base.py ABC + whisper.py
+│       │   ├── stt/             base.py ABC + whisper.py + confidence.py
 │       │   ├── tts/             base.py ABC + piper.py + voices.py
 │       │   ├── storage/         base.py ABC + sqlite.py
 │       │   ├── scenario/        base.py ABC + static.py
 │       │   └── audio/           conversion.py — ffmpeg subprocess
-│       └── flashcards/          Self-contained domain (Principle V)
-│           ├── router.py        ← the domain's public interface
-│           ├── models.py        7 tables
-│           ├── schemas.py       Pydantic contracts
-│           └── services/        classification, deck_generation, srs,
-│                                session, analytics, llm_cache, storage
+│       ├── flashcards/          Self-contained domain (Principle V)
+│       │   ├── router.py        ← the domain's public interface
+│       │   ├── models.py        7 tables
+│       │   ├── schemas.py       Pydantic contracts
+│       │   └── services/        classification, deck_generation, srs,
+│       │                        session, analytics, llm_cache, storage
+│       └── corrections/         Self-contained domain (Principle V)
+│           ├── __init__.py      ← public interface + build_correction_strategy
+│           ├── router.py        Replay endpoint for reload
+│           ├── models.py        2 tables
+│           ├── config.py        Named policy thresholds
+│           ├── prompts.py       Evaluation, recast, repeat-request prompts
+│           ├── schemas.py       Pydantic contracts + note serialisation
+│           └── services/        evaluator, strategies, pause_tracker, storage
 │
 └── frontend/
     ├── vite.config.ts           Dev proxy, build → ../backend/static, Vitest thresholds
     ├── playwright.config.ts     E2E config, starts its own dev server
-    ├── e2e/                     8 spec files + fixtures.ts
+    ├── e2e/                     9 spec files + fixtures.ts
     └── src/
         ├── main.tsx             Providers, theme init
         ├── App.tsx              Routes
@@ -1001,6 +1124,7 @@ open-language/
 | `001-speak-roleplay-chat` | Scenarios, voice/text chat, learning tools, word lookup + save, suggestions, expression helper, history, settings | Merged |
 | `002-vocabulary-flashcards` | Word library, 4 deck algorithms, 4 practice modes, SRS, session summary, analytics dashboard | Merged |
 | `003-mywords-page-redesign` | My Words page UI/UX | In progress on `develop` |
+| `003-corrective-feedback-mode` | Off/Gentle/Strict grammar correction during practice, transcription-confidence gating, resume-aware chat screen | In progress |
 
 `master` is the release branch; `develop` is the integration branch; feature branches are numbered and
 created by `.specify/scripts/bash/create-new-feature.sh`.
@@ -1051,6 +1175,57 @@ Collected from the sections above so they are findable in one place:
 |---|---|---|
 | Token streaming is batched, not incremental — the typing effect is cosmetic | `app/routers/chat.py` | Accepted trade-off; revisit if perceived latency matters |
 | `_add_column_if_missing()` cannot express renames, type changes, or backfills | `app/database.py` | Fine while changes stay additive; replace with Alembic otherwise |
+| **Correction accuracy is not good enough on an 8B model** — see below | `app/corrections/` | Shipped with an in-app warning; the larger-model fix is blocked by 8 GB VRAM (T098), leaving a trade between `llama3.1:8b` and `mistral` |
+| Background TTS writes through the request-scoped session after it is closed | `app/routers/chat.py` | Pre-dates 003; TTS cache paths can silently fail to persist |
+
+#### Roadmap: correction quality needs a larger model
+
+Feature 003 ships Gentle and Strict as **experimental**, because the detection quality SC-003 asks for is
+not reachable with the current default model.
+
+Measured against `llama3.1:8b` on the fixed 20-sentence benchmark
+(`tests/integration/corrections/test_correction_benchmark.py`, deselected from CI, run by hand):
+
+| Figure | Target (SC-003) | Measured |
+|---|---|---|
+| Substantive errors detected | ≥ 8 / 10 | **10 / 10** |
+| Correct sentences falsely flagged | 0 / 10 | **10 / 10** |
+
+Detection is not the problem — restraint is. The model flags every correct sentence, and its inventions
+are themselves wrong: `Ella es mi hermana` → `hermano`, or `examen` → `exámen`, which the prompt
+explicitly rules out as a diacritic. A learner acting on that is being taught errors.
+
+**What has already been tried**, so it is not repeated: explicit negative instructions per category; a
+"most sentences are correct, never invent a mistake" framing; and a `verdict` field the model must commit
+to before it may list anything. The verdict gate is kept — it can only suppress findings, never add them —
+but it is structural restraint, not a fix. One probe measured it at 5/10 false positives and the result
+did not reproduce, which is itself the finding: at this model size the outcome is dominated by prompt
+wording noise rather than by the model's grasp of the grammar.
+
+**The intended resolution was a larger model. It is blocked by VRAM** (benchmarked 2026-08-27, T098).
+This host is an RTX 3070 Ti with **8 GB VRAM**, and the two larger candidates do not fit: `qwen3.6`
+(23 GB) loads at 79% CPU / 21% GPU, and `llama3.1:70b` (42 GB) is worse. At that offload every turn
+would exhaust the 8 s `correction_timeout_seconds` budget and fail open, so the feature would silently
+do nothing. Their accuracy was not measured because it cannot matter on this hardware.
+
+`mistral` (4.4 GB) does fit, and **inverts the failure** — three runs gave **7/10 detected, 0–1/10
+false positives** at ~1.6 s/sentence, against `llama3.1:8b`'s 10/10 detected and 10/10 false positives.
+Neither model satisfies SC-003, which needs ≥ 8 detected *and* 0 false positives: `mistral` meets the
+restraint half and misses detection by one, `llama3.1:8b` meets detection and fails restraint entirely.
+
+What `mistral` misses is specific — gender agreement (`el leche`), the *gustar* construction
+(`Yo gusta mucho el café`), and the subjunctive (`Quiero que tú vienes`) — three common learner errors.
+Its one intermittent false positive reorders a correct sentence (`A mí me gusta mucho el café` →
+`Me gusta mucho el café a mí`), the unidiomatic-but-correct case FR-007 rules out.
+
+**So the open decision is a trade, not a fix**: `mistral` is the better model for US3 ("Learner is not
+nagged"), which is the story this feature actually fails, at the cost of three error classes going
+undetected. `ollama_model` is left at `llama3.1:8b` pending that product call. Genuinely resolving
+SC-003 needs either a GPU with more VRAM or a model in the 4–8 GB class that is stronger than both.
+
+Until then, the Settings screen carries a note stating that corrections come from the selected model, can
+be wrong, should be treated as a reason to double-check rather than as the last word, and improve with a
+larger model. That warning is load-bearing and should not be removed before the benchmark passes.
 
 **Resolved 2026-08-25:** the `upsert_srs_schedule()` signature mismatch that raised `TypeError` when a word
 was promoted to Learned; unbounded `_helper_sessions` state; `_add_column_if_missing()` swallowing every

@@ -239,3 +239,6 @@ backend/static/
 # IDE
 .vscode/
 .idea/
+
+# TypeScript incremental build info
+*.tsbuildinfo

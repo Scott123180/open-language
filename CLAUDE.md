@@ -9,25 +9,43 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Open-Language** is a language learning application being built using **SpecKit** (v0.3.0), a specification-driven development (SDD) framework. The repository currently contains the project scaffolding, governance rules, and workflow automation — application code is generated through the SDD workflow.
+**Open-Language** is a locally-run language learning application built using **SpecKit** (v1.0.1, skills-based integration), a specification-driven development (SDD) framework. All feature work goes through the SDD workflow below.
 
-The application will incorporate speech-to-text features (see [reference/TRANSCRIPTION_INTEGRATION.md](reference/TRANSCRIPTION_INTEGRATION.md) for integration patterns using `faster-whisper` with CUDA).
+The application is implemented and running: a FastAPI backend in [backend/app/](backend/app/) and a Vite/React frontend in [frontend/src/](frontend/src/). Two features have shipped — roleplay chat (001) and vocabulary flashcards (002) — with corrective feedback mode (003) in progress. Everything runs locally: Ollama for the LLM, Piper for TTS, faster-whisper for STT, SQLite for storage. No external services.
+
+Speech-to-text is implemented in [backend/app/services/stt/whisper.py](backend/app/services/stt/whisper.py); see [reference/TRANSCRIPTION_INTEGRATION.md](reference/TRANSCRIPTION_INTEGRATION.md) for the underlying `faster-whisper` + CUDA integration patterns.
 
 ## Development Workflow
 
 All features follow a strict spec-first workflow enforced by the constitution. Use these SpecKit slash commands in order:
 
-1. `/speckit.specify` — Write a feature spec from a natural language description
-2. `/speckit.clarify` — Resolve ambiguities (max 3 clarification points)
-3. `/speckit.plan` — Generate a technical implementation plan (includes a research phase)
-4. `/speckit.tasks` — Break the plan into dependency-ordered tasks
-5. `/speckit.implement` — Execute implementation in phases
-6. `/speckit.checklist` — Validate quality gates before merging
-7. `/speckit.analyze` — Cross-artifact consistency check
+1. `/speckit-specify` — Write a feature spec from a natural language description
+2. `/speckit-clarify` — Resolve ambiguities (max 3 clarification points)
+3. `/speckit-plan` — Generate a technical implementation plan (includes a research phase)
+4. `/speckit-tasks` — Break the plan into dependency-ordered tasks
+5. `/speckit-implement` — Execute implementation in phases
+6. `/speckit-checklist` — Validate quality gates before merging
+7. `/speckit-analyze` — Cross-artifact consistency check
 
-Helper scripts in [.specify/scripts/bash/](.specify/scripts/bash/) automate branch setup and context updates:
+Also available: `/speckit-converge` (assess the codebase against spec/plan/tasks and append unbuilt
+work), `/speckit-constitution`, `/speckit-taskstoissues`, `/speckit-agent-context-update`, and the
+`/speckit-git-*` extension commands.
+
+Names are hyphenated. The older dot-separated forms (`/speckit.tasks`) were removed on 2026-08-25;
+the `command:` values inside `.specify/extensions.yml` and `.specify/workflows/` still use dots as
+logical ids and are converted to hyphens at invocation.
+
+Helper scripts in [.specify/scripts/bash/](.specify/scripts/bash/) back these commands:
 - `create-new-feature.sh` — Initialize a new feature branch
 - `update-agent-context.sh` — Sync Claude context with current project state
+- `check-prerequisites.sh` — Report FEATURE_DIR and which design docs exist
+- `setup-plan.sh` / `setup-tasks.sh` — Stage the plan/tasks templates for a feature
+- `common.sh` — Shared path resolution, sourced by the others
+
+**Known issue**: `setup-tasks.sh` calls `resolve_template_content`, which is not defined in
+`common.sh` (only `resolve_template`, at line 183). `/speckit-tasks` therefore fails at setup with a
+misleading "template not found" error; the template is present at
+`.specify/templates/tasks-template.md` and can be read directly as a workaround.
 
 ## Constitution & Quality Gates
 
@@ -215,10 +233,31 @@ When implementing transcription features, refer to [reference/TRANSCRIPTION_INTE
 - Dependencies: `faster-whisper`, `sounddevice`, `scipy`, `numpy` (plus optional NVIDIA CUDA packages)
 
 ## Active Technologies
-- Python 3.11+ (backend), TypeScript/React 18 (frontend) + FastAPI, Uvicorn, SQLite (via SQLAlchemy), faster-whisper, Ollama Python client (llama3.1), Piper TTS, ffmpeg/pydub (audio conversion), React 18, Vite, React Query (001-speak-roleplay-chat)
-- SQLite — conversations, messages, vocabulary items, user settings (001-speak-roleplay-chat)
-- Python 3.12 (backend), TypeScript 5.4 / React 18.3 (frontend) (002-vocabulary-flashcards)
-- SQLite with WAL mode and foreign keys enabled; schema migration via `_add_column_if_missing()` for existing tables, `create_all()` for new tables (002-vocabulary-flashcards)
+
+**Backend** — Python (`requires-python = ">=3.11"`; the `backend/.venv` runs 3.12.3): FastAPI,
+Uvicorn, SQLAlchemy 2.0 over SQLite, `faster-whisper` 1.2.1 (STT), Piper (TTS), the `ollama` client
+(llama3.1), ffmpeg/pydub for audio conversion. Tested with pytest + pytest-cov.
+
+**Frontend** — TypeScript 5.4 / React 18.3, Vite, react-router-dom v6, TanStack Query v5 (used by the
+flashcards pages), Recharts (analytics), react-markdown. Tested with Vitest + Testing Library and
+Playwright.
+
+**Storage** — SQLite with WAL mode and foreign keys enabled. Schema changes are additive: new tables
+via `create_all()`, new columns via `_add_column_if_missing()` in
+[backend/app/database.py](backend/app/database.py). There is no migration framework.
+
+**Domain modules** — `backend/app/flashcards/` (002) is the reference pattern for a compartmentalised
+feature: its own models, schemas, router, and `services/` behind a storage ABC.
+`backend/app/corrections/` (003) follows it, and adds a strategy seam: `build_correction_strategy()`
+in its `__init__.py` is the only place a correction-mode string becomes behaviour.
 
 ## Recent Changes
-- 001-speak-roleplay-chat: Added Python 3.11+ (backend), TypeScript/React 18 (frontend) + FastAPI, Uvicorn, SQLite (via SQLAlchemy), faster-whisper, Ollama Python client (llama3.1), Piper TTS, ffmpeg/pydub (audio conversion), React 18, Vite, React Query
+- **003-corrective-feedback-mode** (in progress): Off/Gentle/Strict grammar correction during
+  conversation practice; adds a `corrections` domain module, transcription-confidence gating, and a
+  `StructuredLLMProvider` ABC for constrained JSON output. **Shipped as experimental**: detection is
+  good but restraint is not — `llama3.1:8b` falsely flags correct sentences, so the Settings screen
+  carries a warning and a larger model is on the roadmap (docs/architecture.md § "Open items")
+- **002-vocabulary-flashcards**: flashcard practice modes, smart deck generation, spaced repetition,
+  and an analytics dashboard; added Recharts and 7 tables
+- **001-speak-roleplay-chat**: the original roleplay conversation feature — scenarios, streaming
+  chat over SSE, STT/TTS, and the per-message learning tools

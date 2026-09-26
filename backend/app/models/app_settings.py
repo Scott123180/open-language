@@ -21,6 +21,7 @@ class AppSettings(Base):
     )
     suggestion_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     whisper_model: Mapped[str] = mapped_column(String(50), nullable=False, default="base")
+    correction_mode: Mapped[str] = mapped_column(String(10), nullable=False, default="off")
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

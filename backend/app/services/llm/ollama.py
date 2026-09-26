@@ -2,10 +2,15 @@ from collections.abc import Iterator
 
 import ollama
 
-from app.services.llm.base import ChatMessage, LLMError, LLMProvider
+from app.services.llm.base import (
+    ChatMessage,
+    LLMError,
+    LLMProvider,
+    StructuredLLMProvider,
+)
 
 
-class OllamaLLMProvider(LLMProvider):
+class OllamaLLMProvider(LLMProvider, StructuredLLMProvider):
     def __init__(self, model: str) -> None:
         self._model = model
 
@@ -31,6 +36,18 @@ class OllamaLLMProvider(LLMProvider):
                 model=self._model,
                 messages=[{"role": m.role, "content": m.content} for m in messages],
                 stream=False,
+            )
+            return response["message"]["content"]
+        except Exception as e:
+            raise LLMError(str(e)) from e
+
+    def chat_json(self, messages: list[ChatMessage], schema: dict) -> str:
+        try:
+            response = ollama.chat(
+                model=self._model,
+                messages=[{"role": m.role, "content": m.content} for m in messages],
+                stream=False,
+                format=schema,
             )
             return response["message"]["content"]
         except Exception as e:

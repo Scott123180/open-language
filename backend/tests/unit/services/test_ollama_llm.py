@@ -69,3 +69,30 @@ def test_chat_stream_passes_stream_true() -> None:
 
     _, kwargs = mock_chat.call_args
     assert kwargs.get("stream") is True or mock_chat.call_args[1].get("stream") is True
+
+
+def test_chat_json_passes_the_schema_as_the_response_format() -> None:
+    schema = {"type": "object", "properties": {"corrections": {"type": "array"}}}
+    with patch("ollama.chat", return_value={"message": {"content": "{}"}}) as mock_chat:
+        provider = OllamaLLMProvider(model="llama3.1")
+        provider.chat_json(_make_messages(), schema)
+
+    _, kwargs = mock_chat.call_args
+    assert kwargs["format"] == schema
+    assert kwargs["stream"] is False
+
+
+def test_chat_json_returns_raw_content() -> None:
+    payload = '{"corrections": []}'
+    with patch("ollama.chat", return_value={"message": {"content": payload}}):
+        provider = OllamaLLMProvider(model="llama3.1")
+        result = provider.chat_json(_make_messages(), {"type": "object"})
+
+    assert result == payload
+
+
+def test_chat_json_raises_llm_error_on_exception() -> None:
+    with patch("ollama.chat", side_effect=RuntimeError("connection refused")):
+        provider = OllamaLLMProvider(model="llama3.1")
+        with pytest.raises(LLMError, match="connection refused"):
+            provider.chat_json(_make_messages(), {"type": "object"})

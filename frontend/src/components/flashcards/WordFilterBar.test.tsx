@@ -140,3 +140,27 @@ describe('WordFilterBar', () => {
     expect(screen.getByRole('button', { name: /delete multiple/i })).toBeDisabled()
   })
 })
+
+describe('WordFilterBar — focus affordances', () => {
+  it('highlights the search box on focus and restores it on blur', () => {
+    render(<WordFilterBar {...defaultProps} />)
+    const search = screen.getByRole('searchbox')
+
+    fireEvent.focus(search)
+    expect(search.style.borderColor).toBe('var(--color-primary)')
+
+    fireEvent.blur(search)
+    expect(search.style.borderColor).toBe('var(--color-border)')
+  })
+
+  it('highlights the sort select on focus and restores it on blur', () => {
+    render(<WordFilterBar {...defaultProps} />)
+    const sort = screen.getByRole('combobox', { name: /sort/i })
+
+    fireEvent.focus(sort)
+    expect(sort.style.borderColor).toBe('var(--color-primary)')
+
+    fireEvent.blur(sort)
+    expect(sort.style.borderColor).toBe('var(--color-border)')
+  })
+})

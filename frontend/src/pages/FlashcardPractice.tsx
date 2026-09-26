@@ -104,6 +104,8 @@ export default function FlashcardPractice() {
   async function handleExit() {
     try {
       await api.endSession(Number(sessionId), false)
+    } catch {
+      // Best-effort: the learner is leaving either way.
     } finally {
       navigate(`/flashcards/summary/${sessionId}`)
     }

@@ -36,7 +36,7 @@ export function AccuracyTrendChart({ data }: { data: AccuracyPoint[] }) {
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="date" tick={{ fontSize: 11 }} />
         <YAxis domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`} tick={{ fontSize: 11 }} />
-        <Tooltip formatter={(v: number) => `${Math.round(v * 100)}%`} />
+        <Tooltip formatter={(v) => `${Math.round(Number(v) * 100)}%`} />
         <Line type="monotone" dataKey="accuracy" stroke="#6366f1" dot={false} />
       </LineChart>
     </ResponsiveContainer>
@@ -109,7 +109,7 @@ export function ModePerformanceChart({ data }: { data: ModePerformanceItem[] }) 
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="mode" tick={{ fontSize: 11 }} />
         <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11 }} />
-        <Tooltip formatter={(v: number) => `${v}%`} />
+        <Tooltip formatter={(v) => `${Number(v)}%`} />
         <Bar dataKey="accuracy_pct" fill={MODE_COLOR} name="Accuracy" />
       </BarChart>
     </ResponsiveContainer>

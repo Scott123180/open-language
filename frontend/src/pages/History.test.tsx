@@ -17,6 +17,7 @@ const mockConversations: api.Conversation[] = [
     started_at: '2026-03-15T10:00:00Z',
     ended_at: '2026-03-15T10:20:00Z',
     llm_model: 'llama3.1',
+    custom_prompt: null,
   },
   {
     id: 2,
@@ -28,6 +29,7 @@ const mockConversations: api.Conversation[] = [
     started_at: '2026-03-16T09:00:00Z',
     ended_at: null,
     llm_model: 'llama3.1',
+    custom_prompt: null,
   },
 ]
 

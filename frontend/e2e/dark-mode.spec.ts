@@ -73,7 +73,7 @@ test.describe('Dark mode', () => {
 
     await page.goto('/settings')
     await page.getByRole('button', { name: 'Dark' }).click()
-    await page.getByRole('link', { name: '← Back to Home' }).click()
+    await page.getByRole('link', { name: 'Back to Home' }).click()
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   })
 

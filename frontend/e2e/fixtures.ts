@@ -42,7 +42,39 @@ export const mockSettings = {
   tts_voice: 'es_ES-davefx-medium',
   suggestion_count: 3,
   whisper_model: 'base',
+  correction_mode: 'off',
   updated_at: '2026-03-20T10:00:00Z',
+}
+
+export const mockFeedbackNote = {
+  id: 7,
+  message_id: 10,
+  kind: 'correction',
+  category: 'conjugation',
+  error_fragment: 'Yo tener',
+  corrected_text: 'Yo tengo veinte años',
+  explanation: '"Tener" needs to be conjugated: with "yo" it becomes "tengo".',
+  mode: 'strict',
+  rank: 0,
+  created_at: '2026-03-20T10:04:11Z',
+}
+
+export const mockRepeatRequestNote = {
+  ...mockFeedbackNote,
+  id: 8,
+  kind: 'repeat_request',
+  category: null,
+  error_fragment: null,
+  corrected_text: null,
+  explanation: "I didn't quite catch that — could you say it again?",
+}
+
+export const emptyConversationFeedback = {
+  conversation_id: 1,
+  awaiting_retry: false,
+  awaiting_clarification: false,
+  consecutive_corrected_attempts: 0,
+  feedback: [],
 }
 
 export const mockVoices = [
@@ -103,6 +135,55 @@ export function makeMessageSseBody(
   return lines.join('')
 }
 
+/** Build an SSE body whose turn is a correction and nothing else (Strict, flagged). */
+export function makeCorrectionSseBody(
+  userMessageId: number,
+  notes: Array<Record<string, unknown>>,
+  options: { awaitingRetry?: boolean } = {},
+): string {
+  const { awaitingRetry = true } = options
+  const lines: string[] = []
+  lines.push(
+    `data: ${JSON.stringify({ event: 'user_message_saved', message_id: userMessageId })}\n\n`,
+  )
+  lines.push(
+    `data: ${JSON.stringify({
+      event: 'feedback',
+      message_id: userMessageId,
+      awaiting_retry: awaitingRetry,
+      notes,
+    })}\n\n`,
+  )
+  lines.push(`data: ${JSON.stringify({ done: true, message_id: null })}\n\n`)
+  return lines.join('')
+}
+
+/** Build an SSE body that carries a feedback frame and then streams a reply. */
+export function makeMessageWithFeedbackSseBody(
+  userMessageId: number,
+  notes: Array<Record<string, unknown>>,
+  tokens: string[],
+  assistantMessageId: number,
+): string {
+  const lines: string[] = []
+  lines.push(
+    `data: ${JSON.stringify({ event: 'user_message_saved', message_id: userMessageId })}\n\n`,
+  )
+  lines.push(
+    `data: ${JSON.stringify({
+      event: 'feedback',
+      message_id: userMessageId,
+      awaiting_retry: false,
+      notes,
+    })}\n\n`,
+  )
+  for (const t of tokens) {
+    lines.push(`data: ${JSON.stringify({ token: t })}\n\n`)
+  }
+  lines.push(`data: ${JSON.stringify({ done: true, message_id: assistantMessageId })}\n\n`)
+  return lines.join('')
+}
+
 /** Build a complete SSE body for the helper stream. */
 export function makeHelperSseBody(tokens: string[]): string {
   const lines = tokens.map((t) => `data: ${JSON.stringify({ token: t })}\n\n`)
@@ -148,6 +229,12 @@ export async function mockChatApis(
   )
   await page.route('/api/conversations/1', (route) =>
     route.fulfill({ json: mockConversation }),
+  )
+  await page.route('/api/conversations/1/messages', (route) =>
+    route.fulfill({ json: [] }),
+  )
+  await page.route('/api/corrections/conversations/1', (route) =>
+    route.fulfill({ json: emptyConversationFeedback }),
   )
   await page.route('/api/chat/1/open', (route) =>
     route.fulfill({

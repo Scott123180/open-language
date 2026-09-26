@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
+from app.config import get_settings
 from app.services.audio.conversion import convert_webm_to_wav
 from app.services.factory import get_storage, get_stt, get_tts
 from app.services.storage.base import StorageProvider
@@ -77,4 +78,16 @@ async def transcribe_audio(
             detail="Could not understand audio. Please speak clearly and try again.",
         )
 
-    return {"text": result.text, "detected_language": result.detected_language}
+    return {
+        "text": result.text,
+        "detected_language": result.detected_language,
+        "confidence": result.confidence,
+        "is_low_confidence": _is_low_confidence(result.confidence),
+    }
+
+
+def _is_low_confidence(confidence: float | None) -> bool:
+    """None means "no information" and must never be gated (FR-010a); 0.0 must."""
+    if confidence is None:
+        return False
+    return confidence < get_settings().low_confidence_threshold

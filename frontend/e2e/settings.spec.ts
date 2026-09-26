@@ -188,7 +188,7 @@ test.describe('Settings page', () => {
       route.fulfill({ json: { id: 's1', title: 'Coffee Shop', description: 'Cafe' } }),
     )
     await page.goto(SETTINGS_URL)
-    await page.getByRole('link', { name: '← Back to Home' }).click()
+    await page.getByRole('link', { name: 'Back to Home' }).click()
     await expect(page).toHaveURL('/')
     await expect(page.getByRole('heading', { name: 'Open Language' })).toBeVisible()
   })
@@ -308,5 +308,81 @@ test.describe('Settings page', () => {
     await page.getByRole('button', { name: /save/i }).click()
     await expect(page.getByRole('status')).toContainText('Settings saved.')
     expect(capturedBody).toMatchObject({ tts_voice: 'es_AR-daniela-high' })
+  })
+})
+
+test.describe('Settings page — correction feedback mode', () => {
+  test('shows the three correction modes', async ({ page }) => {
+    await setupSettingsRoutes(page)
+    await page.goto(SETTINGS_URL)
+    await expect(page.getByRole('group', { name: /correction/i })).toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Off', exact: true })).toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Gentle', exact: true })).toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Strict', exact: true })).toBeVisible()
+  })
+
+  test('defaults to the stored mode', async ({ page }) => {
+    await setupSettingsRoutes(page, { ...mockSettings, correction_mode: 'gentle' })
+    await page.goto(SETTINGS_URL)
+    await expect(page.getByRole('radio', { name: 'Gentle', exact: true })).toBeChecked()
+  })
+
+  test('selecting Strict sends it to the API', async ({ page }) => {
+    let capturedBody: unknown = null
+    await page.route('/api/settings', (route) => {
+      if (route.request().method() === 'PUT') {
+        capturedBody = route.request().postDataJSON()
+        return route.fulfill({ json: { ...mockSettings, correction_mode: 'strict' } })
+      }
+      return route.fulfill({ json: mockSettings })
+    })
+    await page.route('/api/settings/voices', (route) => route.fulfill({ json: mockVoices }))
+    await page.goto(SETTINGS_URL)
+
+    await page.getByRole('radio', { name: 'Strict', exact: true }).check()
+    await page.getByRole('button', { name: /save/i }).click()
+
+    await expect(page.getByRole('status')).toContainText('Settings saved.')
+    expect(capturedBody).toMatchObject({ correction_mode: 'strict' })
+  })
+
+  test('shows the performance hint and ties it to the control', async ({ page }) => {
+    await setupSettingsRoutes(page)
+    await page.goto(SETTINGS_URL)
+
+    const group = page.getByRole('group', { name: /correction/i })
+    const describedBy = (await group.getAttribute('aria-describedby')) ?? ''
+    const ids = describedBy.split(/\s+/).filter(Boolean)
+    expect(ids.length).toBeGreaterThan(0)
+    const described = page.locator(ids.map((id) => `#${id}`).join(', '))
+    await expect(described.first()).toBeVisible()
+    const text = (await described.allTextContents()).join(' ')
+    expect(text).toMatch(/several seconds per turn/i)
+    expect(text).toMatch(/skipped so the conversation continues/i)
+  })
+
+  test('warns that corrections are experimental and can be wrong', async ({ page }) => {
+    await setupSettingsRoutes(page)
+    await page.goto(SETTINGS_URL)
+
+    const warning = page.getByRole('note', { name: /correction accuracy/i })
+    await expect(warning).toBeVisible()
+    await expect(warning).toContainText(/experimental/i)
+    await expect(warning).toContainText(/can be wrong/i)
+    await expect(warning).toContainText(/double-check/i)
+    await expect(warning).toContainText(/larger model/i)
+  })
+
+  test('the warning is tied to the correction-mode control', async ({ page }) => {
+    await setupSettingsRoutes(page)
+    await page.goto(SETTINGS_URL)
+
+    const group = page.getByRole('group', { name: /correction/i })
+    const describedBy = (await group.getAttribute('aria-describedby')) ?? ''
+    const warningId = await page
+      .getByRole('note', { name: /correction accuracy/i })
+      .getAttribute('id')
+    expect(warningId).toBeTruthy()
+    expect(describedBy.split(/\s+/)).toContain(warningId as string)
   })
 })

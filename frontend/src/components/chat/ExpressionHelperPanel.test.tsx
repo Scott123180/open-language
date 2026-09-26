@@ -11,6 +11,20 @@ import * as api from '../../services/api'
 const baseProps = {
   targetLanguage: 'Spanish',
   nativeLanguage: 'English',
+  onClose: vi.fn(),
+}
+
+/** streamHelper(content, sessionId, target, native, onToken, onDone, onError) */
+const resolveImmediately = () =>
+  vi.mocked(api.streamHelper).mockImplementation(
+    async (_content, _sessionId, _target, _native, _onToken, onDone, _onError) => {
+      onDone()
+    }
+  )
+
+const send = (text: string) => {
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: text } })
+  fireEvent.click(screen.getByRole('button', { name: /ask expression helper/i }))
 }
 
 describe('ExpressionHelperPanel', () => {
@@ -18,66 +32,46 @@ describe('ExpressionHelperPanel', () => {
     vi.clearAllMocks()
   })
 
-  it('renders collapsed by default', () => {
+  // Visibility is the parent's job: Chat.tsx mounts this panel only while
+  // helperExpanded is true, so the panel itself is always open.
+  it('renders its input and send button as soon as it is mounted', () => {
     render(<ExpressionHelperPanel {...baseProps} />)
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /expression helper/i })).toBeInTheDocument()
-  })
-
-  it('expand shows a text input and send button', () => {
-    render(<ExpressionHelperPanel {...baseProps} />)
-    fireEvent.click(screen.getByRole('button', { name: /expression helper/i }))
     expect(screen.getByRole('textbox')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /send/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /ask expression helper/i })).toBeInTheDocument()
   })
 
-  it('its own message list is separate from main conversation (no shared state)', () => {
+  it('asks the parent to close it when the close button is clicked', () => {
     render(<ExpressionHelperPanel {...baseProps} />)
-    fireEvent.click(screen.getByRole('button', { name: /expression helper/i }))
-    // Helper has its own empty message list — no messages from outside
-    const messages = screen.queryAllByRole('article')
-    expect(messages).toHaveLength(0)
+    fireEvent.click(screen.getByRole('button', { name: /close expression helper/i }))
+    expect(baseProps.onClose).toHaveBeenCalledOnce()
   })
 
-  it('sending a message shows it in the helpers own message list', async () => {
-    vi.mocked(api.streamHelper).mockImplementation(
-      async (_content, _sessionId, _onToken, onDone, _onError) => {
-        onDone()
-      },
-    )
-
+  it('starts with its own empty message list', () => {
     render(<ExpressionHelperPanel {...baseProps} />)
-    fireEvent.click(screen.getByRole('button', { name: /expression helper/i }))
+    expect(screen.queryAllByRole('article')).toHaveLength(0)
+  })
 
-    const input = screen.getByRole('textbox')
-    fireEvent.change(input, { target: { value: 'How do I say hello?' } })
-    fireEvent.click(screen.getByRole('button', { name: /send/i }))
+  it('shows a sent message in the helper own message list', async () => {
+    resolveImmediately()
+    render(<ExpressionHelperPanel {...baseProps} />)
+
+    send('How do I say hello?')
 
     expect(await screen.findByText('How do I say hello?')).toBeInTheDocument()
   })
 
-  it('helper messages do not appear in the main chat (isolated state)', async () => {
-    vi.mocked(api.streamHelper).mockImplementation(
-      async (_content, _sessionId, _onToken, onDone, _onError) => {
-        onDone()
-      },
-    )
-
+  it('keeps helper messages out of the main chat', async () => {
+    resolveImmediately()
     const { container } = render(
       <div>
         <div data-testid="main-chat" />
         <ExpressionHelperPanel {...baseProps} />
-      </div>,
+      </div>
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /expression helper/i }))
-    const input = screen.getByRole('textbox')
-    fireEvent.change(input, { target: { value: 'Test message' } })
-    fireEvent.click(screen.getByRole('button', { name: /send/i }))
-
+    send('Test message')
     await screen.findByText('Test message')
 
-    const mainChat = container.querySelector('[data-testid="main-chat"]')
-    expect(mainChat?.textContent).toBe('')
+    expect(container.querySelector('[data-testid="main-chat"]')?.textContent).toBe('')
   })
 })

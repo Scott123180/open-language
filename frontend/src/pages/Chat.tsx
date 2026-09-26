@@ -7,6 +7,9 @@ import AudioPlayer from '../components/shared/AudioPlayer'
 import ErrorBanner from '../components/shared/ErrorBanner'
 import SuggestedResponsePanel from '../components/chat/SuggestedResponsePanel'
 import ExpressionHelperPanel from '../components/chat/ExpressionHelperPanel'
+import FeedbackNote from '../components/chat/FeedbackNote'
+import TurnStatusIndicator from '../components/chat/TurnStatusIndicator'
+import type { TurnStatus } from '../components/chat/TurnStatusIndicator'
 import { IconMessageCircle } from '../components/shared/icons'
 import { useRecorder } from '../hooks/useRecorder'
 
@@ -15,6 +18,15 @@ interface LocalMessage {
   role: 'user' | 'assistant'
   content: string
   isStreaming?: boolean
+}
+
+type NotesByMessage = Record<number, api.FeedbackNoteData[]>
+
+function groupNotesByMessage(notes: api.FeedbackNoteData[]): NotesByMessage {
+  return notes.reduce<NotesByMessage>((grouped, note) => {
+    grouped[note.message_id] = [...(grouped[note.message_id] ?? []), note]
+    return grouped
+  }, {})
 }
 
 export default function Chat() {
@@ -34,7 +46,12 @@ export default function Chat() {
   const [targetLanguage, setTargetLanguage] = useState('Spanish')
   const [nativeLanguage, setNativeLanguage] = useState('English')
   const [scenarioTitle, setScenarioTitle] = useState('')
+  const [notesByMessage, setNotesByMessage] = useState<NotesByMessage>({})
+  const [awaitingRetry, setAwaitingRetry] = useState(false)
+  const [correctionMode, setCorrectionMode] = useState<api.CorrectionMode>('off')
+  const [turnStatus, setTurnStatus] = useState<TurnStatus>('idle')
   const abortRef = useRef<AbortController | null>(null)
+  const loadStartedRef = useRef<number | null>(null)
 
   const { startRecording, stopRecording, isRecording, error: recorderError } = useRecorder()
   const [micDenied, setMicDenied] = useState(false)
@@ -44,6 +61,7 @@ export default function Chat() {
     api.getSettings().then((settings) => {
       setTargetLanguage(settings.target_language)
       setNativeLanguage(settings.native_language)
+      setCorrectionMode(settings.correction_mode)
     }).catch(() => {
       // keep defaults
     })
@@ -61,14 +79,8 @@ export default function Chat() {
     }
   }, [recorderError])
 
-  // Opening message stream
-  useEffect(() => {
-    const controller = new AbortController()
-    abortRef.current = controller
-
-    setIsStreaming(true)
+  const streamOpening = (controller: AbortController) => {
     setMessages([{ role: 'assistant', content: '', isStreaming: true }])
-
     api.streamChatOpen(
       convId,
       (token) => {
@@ -103,10 +115,41 @@ export default function Chat() {
         setOpeningDone(true)
       },
     )
+  }
 
-    return () => {
-      controller.abort()
+  const restoreTranscript = (existing: api.Message[]) => {
+    setMessages(existing.map((m) => ({ id: m.id, role: m.role, content: m.content })))
+    setIsStreaming(false)
+    setOpeningDone(true)
+  }
+
+  const hydrateFeedback = async () => {
+    try {
+      const data = await api.getConversationFeedback(convId)
+      setNotesByMessage(groupNotesByMessage(data.feedback))
+      setAwaitingRetry(data.awaiting_retry)
+    } catch {
+      // Feedback is added context; a transcript without it is still usable.
     }
+  }
+
+  // A conversation that already has messages is resumed, never re-opened (R8).
+  useEffect(() => {
+    if (loadStartedRef.current === convId) return
+    loadStartedRef.current = convId
+    const controller = new AbortController()
+    abortRef.current = controller
+    setIsStreaming(true)
+
+    const load = async () => {
+      const existing = await api.getMessages(convId).catch(() => [] as api.Message[])
+      if (controller.signal.aborted) return
+      void hydrateFeedback()
+      if (existing.length > 0) restoreTranscript(existing)
+      else streamOpening(controller)
+    }
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [convId])
 
   const handleEndChat = async () => {
@@ -119,26 +162,32 @@ export default function Chat() {
     navigate('/')
   }
 
-  const appendUserMessage = (text: string, userMsgId: number) => {
-    setMessages((prev) => [
-      ...prev,
-      { role: 'user', id: userMsgId, content: text },
-      { role: 'assistant', content: '', isStreaming: true },
-    ])
+  // Off keeps today's send-time placeholder (SC-002). Gentle and Strict defer it
+  // to the first token, so a flagged Strict turn never shows a phantom bubble (R11).
+  const appendUserMessage = (text: string, userMsgId: number, deferReply: boolean) => {
+    const appended: LocalMessage[] = [{ role: 'user', id: userMsgId, content: text }]
+    if (!deferReply) appended.push({ role: 'assistant', content: '', isStreaming: true })
+    setMessages((prev) => [...prev, ...appended])
   }
 
   const appendToken = (token: string) => {
+    setTurnStatus('replying')
     setMessages((prev) => {
       const msgs = [...prev]
       const last = msgs[msgs.length - 1]
       if (last?.role === 'assistant' && last.isStreaming) {
         msgs[msgs.length - 1] = { ...last, content: last.content + token }
+        return msgs
       }
-      return msgs
+      return [...msgs, { role: 'assistant', content: token, isStreaming: true }]
     })
   }
 
-  const finalizeAssistant = (messageId: number) => {
+  const finalizeTurn = (messageId: number | null) => {
+    setTurnStatus('idle')
+    setIsStreaming(false)
+    // A flagged Strict turn has no reply: no bubble to finalize, nothing to speak.
+    if (messageId == null) return
     setMessages((prev) => {
       const msgs = [...prev]
       const last = msgs[msgs.length - 1]
@@ -147,25 +196,39 @@ export default function Chat() {
       }
       return msgs
     })
-    setIsStreaming(false)
     setAudioState({ src: `/api/audio/tts/${messageId}`, rate: 1.0 })
   }
 
-  const sendMessage = async (text: string, source: 'voice' | 'keyboard') => {
+  const attachFeedback = (data: api.FeedbackEventData) => {
+    setNotesByMessage((prev) => ({ ...prev, [data.message_id]: data.notes }))
+    if (data.awaiting_retry) setAwaitingRetry(true)
+  }
+
+  const sendMessage = async (
+    text: string,
+    source: 'voice' | 'keyboard',
+    transcriptionConfidence?: number,
+  ) => {
     if (!text.trim() || isStreaming) return
+    const isCorrecting = correctionMode !== 'off'
     setIsStreaming(true)
+    setAwaitingRetry(false)
+    setTurnStatus(isCorrecting ? 'checking' : 'replying')
 
     await api.streamChatMessage(
       convId,
       text,
       source,
-      (userMsgId) => appendUserMessage(text, userMsgId),
+      (userMsgId) => appendUserMessage(text, userMsgId, isCorrecting),
       (token) => appendToken(token),
-      (data) => finalizeAssistant(data.message_id),
+      (data) => finalizeTurn(data.message_id),
       (errMsg) => {
         setError(errMsg)
         setIsStreaming(false)
+        setTurnStatus('idle')
       },
+      attachFeedback,
+      transcriptionConfidence,
     )
   }
 
@@ -192,9 +255,10 @@ export default function Chat() {
     setIsProcessingVoice(true)
     try {
       const blob = await stopRecording()
-      const { text } = await api.transcribeAudio(blob, targetLanguage || undefined)
+      const { text, confidence } = await api.transcribeAudio(blob, targetLanguage || undefined)
       if (text.trim()) {
-        await sendMessage(text.trim(), 'voice')
+        // 0.0 is a real confidence (hallucination-on-silence), so test for null.
+        await sendMessage(text.trim(), 'voice', confidence ?? undefined)
       } else {
         setError('Could not understand audio. Please try again.')
       }
@@ -332,8 +396,13 @@ export default function Chat() {
                 ? () => playSlower(msg.id as number)
                 : undefined
             }
-          />
+          >
+            {(msg.id != null ? notesByMessage[msg.id] : undefined)?.map((note) => (
+              <FeedbackNote key={note.id} note={note} />
+            ))}
+          </MessageBubble>
         ))}
+        <TurnStatusIndicator status={turnStatus} />
         {isStreaming && messages.length === 0 && (
           <p aria-live='polite' style={{ color: 'var(--color-text-muted)' }}>
             Connecting…
@@ -385,7 +454,7 @@ export default function Chat() {
             onChange={(e) => setTextInput(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={inputDisabled}
-            placeholder='Type a message…'
+            placeholder={awaitingRetry ? 'Try again…' : 'Type a message…'}
             style={{
               flex: 1,
               padding: '10px 14px',

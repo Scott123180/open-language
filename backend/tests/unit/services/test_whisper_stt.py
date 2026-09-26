@@ -10,8 +10,16 @@ from app.services.stt.whisper import WhisperSTTProvider
 
 
 def _make_segment(text: str) -> MagicMock:
+    """A segment with the numeric fields the confidence aggregator reads."""
     seg = MagicMock()
     seg.text = text
+    seg.start = 0.0
+    seg.end = 1.0
+    seg.avg_logprob = -0.2
+    seg.no_speech_prob = 0.01
+    seg.compression_ratio = 1.4
+    seg.tokens = [1, 2, 3, 4]
+    seg.temperature = 0.0
     return seg
 
 
@@ -153,3 +161,60 @@ class TestWhisperSTTProviderComputeType:
 
         _, kwargs = mock_cls.call_args
         assert kwargs.get("compute_type") == "int8"
+
+
+class TestWhisperDelegatesConfidence:
+    """T069: the provider does not compute confidence inline."""
+
+    def _provider_and_model(self, segments: list[str]):
+        provider = WhisperSTTProvider(model_size="base", device="cpu")
+        return provider, _make_mock_model(segments)
+
+    def test_confidence_comes_from_the_aggregator(self):
+        provider, mock_model = self._provider_and_model(["Hola"])
+
+        with (
+            patch("faster_whisper.WhisperModel", return_value=mock_model),
+            patch("app.services.stt.whisper.aggregate_confidence", return_value=0.77) as aggregator,
+        ):
+            result = provider.transcribe(Path("/fake/audio.wav"))
+
+        assert result.confidence == 0.77
+        aggregator.assert_called_once()
+
+    def test_the_aggregator_receives_the_segments(self):
+        provider, mock_model = self._provider_and_model(["Hola", "mundo"])
+
+        with (
+            patch("faster_whisper.WhisperModel", return_value=mock_model),
+            patch("app.services.stt.whisper.aggregate_confidence", return_value=0.5) as aggregator,
+        ):
+            provider.transcribe(Path("/fake/audio.wav"))
+
+        passed_segments = aggregator.call_args[0][0]
+        assert len(list(passed_segments)) == 2
+
+    def test_a_none_confidence_is_passed_through(self):
+        provider, mock_model = self._provider_and_model(["Hola"])
+
+        with (
+            patch("faster_whisper.WhisperModel", return_value=mock_model),
+            patch("app.services.stt.whisper.aggregate_confidence", return_value=None),
+        ):
+            result = provider.transcribe(Path("/fake/audio.wav"))
+
+        assert result.confidence is None
+
+    def test_the_cpu_fallback_path_also_reports_confidence(self):
+        provider = WhisperSTTProvider(model_size="base", device="cuda")
+        failing_model = MagicMock()
+        failing_model.transcribe.side_effect = RuntimeError("libcublas.so not found")
+        cpu_model = _make_mock_model(["Hola"])
+
+        with (
+            patch("faster_whisper.WhisperModel", side_effect=[failing_model, cpu_model]),
+            patch("app.services.stt.whisper.aggregate_confidence", return_value=0.61),
+        ):
+            result = provider.transcribe(Path("/fake/audio.wav"))
+
+        assert result.confidence == 0.61

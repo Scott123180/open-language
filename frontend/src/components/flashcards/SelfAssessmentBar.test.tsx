@@ -6,7 +6,7 @@ describe('SelfAssessmentBar', () => {
   it('renders three rating buttons', () => {
     render(<SelfAssessmentBar onRate={vi.fn()} />)
     expect(screen.getByRole('button', { name: /didn't know/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /guessed correctly/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^guessed$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /knew it/i })).toBeInTheDocument()
   })
 
@@ -17,10 +17,10 @@ describe('SelfAssessmentBar', () => {
     expect(onRate).toHaveBeenCalledWith('didnt_know')
   })
 
-  it('calls onRate with "guessed" when Guessed Correctly is clicked', () => {
+  it('calls onRate with "guessed" when Guessed is clicked', () => {
     const onRate = vi.fn()
     render(<SelfAssessmentBar onRate={onRate} />)
-    fireEvent.click(screen.getByRole('button', { name: /guessed correctly/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^guessed$/i }))
     expect(onRate).toHaveBeenCalledWith('guessed')
   })
 

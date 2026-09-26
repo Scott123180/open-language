@@ -42,6 +42,8 @@ def _msg_to_record(m: Message) -> MessageRecord:
         input_source=m.input_source.value if m.input_source else None,
         created_at=m.created_at,
         tts_audio_path=m.tts_audio_path,
+        transcription_confidence=m.transcription_confidence,
+        is_low_confidence=m.is_low_confidence,
     )
 
 
@@ -78,6 +80,7 @@ def _settings_to_record(s: AppSettings) -> AppSettingsRecord:
         suggestion_count=s.suggestion_count,
         whisper_model=s.whisper_model,
         updated_at=s.updated_at,
+        correction_mode=s.correction_mode,
     )
 
 
@@ -131,6 +134,8 @@ class SQLiteStorageProvider(StorageProvider):
         role: str,
         content: str,
         input_source: str | None = None,
+        transcription_confidence: float | None = None,
+        is_low_confidence: bool | None = None,
     ) -> MessageRecord:
         msg = Message(
             conversation_id=conversation_id,
@@ -138,6 +143,8 @@ class SQLiteStorageProvider(StorageProvider):
             content=content,
             input_source=InputSource(input_source) if input_source else None,
             created_at=datetime.now(UTC),
+            transcription_confidence=transcription_confidence,
+            is_low_confidence=is_low_confidence,
         )
         self._db.add(msg)
         self._db.commit()

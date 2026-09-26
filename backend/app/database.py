@@ -45,6 +45,7 @@ def get_db() -> Session:
 
 
 def init_db() -> None:
+    import app.corrections.models  # noqa: F401 — registers correction tables with Base
     import app.flashcards.models  # noqa: F401 — registers flashcard tables with Base
     from app.models import (  # noqa: F401
         app_settings,
@@ -66,12 +67,17 @@ def _migrate_db() -> None:
             conn, "app_settings", "whisper_model VARCHAR(50) NOT NULL DEFAULT 'base'"
         )
         _add_column_if_missing(
+            conn, "app_settings", "correction_mode VARCHAR(10) NOT NULL DEFAULT 'off'"
+        )
+        _add_column_if_missing(
             conn, "vocabulary_items", "classification VARCHAR(20) NOT NULL DEFAULT 'not_practiced'"
         )
         _add_column_if_missing(
             conn, "vocabulary_items", "manual_override BOOLEAN NOT NULL DEFAULT FALSE"
         )
         _add_column_if_missing(conn, "vocabulary_items", "tts_cache_path VARCHAR(500)")
+        _add_column_if_missing(conn, "messages", "transcription_confidence FLOAT")
+        _add_column_if_missing(conn, "messages", "is_low_confidence BOOLEAN")
 
 
 def _add_column_if_missing(conn, table: str, column_definition: str) -> None:

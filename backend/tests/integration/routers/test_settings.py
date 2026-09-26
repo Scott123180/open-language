@@ -122,3 +122,37 @@ def test_get_voices_includes_at_least_one_female_voice(client: TestClient) -> No
     data = response.json()
     female_voices = [item for item in data if item["gender"] == "female"]
     assert len(female_voices) >= 1
+
+
+def test_get_settings_defaults_correction_mode_to_off(client: TestClient) -> None:
+    response = client.get("/api/settings")
+    assert response.status_code == 200
+    assert response.json()["correction_mode"] == "off"
+
+
+def test_put_settings_round_trips_correction_mode(client: TestClient) -> None:
+    put_response = client.put("/api/settings", json={"correction_mode": "strict"})
+    assert put_response.status_code == 200
+    assert put_response.json()["correction_mode"] == "strict"
+
+    assert client.get("/api/settings").json()["correction_mode"] == "strict"
+
+
+def test_put_settings_accepts_gentle_correction_mode(client: TestClient) -> None:
+    response = client.put("/api/settings", json={"correction_mode": "gentle"})
+    assert response.status_code == 200
+    assert response.json()["correction_mode"] == "gentle"
+
+
+def test_put_settings_invalid_correction_mode_returns_422(client: TestClient) -> None:
+    response = client.put("/api/settings", json={"correction_mode": "harsh"})
+    assert response.status_code == 422
+
+
+def test_put_settings_leaves_correction_mode_untouched_when_omitted(client: TestClient) -> None:
+    client.put("/api/settings", json={"correction_mode": "gentle"})
+
+    response = client.put("/api/settings", json={"suggestion_count": 2})
+
+    assert response.status_code == 200
+    assert response.json()["correction_mode"] == "gentle"

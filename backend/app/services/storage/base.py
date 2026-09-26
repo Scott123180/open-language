@@ -27,6 +27,8 @@ class MessageRecord:
     input_source: str | None
     created_at: datetime
     tts_audio_path: str | None
+    transcription_confidence: float | None = None
+    is_low_confidence: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,7 @@ class AppSettingsRecord:
     suggestion_count: int
     whisper_model: str
     updated_at: datetime
+    correction_mode: str = "off"
 
 
 class StorageProvider(ABC):
@@ -98,6 +101,8 @@ class StorageProvider(ABC):
         role: str,
         content: str,
         input_source: str | None = None,
+        transcription_confidence: float | None = None,
+        is_low_confidence: bool | None = None,
     ) -> MessageRecord:
         """Persist a message and return the saved record."""
         ...

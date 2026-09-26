@@ -84,3 +84,27 @@ describe('WordListItem', () => {
     expect(screen.getByRole('checkbox')).toBeChecked()
   })
 })
+
+describe('WordListItem — hover affordances', () => {
+  it('tints the row on hover and restores it on leave', () => {
+    const { container } = render(<WordListItem word={makeWord()} onDelete={vi.fn()} />)
+    const row = container.firstElementChild as HTMLElement
+
+    fireEvent.mouseEnter(row)
+    expect(row.style.background).toBe('var(--color-bg)')
+
+    fireEvent.mouseLeave(row)
+    expect(row.style.background).toBe('var(--color-surface)')
+  })
+
+  it('reddens the delete button on hover and restores it on leave', () => {
+    render(<WordListItem word={makeWord()} onDelete={vi.fn()} />)
+    const del = screen.getByRole('button', { name: /delete bonjour/i })
+
+    fireEvent.mouseEnter(del)
+    expect(del.style.color).toBe('var(--color-error)')
+
+    fireEvent.mouseLeave(del)
+    expect(del.style.color).toBe('var(--color-text-muted)')
+  })
+})

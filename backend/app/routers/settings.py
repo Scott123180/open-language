@@ -29,6 +29,7 @@ class SettingsResponse(BaseModel):
     tts_voice: str
     suggestion_count: int
     whisper_model: str
+    correction_mode: str
     updated_at: datetime
 
 
@@ -39,6 +40,7 @@ class UpdateSettingsRequest(BaseModel):
     tts_voice: str | None = None
     suggestion_count: int | None = Field(None, ge=1, le=5)
     whisper_model: str | None = Field(None, pattern="^(base|small|medium)$")
+    correction_mode: str | None = Field(None, pattern="^(off|gentle|strict)$")
 
 
 def _to_response(record: AppSettingsRecord) -> SettingsResponse:
@@ -49,6 +51,7 @@ def _to_response(record: AppSettingsRecord) -> SettingsResponse:
         tts_voice=record.tts_voice,
         suggestion_count=record.suggestion_count,
         whisper_model=record.whisper_model,
+        correction_mode=record.correction_mode,
         updated_at=record.updated_at,
     )
 

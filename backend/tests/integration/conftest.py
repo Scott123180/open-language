@@ -21,6 +21,7 @@ def make_test_session(db_path: str):
     )
     event.listen(engine, "connect", _configure_sqlite)
     # Import all models so metadata is populated
+    import app.corrections.models  # noqa: F401
     import app.models.app_settings  # noqa: F401
     import app.models.conversation  # noqa: F401
     import app.models.learning_tool_result  # noqa: F401

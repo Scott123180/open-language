@@ -1,13 +1,23 @@
 import asyncio
 import json
+import logging
 import re
 from collections.abc import Generator
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from app.config import get_settings
+from app.corrections.schemas import rendered_notes, to_note_payload
+from app.corrections.services.storage import CorrectionStorageProvider
+from app.corrections.services.strategies import (
+    NULL_TURN_PLAN,
+    CorrectionStrategy,
+    TurnContext,
+    TurnPlan,
+)
 from app.prompts.templates import (
     build_helper_system_prompt,
     build_open_chat_user_prompt,
@@ -16,6 +26,8 @@ from app.prompts.templates import (
 )
 from app.services.factory import (
     get_app_settings,
+    get_correction_storage,
+    get_correction_strategy,
     get_helper_sessions,
     get_llm,
     get_scenario_provider,
@@ -27,6 +39,8 @@ from app.services.llm.base import ChatMessage, LLMError, LLMProvider
 from app.services.scenario.base import ScenarioProvider
 from app.services.storage.base import AppSettingsRecord, StorageProvider
 from app.services.tts.base import TTSProvider
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["chat"])
 
@@ -121,9 +135,75 @@ async def open_chat(
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
+async def _plan_turn_failing_open(
+    strategy: CorrectionStrategy, context: TurnContext, timeout: float
+) -> TurnPlan:
+    """FR-026: every evaluation failure ends the same way — an empty plan."""
+    try:
+        return await asyncio.wait_for(strategy.plan_turn(context), timeout=timeout)
+    except (TimeoutError, LLMError) as exc:
+        logger.warning("Correction evaluation failed (%r); continuing uncorrected", exc)
+        return NULL_TURN_PLAN
+
+
+def _persist_feedback(
+    correction_storage: CorrectionStorageProvider, message_id: int, plan: TurnPlan
+) -> list:
+    """Store the turn's notes and return only those a client renders."""
+    if not plan.feedback:
+        return []
+    return rendered_notes(correction_storage.save_feedback(message_id, plan.feedback))
+
+
+def _feedback_frame(message_id: int, notes: list, awaiting_retry: bool) -> str:
+    payload = {
+        "event": "feedback",
+        "message_id": message_id,
+        "awaiting_retry": awaiting_retry,
+        "notes": [to_note_payload(note) for note in notes],
+    }
+    return f"data: {json.dumps(payload)}\n\n"
+
+
+def _last_character_line(history: list) -> str | None:
+    return next((m.content for m in reversed(history) if m.role == "assistant"), None)
+
+
+def _turn_context(
+    conversation,
+    conversation_id: int,
+    content: str,
+    history: list,
+    is_low_confidence: bool = False,
+) -> TurnContext:
+    return TurnContext(
+        conversation_id=conversation_id,
+        learner_text=content,
+        target_language=conversation.target_language,
+        native_language=conversation.native_language,
+        preceding_character_line=_last_character_line(history),
+        is_low_confidence=is_low_confidence,
+    )
+
+
 class ChatMessageRequest(BaseModel):
     content: str
     input_source: str = "keyboard"
+    transcription_confidence: float | None = Field(None, ge=0.0, le=1.0)
+
+    @property
+    def spoken_confidence(self) -> float | None:
+        """The value is client-supplied, so it counts only for spoken input."""
+        if self.input_source != "voice":
+            return None
+        return self.transcription_confidence
+
+
+def _is_low_confidence(confidence: float | None) -> bool:
+    """None means "no information" and is never gated (FR-010a); 0.0 is."""
+    if confidence is None:
+        return False
+    return confidence < get_settings().low_confidence_threshold
 
 
 @router.post("/chat/{conversation_id}/message")
@@ -135,6 +215,8 @@ async def send_message(
     tts: TTSProvider = Depends(get_tts),
     provider: ScenarioProvider = Depends(get_scenario_provider),
     app_settings: AppSettingsRecord = Depends(get_app_settings),
+    strategy: CorrectionStrategy = Depends(get_correction_strategy),
+    correction_storage: CorrectionStorageProvider = Depends(get_correction_storage),
 ):
     conversation = storage.get_conversation(conversation_id)
     if conversation is None:
@@ -150,58 +232,87 @@ async def send_message(
     )
 
     async def event_stream() -> Generator[str, None, None]:
-        # Persist user message
+        confidence = req.spoken_confidence
+        is_low_confidence = _is_low_confidence(confidence)
         user_msg = storage.save_message(
             conversation_id=conversation_id,
             role="user",
             content=req.content,
             input_source=req.input_source,
+            transcription_confidence=confidence,
+            is_low_confidence=is_low_confidence if confidence is not None else None,
         )
         yield f"data: {json.dumps({'event': 'user_message_saved', 'message_id': user_msg.id})}\n\n"
 
-        # Build full message history
         history = storage.get_messages(conversation_id)
-        messages = [ChatMessage(role="system", content=system_prompt)]
-        messages += [ChatMessage(role=m.role, content=m.content) for m in history]
-
-        tokens: list[str] = []
-
-        def _stream_tokens():
-            return list(llm.chat_stream(messages))
-
-        loop = asyncio.get_event_loop()
-        try:
-            token_list = await loop.run_in_executor(None, _stream_tokens)
-        except LLMError:
-            yield f"data: {json.dumps({'error': 'The AI is not responding. Please try again.'})}\n\n"
-            return
-
-        for token in token_list:
-            tokens.append(token)
-            yield f"data: {json.dumps({'token': token})}\n\n"
-
-        # Save assistant message
-        full_content = "".join(tokens)
-        assistant_msg = storage.save_message(
-            conversation_id=conversation_id,
-            role="assistant",
-            content=full_content,
+        context = _turn_context(
+            conversation, conversation_id, req.content, history[:-1], is_low_confidence
+        )
+        plan = await _plan_turn_failing_open(
+            strategy, context, get_settings().correction_timeout_seconds
         )
 
-        # Trigger TTS in background
-        cache_dir = Path.home() / ".open-language" / "tts_cache"
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        audio_path = cache_dir / f"{assistant_msg.id}.wav"
+        notes = _persist_feedback(correction_storage, user_msg.id, plan)
+        if notes:
+            awaiting_retry = correction_storage.get_pause_state(conversation_id).awaiting_retry
+            yield _feedback_frame(user_msg.id, notes, awaiting_retry)
 
-        def _synthesize():
-            tts.synthesize(full_content, audio_path)
-            storage.set_tts_path(assistant_msg.id, str(audio_path))
+        if not plan.generate_reply:
+            yield f"data: {json.dumps({'done': True, 'message_id': None})}\n\n"
+            return
 
-        loop.run_in_executor(None, _synthesize)
+        messages = [
+            ChatMessage(role="system", content=system_prompt + (plan.reply_prompt_suffix or ""))
+        ]
+        messages += [ChatMessage(role=m.role, content=m.content) for m in history]
 
-        yield f"data: {json.dumps({'done': True, 'message_id': assistant_msg.id})}\n\n"
+        async for frame in _stream_reply(conversation_id, messages, storage, llm, tts):
+            yield frame
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+async def _stream_reply(
+    conversation_id: int,
+    messages: list[ChatMessage],
+    storage: StorageProvider,
+    llm: LLMProvider,
+    tts: TTSProvider,
+):
+    """Stream the character's reply, persist it, and hand it to TTS."""
+    loop = asyncio.get_event_loop()
+
+    def _stream_tokens():
+        return list(llm.chat_stream(messages))
+
+    try:
+        token_list = await loop.run_in_executor(None, _stream_tokens)
+    except LLMError:
+        yield f"data: {json.dumps({'error': 'The AI is not responding. Please try again.'})}\n\n"
+        return
+
+    for token in token_list:
+        yield f"data: {json.dumps({'token': token})}\n\n"
+
+    assistant_msg = storage.save_message(
+        conversation_id=conversation_id,
+        role="assistant",
+        content="".join(token_list),
+    )
+    _schedule_tts(loop, storage, tts, assistant_msg.id, "".join(token_list))
+    yield f"data: {json.dumps({'done': True, 'message_id': assistant_msg.id})}\n\n"
+
+
+def _schedule_tts(loop, storage: StorageProvider, tts: TTSProvider, message_id: int, text: str):
+    cache_dir = Path.home() / ".open-language" / "tts_cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    audio_path = cache_dir / f"{message_id}.wav"
+
+    def _synthesize():
+        tts.synthesize(text, audio_path)
+        storage.set_tts_path(message_id, str(audio_path))
+
+    loop.run_in_executor(None, _synthesize)
 
 
 @router.post("/chat/{conversation_id}/suggestions")

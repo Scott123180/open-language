@@ -32,7 +32,10 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "--cov=app --cov-report=term-missing --cov-fail-under=90"
+addopts = "--cov=app --cov-report=term-missing --cov-fail-under=90 -m 'not benchmark'"
+markers = [
+    "benchmark: measures detection quality against the real model; run by hand, not in CI",
+]
 
 [tool.coverage.report]
 exclude_lines = [
