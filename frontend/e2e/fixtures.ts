@@ -60,10 +60,14 @@ const OLLAMA_PROVIDER = {
   default_model: 'llama3.1:8b',
   effort_levels: [] as { effort_id: string; label: string }[],
   default_effort: null as string | null,
+  privacy_notice: null as string | null,
   is_available: true,
   unavailable_reason: null as string | null,
   unavailable_message: null as string | null,
 }
+
+const CLAUDE_PRIVACY_NOTICE =
+  "Your conversation text is sent to Anthropic under your Claude account and counts toward your Claude plan's usage. Your voice recordings and audio stay on your computer."
 
 const CLAUDE_PROVIDER = {
   provider_id: 'claude',
@@ -81,6 +85,7 @@ const CLAUDE_PROVIDER = {
     { effort_id: 'high', label: 'High — deeper, slower replies' },
   ],
   default_effort: 'low' as string | null,
+  privacy_notice: CLAUDE_PRIVACY_NOTICE as string | null,
   is_available: true,
   unavailable_reason: null as string | null,
   unavailable_message: null as string | null,

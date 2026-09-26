@@ -162,6 +162,21 @@ class TestFailures:
             _turn(pool, provider, [ASK])
         assert len(provider.opened) == 1
 
+    def test_a_failure_after_the_reply_began_is_retried_without_splicing(self, pool, provider):
+        provider.mid_reply_errors = [LLMError("process exited mid-reply")]
+
+        assert _turn(pool, provider, [ASK]) == "Buenos días"
+        assert len(provider.opened) == 2
+        assert provider.opened[0].is_closed
+
+    def test_a_non_retryable_failure_after_the_reply_began_is_not_retried(self, pool, provider):
+        provider.mid_reply_errors = [LLMError("usage limit", can_retry=False)]
+
+        with pytest.raises(LLMError, match="usage limit"):
+            _turn(pool, provider, [ASK])
+        assert len(provider.opened) == 1
+        assert not pool.is_live(ROLEPLAY_7)
+
     def test_an_early_closed_reply_discards_the_session(self, pool, provider):
         tokens = pool.run_turn(provider, _request([ASK]))
         next(tokens)

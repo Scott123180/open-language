@@ -14,6 +14,7 @@ const OLLAMA: LlmProviderOption = {
   default_model: 'llama3.1:8b',
   effort_levels: [],
   default_effort: null,
+  privacy_notice: null,
   is_available: true,
   unavailable_reason: null,
   unavailable_message: null,
@@ -33,6 +34,8 @@ const CLAUDE: LlmProviderOption = {
     { effort_id: 'high', label: 'High — deeper, slower replies' },
   ],
   default_effort: 'low',
+  privacy_notice:
+    "Your conversation text is sent to Anthropic under your Claude account and counts toward your Claude plan's usage. Your voice recordings and audio stay on your computer.",
   is_available: true,
   unavailable_reason: null,
   unavailable_message: null,
@@ -157,6 +160,28 @@ describe('LlmProviderFields — availability and privacy', () => {
 
   it('shows no privacy notice for the local provider', () => {
     renderFields(ON_OLLAMA)
+
+    expect(screen.queryByRole('note', { name: /privacy/i })).not.toBeInTheDocument()
+  })
+
+  it('shows the privacy notice the catalogue sends, whatever the provider', () => {
+    const otherCloud: LlmProviderOption = {
+      ...CLAUDE,
+      provider_id: 'other-cloud',
+      display_name: 'Other cloud',
+      privacy_notice: 'Your text goes to Other Cloud. Audio stays here.',
+    }
+    const onOther: LlmSelectionValue = { provider: 'other-cloud', model: 'sonnet', effort: 'low' }
+
+    renderFields(onOther, [OLLAMA, otherCloud])
+
+    expect(screen.getByRole('note', { name: /privacy/i })).toHaveTextContent(
+      'Your text goes to Other Cloud. Audio stays here.'
+    )
+  })
+
+  it('invents no privacy notice when the catalogue sends none', () => {
+    renderFields(ON_CLAUDE, [OLLAMA, { ...CLAUDE, privacy_notice: null }])
 
     expect(screen.queryByRole('note', { name: /privacy/i })).not.toBeInTheDocument()
   })

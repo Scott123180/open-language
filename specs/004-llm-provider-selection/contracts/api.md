@@ -49,6 +49,7 @@ email, org, or subscription details (FR-011).
       {"effort_id": "high", "label": "High — deeper, slower replies"}
     ],
     "default_effort": "low",
+    "privacy_notice": "Your conversation text is sent to Anthropic under your Claude account and counts toward your Claude plan's usage. Your voice recordings and audio stay on your computer.",
     "is_available": false,
     "unavailable_reason": "not_signed_in",
     "unavailable_message": "Sign in to Claude Code (run `claude` in a terminal) to use Claude."
@@ -57,8 +58,12 @@ email, org, or subscription details (FR-011).
 ```
 
 `unavailable_reason` ∈ `not_installed | not_signed_in | not_on_plan | null`.
-Ollama's entry has `"effort_levels": []` and `"default_effort": null`. The UI shows the effort
-control only when `effort_levels` is non-empty.
+Ollama's entry has `"effort_levels": []`, `"default_effort": null`, and `"privacy_notice": null`. The
+UI shows the effort control only when `effort_levels` is non-empty.
+
+*(Added by convergence task T109.)* `privacy_notice` is the catalogue's plain-language statement of
+what leaves the machine and what stays (FR-026, Principle VI). The UI renders it verbatim whenever it
+is non-null, so the frontend never maps a provider id to notice text.
 
 ### 1.2 `GET /api/settings` (extended)
 

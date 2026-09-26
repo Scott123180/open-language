@@ -15,6 +15,7 @@ from app.services.conversation import ConversationSession, SavedTurn, SessionKey
 from app.services.llm.base import LLMError
 from app.services.llm.claude_code import ClaudeCodeLLMProvider
 from app.services.llm.ollama import OllamaLLMProvider
+from app.services.llm.ollama_residency import OllamaResidency
 from tests.support.fake_availability import FakeAvailability
 from tests.support.fake_ollama_client import ScriptedOllamaClient
 from tests.support.scripted_claude_runner import ScriptedClaudeCodeRunner
@@ -43,7 +44,7 @@ class SessionHarness:
 
 def _ollama_harness() -> SessionHarness:
     client = ScriptedOllamaClient()
-    provider = OllamaLLMProvider(client, "llama3.2", _TTL_MINUTES)
+    provider = OllamaLLMProvider(client, "llama3.2", OllamaResidency(_TTL_MINUTES))
     return SessionHarness(
         open=partial(provider.open_session, KEY),
         requests=lambda: [

@@ -41,6 +41,9 @@ class ProviderDescriptor:
     is_local: bool
     effort_levels: tuple[EffortOption, ...]
     default_effort: str | None
+    # What leaves the machine and what stays, shown when a cloud provider is selected
+    # (Principle VI). None for a local provider.
+    privacy_notice: str | None
 
 
 _OLLAMA_MODEL_IDS = ("llama3.1:8b", "llama3.2", "mistral")
@@ -57,6 +60,11 @@ _CLAUDE_EFFORTS = (
     EffortOption(EFFORT_HIGH, "High — deeper, slower replies"),
 )
 
+_CLAUDE_PRIVACY_NOTICE = (
+    "Your conversation text is sent to Anthropic under your Claude account and counts toward "
+    "your Claude plan's usage. Your voice recordings and audio stay on your computer."
+)
+
 CLAUDE_MODEL_IDS = frozenset(model.model_id for model in _CLAUDE_MODELS)
 
 _OLLAMA = ProviderDescriptor(
@@ -67,6 +75,7 @@ _OLLAMA = ProviderDescriptor(
     is_local=True,
     effort_levels=(),
     default_effort=None,
+    privacy_notice=None,
 )
 
 _CLAUDE = ProviderDescriptor(
@@ -77,6 +86,7 @@ _CLAUDE = ProviderDescriptor(
     is_local=False,
     effort_levels=_CLAUDE_EFFORTS,
     default_effort=DEFAULT_EFFORT,
+    privacy_notice=_CLAUDE_PRIVACY_NOTICE,
 )
 
 PROVIDER_CATALOG: Mapping[str, ProviderDescriptor] = MappingProxyType(

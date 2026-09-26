@@ -28,16 +28,6 @@ const selectStyle: CSSProperties = {
   color: 'var(--color-text)',
   fontSize: '1rem',
 }
-// What leaves the computer for each cloud provider (FR-026). Any other cloud provider falls
-// back to naming itself, so a notice is never missing.
-const PRIVACY_NOTICES: Record<string, string> = {
-  claude:
-    "Your conversation text is sent to Anthropic under your Claude account and counts toward your Claude plan's usage. Your voice recordings and audio stay on your computer.",
-}
-const privacyNotice = (provider: LlmProviderOption) =>
-  PRIVACY_NOTICES[provider.provider_id] ??
-  `Your conversation text is sent to ${provider.display_name}. Your voice recordings and audio stay on your computer.`
-
 const noteStyle: CSSProperties = {
   borderLeft: '3px solid var(--color-warning)',
   background: 'var(--color-surface-raised)',
@@ -78,7 +68,7 @@ export default function LlmProviderFields({ providers, value, onChange }: LlmPro
       {selected.effort_levels.length > 0 && (
         <EffortSelect provider={selected} value={value} onChange={onChange} />
       )}
-      {!selected.is_local && <PrivacyNotice provider={selected} />}
+      {selected.privacy_notice && <PrivacyNotice notice={selected.privacy_notice} />}
     </fieldset>
   )
 }
@@ -140,10 +130,11 @@ function UnavailableNote({ id, provider }: { id: string; provider: LlmProviderOp
   )
 }
 
-function PrivacyNotice({ provider }: { provider: LlmProviderOption }) {
+/** The catalogue's own words for what leaves the machine (Principle VI). */
+function PrivacyNotice({ notice }: { notice: string }) {
   return (
     <aside id={PRIVACY_NOTICE_ID} role="note" aria-label="Privacy" style={noteStyle}>
-      {privacyNotice(provider)}
+      {notice}
     </aside>
   )
 }

@@ -544,6 +544,7 @@ describe('LLM provider selection', () => {
       default_model: 'llama3.1:8b',
       effort_levels: [],
       default_effort: null,
+      privacy_notice: null,
       is_available: true,
       unavailable_reason: null,
       unavailable_message: null,

@@ -41,6 +41,9 @@ class TestOllamaEntry:
         assert PROVIDER_CATALOG["ollama"].effort_levels == ()
         assert PROVIDER_CATALOG["ollama"].default_effort is None
 
+    def test_has_no_privacy_notice_because_nothing_leaves_the_machine(self):
+        assert PROVIDER_CATALOG["ollama"].privacy_notice is None
+
 
 class TestClaudeEntry:
     def test_describes_the_cloud_provider(self):
@@ -64,6 +67,12 @@ class TestClaudeEntry:
             ("high", "High — deeper, slower replies"),
         ]
         assert PROVIDER_CATALOG["claude"].default_effort == "low"
+
+    def test_states_what_leaves_the_machine_and_what_stays(self):
+        assert PROVIDER_CATALOG["claude"].privacy_notice == (
+            "Your conversation text is sent to Anthropic under your Claude account and counts "
+            "toward your Claude plan's usage. Your voice recordings and audio stay on your computer."
+        )
 
 
 def test_claude_model_ids():

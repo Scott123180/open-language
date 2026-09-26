@@ -653,10 +653,17 @@ changes no router.
   conversation never interleave while different conversations run side by side. A session-level
   failure (a process that died, unreadable output, a timeout) closes the session and retries once on a
   rebuilt one; an account-level failure (not signed in, usage limit, unknown model) is reported at once.
+  Each attempt's reply is collected in full before it is returned (delivery is batched anyway), so a
+  process that dies partway through a reply is retried too, and the retry replaces the partial text
+  instead of splicing onto it.
 - **Ollama.** Its chat API is stateless, so an Ollama session keeps the turns in memory and resends them.
-  What it buys is `keep_alive`: every call keeps the model loaded for the idle TTL, removing the 4–49 s
-  reload a learner used to pay after five quiet minutes. Per-turn guidance (Gentle mode's recast
-  instruction) is appended to the system prompt for that call only, byte-identical to before.
+  What it buys is `keep_alive`: while any conversation session holds a model, every request for that
+  model, one-shot learning-tool calls included, keeps it loaded for the idle TTL. That removes the
+  4–49 s reload a learner used to pay after five quiet minutes. Ollama resets a model's unload timer on
+  every request, so a one-shot call without the keep-alive would undo it. When the model's last session
+  closes, an empty preload with no `keep_alive` hands it back to Ollama's own policy
+  (`services/llm/ollama_residency.py`). Per-turn guidance (Gentle mode's recast instruction) is
+  appended to the system prompt for that call only, byte-identical to before.
 - **Claude.** A Claude session is one long-lived `claude -p --input-format stream-json` process per
   conversation. Each turn writes one line to stdin and reads until that turn's result, so earlier turns
   are never re-processed (later turns drop from 1.5–2.4 s to 0.7–0.8 s). Guidance travels inside the

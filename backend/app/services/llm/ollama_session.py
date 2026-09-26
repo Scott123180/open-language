@@ -1,9 +1,11 @@
 """An Ollama conversation session: the turns in memory, and the model kept loaded (research R-13).
 
 Ollama's chat API is stateless, so each turn still sends the whole list. What the session buys
-is `keep_alive`: the model stays loaded between turns instead of unloading after five minutes.
+is `keep_alive`: the model stays loaded between turns instead of unloading after five minutes,
+until the model's last session closes (see `ollama_residency`).
 """
 
+import logging
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 
@@ -15,6 +17,9 @@ from app.services.conversation.session import (
     SessionFingerprint,
 )
 from app.services.llm.base import LLMError
+from app.services.llm.ollama_residency import OllamaResidency
+
+logger = logging.getLogger(__name__)
 
 _SYSTEM_ROLE = "system"
 _USER_ROLE = "user"
@@ -30,6 +35,7 @@ class OllamaSessionConfig:
     keep_alive: str
     fingerprint: SessionFingerprint
     standing_prompt: str
+    residency: OllamaResidency
 
 
 class OllamaSession(ConversationSession):
@@ -78,7 +84,24 @@ class OllamaSession(ConversationSession):
         self._synced.append(turn_id)
 
     def close(self) -> None:
+        if self._is_closed:
+            return
         self._is_closed = True
+        if self._config.residency.release(self._config.model):
+            self._hand_model_back()
+
+    def _hand_model_back(self) -> None:
+        """Return the model to Ollama's own keep-alive now that no session holds it (FR-S06).
+
+        Ollama can only change a model's timer through a request, so this is an empty preload
+        with `keep_alive` unset: it costs nothing while the model is loaded.
+        """
+        try:
+            self._config.client.generate(model=self._config.model, prompt=_EMPTY_PRELOAD_PROMPT)
+        except Exception as exc:  # noqa: BLE001 — close must succeed; the model then idles out
+            logger.warning(
+                "Could not return %s to Ollama's keep-alive: %s", self._config.model, exc
+            )
 
     def _generate(self, turns: list[dict[str, str]], guidance: str | None) -> Iterator[str]:
         self._require_open()

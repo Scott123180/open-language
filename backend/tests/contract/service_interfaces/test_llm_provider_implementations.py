@@ -13,6 +13,7 @@ from app.config import Settings
 from app.services.llm.base import ChatMessage, LLMError
 from app.services.llm.claude_code import ClaudeCodeLLMProvider
 from app.services.llm.ollama import OllamaLLMProvider
+from app.services.llm.ollama_residency import OllamaResidency
 from tests.support.fake_availability import FakeAvailability
 from tests.support.fake_ollama_client import ScriptedOllamaClient
 from tests.support.scripted_claude_runner import ScriptedClaudeCodeRunner
@@ -39,7 +40,7 @@ def _ollama_harness() -> ProviderHarness:
     model = _MODEL["ollama"]
 
     def build(client: ScriptedOllamaClient):
-        return OllamaLLMProvider(client, model, _TTL_MINUTES)
+        return OllamaLLMProvider(client, model, OllamaResidency(_TTL_MINUTES))
 
     return ProviderHarness(
         model=model,

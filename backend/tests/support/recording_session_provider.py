@@ -90,7 +90,11 @@ class RecordingSession(ConversationSession):
         if self._provider.errors:
             self._is_broken = True
             raise self._provider.errors.pop(0)
-        yield from self._provider.tokens
+        for index, token in enumerate(self._provider.tokens):
+            if index == 1 and self._provider.mid_reply_errors:
+                self._is_broken = True
+                raise self._provider.mid_reply_errors.pop(0)
+            yield token
         self._provider.log.append(("end", self))
 
 
@@ -101,6 +105,8 @@ class RecordingSessionProvider(SessionCapableProvider):
         self.effort = ""
         self.opened: list[RecordingSession] = []
         self.errors: list[Exception] = []
+        # Raised after the first token, as a process that dies partway through a reply would.
+        self.mid_reply_errors: list[Exception] = []
         self.log: list[tuple[str, RecordingSession]] = []
         self._gate: threading.Event | None = None
 

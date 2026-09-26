@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from app.flashcards.services.storage import FlashcardStorageProvider
 from app.services.llm.base import ChatMessage, LLMError
@@ -8,6 +10,16 @@ from app.services.llm.base import ChatMessage, LLMError
 logger = logging.getLogger(__name__)
 
 _NO_LLM_CLIENT_DETAIL = "No language model is configured for this cache"
+FILL_BLANK_CACHE_TYPE = "fill_blank"
+
+
+@dataclass(frozen=True, slots=True)
+class _CacheSlot:
+    """Where one piece of generated content is cached."""
+
+    vocabulary_item_id: int
+    cache_type: str
+    language: str
 
 
 class LlmCacheService:
@@ -24,24 +36,15 @@ class LlmCacheService:
         language: str,
         native_language: str,
     ) -> str | None:
-        cached = self._storage.get_llm_cache(vocabulary_item_id, "fill_blank", language)
-        if cached is not None:
-            return cached.content
-
+        slot = _CacheSlot(vocabulary_item_id, FILL_BLANK_CACHE_TYPE, language)
         try:
-            sentence = self._generate_sentence(word, language, native_language)
+            return self._cached_or_generated(
+                slot, lambda: self._generate_sentence(word, language, native_language)
+            )
         except LLMError as exc:
             # A card without a sentence is still practisable, so a deck build never fails here.
             logger.warning("Fill-in-the-blank sentence unavailable for %r: %s", word, exc)
             return None
-
-        self._storage.set_llm_cache(
-            vocabulary_item_id=vocabulary_item_id,
-            cache_type="fill_blank",
-            language=language,
-            content=sentence,
-        )
-        return sentence
 
     def get_or_generate(
         self,
@@ -52,16 +55,23 @@ class LlmCacheService:
         native_language: str,
     ) -> str:
         """Raises LLMError when nothing is cached and the model cannot answer."""
-        cached = self._storage.get_llm_cache(vocabulary_item_id, cache_type, language)
+        slot = _CacheSlot(vocabulary_item_id, cache_type, language)
+        return self._cached_or_generated(
+            slot, lambda: self._generate_content(word, cache_type, language, native_language)
+        )
+
+    def _cached_or_generated(self, slot: _CacheSlot, generate: Callable[[], str]) -> str:
+        """The slot's cached content, or `generate()`'s result, stored before returning."""
+        cached = self._storage.get_llm_cache(
+            slot.vocabulary_item_id, slot.cache_type, slot.language
+        )
         if cached is not None:
             return cached.content
-
-        content = self._generate_content(word, cache_type, language, native_language)
-
+        content = generate()
         self._storage.set_llm_cache(
-            vocabulary_item_id=vocabulary_item_id,
-            cache_type=cache_type,
-            language=language,
+            vocabulary_item_id=slot.vocabulary_item_id,
+            cache_type=slot.cache_type,
+            language=slot.language,
             content=content,
         )
         return content

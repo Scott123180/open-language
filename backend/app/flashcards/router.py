@@ -40,6 +40,8 @@ from app.services.tts.base import TTSProvider
 
 router = APIRouter(prefix="/flashcards", tags=["flashcards"])
 
+WORD_NOT_FOUND = "Word not found."
+
 
 def _storage(
     storage: FlashcardStorageProvider = Depends(get_flashcard_storage),
@@ -134,24 +136,31 @@ def get_word_info(
     storage: FlashcardStorageProvider = Depends(_storage),
     llm: LLMProvider = Depends(get_llm),
 ) -> LlmCacheResponse:
-    word = storage.get_word(vocabulary_item_id)
-    if word is None:
-        raise HTTPException(status_code=404, detail="Word not found.")
-
+    word = _require_word(storage, vocabulary_item_id)
     # Read the cache before generating: get_or_generate writes on a miss, so a
     # lookup afterwards would report every response as cached.
     cached = storage.get_llm_cache(vocabulary_item_id, cache_type.value, word.target_language)
     content = _word_info_content(LlmCacheService(storage=storage, llm_client=llm), word, cache_type)
-    stored = cached or storage.get_llm_cache(
-        vocabulary_item_id, cache_type.value, word.target_language
-    )
     return LlmCacheResponse(
         vocabulary_item_id=vocabulary_item_id,
         cache_type=cache_type,
         content=content,
         from_cache=cached is not None,
-        generated_at=stored.generated_at if stored else datetime.now(UTC),
+        generated_at=cached.generated_at if cached else _generated_now(storage, word, cache_type),
     )
+
+
+def _require_word(storage: FlashcardStorageProvider, vocabulary_item_id: int):
+    word = storage.get_word(vocabulary_item_id)
+    if word is None:
+        raise HTTPException(status_code=404, detail=WORD_NOT_FOUND)
+    return word
+
+
+def _generated_now(storage: FlashcardStorageProvider, word, cache_type: LlmCacheTypeEnum):
+    """When the entry just written was generated; now, if it wasn't stored."""
+    stored = storage.get_llm_cache(word.id, cache_type.value, word.target_language)
+    return stored.generated_at if stored else datetime.now(UTC)
 
 
 def _word_info_content(llm_cache: LlmCacheService, word, cache_type: LlmCacheTypeEnum) -> str:

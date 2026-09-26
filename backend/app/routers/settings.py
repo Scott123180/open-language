@@ -74,6 +74,7 @@ class LlmProviderResponse(BaseModel):
     default_model: str
     effort_levels: list[EffortOptionResponse]
     default_effort: str | None
+    privacy_notice: str | None
     is_available: bool
     unavailable_reason: str | None
     unavailable_message: str | None
@@ -93,6 +94,7 @@ def _provider_response(
             for e in descriptor.effort_levels
         ],
         default_effort=descriptor.default_effort,
+        privacy_notice=descriptor.privacy_notice,
         is_available=availability.is_available,
         unavailable_reason=availability.reason,
         unavailable_message=availability.message,

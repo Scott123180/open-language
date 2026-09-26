@@ -3,11 +3,12 @@
 import pytest
 
 from app.config import Settings
-from app.services.conversation import SessionCapableProvider
+from app.services.conversation import SessionCapableProvider, SessionKey, SessionKind
 from app.services.llm import registry
-from app.services.llm.base import LLMError, LLMProvider, StructuredLLMProvider
+from app.services.llm.base import ChatMessage, LLMError, LLMProvider, StructuredLLMProvider
 from app.services.llm.registry import UnknownProviderError, build_llm_provider
 from app.services.llm.selection_types import LLMSelection
+from tests.support.fake_ollama_client import ScriptedOllamaClient
 
 
 @pytest.fixture()
@@ -44,6 +45,20 @@ class TestOllama:
         build_llm_provider(LLMSelection("ollama", "llama3.2"), settings)
 
         assert client_hosts == ["http://ollama.test:1234"]
+
+    def test_a_session_from_one_request_holds_the_model_for_the_next(self, settings, monkeypatch):
+        """Providers are built per request, so residency must outlive them (T112)."""
+        client = ScriptedOllamaClient()
+        monkeypatch.setattr(registry, "_ollama_client_factory", lambda host: client)
+        conversation = build_llm_provider(LLMSelection("ollama", "llama3.2"), settings)
+        session = conversation.open_session(SessionKey(SessionKind.ROLEPLAY, "t112"), "Eres", [])
+        learning_tool = build_llm_provider(LLMSelection("ollama", "llama3.2"), settings)
+
+        learning_tool.chat([ChatMessage(role="user", content="Hola")])
+        session.close()
+        learning_tool.chat([ChatMessage(role="user", content="Hola")])
+
+        assert [call["keep_alive"] for call in client.chat_calls] == ["30m", None]
 
 
 def test_unknown_provider_is_rejected(settings):

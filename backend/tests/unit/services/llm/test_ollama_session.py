@@ -8,8 +8,9 @@ from app.services.conversation.session import (
     SessionKey,
     SessionKind,
 )
-from app.services.llm.base import LLMError
+from app.services.llm.base import ChatMessage, LLMError
 from app.services.llm.ollama import OllamaLLMProvider
+from app.services.llm.ollama_residency import OllamaResidency
 from tests.support.fake_ollama_client import ScriptedOllamaClient
 
 TTL_MINUTES = 30
@@ -26,8 +27,8 @@ def client() -> ScriptedOllamaClient:
     return ScriptedOllamaClient()
 
 
-def _provider(client) -> OllamaLLMProvider:
-    return OllamaLLMProvider(client, "llama3.2", TTL_MINUTES)
+def _provider(client, residency: OllamaResidency | None = None) -> OllamaLLMProvider:
+    return OllamaLLMProvider(client, "llama3.2", residency or OllamaResidency(TTL_MINUTES))
 
 
 def _wire(role: str, content: str) -> dict:
@@ -135,3 +136,52 @@ def test_warm_failure_marks_the_session_broken(client):
     with pytest.raises(LLMError):
         session.warm()
     assert session.is_broken is True
+
+
+class TestModelResidency:
+    """T112: the model is held exactly while a conversation session is live (FR-S06, FR-S08)."""
+
+    def test_a_live_session_keeps_one_shot_requests_on_the_session_keep_alive(self, client):
+        provider = _provider(client)
+        provider.open_session(KEY, STANDING, [GREETING])
+
+        provider.chat([ChatMessage(role="user", content="¿Qué significa billete?")])
+
+        assert client.chat_calls[0]["keep_alive"] == "30m"
+
+    def test_closing_the_last_session_hands_the_model_back_to_ollamas_default(self, client):
+        session = _provider(client).open_session(KEY, STANDING, [GREETING])
+
+        session.close()
+
+        assert client.generate_calls == [{"model": "llama3.2", "prompt": ""}]
+
+    def test_closing_one_of_two_sessions_keeps_the_model_held(self, client):
+        provider = _provider(client)
+        first = provider.open_session(KEY, STANDING, [GREETING])
+        provider.open_session(SessionKey(SessionKind.ROLEPLAY, "8"), STANDING, [GREETING])
+
+        first.close()
+
+        assert client.generate_calls == []
+        provider.chat([ChatMessage(role="user", content="Hola")])
+        assert client.chat_calls[0]["keep_alive"] == "30m"
+
+    def test_closing_twice_releases_the_model_once(self, client):
+        residency = OllamaResidency(TTL_MINUTES)
+        provider = _provider(client, residency)
+        first = provider.open_session(KEY, STANDING, [GREETING])
+        provider.open_session(SessionKey(SessionKind.ROLEPLAY, "8"), STANDING, [GREETING])
+
+        first.close()
+        first.close()
+
+        assert residency.keep_alive_for("llama3.2") == "30m"
+
+    def test_a_failed_hand_back_is_logged_and_close_still_succeeds(self, client, caplog):
+        session = _provider(client).open_session(KEY, STANDING, [GREETING])
+        client.fail_with(ConnectionError("refused"))
+
+        session.close()
+
+        assert "refused" in caplog.text

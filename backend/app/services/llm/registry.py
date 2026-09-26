@@ -6,6 +6,7 @@ Feature code asks `services/factory.py` for an `LLMProvider`, a `StructuredLLMPr
 
 import os
 from collections.abc import Callable, Iterator, Mapping, Sequence
+from functools import lru_cache
 from typing import Protocol
 
 import ollama
@@ -23,6 +24,7 @@ from app.services.llm.catalog import CLAUDE_PROVIDER_ID, OLLAMA_PROVIDER_ID
 from app.services.llm.claude_code import ClaudeCodeAvailability, ClaudeCodeLLMProvider
 from app.services.llm.claude_code.runner import SubprocessClaudeCodeRunner
 from app.services.llm.ollama import OllamaLLMProvider
+from app.services.llm.ollama_residency import OllamaResidency
 from app.services.llm.selection_types import DEFAULT_EFFORT, LLMSelection
 
 
@@ -65,7 +67,14 @@ def build_llm_provider(
 
 def _build_ollama(selection: LLMSelection, settings: Settings, _effort: str) -> OllamaLLMProvider:
     client = _ollama_client_factory(host=settings.ollama_url)
-    return OllamaLLMProvider(client, selection.model, settings.session_idle_ttl_minutes)
+    residency = _ollama_residency(settings.session_idle_ttl_minutes)
+    return OllamaLLMProvider(client, selection.model, residency)
+
+
+@lru_cache
+def _ollama_residency(session_keep_alive_minutes: int) -> OllamaResidency:
+    """One per process: providers are built per request, but sessions outlive them."""
+    return OllamaResidency(session_keep_alive_minutes)
 
 
 def _build_claude(

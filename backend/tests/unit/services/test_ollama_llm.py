@@ -4,8 +4,10 @@ import pytest
 
 from app.services.llm.base import ChatMessage, LLMError
 from app.services.llm.ollama import OllamaLLMProvider
+from app.services.llm.ollama_residency import OllamaResidency
 
 _TTL_MINUTES = 30
+_KEEP_ALIVE = f"{_TTL_MINUTES}m"
 
 
 class FakeOllamaClient:
@@ -23,8 +25,10 @@ class FakeOllamaClient:
         return self._response
 
 
-def _provider(client: FakeOllamaClient, model: str = "llama3.1") -> OllamaLLMProvider:
-    return OllamaLLMProvider(client, model, _TTL_MINUTES)
+def _provider(
+    client: FakeOllamaClient, model: str = "llama3.1", residency: OllamaResidency | None = None
+) -> OllamaLLMProvider:
+    return OllamaLLMProvider(client, model, residency or OllamaResidency(_TTL_MINUTES))
 
 
 def _make_messages() -> list[ChatMessage]:
@@ -50,7 +54,14 @@ def test_chat_returns_content() -> None:
     result = _provider(client).chat(_make_messages())
 
     assert result == "Hello, world!"
-    assert client.calls == [{"model": "llama3.1", "messages": _WIRE_MESSAGES, "stream": False}]
+    assert client.calls == [
+        {
+            "model": "llama3.1",
+            "messages": _WIRE_MESSAGES,
+            "stream": False,
+            "keep_alive": None,
+        }
+    ]
 
 
 def test_chat_raises_llm_error_on_exception() -> None:
@@ -87,7 +98,9 @@ def test_chat_stream_passes_stream_true() -> None:
 
     list(_provider(client).chat_stream(_make_messages()))
 
-    assert client.calls == [{"model": "llama3.1", "messages": _WIRE_MESSAGES, "stream": True}]
+    assert client.calls == [
+        {"model": "llama3.1", "messages": _WIRE_MESSAGES, "stream": True, "keep_alive": None}
+    ]
 
 
 def test_chat_json_passes_the_schema_as_the_response_format() -> None:
@@ -97,7 +110,13 @@ def test_chat_json_passes_the_schema_as_the_response_format() -> None:
     _provider(client).chat_json(_make_messages(), schema)
 
     assert client.calls == [
-        {"model": "llama3.1", "messages": _WIRE_MESSAGES, "stream": False, "format": schema}
+        {
+            "model": "llama3.1",
+            "messages": _WIRE_MESSAGES,
+            "stream": False,
+            "format": schema,
+            "keep_alive": None,
+        }
     ]
 
 
@@ -114,3 +133,34 @@ def test_chat_json_raises_llm_error_on_exception() -> None:
     with pytest.raises(LLMError, match="connection refused") as raised:
         _provider(client).chat_json(_make_messages(), {"type": "object"})
     assert raised.value.user_message == LLMError.DEFAULT_USER_MESSAGE
+
+
+_ONE_SHOT_CALLS = {
+    "chat": lambda provider: provider.chat(_make_messages()),
+    "chat_stream": lambda provider: list(provider.chat_stream(_make_messages())),
+    "chat_json": lambda provider: provider.chat_json(_make_messages(), {"type": "object"}),
+}
+
+
+@pytest.mark.parametrize("call", _ONE_SHOT_CALLS)
+def test_one_shot_calls_keep_a_held_model_loaded(call) -> None:
+    """A learning tool used mid-conversation must not drop the model to Ollama's 5-minute
+    unload timer, or the next conversation turn stalls while it reloads (FR-S08)."""
+    response = iter([]) if call == "chat_stream" else {"message": {"content": "{}"}}
+    client = FakeOllamaClient(response=response)
+    residency = OllamaResidency(_TTL_MINUTES)
+    residency.hold("llama3.1")
+
+    _ONE_SHOT_CALLS[call](_provider(client, residency=residency))
+
+    assert client.calls[0]["keep_alive"] == _KEEP_ALIVE
+
+
+@pytest.mark.parametrize("call", _ONE_SHOT_CALLS)
+def test_one_shot_calls_without_a_live_session_leave_ollamas_default(call) -> None:
+    response = iter([]) if call == "chat_stream" else {"message": {"content": "{}"}}
+    client = FakeOllamaClient(response=response)
+
+    _ONE_SHOT_CALLS[call](_provider(client))
+
+    assert client.calls[0]["keep_alive"] is None

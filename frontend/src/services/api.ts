@@ -80,6 +80,8 @@ export interface LlmProviderOption {
   default_model: string
   effort_levels: EffortOption[]
   default_effort: string | null
+  // What leaves the machine when this provider is selected; null for a local provider.
+  privacy_notice: string | null
   is_available: boolean
   unavailable_reason: ProviderUnavailableReason | null
   unavailable_message: string | null

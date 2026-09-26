@@ -42,6 +42,7 @@ const mockProviders: api.LlmProviderOption[] = [
     default_model: 'llama3.1:8b',
     effort_levels: [],
     default_effort: null,
+    privacy_notice: null,
     is_available: true,
     unavailable_reason: null,
     unavailable_message: null,
@@ -54,6 +55,8 @@ const mockProviders: api.LlmProviderOption[] = [
     default_model: 'sonnet',
     effort_levels: [{ effort_id: 'low', label: 'Low — fastest replies' }],
     default_effort: 'low',
+    privacy_notice:
+      "Your conversation text is sent to Anthropic under your Claude account and counts toward your Claude plan's usage. Your voice recordings and audio stay on your computer.",
     is_available: true,
     unavailable_reason: null,
     unavailable_message: null,

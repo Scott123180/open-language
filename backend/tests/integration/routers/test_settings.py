@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services.factory import get_storage
+from app.services.llm.catalog import PROVIDER_CATALOG
 from app.services.storage.sqlite import SQLiteStorageProvider
 from tests.integration.conftest import make_test_session
 
@@ -217,6 +218,7 @@ OLLAMA_ENTRY = {
     "default_model": "llama3.1:8b",
     "effort_levels": [],
     "default_effort": None,
+    "privacy_notice": None,
     "is_available": True,
     "unavailable_reason": None,
     "unavailable_message": None,
@@ -232,6 +234,7 @@ def test_llm_providers_lists_the_catalogue_in_order(client, claude_availability)
     assert claude["default_model"] == "sonnet"
     assert claude["default_effort"] == "low"
     assert [e["effort_id"] for e in claude["effort_levels"]] == ["low", "medium", "high"]
+    assert claude["privacy_notice"] == PROVIDER_CATALOG["claude"].privacy_notice
 
 
 def test_llm_providers_reports_why_claude_is_unavailable(client, claude_availability) -> None:

@@ -58,7 +58,13 @@ class ConversationSessionPool:
     def run_turn(self, provider: SessionCapableProvider, request: TurnRequest) -> Iterator[str]:
         """Yield the reply to `request`, reusing or rebuilding the key's session."""
         with self._key_lock(request.key):
-            yield from self._run_with_one_retry(provider, request)
+            tokens = self._reply_with_one_retry(provider, request)
+            try:
+                yield from tokens
+            except GeneratorExit:
+                # An abandoned reply is never stored, so the session no longer matches storage.
+                self.end(request.key)
+                raise
 
     def warm(
         self,
@@ -111,29 +117,28 @@ class ConversationSessionPool:
 
     # --- one turn -----------------------------------------------------------------------
 
-    def _run_with_one_retry(
+    def _reply_with_one_retry(
         self, provider: SessionCapableProvider, request: TurnRequest
-    ) -> Iterator[str]:
-        has_output = False
+    ) -> list[str]:
         try:
-            for token in self._run_once(provider, request):
-                has_output = True
-                yield token
+            return self._complete_reply(provider, request)
         except LLMError as exc:
-            # A retry after output began would splice two replies together.
-            if not exc.can_retry or has_output:
+            if not exc.can_retry:
                 raise
             logger.info("Retrying %s on a rebuilt session after: %s", _label(request.key), exc)
-            yield from self._run_once(provider, request)
+            return self._complete_reply(provider, request)
 
-    def _run_once(self, provider: SessionCapableProvider, request: TurnRequest) -> Iterator[str]:
+    def _complete_reply(self, provider: SessionCapableProvider, request: TurnRequest) -> list[str]:
+        """One attempt, collected in full. Delivery is batched anyway (spec Assumptions), and a
+        retry then replaces a partial reply instead of splicing onto it (FR-S11)."""
         session, pending = self._session_for(provider, request)
         is_complete = False
         try:
-            yield from _reply(session, request, pending)
+            tokens = list(_reply(session, request, pending))
             is_complete = True
         finally:
             self._finish_turn(request.key, session, is_complete)
+        return tokens
 
     def _session_for(
         self, provider: SessionCapableProvider, request: TurnRequest

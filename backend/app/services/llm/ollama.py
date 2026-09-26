@@ -16,6 +16,7 @@ from app.services.llm.base import (
     StructuredLLMProvider,
 )
 from app.services.llm.catalog import OLLAMA_PROVIDER_ID
+from app.services.llm.ollama_residency import OllamaResidency
 from app.services.llm.ollama_session import OllamaSession, OllamaSessionConfig
 from app.services.llm.selection_types import LLMSelection
 
@@ -23,10 +24,10 @@ _NO_EFFORT = ""
 
 
 class OllamaLLMProvider(LLMProvider, StructuredLLMProvider, SessionCapableProvider):
-    def __init__(self, client: ollama.Client, model: str, keep_alive_minutes: int) -> None:
+    def __init__(self, client: ollama.Client, model: str, residency: OllamaResidency) -> None:
         self._client = client
         self._model = model
-        self._keep_alive_minutes = keep_alive_minutes
+        self._residency = residency
 
     @property
     def model_name(self) -> str:
@@ -35,7 +36,10 @@ class OllamaLLMProvider(LLMProvider, StructuredLLMProvider, SessionCapableProvid
     def chat_stream(self, messages: list[ChatMessage]) -> Iterator[str]:
         try:
             response = self._client.chat(
-                model=self._model, messages=_to_wire(messages), stream=True
+                model=self._model,
+                messages=_to_wire(messages),
+                stream=True,
+                keep_alive=self._residency.keep_alive_for(self._model),
             )
             for chunk in response:
                 yield chunk["message"]["content"]
@@ -45,7 +49,10 @@ class OllamaLLMProvider(LLMProvider, StructuredLLMProvider, SessionCapableProvid
     def chat(self, messages: list[ChatMessage]) -> str:
         try:
             response = self._client.chat(
-                model=self._model, messages=_to_wire(messages), stream=False
+                model=self._model,
+                messages=_to_wire(messages),
+                stream=False,
+                keep_alive=self._residency.keep_alive_for(self._model),
             )
             return response["message"]["content"]
         except Exception as e:
@@ -54,7 +61,11 @@ class OllamaLLMProvider(LLMProvider, StructuredLLMProvider, SessionCapableProvid
     def chat_json(self, messages: list[ChatMessage], schema: dict) -> str:
         try:
             response = self._client.chat(
-                model=self._model, messages=_to_wire(messages), stream=False, format=schema
+                model=self._model,
+                messages=_to_wire(messages),
+                stream=False,
+                format=schema,
+                keep_alive=self._residency.keep_alive_for(self._model),
             )
             return response["message"]["content"]
         except Exception as e:
@@ -71,10 +82,12 @@ class OllamaLLMProvider(LLMProvider, StructuredLLMProvider, SessionCapableProvid
         config = OllamaSessionConfig(
             client=self._client,
             model=self._model,
-            keep_alive=f"{self._keep_alive_minutes}m",
+            keep_alive=self._residency.session_keep_alive,
             fingerprint=self.session_fingerprint(standing_prompt),
             standing_prompt=standing_prompt,
+            residency=self._residency,
         )
+        self._residency.hold(self._model)
         return OllamaSession(config, history)
 
 
