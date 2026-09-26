@@ -105,6 +105,15 @@ reviewed.
    it once the save succeeds. The save is a single local write that finishes well under a second.
    If it fails, the control reverts and shows an alert rather than keeping an unsaved value on
    screen.
+5. **FR-002, "each level MUST be presented with its name, description and CEFR equivalent"**, is
+   met in full on the Settings screen, where the learner chooses a level with time to read. The
+   conversation-header control is a compact switcher (FR-010, SC-006). Its options show the name and
+   CEFR label ("Natural" has none, since "No limit" is not a CEFR level), and the selected level's
+   one-sentence description is its accessible description (`aria-describedby`), so screen-reader
+   users hear it without the header growing.
+6. **FR-019 ("the level changes only the words") holds by construction**: `get_tts` builds the TTS
+   provider from `tts_voice` alone, and no task touches TTS. An integration assertion (tasks T029)
+   pins it, so a later change cannot quietly tie speech rate to the level.
 
 ---
 
@@ -203,7 +212,8 @@ backend/
 ├── pyproject.toml                          # + wordfreq in [dev] only
 └── tests/
     ├── unit/conversation_levels/           # catalogue invariants, renderers, Natural byte-identity
-    ├── contract/                           # settings + conversation-levels response shapes
+    ├── contract/                           # conversation-levels response shape (the settings
+    │                                       #   shape is extended in integration/routers/test_settings.py)
     └── integration/
         ├── conversation_levels/
         │   ├── test_level_in_prompts.py    # every call site; rebuild on change; phrasing cache keys
@@ -215,12 +225,15 @@ frontend/
 ├── src/
 │   ├── services/api.ts                     # + ConversationLevelId, ConversationLevelOption,
 │   │                                       #   getConversationLevels(), AppSettings.conversation_level
+│   ├── hooks/
+│   │   └── useConversationLevels.ts        # NEW hook, shared by both controls, so neither
+│   │                                       #   components/ folder imports the other (Principle V)
 │   ├── components/settings/
-│   │   ├── useConversationLevels.ts        # NEW hook (shared by both controls)
 │   │   ├── ConversationLevelFieldset.tsx   # NEW (Settings screen)
 │   │   ├── useSettingsForm.ts              # NEW: state/load/save moved out of Settings (research R12)
 │   │   └── *Fieldset.tsx / *Field.tsx      # NEW: existing sections extracted unchanged (research R12)
 │   ├── components/chat/
+│   │   ├── useConversationLevelSetting.ts  # NEW: the header control's load/save/revert/announce
 │   │   └── ConversationLevelControl.tsx    # NEW (header <select>, saves on change)
 │   ├── pages/Settings.tsx                  # becomes a layout of section components
 │   └── pages/Chat.tsx                      # + one element in the header

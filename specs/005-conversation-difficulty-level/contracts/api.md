@@ -89,10 +89,10 @@ pattern built from the `ConversationLevel` values (`^(beginner|elementary|interm
 
 ## 5. Frontend components
 
-### `useConversationLevels()` (hook)
+### `useConversationLevels()` (hook, `frontend/src/hooks/useConversationLevels.ts`)
 
 Returns `{ levels: ConversationLevelOption[], isLoading, error }` from contract §1. Shared by both
-controls.
+controls, so it lives in the shared `hooks/` folder rather than in either screen's components.
 
 ### `ConversationLevelFieldset` (Settings screen)
 
@@ -114,6 +114,7 @@ Takes no props. It loads its own state (settings and levels) and saves its own c
 | Behaviour | Requirement |
 |---|---|
 | A native `<select>` with the accessible name "Level". Options read "Beginner (A1)" … "Natural". | FR-006, SC-006 |
+| The selected level's one-sentence description is the select's accessible description (`aria-describedby`, visually hidden) | FR-002 (plan.md Spec interpretation 5) |
 | Shows the stored level on mount | FR-010, US2 AS4 |
 | On change: level-only `PUT /api/settings`. The control is disabled while saving. A polite live region announces "Level set to {label}. It applies from the next reply." | FR-008, FR-010 |
 | On failure: reverts to the previous value and shows the error with `role="alert"` | Constitution IV |

@@ -78,8 +78,9 @@ second turn onward. The quickstart measures both.
 
 ## R3. Natural is byte-identical to today
 
-**Decision**: At Natural, both rule renderers (R5) return an empty string and the composition helper
-returns the prompt unchanged.
+**Decision**: At Natural, both public functions, `with_partner_speech_rules` and
+`with_learner_text_rules`, return the prompt unchanged, byte for byte. Natural's descriptor has
+`limits=None`, so no rules block is rendered and nothing is appended (data-model §4).
 
 **Rationale**:
 - FR-004 requires Natural replies to be equivalent to today's behaviour. An identical prompt makes
@@ -213,10 +214,16 @@ through the real conversation engine.
 - **Automated, asserted**: replies per level meeting the reply-length and words-per-sentence limits,
   and the no-native-language check (SC-004), using a deterministic, language-neutral sentence and
   word splitter.
-- **Automated, printed**: average sentence length and the share of words outside the 1,500 most
-  frequent, per level (SC-003), using `wordfreq`'s `top_n_list`.
+- **Automated, printed and asserted**: average sentence length and the share of words outside the
+  1,500 most frequent, per level (SC-003), using `wordfreq`'s `top_n_list`. Both must rise strictly
+  from level to level.
+- **Order**: every figure is printed and the review sheet is written *before* any assertion runs,
+  and all failures are reported together. A missed threshold, the case that decides whether the
+  feature ships experimental, still leaves the complete evidence behind.
 - **Manual**: tense compliance (SC-001/SC-002's tense clause). The benchmark writes a review sheet
-  (one reply per row, with its level's allowed tenses), and the learner marks it.
+  (one reply per row, with its level's allowed tenses), and the learner marks it. Turns written to
+  probe FR-012, FR-013 and FR-014 carry an extra yes/no question on the sheet, so those behaviours
+  are reviewed rather than only prompted for.
 
 **Rationale**:
 - Length is objectively countable. Tense detection in Spanish needs a morphological analyser, and
@@ -268,7 +275,8 @@ catalogue is also served to the UI, and it is domain data, not a prompt).
 **Decision**:
 - **Level list**: a new `GET /api/settings/conversation-levels` endpoint serves the catalogue
   (id, label, CEFR label, description), so the frontend hardcodes none of it. A
-  `useConversationLevels` hook loads it for both controls.
+  `useConversationLevels` hook in the shared `frontend/src/hooks/` folder loads it for both
+  controls, so the chat and settings component folders never import from each other.
 - **Settings screen**: a `ConversationLevelFieldset` radio group, in the same pattern as the
   correction-mode group. It takes part in the page's existing Save action, which stays the screen's
   single primary action.

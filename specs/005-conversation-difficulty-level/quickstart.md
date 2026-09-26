@@ -69,7 +69,9 @@ default local model (research R9). It takes several minutes on a GPU host and lo
 
 The benchmark also writes `level-review-sheet.md` to the pytest temporary directory (the path is
 printed). **Manual step**: mark each Beginner, Elementary and Intermediate reply as within or outside
-its level's allowed tenses. SC-001 and SC-002 pass only when the length figures above **and** the
+its level's allowed tenses, and answer the yes/no question on rows tagged FR-012, FR-013 or FR-014.
+The figures and the sheet are produced before any assertion runs, so they are available even when a
+threshold is missed. SC-001 and SC-002 pass only when the length figures above **and** the
 marked tense compliance meet the same thresholds.
 
 If the default local model misses SC-001 or SC-002, the feature ships marked experimental (spec
