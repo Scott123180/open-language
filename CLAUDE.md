@@ -274,3 +274,9 @@ pool, with saved history as the source of truth.
   and an analytics dashboard; added Recharts and 7 tables
 - **001-speak-roleplay-chat**: the original roleplay conversation feature — scenarios, streaming
   chat over SSE, STT/TTS, and the per-message learning tools
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+at specs/005-conversation-difficulty-level/plan.md
+<!-- SPECKIT END -->
