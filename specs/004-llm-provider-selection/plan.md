@@ -101,7 +101,9 @@ rather than the plan quietly diverging from it:
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-checked after Phase 1 design (below).*
+*GATE: Must pass before Phase 0 research. Re-checked after Phase 1 design (below). Checked against
+constitution v1.2.0, which added Principle VI and the 20-line function gate during this feature's
+planning.*
 
 | Principle | Status | How |
 |---|---|---|
@@ -110,6 +112,7 @@ rather than the plan quietly diverging from it:
 | **III. TDD** (non-negotiable) | ✅ | Every task in `/speckit-tasks` starts with a failing test. Subprocess behaviour is tested through NDJSON fixtures that reproduce the recorded event shapes (trimmed to parsed fields), and interactive sessions through a scripted `InteractiveProcess` fake. The default suite needs neither `claude` nor Ollama |
 | **IV. Simple UI** | ✅ | Settings keeps one primary action (Save). Provider is a labelled radio group, with model below it and effort (Claude only) below that. The disabled Claude option carries a visible reason tied with `aria-describedby`. The privacy notice uses the existing warning-note pattern. Errors say what to do next (R-7). Warm-up is invisible |
 | **V. Extensibility & Compartmentalization** | ✅ | Provider ids exist only in `PROVIDER_CATALOG` and `build_llm_provider()`, mirroring the 003 `build_correction_strategy()` seam. `services/conversation/` exports `ConversationEngine` and its value objects only. `claude_code/` exports one provider class and one availability checker |
+| **VI. Provider Independence** (added in constitution v1.2.0) | ✅ | **Interface**: features depend on `LLMProvider` / `StructuredLLMProvider` / `SessionCapableProvider` only, and `build_llm_provider()` is the single place a provider id becomes behaviour (FR-004, FR-S13). **Local default, cloud opt-in**: Ollama is the default for fresh and upgraded installs (FR-006), Claude is used only once selected, and selecting it shows what leaves the machine (FR-026). **No credentials**: authentication is delegated to Claude Code's own sign-in, and the availability endpoint returns only a reason code, never account fields (FR-010/011, R-8). **No silent fallback**: FR-029, with actionable failure messages (FR-028, R-7) |
 | **Quality gates**: coverage, lint, E2E, a11y | ✅ planned | Playwright covers provider switching, effort visibility, the disabled state, the privacy notice, and the Chat warm-up request. A manual a11y check of Settings is a task |
 
 **Gate result: PASS.**
@@ -122,6 +125,7 @@ rather than the plan quietly diverging from it:
 | Gentle mode's suffix moves from the system prompt into a per-turn `guidance` field. Does 003 behaviour change? | For Ollama the session re-applies it to the system prompt for that call only, so the prompt is byte-identical to today (R-13). The 003 integration suite (`test_chat_correction_modes.py`) runs unchanged as the regression guard |
 | Long-lived child processes in a web server | Bounded (3), idle-expired (30 min), closed on conversation end and on lifespan shutdown, stderr to a file. A per-key lock prevents interleaved stdin writes |
 | `claude_live` tests are deselected by default. Does that violate "zero skipped tests"? | Same mechanism as 003's `benchmark` marker: deselected, not skipped, documented in `pyproject.toml` |
+| The v1.2.0 function-length gate (20 lines, new or modified functions) catches three existing functions this feature modifies: `open_chat` (69 lines), `send_message` (64), and `chat_helper` (42) in `routers/chat.py` | Moving message building, streaming, and error framing into `ConversationEngine` (R-17) is what brings them under 20. Each one becomes: build a `TurnRequest`, relay the engine's frames, persist. A task per router function checks the length. `_stream_reply` (29) is deleted, since the engine replaces it. Other long functions this feature doesn't touch stay as they are, per the gate's scope |
 | `ConversationSession` has 7 methods. Is that an ISP concern? | Every method is used by the pool, the interface's only client. Splitting it would give that one client two halves of one object |
 
 **Re-check result: PASS.** No Complexity Tracking entries.

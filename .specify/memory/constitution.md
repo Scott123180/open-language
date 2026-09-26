@@ -36,11 +36,11 @@ Templates reviewed (not modified by this command):
   - .specify/templates/tasks-template.md     ✅ — no changes required
   - .specify/templates/checklist-template.md ✅ — dynamic; no changes required
 
-Dependent documents needing follow-up (outside this command's scope):
-  - CLAUDE.md — cites "v1.1.0, ratified 2026-03-15" and lists the non-negotiables; update to v1.2.0
-    and add Principle VI
-  - specs/004-llm-provider-selection/plan.md — add a Principle VI row to the Constitution Check
-    table (004 already satisfies it: FR-004, FR-010/011, FR-026, FR-029)
+Dependent documents updated after the amendment:
+  - CLAUDE.md ✅ — version reference now v1.2.0; function-length bullet scoped to new or modified
+    functions; Principle VI added to the key non-negotiables
+  - specs/004-llm-provider-selection/plan.md ✅ — Principle VI row added to the Constitution Check;
+    the post-design re-check records the three chat.py functions 004 must bring under 20 lines
 
 Follow-up TODOs: None — all placeholders resolved. Template resolution was done by reading
 .specify/templates/constitution-template.md directly: resolve-template.sh fails on the known

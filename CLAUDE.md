@@ -49,13 +49,14 @@ misleading "template not found" error; the template is present at
 
 ## Constitution & Quality Gates
 
-Governance is defined in [.specify/memory/constitution.md](.specify/memory/constitution.md) (v1.1.0, ratified 2026-03-15). Key non-negotiables:
+Governance is defined in [.specify/memory/constitution.md](.specify/memory/constitution.md) (v1.2.0, ratified 2026-03-15, amended 2026-09-25). Key non-negotiables:
 
 - **TDD is mandatory** — tests written before implementation, always; test tasks are never optional
 - **90% test coverage** minimum, zero skipped tests
-- **Function length ≤ 20 lines**, SOLID principles enforced
+- **Function length ≤ 20 lines**, SOLID principles enforced. The gate applies to every new or modified function; a longer one needs a justification in the plan's Complexity Tracking. Existing long functions are brought under the limit when next touched
 - **Simple UI** — single primary action per screen, immediate feedback, accessibility required
 - **Compartmentalization** — each feature domain has a defined public interface; no direct cross-module imports
+- **Provider independence** (Principle VI) — every AI capability (LLM, STT, TTS) sits behind a provider interface, and feature code never imports a concrete provider. The local stack is the default, and cloud providers are opt-in with a notice of what leaves the machine. The app never stores or logs credentials, and never silently falls back to another provider
 - Linting must pass before any merge; UI changes require a manual accessibility check
 - **Playwright E2E tests are mandatory for all frontend changes** — run `npm run test:e2e` before marking any frontend task complete
 
