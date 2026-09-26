@@ -717,6 +717,33 @@ Two prompt-design decisions carry real product weight:
   on the same model and the same conversation text, so without `Do NOT continue any roleplay` the model
   drifts back into character and answers as the ticket agent instead of as a tutor.
 
+#### Conversation level (feature 005)
+
+The learner-wide **conversation level** (Beginner ≈ A1, Elementary ≈ A2, Intermediate ≈ B1, Natural) caps
+how complex the target-language text is. It lives in its own domain module,
+`app/conversation_levels/`, which owns no tables and no router and exports exactly five names:
+`ConversationLevel`, `DEFAULT_CONVERSATION_LEVEL`, `LEVEL_CATALOG`, `with_partner_speech_rules` and
+`with_learner_text_rules`. Every limit (sentences per reply, words per sentence, tenses, vocabulary band,
+idioms, questions) is a named field of one `SpeechLimits` value in the catalogue.
+
+- **Composition, not modification.** `templates.py` is untouched. The routers wrap its output:
+  `with_partner_speech_rules(build_roleplay_system_prompt(...), level)` for the roleplay standing prompt
+  (opening, message and warm-up alike), and `with_learner_text_rules(...)` around the suggestion,
+  phrasing and helper prompts. The rules block is appended *after* the prompt, so the
+  `CRITICAL LANGUAGE RULE` stays first. Grammar, translation and word lookup are native-language output
+  and are never wrapped.
+- **Natural is byte-identical to before.** Natural has no limits (`limits=None`), and both renderers then
+  return the prompt unchanged, so existing learners see exactly the pre-005 behaviour. A unit test pins it.
+- **A level change needs no engine code.** The level is part of the standing prompt, and the session
+  fingerprint already includes a digest of that prompt, so the next roleplay or helper turn after a change
+  rebuilds its session from saved history (see *Conversation sessions* above). A reply already streaming
+  finishes at the level it started with.
+- **Phrasings are cached per level.** `learning_tool_results.input_selection` for an alternative phrasing
+  is the bare message content at Natural (so rows written before 005 stay valid) and
+  `"[level:<id>] <content>"` otherwise. No schema change.
+- **Two controls, one setting.** Settings has a radio group; the chat header has a compact `<select>` that
+  saves on change with a level-only `PUT /api/settings`, which skips the provider availability check.
+
 ### 6.3 Corrective feedback: one seam, three modes
 
 Feature 003 adds grammar correction during practice. The learner picks a mode in Settings —
@@ -1182,7 +1209,8 @@ open-language/
 │       │   ├── storage/         base.py ABC + sqlite.py
 │       │   ├── scenario/        base.py ABC + static.py
 │       │   └── audio/           conversion.py — ffmpeg subprocess
-│       ├── flashcards/          Self-contained domain (Principle V)
+│       ├── conversation_levels/ Level catalogue + prompt-rule renderers (005), no tables
+       ├── flashcards/          Self-contained domain (Principle V)
 │       │   ├── router.py        ← the domain's public interface
 │       │   ├── models.py        7 tables
 │       │   ├── schemas.py       Pydantic contracts
@@ -1221,6 +1249,7 @@ open-language/
 | `003-mywords-page-redesign` | My Words page UI/UX | In progress on `develop` |
 | `003-corrective-feedback-mode` | Off/Gentle/Strict grammar correction during practice, transcription-confidence gating, resume-aware chat screen | In progress |
 | `004-llm-provider-selection` | Provider catalogue and registry, Claude through Claude Code (opt-in), conversation sessions, actionable provider errors | In progress |
+| `005-conversation-difficulty-level` | Four conversation levels (Beginner–Natural) on Settings and in the chat header, applied to the partner's replies and the learner aids; experimental | In progress |
 
 `master` is the release branch; `develop` is the integration branch; feature branches are numbered and
 created by `.specify/scripts/bash/create-new-feature.sh`.
@@ -1275,6 +1304,7 @@ Collected from the sections above so they are findable in one place:
 | `_add_column_if_missing()` cannot express renames, type changes, or backfills | `app/database.py` | Fine while changes stay additive; replace with Alembic otherwise |
 | **Correction accuracy is not good enough on an 8B model** — see below | `app/corrections/` | Shipped with an in-app warning; a larger local model is blocked by 8 GB VRAM (T098). Claude is now selectable as the larger model (004), but not yet benchmarked |
 | Background TTS writes through the request-scoped session after it is closed | `app/routers/chat.py` | Pre-dates 003; TTS cache paths can silently fail to persist |
+| **Conversation levels are not kept closely enough by an 8B model** — see below | `app/conversation_levels/` | Shipped with an in-app warning (005, T042); SC-001 missed, SC-003 partly missed |
 
 #### Roadmap: correction quality needs a larger model
 
@@ -1330,6 +1360,32 @@ hardware needed. It has not been measured against the SC-003 benchmark yet; runn
 Until then, the Settings screen carries a note stating that corrections come from the selected model, can
 be wrong, should be treated as a reason to double-check rather than as the last word, and improve with a
 larger model. That warning is load-bearing and should not be removed before the benchmark passes.
+
+#### Roadmap: conversation levels need a closer-following model
+
+Feature 005 ships the conversation level as **experimental**, because the default local model misses
+SC-001. Measured against `llama3.1:8b` on 2026-09-26 with the fixed evaluation set (4 scenarios × 5
+scripted learner turns per level; `tests/integration/conversation_levels/test_level_benchmark.py`,
+deselected from CI, run by hand):
+
+| Figure | Target | Measured |
+|---|---|---|
+| SC-001 Beginner replies within the length limits | ≥ 18 / 20 | **15 / 20** |
+| SC-002 Elementary / Intermediate within the length limits | ≥ 17 / 20 each | **18 / 20 · 18 / 20** |
+| SC-003 mean words per sentence, Beginner → Natural | strictly rising | 6.65 · **6.49** · 7.69 · 8.55 |
+| SC-003 share of words outside the top 1,500 | strictly rising | 19.6% · 21.4% · 25.8% · 27.2% |
+| SC-004 replies containing native-language words | 0 | **0** |
+
+The model follows the direction of the levels (vocabulary rises at every step, and Natural is clearly the
+most complex), but Beginner replies overshoot the one-or-two-sentence limit about one time in four, and
+Beginner and Elementary sentences come out the same length. Tense compliance is marked by hand on the
+review sheet the benchmark writes (`specs/005-conversation-difficulty-level/level-review-sheet.md`).
+
+The thresholds were **not** lowered (spec Assumptions). The Settings screen carries a note that the local
+model does not always keep to the level; like the corrections warning, it should stay until the benchmark
+passes. Running the same benchmark with Claude selected is the obvious next measurement, and the
+`LEVEL_CATALOG` numbers may be tuned (without changing the level order or the kind of limit) if a rerun
+still shows Beginner and Elementary sentences at the same length.
 
 **Resolved 2026-08-25:** the `upsert_srs_schedule()` signature mismatch that raised `TypeError` when a word
 was promoted to Learned; unbounded `_helper_sessions` state; `_add_column_if_missing()` swallowing every

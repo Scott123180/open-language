@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from app.conversation_levels import ConversationLevel, with_learner_text_rules
 from app.prompts.templates import (
     build_grammar_prompt,
     build_phrasing_prompt,
@@ -12,6 +13,8 @@ from app.services.llm.base import ChatMessage, LLMProvider
 from app.services.storage.base import AppSettingsRecord, StorageProvider
 
 router = APIRouter(tags=["learning"])
+
+LEVEL_CACHE_KEY_PREFIX = "[level:"
 
 
 class GrammarRequest(BaseModel):
@@ -90,8 +93,8 @@ async def alternative_phrasing(
     llm: LLMProvider = Depends(get_llm),
     app_settings: AppSettingsRecord = Depends(get_app_settings),
 ):
-    prompt = build_phrasing_prompt(req.content, app_settings.target_language)
-
+    level = ConversationLevel(app_settings.conversation_level)
+    prompt = _phrasing_prompt(req.content, app_settings.target_language, level)
     computed = False
 
     def _compute() -> str:
@@ -99,10 +102,23 @@ async def alternative_phrasing(
         computed = True
         return llm.chat([ChatMessage(role="user", content=prompt)])
 
+    cache_key = _phrasing_cache_key(req.content, level)
     result_record = storage.get_or_create_learning_result(
-        req.message_id, "alternative_phrasing", req.content, _compute
+        req.message_id, "alternative_phrasing", cache_key, _compute
     )
     return {"result": result_record.result, "cached": not computed}
+
+
+def _phrasing_prompt(content: str, target_language: str, level: ConversationLevel) -> str:
+    """Today's phrasing prompt, with the level's learner-text rules last (FR-017)."""
+    return with_learner_text_rules(build_phrasing_prompt(content, target_language), level)
+
+
+def _phrasing_cache_key(content: str, level: ConversationLevel) -> str:
+    """Natural keeps the bare content, so phrasings cached before 005 stay valid (research R7)."""
+    if level is ConversationLevel.NATURAL:
+        return content
+    return f"{LEVEL_CACHE_KEY_PREFIX}{level.value}] {content}"
 
 
 @router.post("/learning/word-lookup")

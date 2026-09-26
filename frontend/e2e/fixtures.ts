@@ -45,7 +45,42 @@ export const mockSettings = {
   suggestion_count: 3,
   whisper_model: 'base',
   correction_mode: 'off',
+  conversation_level: 'natural',
   updated_at: '2026-03-20T10:00:00Z',
+}
+
+/** The level catalogue as `GET /api/settings/conversation-levels` serves it (005 contract §1). */
+export const mockConversationLevels = [
+  {
+    level_id: 'beginner',
+    label: 'Beginner',
+    cefr_label: 'A1',
+    description: 'Very short, simple sentences — like talking with a young child.',
+  },
+  {
+    level_id: 'elementary',
+    label: 'Elementary',
+    cefr_label: 'A2',
+    description: 'Short, clear sentences with everyday words — like talking with a patient friend.',
+  },
+  {
+    level_id: 'intermediate',
+    label: 'Intermediate',
+    cefr_label: 'B1',
+    description: 'Connected, everyday speech from a clear, considerate adult — no rare words.',
+  },
+  {
+    level_id: 'natural',
+    label: 'Natural',
+    cefr_label: 'No limit',
+    description: 'Ordinary everyday native speech, with no limits.',
+  },
+]
+
+export async function mockConversationLevelsApi(page: Page) {
+  await page.route('/api/settings/conversation-levels', (route) =>
+    route.fulfill({ json: mockConversationLevels }),
+  )
 }
 
 const OLLAMA_PROVIDER = {
@@ -287,15 +322,14 @@ export async function mockHomeApis(page: Page) {
   })
 }
 
+interface ChatApiOptions {
+  openTokens?: string[]
+  openMessageId?: number
+  openFullContent?: string
+}
+
 /** Set up all common API mocks needed for the chat page. */
-export async function mockChatApis(
-  page: Page,
-  options: {
-    openTokens?: string[]
-    openMessageId?: number
-    openFullContent?: string
-  } = {},
-) {
+export async function mockChatApis(page: Page, options: ChatApiOptions = {}) {
   const {
     openTokens = ['¡Hola', '! ¿Cómo', ' estás?'],
     openMessageId = 1,
@@ -306,32 +340,40 @@ export async function mockChatApis(
     route.fulfill({ json: mockSettings }),
   )
   await mockLlmProviders(page)
-  await page.route('/api/conversations/1', (route) =>
-    route.fulfill({ json: mockConversation }),
-  )
-  await page.route('/api/conversations/1/messages', (route) =>
-    route.fulfill({ json: [] }),
-  )
-  await page.route('/api/corrections/conversations/1', (route) =>
-    route.fulfill({ json: emptyConversationFeedback }),
-  )
-  await page.route('/api/chat/1/open', (route) =>
-    route.fulfill({
-      status: 200,
-      headers: { 'Content-Type': 'text/event-stream' },
-      body: makeOpenSseBody(openTokens, openMessageId, openFullContent),
-    }),
-  )
-  await page.route('/api/audio/tts/**', (route) =>
-    route.fulfill({ status: 200, body: '' }),
-  )
+  await mockConversationLevelsApi(page)
+  await mockConversationRoutes(page)
+  await mockOpeningRoutes(page, makeOpenSseBody(openTokens, openMessageId, openFullContent))
   await mockWarmSession(page)
+}
+
+/** Conversation 1 with no saved messages or feedback; a PATCH ends it. */
+export async function mockConversationRoutes(page: Page) {
   await page.route('/api/conversations/1', (route) => {
     if (route.request().method() === 'PATCH') {
       return route.fulfill({ json: { ...mockConversation, status: 'completed' } })
     }
     return route.fulfill({ json: mockConversation })
   })
+  await page.route('/api/conversations/1/messages', (route) =>
+    route.fulfill({ json: [] }),
+  )
+  await page.route('/api/corrections/conversations/1', (route) =>
+    route.fulfill({ json: emptyConversationFeedback }),
+  )
+}
+
+/** Conversation 1's opening stream, and silent audio for every spoken reply. */
+export async function mockOpeningRoutes(page: Page, openSseBody: string) {
+  await page.route('/api/chat/1/open', (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+      body: openSseBody,
+    }),
+  )
+  await page.route('/api/audio/tts/**', (route) =>
+    route.fulfill({ status: 200, body: '' }),
+  )
 }
 
 /**

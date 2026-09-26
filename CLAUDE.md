@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Open-Language** is a locally-run language learning application built using **SpecKit** (v1.0.1, skills-based integration), a specification-driven development (SDD) framework. All feature work goes through the SDD workflow below.
 
-The application is implemented and running: a FastAPI backend in [backend/app/](backend/app/) and a Vite/React frontend in [frontend/src/](frontend/src/). Features shipped so far: roleplay chat (001), vocabulary flashcards (002), corrective feedback mode (003, experimental), and LLM provider selection with conversation sessions (004). Every AI capability sits behind a provider interface, and the app is local by default: Ollama for the LLM, Piper for TTS, faster-whisper for STT, SQLite for storage. Cloud providers are opt-in — today, Claude as the conversation partner through the learner's signed-in Claude Code. STT and TTS are always local.
+The application is implemented and running: a FastAPI backend in [backend/app/](backend/app/) and a Vite/React frontend in [frontend/src/](frontend/src/). Features shipped so far: roleplay chat (001), vocabulary flashcards (002), corrective feedback mode (003, experimental), LLM provider selection with conversation sessions (004), and conversation difficulty levels (005, experimental). Every AI capability sits behind a provider interface, and the app is local by default: Ollama for the LLM, Piper for TTS, faster-whisper for STT, SQLite for storage. Cloud providers are opt-in — today, Claude as the conversation partner through the learner's signed-in Claude Code. STT and TTS are always local.
 
 Speech-to-text is implemented in [backend/app/services/stt/whisper.py](backend/app/services/stt/whisper.py); see [reference/TRANSCRIPTION_INTEGRATION.md](reference/TRANSCRIPTION_INTEGRATION.md) for the underlying `faster-whisper` + CUDA integration patterns.
 
@@ -257,8 +257,19 @@ concrete class. Provider ids are listed once, in `services/llm/catalog.py`. Feat
 `backend/app/services/conversation/` (004) is a domain service with no tables or routes:
 `ConversationEngine` produces the next roleplay or helper reply through a bounded, expiring session
 pool, with saved history as the source of truth.
+`backend/app/conversation_levels/` (005) owns no tables and no router: it holds the level catalogue and
+two pure renderers, `with_partner_speech_rules()` and `with_learner_text_rules()`, that append a level's
+rules to an existing prompt (at Natural they return it byte-for-byte). Routers import only its package
+root; `prompts/templates.py` is never edited to carry the level.
 
 ## Recent Changes
+- **005-conversation-difficulty-level**: a learner-wide conversation level — Beginner (≈ A1),
+  Elementary (≈ A2), Intermediate (≈ B1) or Natural (the default, unchanged behaviour) — chosen on
+  Settings or from a compact Level control in the chat header. It caps the partner's replies and the
+  target-language learner aids (suggestions, phrasings, helper phrase); a change rebuilds the session
+  through the existing prompt fingerprint. Adds one `app_settings` column and
+  `GET /api/settings/conversation-levels`. **Shipped as experimental**: `llama3.1:8b` misses the Beginner
+  length target (SC-001), so Settings carries a warning (docs/architecture.md § "Open items")
 - **004-llm-provider-selection**: the learner chooses the conversation partner — Ollama (local, the
   default) or Claude through their signed-in Claude Code, with a model and an effort level — on the
   Settings screen, with no restart. Adds the provider catalogue and registry, the isolated

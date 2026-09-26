@@ -2,11 +2,13 @@ import { test, expect } from '@playwright/test'
 import {
   mockSettings,
   mockConversation,
-  emptyConversationFeedback,
   makeOpenSseBody,
   makeMessageSseBody,
   makeHelperSseBody,
   mockWarmSession,
+  mockConversationLevelsApi,
+  mockConversationRoutes,
+  mockOpeningRoutes,
 } from './fixtures'
 
 const CHAT_URL = '/chat/1'
@@ -20,32 +22,13 @@ async function setupChatRoutes(page: import('@playwright/test').Page) {
   await page.route('/api/settings', (route) =>
     route.fulfill({ json: mockSettings }),
   )
-  await page.route('/api/conversations/1', (route) => {
-    if (route.request().method() === 'PATCH') {
-      return route.fulfill({ json: { ...mockConversation, status: 'completed' } })
-    }
-    return route.fulfill({ json: mockConversation })
-  })
-  await page.route('/api/conversations/1/messages', (route) =>
-    route.fulfill({ json: [] }),
-  )
-  await page.route('/api/corrections/conversations/1', (route) =>
-    route.fulfill({ json: emptyConversationFeedback }),
-  )
-  await page.route('/api/chat/1/open', (route) =>
-    route.fulfill({
-      status: 200,
-      headers: { 'Content-Type': 'text/event-stream' },
-      body: OPEN_SSE_BODY,
-    }),
-  )
-  await page.route('/api/audio/tts/**', (route) =>
-    route.fulfill({ status: 200, body: '' }),
-  )
+  await mockConversationRoutes(page)
+  await mockOpeningRoutes(page, OPEN_SSE_BODY)
   await page.route('/api/chat/1/suggestions', (route) =>
     route.fulfill({ json: { suggestions: ['Quiero un café.', 'Necesito ayuda.', '¿Cuánto cuesta?'] } }),
   )
   await mockWarmSession(page)
+  await mockConversationLevelsApi(page)
 }
 
 test.describe('Chat page', () => {
@@ -56,6 +39,12 @@ test.describe('Chat page', () => {
 
   test('shows Chat heading', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Chat' })).toBeVisible()
+  })
+
+  test('shows the stored conversation level in the header', async ({ page }) => {
+    const level = page.locator('header').getByRole('combobox', { name: 'Level' })
+    await expect(level).toBeVisible()
+    await expect(level).toHaveValue(mockSettings.conversation_level)
   })
 
   test('shows scenario title in subheader', async ({ page }) => {

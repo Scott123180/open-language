@@ -54,10 +54,21 @@ export interface AppSettings {
   suggestion_count: number
   whisper_model: string
   correction_mode: CorrectionMode
+  conversation_level: ConversationLevelId
   updated_at: string
 }
 
 export type CorrectionMode = 'off' | 'gentle' | 'strict'
+
+export type ConversationLevelId = 'beginner' | 'elementary' | 'intermediate' | 'natural'
+
+/** One conversation level as the learner sees it (005 contracts/api.md §1). */
+export interface ConversationLevelOption {
+  level_id: ConversationLevelId
+  label: string
+  cefr_label: string
+  description: string
+}
 
 export interface ModelOption {
   model_id: string
@@ -368,6 +379,9 @@ export const streamHelper = async (
 
 export const getSettings = (): Promise<AppSettings> =>
   apiFetch('/settings')
+
+export const getConversationLevels = (): Promise<ConversationLevelOption[]> =>
+  apiFetch('/settings/conversation-levels')
 
 export const updateSettings = (updates: Partial<AppSettings>): Promise<AppSettings> =>
   apiFetch('/settings', { method: 'PUT', body: JSON.stringify(updates) })

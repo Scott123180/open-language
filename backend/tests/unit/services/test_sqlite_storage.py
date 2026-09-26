@@ -1,4 +1,5 @@
 import time
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -169,3 +170,22 @@ def test_update_settings_persists_provider_model_and_effort(
         "sonnet",
         "medium",
     )
+
+
+def test_fresh_settings_default_to_the_natural_conversation_level(
+    storage: SQLiteStorageProvider,
+) -> None:
+    assert storage.get_settings().conversation_level == "natural"
+
+
+def test_update_settings_persists_only_the_conversation_level(
+    storage: SQLiteStorageProvider,
+) -> None:
+    before = storage.get_settings()
+
+    updated = storage.update_settings(conversation_level="beginner")
+    reread = storage.get_settings()
+
+    assert updated.conversation_level == "beginner"
+    assert reread.conversation_level == "beginner"
+    assert replace(reread, conversation_level="natural", updated_at=before.updated_at) == before

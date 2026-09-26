@@ -4,6 +4,7 @@ import * as api from '../services/api'
 import MessageBubble from '../components/chat/MessageBubble'
 import RecordButton from '../components/chat/RecordButton'
 import AudioPlayer from '../components/shared/AudioPlayer'
+import ConversationLevelControl from '../components/chat/ConversationLevelControl'
 import ErrorBanner from '../components/shared/ErrorBanner'
 import SuggestedResponsePanel from '../components/chat/SuggestedResponsePanel'
 import ExpressionHelperPanel from '../components/chat/ExpressionHelperPanel'
@@ -301,7 +302,7 @@ export default function Chat() {
       <header
         style={{
           display: 'grid',
-          gridTemplateColumns: 'auto 1fr auto',
+          gridTemplateColumns: 'auto minmax(0, 1fr) auto auto',
           alignItems: 'center',
           gap: '12px',
           padding: '0 16px',
@@ -349,6 +350,7 @@ export default function Chat() {
             </p>
           )}
         </div>
+        <ConversationLevelControl />
         <button
           onClick={handleEndChat}
           style={{

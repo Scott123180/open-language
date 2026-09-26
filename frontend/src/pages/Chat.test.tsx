@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import Chat from './Chat'
@@ -35,6 +35,7 @@ const settings = (correction_mode: api.CorrectionMode): api.AppSettings => ({
   suggestion_count: 3,
   whisper_model: 'small',
   correction_mode,
+  conversation_level: 'natural',
   updated_at: '2026-08-27T00:00:00Z',
 })
 
@@ -155,6 +156,13 @@ const captureOpening = () => {
   }
 }
 
+const conversationLevels: api.ConversationLevelOption[] = [
+  { level_id: 'beginner', label: 'Beginner', cefr_label: 'A1', description: 'Very short.' },
+  { level_id: 'elementary', label: 'Elementary', cefr_label: 'A2', description: 'Short.' },
+  { level_id: 'intermediate', label: 'Intermediate', cefr_label: 'B1', description: 'Clear.' },
+  { level_id: 'natural', label: 'Natural', cefr_label: 'No limit', description: 'Native.' },
+]
+
 const renderChat = () =>
   render(
     <MemoryRouter initialEntries={[`/chat/${CONV_ID}`]}>
@@ -184,20 +192,23 @@ const composer = () => screen.getByLabelText('Type a message')
  */
 const playedSources: string[] = []
 
-beforeEach(() => {
-  vi.clearAllMocks()
-  playedSources.length = 0
-
-  // jsdom implements none of these, and Chat reaches all three on a normal turn.
+// jsdom implements none of these, and Chat reaches all three on a normal turn.
+function stubMediaElements() {
   Element.prototype.scrollIntoView = vi.fn()
   HTMLMediaElement.prototype.pause = vi.fn()
   HTMLMediaElement.prototype.play = vi.fn(function (this: HTMLMediaElement) {
     playedSources.push(this.src)
     return Promise.resolve()
   })
+}
 
+beforeEach(() => {
+  vi.clearAllMocks()
+  playedSources.length = 0
+  stubMediaElements()
   isRecording = false
   vi.mocked(api.getSettings).mockResolvedValue(settings('off'))
+  vi.mocked(api.getConversationLevels).mockResolvedValue(conversationLevels)
   vi.mocked(api.getConversation).mockResolvedValue(conversation)
   vi.mocked(api.getMessages).mockResolvedValue([existingMessage])
   vi.mocked(api.getConversationFeedback).mockResolvedValue(emptyFeedback())
@@ -602,5 +613,31 @@ describe('Chat — header, composer and audio controls', () => {
     fireEvent.click(screen.getByRole('button', { name: /dismiss/i }))
 
     await waitFor(() => expect(screen.queryByText(/stream broke/)).not.toBeInTheDocument())
+  })
+})
+
+describe('Chat — conversation level control (005 US2)', () => {
+  it('shows the Level control in the header with the stored level', async () => {
+    vi.mocked(api.getSettings).mockResolvedValue({
+      ...settings('off'),
+      conversation_level: 'elementary',
+    })
+    await renderResumed()
+
+    // The header sits inside <main>, so it is not a banner landmark; find it by element.
+    const header = document.querySelector('header') as HTMLElement
+    const level = await within(header).findByRole<HTMLSelectElement>('combobox', { name: 'Level' })
+    await waitFor(() => expect(level.value).toBe('elementary'))
+  })
+
+  it('keeps the primary styling on Send, not on the Level control', async () => {
+    await renderResumed()
+    const level = await screen.findByRole('combobox', { name: 'Level' })
+
+    fireEvent.change(composer(), { target: { value: 'Hola' } })
+
+    expect(screen.getByLabelText('Send message').style.background).toBe('var(--color-primary)')
+    expect(level.style.background).not.toBe('var(--color-primary)')
+    expect(level.style.backgroundColor).not.toBe('var(--color-primary)')
   })
 })

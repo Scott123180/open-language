@@ -4,6 +4,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
+from app.conversation_levels import DEFAULT_CONVERSATION_LEVEL
 from app.services.llm.catalog import DEFAULT_PROVIDER_ID
 from app.services.llm.selection_types import DEFAULT_EFFORT
 
@@ -72,6 +73,10 @@ _ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
     ("messages", "is_low_confidence BOOLEAN"),
     ("app_settings", f"llm_provider VARCHAR(20) NOT NULL DEFAULT '{DEFAULT_PROVIDER_ID}'"),
     ("app_settings", f"llm_effort VARCHAR(10) NOT NULL DEFAULT '{DEFAULT_EFFORT}'"),
+    (
+        "app_settings",
+        f"conversation_level VARCHAR(12) NOT NULL DEFAULT '{DEFAULT_CONVERSATION_LEVEL.value}'",
+    ),
 )
 """(table, column definition) pairs, in the order they were introduced."""
 

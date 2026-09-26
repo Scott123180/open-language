@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test'
 import {
   CLAUDE_UNAVAILABLE_MESSAGES,
   type ClaudeUnavailableReason,
+  mockConversationLevels,
+  mockConversationLevelsApi,
   mockLlmProviders,
   mockLlmProvidersClaudeUnavailable,
   mockSettings,
@@ -10,9 +12,10 @@ import {
 
 const SETTINGS_URL = '/settings'
 
-// Every Settings visit loads the provider catalogue; tests override it where it matters.
+// Every Settings visit loads the provider and level catalogues; tests override them where it matters.
 test.beforeEach(async ({ page }) => {
   await mockLlmProviders(page)
+  await mockConversationLevelsApi(page)
 })
 
 async function setupSettingsRoutes(
@@ -488,5 +491,73 @@ test.describe('Settings page — Claude availability and privacy', () => {
     await expect(notice).toContainText('sent to Anthropic')
     await page.getByRole('radio', { name: 'Ollama (local)' }).check()
     await expect(notice).toHaveCount(0)
+  })
+})
+
+test.describe('Settings page — conversation level', () => {
+  test('lists the four levels from the catalogue, easiest first', async ({ page }) => {
+    await setupSettingsRoutes(page)
+    await page.goto(SETTINGS_URL)
+
+    const group = page.getByRole('group', { name: 'Conversation level' })
+    await expect(group).toBeVisible()
+    const radios = group.getByRole('radio')
+    await expect(radios).toHaveCount(mockConversationLevels.length)
+    for (const [index, level] of mockConversationLevels.entries()) {
+      await expect(radios.nth(index)).toHaveAccessibleName(`${level.label} ${level.cefr_label}`)
+      await expect(radios.nth(index)).toHaveAccessibleDescription(level.description)
+    }
+  })
+
+  test('checks the stored level', async ({ page }) => {
+    await setupSettingsRoutes(page, { ...mockSettings, conversation_level: 'intermediate' })
+    await page.goto(SETTINGS_URL)
+
+    await expect(page.getByRole('radio', { name: /^Intermediate/ })).toBeChecked()
+    await expect(page.getByRole('radio', { name: /^Natural/ })).not.toBeChecked()
+  })
+
+  test('choosing Elementary and saving sends it to the API', async ({ page }) => {
+    let capturedBody: unknown = null
+    await page.route('/api/settings', (route) => {
+      if (route.request().method() === 'PUT') {
+        capturedBody = route.request().postDataJSON()
+        return route.fulfill({ json: { ...mockSettings, conversation_level: 'elementary' } })
+      }
+      return route.fulfill({ json: mockSettings })
+    })
+    await page.route('/api/settings/voices', (route) =>
+      route.fulfill({ json: mockVoices })
+    )
+    await page.goto(SETTINGS_URL)
+
+    await page.getByRole('radio', { name: /^Elementary/ }).check()
+    await page.getByRole('button', { name: /save/i }).click()
+
+    await expect(page.getByRole('status')).toContainText('Settings saved.')
+    expect(capturedBody).toMatchObject({ conversation_level: 'elementary' })
+  })
+
+  test('warns that levels are experimental, tied to the level group', async ({ page }) => {
+    await setupSettingsRoutes(page)
+    await page.goto(SETTINGS_URL)
+
+    const warning = page.getByRole('note', { name: /level accuracy/i })
+    await expect(warning).toBeVisible()
+    await expect(warning).toContainText(/experimental/i)
+    await expect(warning).toContainText(/larger model/i)
+    const group = page.getByRole('group', { name: 'Conversation level' })
+    await expect(group).toHaveAttribute('aria-describedby', (await warning.getAttribute('id'))!)
+  })
+
+  test('explains what to do when the levels cannot be loaded', async ({ page }) => {
+    await setupSettingsRoutes(page)
+    await page.route('/api/settings/conversation-levels', (route) =>
+      route.fulfill({ status: 500, json: { detail: 'Internal error' } })
+    )
+    await page.goto(SETTINGS_URL)
+
+    await expect(page.getByRole('alert')).toContainText(/could not be loaded.*reload/i)
+    await expect(page.getByRole('group', { name: 'Conversation level' })).toHaveCount(0)
   })
 })

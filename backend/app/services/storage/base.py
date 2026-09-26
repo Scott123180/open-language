@@ -3,6 +3,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 
+from app.conversation_levels import DEFAULT_CONVERSATION_LEVEL
 from app.services.llm.catalog import DEFAULT_PROVIDER_ID
 from app.services.llm.selection_types import DEFAULT_EFFORT
 
@@ -68,6 +69,7 @@ class AppSettingsRecord:
     correction_mode: str = "off"
     llm_provider: str = DEFAULT_PROVIDER_ID
     llm_effort: str = DEFAULT_EFFORT
+    conversation_level: str = DEFAULT_CONVERSATION_LEVEL.value
 
 
 class StorageProvider(ABC):

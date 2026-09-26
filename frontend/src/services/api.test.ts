@@ -582,3 +582,28 @@ describe('LLM provider selection', () => {
     )
   })
 })
+
+describe('conversation levels (005)', () => {
+  const levels: api.ConversationLevelOption[] = [
+    {
+      level_id: 'beginner',
+      label: 'Beginner',
+      cefr_label: 'A1',
+      description: 'Very short, simple sentences — like talking with a young child.',
+    },
+    {
+      level_id: 'natural',
+      label: 'Natural',
+      cefr_label: 'No limit',
+      description: 'Ordinary everyday native speech, with no limits.',
+    },
+  ]
+
+  it('getConversationLevels reads the level catalogue', async () => {
+    const mock = stubJson(levels)
+
+    await expect(api.getConversationLevels()).resolves.toEqual(levels)
+    expect(call(mock).url).toBe(`${BASE}/settings/conversation-levels`)
+    expect(call(mock).init?.method).toBeUndefined()
+  })
+})

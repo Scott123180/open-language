@@ -346,3 +346,51 @@ def test_other_settings_still_save_after_claude_sign_in_is_lost(
 
     assert response.status_code == 200
     assert response.json()["whisper_model"] == "small"
+
+
+# --- 005: conversation level (T009) ---------------------------------------------------
+
+
+def test_get_settings_defaults_conversation_level_to_natural(client: TestClient) -> None:
+    assert client.get("/api/settings").json()["conversation_level"] == "natural"
+
+
+def test_a_level_only_put_saves_the_level_and_nothing_else(client: TestClient) -> None:
+    before = client.get("/api/settings").json()
+
+    response = client.put("/api/settings", json={"conversation_level": "elementary"})
+
+    assert response.status_code == 200
+    after = response.json()
+    assert after["conversation_level"] == "elementary"
+    unchanged = {key for key in before if key not in {"conversation_level", "updated_at"}}
+    assert {key: after[key] for key in unchanged} == {key: before[key] for key in unchanged}
+
+
+def test_a_level_only_put_never_checks_claude_availability(client, claude_availability) -> None:
+    client.put("/api/settings", json={"llm_provider": "claude"})
+    _make_claude_unavailable(claude_availability, "not_signed_in")
+    claude_availability.checks = 0
+
+    response = client.put("/api/settings", json={"conversation_level": "beginner"})
+
+    assert (response.status_code, response.json()["conversation_level"]) == (200, "beginner")
+    assert claude_availability.checks == 0
+
+
+@pytest.mark.parametrize("body", [{"conversation_level": None}, {"whisper_model": "small"}])
+def test_a_null_or_absent_level_leaves_the_stored_level(client: TestClient, body) -> None:
+    client.put("/api/settings", json={"conversation_level": "intermediate"})
+
+    response = client.put("/api/settings", json=body)
+
+    assert response.json()["conversation_level"] == "intermediate"
+
+
+def test_an_unknown_level_is_422_and_nothing_is_stored(client: TestClient) -> None:
+    before = client.get("/api/settings").json()
+
+    response = client.put("/api/settings", json={"conversation_level": "expert"})
+
+    assert response.status_code == 422
+    assert client.get("/api/settings").json() == before

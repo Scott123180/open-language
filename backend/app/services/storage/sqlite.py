@@ -83,6 +83,7 @@ def _settings_to_record(s: AppSettings) -> AppSettingsRecord:
         correction_mode=s.correction_mode,
         llm_provider=s.llm_provider,
         llm_effort=s.llm_effort,
+        conversation_level=s.conversation_level,
     )
 
 

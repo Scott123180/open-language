@@ -4,6 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from app.conversation_levels import LEVEL_CATALOG, ConversationLevel
 from app.services.factory import get_availability_checkers, get_storage
 from app.services.llm.availability import ProviderAvailability, ProviderAvailabilityChecker
 from app.services.llm.catalog import CLAUDE_PROVIDER_ID, PROVIDER_CATALOG, ProviderDescriptor
@@ -27,6 +28,7 @@ class VoiceResponse(BaseModel):
 WHISPER_MODEL_OPTIONS = frozenset({"base", "small", "medium"})
 LLM_PROVIDER_PATTERN = f"^({'|'.join(PROVIDER_CATALOG)})$"
 LLM_EFFORT_PATTERN = f"^({'|'.join(EFFORT_LEVELS)})$"
+CONVERSATION_LEVEL_PATTERN = f"^({'|'.join(ConversationLevel)})$"
 
 
 class SettingsResponse(BaseModel):
@@ -39,6 +41,7 @@ class SettingsResponse(BaseModel):
     suggestion_count: int
     whisper_model: str
     correction_mode: str
+    conversation_level: str
     updated_at: datetime
 
 
@@ -52,6 +55,7 @@ class UpdateSettingsRequest(BaseModel):
     suggestion_count: int | None = Field(None, ge=1, le=5)
     whisper_model: str | None = Field(None, pattern="^(base|small|medium)$")
     correction_mode: str | None = Field(None, pattern="^(off|gentle|strict)$")
+    conversation_level: str | None = Field(None, pattern=CONVERSATION_LEVEL_PATTERN)
 
 
 class ModelOptionResponse(BaseModel):
@@ -62,6 +66,15 @@ class ModelOptionResponse(BaseModel):
 class EffortOptionResponse(BaseModel):
     effort_id: str
     label: str
+
+
+class ConversationLevelResponse(BaseModel):
+    """A level as the learner sees it. Never carries the limits or prompt text."""
+
+    level_id: str
+    label: str
+    cefr_label: str
+    description: str
 
 
 class LlmProviderResponse(BaseModel):
@@ -112,6 +125,7 @@ def _to_response(record: AppSettingsRecord) -> SettingsResponse:
         suggestion_count=record.suggestion_count,
         whisper_model=record.whisper_model,
         correction_mode=record.correction_mode,
+        conversation_level=record.conversation_level,
         updated_at=record.updated_at,
     )
 
@@ -134,6 +148,19 @@ def get_voices_endpoint():
 @router.get("/settings", response_model=SettingsResponse)
 def get_settings_endpoint(storage: StorageProvider = Depends(get_storage)):
     return _to_response(storage.get_settings())
+
+
+@router.get("/settings/conversation-levels", response_model=list[ConversationLevelResponse])
+def get_conversation_levels_endpoint():
+    return [
+        ConversationLevelResponse(
+            level_id=descriptor.level.value,
+            label=descriptor.label,
+            cefr_label=descriptor.cefr_label,
+            description=descriptor.description,
+        )
+        for descriptor in LEVEL_CATALOG.values()
+    ]
 
 
 @router.get("/settings/llm-providers", response_model=list[LlmProviderResponse])

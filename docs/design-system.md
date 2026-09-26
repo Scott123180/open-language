@@ -43,6 +43,7 @@ All values live in CSS custom properties. Use tokens exclusively in components �
 | `--color-success` | `#16a34a` | Success states |
 | `--color-success-subtle` | `#dcfce7` | Success backgrounds |
 | `--color-warning` | `#d97706` | Warning states |
+| `--color-warning-text` | `#92400e` | Warning text on light surfaces (e.g. note titles); `--color-warning` is too light for AA text |
 | `--color-error` | `#dc2626` | Error states |
 | `--color-error-subtle` | `#fef2f2` | Error backgrounds |
 
@@ -69,6 +70,7 @@ The dark palette preserves the warm hue angle of the light palette — backgroun
 | `--color-success` | `#4ade80` | Success states |
 | `--color-success-subtle` | `#052e16` | Success backgrounds |
 | `--color-warning` | `#fbbf24` | Warning states |
+| `--color-warning-text` | `#fbbf24` | Warning text (same as `--color-warning` in dark mode) |
 | `--color-error` | `#f87171` | Error states |
 | `--color-error-subtle` | `#3b0a0a` | Error backgrounds |
 
@@ -493,6 +495,44 @@ Use selection tiles — not `<select>` dropdowns — when the user needs to **ch
 
 **Layout:** stack tiles vertically with `gap: 10px`. Do not use a grid — vertical stacking makes scanning and tapping easier on narrow viewports.
 
+**Exception — a compact header switcher for a setting whose tiles live elsewhere.** The chat header's
+**Level** control (`ConversationLevelControl`, feature 005) is a native `<select>`, not tiles. The full
+choice, with every description visible, is made as tiles on the Settings screen; the header only lets the
+learner *step* an already-understood setting mid-conversation without leaving it (at most two
+interactions). Tiles would crowd a 52 px header and compete with Send, the screen's primary action. Use
+this exception only when all of these hold:
+
+- the same setting is offered as tiles (with descriptions) on another screen;
+- the control sits in a header or toolbar and is secondary to the screen's primary action;
+- the selected option's description is still exposed, as visually hidden text linked with
+  `aria-describedby`.
+
+**Secondary header `<select>` anatomy:**
+
+```tsx
+<label htmlFor="conversation-level-select" style={visuallyHidden}>Level</label>
+<select
+  id="conversation-level-select"
+  aria-describedby="conversation-level-description"
+  style={{
+    minHeight: '44px',            /* touch-target minimum */
+    minWidth: '44px',
+    padding: '0 8px',
+    background: 'transparent',    /* no fill: visually subordinate to the primary action */
+    color: 'var(--color-text-muted)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius)',
+    font: 'inherit',
+    fontSize: '0.85rem',
+  }}
+>…</select>
+<span id="conversation-level-description" style={visuallyHidden}>{selected.description}</span>
+```
+
+It saves on change, announces the result in a visually hidden `aria-live="polite"` region, and shows a
+failed save (or a failed load) as a `role="alert"` popover using `--color-surface-raised`,
+`--color-error`, `--radius-lg` and `--shadow-md`.
+
 ---
 
 ### Forms & Inputs
@@ -838,4 +878,4 @@ Key rules:
 | Use `--color-surface-raised` for icon identity blocks within cards | Leave icon identity areas with no background distinction |
 | Use a modal with blurred backdrop for creation/configuration flows | Expand inline panels that leave existing content visible and competing for attention |
 | Use stepped wizards for flows with ≥ 3 independent decisions | Put all options in one dense form when choices benefit from focused attention |
-| Use selection tile cards for small option sets (2–6) with descriptions | Use `<select>` dropdowns that hide options until clicked |
+| Use selection tile cards for small option sets (2–6) with descriptions | Use `<select>` dropdowns that hide options until clicked (the one exception is a secondary header switcher for a setting also offered as tiles elsewhere — see Selection Tile Cards) |

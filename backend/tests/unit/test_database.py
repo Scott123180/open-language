@@ -261,3 +261,57 @@ class TestFreshSchemaHasProviderColumns:
             "app_settings",
             "llm_effort VARCHAR(10) NOT NULL DEFAULT 'low'",
         ) in _ADDITIVE_COLUMNS
+
+
+class TestConversationLevelMigration:
+    """005 T006: a pre-005 database comes up at Natural (FR-009)."""
+
+    @pytest.fixture()
+    def legacy_engine(self, tmp_path, monkeypatch):
+        from app import database
+
+        engine = create_engine(f"sqlite:///{tmp_path / 'pre-005.db'}")
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "CREATE TABLE app_settings ("
+                    "id INTEGER PRIMARY KEY, llm_model VARCHAR(100) NOT NULL)"
+                )
+            )
+            conn.execute(text("CREATE TABLE conversations (id INTEGER PRIMARY KEY)"))
+            conn.execute(
+                text("CREATE TABLE messages (id INTEGER PRIMARY KEY, content TEXT NOT NULL)")
+            )
+            conn.execute(text("CREATE TABLE vocabulary_items (id INTEGER PRIMARY KEY)"))
+            conn.commit()
+        monkeypatch.setattr(database, "_engine", engine)
+        return engine
+
+    def test_conversation_level_is_the_last_additive_column(self):
+        from app.database import _ADDITIVE_COLUMNS
+
+        assert _ADDITIVE_COLUMNS[-1] == (
+            "app_settings",
+            "conversation_level VARCHAR(12) NOT NULL DEFAULT 'natural'",
+        )
+
+    def test_adds_the_column_to_an_existing_database(self, legacy_engine):
+        from app.database import _migrate_db
+
+        _migrate_db()
+
+        with legacy_engine.connect() as conn:
+            assert "conversation_level" in _columns(conn, "app_settings")
+
+    def test_the_existing_settings_row_reads_natural(self, legacy_engine):
+        from app.database import _migrate_db
+
+        with legacy_engine.connect() as conn:
+            conn.execute(text("INSERT INTO app_settings (id, llm_model) VALUES (1, 'llama3.1')"))
+            conn.commit()
+
+        _migrate_db()
+
+        with legacy_engine.connect() as conn:
+            stored = conn.execute(text("SELECT conversation_level FROM app_settings")).scalar_one()
+        assert stored == "natural"

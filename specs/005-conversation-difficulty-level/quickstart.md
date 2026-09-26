@@ -21,7 +21,7 @@ in `tasks.md`.
 ```bash
 backend/.venv/bin/pytest                  # includes the ≥ 90% coverage gate
 backend/.venv/bin/ruff check backend && backend/.venv/bin/black --check backend
-cd frontend && npm run lint && npm test && npm run test:e2e
+cd frontend && npm run lint && npm run build && npm test && npm run test:e2e
 ```
 
 **Expected**: zero failures and zero skips. The new tests cover every guarantee table in

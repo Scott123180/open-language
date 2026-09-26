@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import Settings from './Settings'
@@ -16,6 +16,7 @@ const mockSettings: api.AppSettings = {
   suggestion_count: 3,
   whisper_model: 'base',
   correction_mode: 'off',
+  conversation_level: 'natural',
   updated_at: '2026-03-15T10:00:00Z',
 }
 
@@ -63,6 +64,33 @@ const mockProviders: api.LlmProviderOption[] = [
   },
 ]
 
+const mockLevels: api.ConversationLevelOption[] = [
+  {
+    level_id: 'beginner',
+    label: 'Beginner',
+    cefr_label: 'A1',
+    description: 'Very short, simple sentences — like talking with a young child.',
+  },
+  {
+    level_id: 'elementary',
+    label: 'Elementary',
+    cefr_label: 'A2',
+    description: 'Short, clear sentences with everyday words — like talking with a patient friend.',
+  },
+  {
+    level_id: 'intermediate',
+    label: 'Intermediate',
+    cefr_label: 'B1',
+    description: 'Connected, everyday speech from a clear, considerate adult — no rare words.',
+  },
+  {
+    level_id: 'natural',
+    label: 'Natural',
+    cefr_label: 'No limit',
+    description: 'Ordinary everyday native speech, with no limits.',
+  },
+]
+
 function renderSettings() {
   return render(
     <MemoryRouter>
@@ -75,6 +103,7 @@ beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(api.getVoices).mockResolvedValue(mockVoices)
   vi.mocked(api.getLlmProviders).mockResolvedValue(mockProviders)
+  vi.mocked(api.getConversationLevels).mockResolvedValue(mockLevels)
 })
 
 describe('Settings page', () => {
@@ -327,5 +356,70 @@ describe('Settings page — provider-neutral correction warning', () => {
 
     const warning = await screen.findByRole('note', { name: /correction accuracy/i })
     expect(warning).toHaveTextContent(/flags sentences that were already correct/i)
+  })
+})
+
+describe('Settings page — conversation level', () => {
+  it('renders the four levels from the catalogue in a Conversation level group', async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(mockSettings)
+    renderSettings()
+
+    const group = await screen.findByRole('group', { name: 'Conversation level' })
+    const radios = within(group).getAllByRole('radio')
+    expect(radios.map((radio) => radio.getAttribute('value'))).toEqual([
+      'beginner',
+      'elementary',
+      'intermediate',
+      'natural',
+    ])
+  })
+
+  it('checks the stored level', async () => {
+    vi.mocked(api.getSettings).mockResolvedValue({
+      ...mockSettings,
+      conversation_level: 'intermediate',
+    })
+    renderSettings()
+
+    expect(await screen.findByRole('radio', { name: /intermediate/i })).toBeChecked()
+  })
+
+  it('saves the chosen level in the same call as the other fields', async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(mockSettings)
+    vi.mocked(api.updateSettings).mockResolvedValue(mockSettings)
+    renderSettings()
+
+    fireEvent.click(await screen.findByRole('radio', { name: /elementary/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => expect(api.updateSettings).toHaveBeenCalledTimes(1))
+    expect(api.updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversation_level: 'elementary',
+        correction_mode: 'off',
+        suggestion_count: 3,
+      })
+    )
+  })
+
+  it('sits directly before the correction feedback group', async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(mockSettings)
+    renderSettings()
+
+    const level = await screen.findByRole('group', { name: 'Conversation level' })
+    const correction = screen.getByRole('group', { name: /correction/i })
+    expect(level.nextElementSibling).toBe(correction)
+  })
+
+  it('replaces the level group with an explanation when the catalogue fails to load', async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(mockSettings)
+    vi.mocked(api.getConversationLevels).mockRejectedValue(new Error('HTTP 500'))
+    renderSettings()
+
+    await screen.findByRole('group', { name: /correction/i })
+    expect(screen.queryByRole('group', { name: 'Conversation level' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /conversation levels could not be loaded.*reload/i
+    )
   })
 })

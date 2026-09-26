@@ -4,6 +4,7 @@ from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.config import get_settings
+from app.conversation_levels import DEFAULT_CONVERSATION_LEVEL
 from app.database import Base
 from app.services.llm.catalog import DEFAULT_PROVIDER_ID
 from app.services.llm.selection_types import DEFAULT_EFFORT
@@ -28,6 +29,9 @@ class AppSettings(Base):
     suggestion_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     whisper_model: Mapped[str] = mapped_column(String(50), nullable=False, default="base")
     correction_mode: Mapped[str] = mapped_column(String(10), nullable=False, default="off")
+    conversation_level: Mapped[str] = mapped_column(
+        String(12), nullable=False, default=DEFAULT_CONVERSATION_LEVEL.value
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

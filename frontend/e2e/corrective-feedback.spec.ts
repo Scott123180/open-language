@@ -2,13 +2,15 @@ import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import {
   mockSettings,
-  mockConversation,
   mockFeedbackNote,
   mockRepeatRequestNote,
   emptyConversationFeedback,
   makeOpenSseBody,
   makeMessageSseBody,
   makeCorrectionSseBody,
+  mockConversationLevelsApi,
+  mockConversationRoutes,
+  mockOpeningRoutes,
 } from './fixtures'
 
 const CHAT_URL = '/chat/1'
@@ -22,19 +24,9 @@ async function setupCorrectionRoutes(
   await page.route('/api/settings', (route) =>
     route.fulfill({ json: { ...mockSettings, correction_mode: correctionMode } }),
   )
-  await page.route('/api/conversations/1', (route) => route.fulfill({ json: mockConversation }))
-  await page.route('/api/conversations/1/messages', (route) => route.fulfill({ json: [] }))
-  await page.route('/api/corrections/conversations/1', (route) =>
-    route.fulfill({ json: emptyConversationFeedback }),
-  )
-  await page.route('/api/chat/1/open', (route) =>
-    route.fulfill({
-      status: 200,
-      headers: { 'Content-Type': 'text/event-stream' },
-      body: OPEN_SSE_BODY,
-    }),
-  )
-  await page.route('/api/audio/tts/**', (route) => route.fulfill({ status: 200, body: '' }))
+  await mockConversationLevelsApi(page)
+  await mockConversationRoutes(page)
+  await mockOpeningRoutes(page, OPEN_SSE_BODY)
   await page.route('/api/chat/1/suggestions', (route) =>
     route.fulfill({ json: { suggestions: ['Quiero un café.'] } }),
   )
