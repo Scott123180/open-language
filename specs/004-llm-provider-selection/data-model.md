@@ -28,7 +28,8 @@ saved model untouched (FR-006, FR-007).
 |---|---|
 | `llm_provider ∈ {ollama, claude}` | pattern validation on the request model |
 | provider `claude` ⇒ `llm_model ∈ CLAUDE_MODEL_IDS` | "That model isn't a Claude model. Choose Sonnet, Haiku, or Opus." |
-| provider `ollama` ⇒ `llm_model` non-empty and `∉ CLAUDE_MODEL_IDS` | "That model belongs to Claude. Choose a local model, or switch the provider to Claude." |
+| provider `ollama` ⇒ `llm_model` non-empty (after trimming) | "Choose a local model." |
+| provider `ollama` ⇒ `llm_model ∉ CLAUDE_MODEL_IDS` | "That model belongs to Claude. Choose a local model, or switch the provider to Claude." |
 | provider `claude` ⇒ Claude availability is `available` at save time | the availability `message` (see §2) |
 | `llm_effort ∈ {low, medium, high}` | pattern validation on the request model |
 
@@ -96,14 +97,18 @@ is out of scope; request-time errors cover it as they do today.
 
 | Field | Type | Notes |
 |---|---|---|
-| `kind` | `FailureKind` | `not_installed`, `not_signed_in`, `usage_limit`, `model_unavailable`, `unreachable`, `unexpected_response` |
+| `kind` | `FailureKind` | `not_installed`, `not_signed_in`, `not_on_plan`, `usage_limit`, `model_unavailable`, `unreachable`, `unexpected_response` |
 | `user_message` | `str` | from research R-7. Inherited attribute, see below |
+| `can_retry` | `bool` | `False` for the account-level kinds `not_installed`, `not_signed_in`, `not_on_plan`, `usage_limit`, `model_unavailable`; `True` otherwise. Inherited attribute, see below |
 
 ### `LLMError` (existing, extended)
 
 Gains `user_message: str`, defaulting to `"The AI is not responding. Please try again."`, which is
-today's literal. The constructor stays `LLMError(detail: str, user_message: str = DEFAULT)`, so every
-existing `raise LLMError(str(e))` keeps working unchanged.
+today's literal, and `can_retry: bool`, defaulting to `True`. `can_retry` tells the session pool
+whether a rebuilt session could fix the failure (FR-S11), without the pool importing a concrete
+provider. The constructor becomes
+`LLMError(detail: str, user_message: str = DEFAULT, can_retry: bool = True)`, so every existing
+`raise LLMError(str(e))` keeps working unchanged.
 
 ---
 
@@ -162,6 +167,7 @@ no learner turns, or the last turn in `history` is a learner turn.
 |---|---|---|
 | `session_max_live` | `3` | SC-004d |
 | `session_idle_ttl_minutes` | `30` | spec Assumptions. Also Ollama's `keep_alive` while a session is live |
+| `SESSION_REAPER_INTERVAL_SECONDS` | `60` | module constant, not env-overridable. How often the lifespan reaper closes idle sessions (FR-S06, research R-16) |
 
 ### Session lifecycle
 
@@ -172,6 +178,8 @@ no learner turns, or the last turn in `history` is a learner turn.
      │   idle > TTL, LRU evicted,    │  fingerprint mismatch,
      │   conversation completed,     │  history diverged,
      └─── shutdown, or broken ◀──────┘  session-level failure → rebuild (one retry)
+          (idle expiry fires on access
+           or from the 60 s reaper)
                 (close() releases the process / nothing for Ollama)
 ```
 
@@ -204,4 +212,5 @@ successful `PUT /api/settings`. A rejected save leaves both fields unchanged (FR
 
 Losing Claude availability later does **not** transition the setting (edge case, FR-029). Requests
 then fail with `ClaudeCodeFailure(not_signed_in | not_installed)` until the learner fixes it or
-switches.
+switches. The same holds if Claude Code is re-signed in with an API key: the pre-flight check
+(research R-8) refuses every request with `ClaudeCodeFailure(not_on_plan)` before anything is sent.

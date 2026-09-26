@@ -89,6 +89,9 @@ Run once with Ollama, then once with Claude (Sonnet, Low effort).
 6. **Limits.** Open four existing conversations in turn. **Expected**: at most three `claude`
    processes at any moment. The first conversation still resumes correctly, via a rebuild.
 7. **End.** Complete a conversation. **Expected**: its `claude` process exits within a few seconds.
+7a. **Reaper.** Open a Claude conversation, then leave the app completely untouched, with no requests
+   at all, for 31 minutes. **Expected**: `pgrep -af "claude -p"` shows no process (FR-S06). The
+   next turn still works, via a rebuild.
 8. **Strict pause.** In Strict mode send an erroneous message, then the retry. **Expected**: the reply
    acknowledges the retry naturally, and the log shows the session reused, not rebuilt.
 
@@ -120,10 +123,11 @@ action taken. By hand:
 | model unavailable | `sqlite3 ~/.open-language/app.db "update app_settings set llm_model='nope'"` | "That Claude model isn't available" |
 | unreachable | disconnect the network, send a turn | "Claude couldn't be reached." |
 | usage limit | not reproducible on demand. Covered by the recorded-fixture unit test only | "You've reached your Claude plan's usage limit." |
+| signed in with an API key | not reproduced by hand, to avoid touching the learner's login. Covered by the pre-flight unit tests (`auth_status_api_key.json`) | "Claude Code is signed in with an API key" |
 
 **Expected**: every message appears in the chat or panel, and no spinner is left running.
 
-## 7. Docs (Story 5, SC-009)
+## 7. Docs (Story 6, SC-009)
 
 ```bash
 grep -n -i -E "no cloud|no api key|no external services|fully local|local-only" README.md CLAUDE.md docs/architecture.md

@@ -197,7 +197,9 @@ A learner practising a roleplay gets quick replies from the second turn onward, 
 they use. When they return to a conversation, including after pausing for a while, restarting the
 app, or reopening it from History, the partner still knows everything said so far. The first reply
 is not held up by the model loading, because the app got it ready while the learner was reading.
-The same holds for the expression helper's side thread.
+The expression helper's side thread also stays warm and in context from its second question
+onward. It is not warmed in advance: a helper thread starts empty, and its first question starts
+its session.
 
 **Why this priority**: This story makes both providers feel like a partner who is already in the
 conversation rather than one starting cold every turn, which is what speaking fluidity depends on.
@@ -257,10 +259,16 @@ default. The README explains how to enable Claude.
 
 ### Edge Cases
 
-- **Sign-in lost after Claude was selected.** The saved provider stays Claude, but Settings shows it
-  as unavailable. Language-model features fail with the "sign in to Claude Code" message instead
-  of silently switching to the local model. A silent switch would change behaviour without the
-  learner knowing.
+- **Sign-in lost or changed after Claude was selected.** The saved provider stays Claude, but
+  Settings shows it as unavailable. Language-model features fail with the "sign in to Claude Code"
+  message instead of silently switching to the local model. A silent switch would change behaviour
+  without the learner knowing. If the learner re-signs Claude Code in with an API key, the next
+  request is refused with the "sign in with your Claude plan" message before anything is sent, so
+  no request is ever billed to an API account.
+- **Fill-in-the-blank sentences.** Building a flashcard practice session in fill-in-the-blank mode
+  generates one example sentence per card. A failure there leaves that card without a sentence, as
+  it does today, instead of failing the whole session. Every other flashcard explanation reports
+  the provider's message like any other language-model feature.
 - **Saving Claude while it is unavailable.** The save is rejected with a message saying which setup
   step is missing. The previous settings are kept.
 - **Model name from the other provider.** Saving a provider together with a model that belongs to
@@ -338,6 +346,10 @@ default. The README explains how to enable Claude.
 - **FR-010**: The Claude provider MUST authenticate only through the learner's existing Claude Code
   sign-in, so that usage draws on their Claude plan. It MUST NOT use any mode of Claude Code that
   switches authentication to a separately billed API key.
+- **FR-010a**: Before every Claude invocation (each one-shot request and each session start), System
+  MUST confirm that Claude Code is signed in with a Claude plan, using the same check as FR-020.
+  If it is not, the request MUST be refused with the matching FR-028 message before anything is
+  sent. The check MUST NOT consume plan usage (FR-021).
 - **FR-011**: The app MUST NOT read, store, log, or transmit the learner's Claude credentials.
 - **FR-012**: Every Claude invocation, one-shot or session, MUST run with no tools available: no file
   access, no command execution, no web access, no tool servers.
@@ -356,7 +368,9 @@ default. The README explains how to enable Claude.
 - **FR-018**: The Claude provider MUST offer a fixed list of supported Claude models, one of them
   the default.
 - **FR-019**: A Claude request that exceeds a fixed maximum duration MUST be stopped and reported
-  as a failure. A request whose reply is discarded before it finishes MUST also be stopped.
+  as a failure. A request whose reply is discarded before it finishes MUST also be stopped. In
+  particular, a correction evaluation that runs past the correction time budget MUST have its
+  Claude process stopped by the time the budget expires, not left running to the general maximum.
 - **FR-019a**: Learners MUST be able to choose a Claude effort level of Low, Medium, or High, with Low
   as the default. The chosen level MUST apply to conversation replies (roleplay and expression
   helper). One-shot features (learning tools, flashcards, suggestions, titles) and correction
@@ -380,7 +394,8 @@ default. The README explains how to enable Claude.
 - **FR-S05**: Rebuilding a session MUST cost at most one model reply: the one the learner is waiting
   for.
 - **FR-S06**: The number of live sessions MUST be bounded, and sessions MUST close after an idle
-  period. Closing a session MUST release what it holds (for example, a running Claude process).
+  period, even while the app receives no further requests. Closing a session MUST release what it
+  holds (for example, a running Claude process).
 - **FR-S07**: Opening an existing conversation on the chat screen MUST warm its session in the
   background, so that the first reply is not delayed by the provider starting or the model loading.
 - **FR-S08**: While a conversation's session is live, the local model MUST stay loaded rather than
@@ -422,9 +437,10 @@ default. The README explains how to enable Claude.
 
 **Errors**
 
-- **FR-028**: Claude failures — not installed, not signed in, usage limit reached, model not
-  available on the plan, unreachable or timed out, and unexpected response — MUST each produce a
-  plain-language message that says what happened and what the learner can do next.
+- **FR-028**: Claude failures — not installed, not signed in, signed in with an API key instead of
+  a Claude plan, usage limit reached, model not available on the plan, unreachable or timed out,
+  and unexpected response — MUST each produce a plain-language message that says what happened
+  and what the learner can do next.
 - **FR-029**: System MUST NOT silently fall back from Claude to Ollama, or the reverse. The provider
   the learner selected is the one used.
 
@@ -481,8 +497,9 @@ default. The README explains how to enable Claude.
   an action or in those instructions being followed.
 - **SC-006**: Practice of any length with Claude selected adds 0 entries to the learner's saved
   Claude Code conversations, and no app-initiated request is billed outside the learner's plan.
-- **SC-007**: Each of the six Claude failure types (not installed, not signed in, usage limit,
-  model not available, unreachable or timed out, unexpected response) shows the learner a message
+- **SC-007**: Each of the seven Claude failure types (not installed, not signed in, signed in with an
+  API key, usage limit, model not available, unreachable or timed out, unexpected response) shows
+  the learner a message
   naming a next step, with no crash or stuck loading indicator.
 - **SC-008**: Adding a third language-model provider requires changes only to the provider layer
   and settings. No feature that uses the language model changes.
@@ -524,5 +541,6 @@ default. The README explains how to enable Claude.
   key provider are out of scope, though the provider layer leaves room for the latter.
 - **Corrections warning**: The existing "corrections are experimental" warning stays. Its wording
   is adjusted so it no longer assumes the model is local.
-- **Governance**: The constitution does not mention local-only execution, so no constitution
-  amendment is needed.
+- **Governance**: This feature is governed by constitution Principle VI (Provider Independence),
+  added in v1.2.0 during its planning: provider interfaces, local by default with cloud opt-in, no
+  credentials held, and no silent fallback.

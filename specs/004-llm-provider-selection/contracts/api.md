@@ -88,10 +88,16 @@ A 422 never changes stored settings.
 | Endpoint kind | Before | After |
 |---|---|---|
 | SSE (`/api/chat/{id}/open`, `/api/chat/{id}/message`, `/api/chat/helper`) | `data: {"error": "The AI is not responding. Please try again."}` | `data: {"error": <LLMError.user_message>}`. Identical text for Ollama failures |
-| JSON (`/api/learning/*`, flashcard word info, `/api/chat/{id}/suggestions`) | 500 `{"detail": "An unexpected error occurred. Please try again."}` | **503** `{"detail": <LLMError.user_message>}` |
+| JSON (`/api/learning/*`, `/api/chat/{id}/suggestions`) | 500 `{"detail": "An unexpected error occurred. Please try again."}` | **503** `{"detail": <LLMError.user_message>}` |
+| JSON flashcard word info (`GET /api/flashcards/words/{id}/info/{cache_type}`) | 503 `{"detail": "LLM service unavailable. Please try again shortly."}` (a fixed text: `LlmCacheService.get_or_generate` swallows every exception and returns `None`) | **503** `{"detail": <LLMError.user_message>}`. `get_or_generate` lets `LLMError` propagate to the shared handler |
 
 Corrections are unchanged: an `LLMError` during evaluation still fails open to an uncorrected turn
 (003 FR-026). The learner sees no error.
+
+Fill-in-the-blank sentences generated while a flashcard practice session is built stay fail-soft
+(spec edge case): `LlmCacheService.get_fill_blank_sentence` still returns `None` on `LLMError`,
+and the card is served without a sentence. It narrows its `except Exception` to `except LLMError`
+and logs a warning, so a real bug is no longer swallowed.
 
 The SSE frame sequence of `/open`, `/message`, and `/helper` is **unchanged** (`user_message_saved`,
 `feedback`, `token`…, `done`, or `error`). Sessions change where the tokens come from, not how
@@ -137,18 +143,25 @@ Every concrete provider must pass the **shared provider contract suite**
 ```python
 class LLMError(Exception):
     DEFAULT_USER_MESSAGE = "The AI is not responding. Please try again."
-    def __init__(self, detail: str, user_message: str = DEFAULT_USER_MESSAGE) -> None: ...
+    def __init__(self, detail: str, user_message: str = DEFAULT_USER_MESSAGE,
+                 can_retry: bool = True) -> None: ...
     @property
     def user_message(self) -> str: ...
+    @property
+    def can_retry(self) -> bool: ...   # False: a rebuilt session cannot fix it (FR-S11)
 ```
 
 ### 2.3 `build_llm_provider` (new; the only place a provider id becomes behaviour)
 
 ```python
-def build_llm_provider(selection: LLMSelection, settings: Settings) -> ConfiguredLLMProvider: ...
+def build_llm_provider(selection: LLMSelection, settings: Settings,
+                       effort: str = DEFAULT_EFFORT) -> ConfiguredLLMProvider: ...
 ```
 
-- `LLMSelection` = `(provider_id: str, model: str)`
+- `LLMSelection` = `(provider_id: str, model: str)`, defined in the leaf module
+  `services/llm/selection_types.py` together with the effort constants. Effort is a separate
+  argument rather than a field, because `SessionFingerprint` holds the selection and the effective
+  effort separately (Ollama's is always `""`).
 - `ConfiguredLLMProvider` = a `Protocol` that is both an `LLMProvider` and a `StructuredLLMProvider`
 - An unknown `provider_id` raises `UnknownProviderError(LLMError)`. That can't happen via the API,
   but a hand-edited DB could cause it.
@@ -173,20 +186,27 @@ so tests override it with `app.dependency_overrides`.
 ```python
 class ClaudeCodeRunner(ABC):
     @abstractmethod
-    def stream_lines(self, argv: Sequence[str], stdin_text: str) -> Iterator[str]:
-        """Yield stdout lines. Kill the process on timeout or generator close.
-        Raise ClaudeCodeFailure(not_installed) if the executable is missing."""
+    def stream_lines(self, argv: Sequence[str], stdin_text: str,
+                     timeout_seconds: float) -> Iterator[str]:
+        """Yield stdout lines. Kill the process when timeout_seconds elapses or the generator
+        closes. Raise ClaudeCodeFailure(not_installed) if the executable is missing.
+        A non-zero exit code alone does not raise: the caller classifies from the lines."""
 ```
 
-The production implementation is `SubprocessClaudeCodeRunner(executable, workdir, timeout_seconds,
-environ)`. Unit tests inject a `ScriptedClaudeCodeRunner` that replays recorded NDJSON fixtures.
+`timeout_seconds` is per call (research R-9): `chat` and `chat_stream` pass
+`Settings.claude_request_timeout_seconds` (120 s), and `chat_json` passes
+`Settings.correction_timeout_seconds` (8 s), so a correction that exceeds its budget has its
+process killed rather than left running (FR-019).
+
+The production implementation is `SubprocessClaudeCodeRunner(executable, workdir, environ)`. Unit
+tests inject a `ScriptedClaudeCodeRunner` that replays recorded NDJSON fixtures for both methods.
 The provider never touches `subprocess` directly (DIP).
 
-A second method serves sessions:
+A second method serves sessions. Its stderr goes to `log_path`, never a pipe (research R-14):
 
 ```python
     @abstractmethod
-    def spawn_interactive(self, argv: Sequence[str]) -> InteractiveProcess: ...
+    def spawn_interactive(self, argv: Sequence[str], log_path: Path) -> InteractiveProcess: ...
 
 class InteractiveProcess(ABC):
     def send_line(self, line: str) -> None: ...
@@ -249,12 +269,16 @@ class ConversationEngine:
     def acknowledge(self, key: SessionKey, turn_id: str) -> None: ...
     def warm(self, provider: SessionCapableProvider, key: SessionKey, standing_prompt: str,
              history: Sequence[SavedTurn]) -> None: ...
+    def is_live(self, key: SessionKey) -> bool: ...   # query for the warm endpoint's status
     def end(self, key: SessionKey) -> None: ...
+    def evict_idle(self) -> None: ...                # called by the lifespan reaper every 60 s
+    def close(self) -> None: ...                     # closes every session; lifespan shutdown
 ```
 
 The pool implements the reuse/rebuild table in [research.md R-15](../research.md) and the limits,
-locking, and single retry in R-16. The engine is served by `factory.get_conversation_engine()`
-(lru-cached, one per process) and closed in the FastAPI lifespan shutdown.
+locking, single retry, and reaper in R-16. The engine is served by
+`factory.get_conversation_engine()` (lru-cached, one per process). The FastAPI lifespan starts the
+reaper task after start-up, then on shutdown cancels it and calls `close()`.
 
 ---
 
@@ -276,14 +300,20 @@ assert on directly.
 A **session** process uses the same base plus
 `--effort <learner's level> --input-format stream-json --output-format stream-json --verbose --include-partial-messages`,
 with the standing system prompt extended by the provider's turn-guidance paragraph (research R-14).
-Its stderr goes to `<workdir>/session-<key>.log`, not a pipe.
+Its stderr goes to `<claude_log_dir>/session-<kind>-<identifier>.log`, not a pipe and not the working
+directory.
+
+**Pre-flight** (FR-010a, research R-8): before every one-shot invocation and every session spawn,
+the provider runs `<executable> auth status --json` through the same runner and environment. Unless
+it reports `loggedIn: true` with `authMethod: "claude.ai"`, the request is refused with
+`ClaudeCodeFailure(not_installed | not_signed_in | not_on_plan)` and no prompt is sent.
 
 **Invariants** (each one is a unit test, and each applies to one-shot and session argv alike):
 - `--bare` never appears.
 - `--tools` is always followed by `""`.
 - `--system-prompt` is always present with non-empty text.
 - The prompt is never in argv. It goes to stdin.
-- `cwd` is the app-owned empty workdir, and the environment has no `ANTHROPIC_*`, `CLAUDE_CODE_*`,
+- `cwd` is the app-owned workdir, which the app never writes to, so it stays empty. The environment has no `ANTHROPIC_*`, `CLAUDE_CODE_*`,
   `CLAUDECODE`, `CLAUDE_PID`, or `CLAUDE_EFFORT` keys.
 
 **Output parsing** relies only on these fields (research R-4, R-7): `type`,

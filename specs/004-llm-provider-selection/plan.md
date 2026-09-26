@@ -66,10 +66,12 @@ marker is deselected by default, like 003's `benchmark`.
 | Claude structured correction inside the 8 s budget | 1.67 s |
 | Availability check on Settings load ≤ 0.2 s | 0.13 s, no plan usage |
 
-**Constraints**: API keys are never used or stored, and `--bare` is never passed (FR-010/011);
+**Constraints**: API keys are never used or stored, `--bare` is never passed, and every Claude
+invocation is preceded by a plan-sign-in pre-flight check (FR-010/010a/011);
 Claude calls are fully isolated (FR-012–015); there is no silent cross-provider fallback (FR-029);
-at most 3 live sessions (~240 MB each for Claude); no `claude` process outlives the backend; every
-reply is produced from a context equivalent to saved history (FR-S03).
+at most 3 live sessions (~240 MB each for Claude), closed by a 60 s reaper once idle for 30 min;
+no `claude` process outlives the backend, or its correction budget when it is a correction
+(FR-019); every reply is produced from a context equivalent to saved history (FR-S03).
 
 **Scale/Scope**: 2 providers × (3 one-shot capabilities + sessions); about 12 one-shot LLM call
 sites untouched; 3 conversational call sites moved onto the engine; 2 frontend screens (Settings,
@@ -127,8 +129,14 @@ planning.*
 | `claude_live` tests are deselected by default. Does that violate "zero skipped tests"? | Same mechanism as 003's `benchmark` marker: deselected, not skipped, documented in `pyproject.toml` |
 | The v1.2.0 function-length gate (20 lines, new or modified functions) catches three existing functions this feature modifies: `open_chat` (69 lines), `send_message` (64), and `chat_helper` (42) in `routers/chat.py` | Moving message building, streaming, and error framing into `ConversationEngine` (R-17) is what brings them under 20. Each one becomes: build a `TurnRequest`, relay the engine's frames, persist. A task per router function checks the length. `_stream_reply` (29) is deleted, since the engine replaces it. Other long functions this feature doesn't touch stay as they are, per the gate's scope |
 | `ConversationSession` has 7 methods. Is that an ISP concern? | Every method is used by the pool, the interface's only client. Splitting it would give that one client two halves of one object |
+| *(Added after `/speckit-analyze`.)* The function-length gate also catches `_migrate_db` in `database.py`: 19 lines today, about 25 after two more `_add_column_if_missing` calls | Made data-driven: a module-level `_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...]` of `(table, column definition)` pairs, and a loop. It stays under 20 lines however many columns later features add |
+| *(Added after `/speckit-analyze`.)* The gate also catches the React function components this feature modifies: `Settings` in `pages/Settings.tsx` (~362 lines) and `Chat` in `pages/Chat.tsx` (~485 lines) | Both are recorded in Complexity Tracking below. This feature does not grow either one: provider fields move out of `Settings` into `LlmProviderFields`, and `Chat` gains one line (`void api.warmSession(convId)`). Every new component, hook, and handler this feature writes is ≤ 20 lines |
+| *(Added after `/speckit-analyze`.)* Flashcard word info swallowed every exception (`llm_cache.py`), so a Claude failure there would show a fixed "unavailable" text instead of a next step (SC-007, Principle VI) | `get_or_generate` lets `LLMError` reach the shared 503 handler. The fill-in-the-blank sentence path stays fail-soft (spec edge case), narrowed from `except Exception` to `except LLMError` with a warning log |
+| *(Added after `/speckit-analyze`.)* A correction that times out in `asyncio.wait_for` leaves its `claude` process running (FR-019) | `stream_lines` takes a per-call timeout, and `chat_json` passes the correction budget (research R-9) |
+| *(Added after `/speckit-analyze`.)* Expiry on access alone leaves idle `claude` processes alive in an untouched app (FR-S06) | A lifespan reaper calls `engine.evict_idle()` every 60 s (research R-16) |
+| *(Added after `/speckit-analyze`.)* A learner who re-signs Claude Code in with an API key would be billed on that account until they reopened Settings (SC-006) | An uncached pre-flight `auth status` check runs before every one-shot request and session spawn (FR-010a, research R-8) |
 
-**Re-check result: PASS.** No Complexity Tracking entries.
+**Re-check result: PASS**, with two Complexity Tracking entries (below).
 
 ---
 
@@ -152,10 +160,14 @@ specs/004-llm-provider-selection/
 
 ```text
 backend/app/
-├── config.py                          # + claude_executable, claude_workdir, claude_request_timeout_seconds,
-│                                      #   session_max_live, session_idle_ttl_minutes
-├── database.py                        # + llm_provider, llm_effort columns
-├── main.py                            # + LLMError handler → 503; lifespan closes the engine
+├── config.py                          # + claude_executable, claude_workdir, claude_log_dir,
+│                                      #   claude_request_timeout_seconds, session_max_live,
+│                                      #   session_idle_ttl_minutes
+├── database.py                        # + llm_provider, llm_effort columns; _migrate_db made data-driven
+├── main.py                            # + LLMError handler → 503; lifespan runs the session reaper
+│                                      #   and closes the engine
+├── flashcards/services/llm_cache.py   # word info lets LLMError reach the handler; fill-blank catches
+│                                      #   LLMError only
 ├── models/app_settings.py             # + llm_provider, llm_effort
 ├── routers/
 │   ├── chat.py                        # open/message/helper → ConversationEngine; + POST /chat/{id}/session
@@ -167,15 +179,17 @@ backend/app/
 │   ├── storage/base.py, sqlite.py     # AppSettingsRecord.llm_provider, .llm_effort
 │   ├── conversation/                  # NEW domain service
 │   │   ├── __init__.py                # exports ConversationEngine, TurnRequest, SessionKey, SavedTurn
-│   │   ├── session.py                 # ConversationSession, SessionCapableProvider ABCs, SessionFingerprint
+│   │   ├── session.py                 # ConversationSession, SessionCapableProvider ABCs, SessionKey,
+│   │   │                              #   SavedTurn, TurnRequest, SessionFingerprint
 │   │   ├── sync.py                    # plan_session_use(): pure reuse/rebuild decision (R-15)
-│   │   ├── pool.py                    # ConversationSessionPool: LRU, TTL, per-key locks, retry-once
+│   │   ├── pool.py                    # ConversationSessionPool: LRU, TTL, evict_idle, per-key locks, retry-once
 │   │   └── engine.py                  # ConversationEngine
 │   └── llm/
-│       ├── base.py                    # LLMError.user_message
+│       ├── base.py                    # LLMError.user_message, LLMError.can_retry
+│       ├── selection_types.py         # NEW leaf module: LLMSelection, effort constants
 │       ├── catalog.py                 # NEW ProviderDescriptor, ModelOption, EffortOption, PROVIDER_CATALOG
 │       ├── availability.py            # NEW ProviderAvailabilityChecker ABC, ProviderAvailability, AlwaysAvailable
-│       ├── registry.py                # NEW build_llm_provider, LLMSelection, ConfiguredLLMProvider
+│       ├── registry.py                # NEW build_llm_provider, ConfiguredLLMProvider, UnknownProviderError
 │       ├── selection.py               # NEW resolve_llm_selection(): partial update + validation rules
 │       ├── ollama.py                  # injected ollama.Client; implements SessionCapableProvider
 │       ├── ollama_session.py          # NEW OllamaSession: in-memory turns, keep_alive, empty-preload warm-up
@@ -185,9 +199,10 @@ backend/app/
 │           ├── transcript.py          # render_prompt() → RenderedPrompt; render_rebuild_turn()
 │           ├── events.py              # NDJSON → text deltas / result; classify failures
 │           ├── failures.py            # FailureKind, ClaudeCodeFailure(LLMError), user messages
-│           ├── runner.py              # ClaudeCodeRunner / InteractiveProcess ABCs, subprocess impls,
-│           │                          #   scrubbed_environment()
-│           ├── availability.py        # ClaudeCodeAvailability (claude auth status --json)
+│           ├── runner.py              # ClaudeCodeRunner / InteractiveProcess ABCs, subprocess impls
+│           │                          #   (per-call timeout), scrubbed_environment()
+│           ├── availability.py        # ClaudeCodeAvailability (claude auth status --json); also the
+│           │                          #   provider's pre-flight guard (FR-010a)
 │           ├── session.py             # ClaudeCodeSession: long-lived process, guidance block, rebuild rule
 │           └── provider.py            # ClaudeCodeLLMProvider
 backend/tests/
@@ -195,15 +210,25 @@ backend/tests/
 │   ├── test_llm_provider_implementations.py        # NEW shared one-shot suite × 2 providers
 │   ├── test_conversation_session_implementations.py # NEW shared session suite × 2 providers
 │   └── test_provider_availability_checker.py       # NEW
-├── fixtures/claude_code/*.ndjson                   # NEW: stream ok, json ok, schema ok, auth failed,
-│                                                   #   404 model, rate-limit rejected, garbage, 3-turn session
-├── unit/services/conversation/                     # NEW: sync, pool, engine
-├── unit/services/llm/                              # NEW: one module per claude_code unit + catalog,
-│                                                   #   registry, selection, ollama host, ollama session
+├── fixtures/claude_code/                           # NEW: *.ndjson event recordings (stream ok, json ok,
+│                                                   #   schema ok, auth failed, 404 model, rate-limit
+│                                                   #   rejected, garbage, 3-turn session) and
+│                                                   #   auth_status_*.json (signed in, API key, signed out)
+├── support/                                        # NEW test doubles: claude_fixtures, scripted_claude_runner,
+│                                                   #   stateless_session_provider, engine_overrides
+├── unit/test_config.py                             # NEW: new Settings fields
+├── unit/test_docs_positioning.py                   # NEW: SC-009 wording check on the three docs
+├── unit/services/test_factory.py                   # NEW: get_llm / get_structured_llm / get_session_provider
+├── unit/services/conversation/                     # NEW: session values, sync, pool, engine
+├── unit/services/llm/                              # NEW: llm_error, catalog, registry, selection,
+│                                                   #   ollama session, and claude_code/ (command, runner,
+│                                                   #   interactive process, failures, transcript, events,
+│                                                   #   provider, session, availability)
 ├── integration/routers/test_settings.py            # + provider/effort, providers endpoint, 422 rules
 ├── integration/routers/test_chat_sessions.py       # NEW: reuse across turns, rebuild after pool reset,
 │                                                   #   strict pause merge, warm endpoint, complete closes
 ├── integration/test_llm_error_surface.py           # NEW: SSE user_message, JSON 503
+├── integration/test_lifespan.py                    # NEW: reaper started and cancelled, engine closed
 └── live/test_claude_code_live.py                   # NEW @pytest.mark.claude_live: isolation, recall, timing
 
 frontend/src/
@@ -233,9 +258,9 @@ fields move into `components/settings/` because `Settings.tsx` is already 389 li
 
 | Phase | Delivers | Story | Checkpoint |
 |---|---|---|---|
-| 1. Foundation | `LLMError.user_message` + 503 handler; catalogue; registry (Ollama only); injected client + host; `llm_provider`/`llm_effort` columns + record | US1 | Behaviour identical, seam real. Merge-safe |
-| 2. Session core | `conversation/` ABCs, `sync`, `pool`, `engine`; `OllamaSession`; session contract suite (Ollama); chat routers moved onto the engine; warm endpoint; complete-closes-session | US5 (Ollama), US1 | All 001/003 integration tests pass unchanged. Ollama stays loaded mid-conversation |
-| 3. Claude adapter (one-shot) | `command`, `transcript`, `events`, `failures`, `runner`, `provider`; one-shot contract suite × 2 | US2, US3 | Isolation invariants are the first tests written |
+| 1. Foundation | `LLMError.user_message`/`can_retry` + 503 handler; flashcard word info onto the handler; catalogue; registry (Ollama only); injected client + host; `llm_provider`/`llm_effort` columns + record; data-driven `_migrate_db` | US1 | Behaviour identical apart from error texts, seam real. Merge-safe |
+| 2. Session core | `conversation/` ABCs, `sync`, `pool` (+ reaper), `engine`; `OllamaSession`; session contract suite (Ollama); chat routers moved onto the engine; warm endpoint; complete-closes-session | US5 (Ollama), US1 | All 001/003 integration tests pass with only their dependency-override wiring changed (assertions untouched). Ollama stays loaded mid-conversation |
+| 3. Claude adapter (one-shot) | `command`, `transcript`, `events`, `failures`, `runner` (per-call timeout), `provider` (pre-flight guard, correction deadline); one-shot contract suite × 2 | US2, US3 | Isolation invariants are the first tests written |
 | 4. Claude sessions | `InteractiveProcess`, `ClaudeCodeSession`, rebuild rule, guidance block; session contract suite × 2 | US5 (Claude), US3 | |
 | 5. Selection & availability | `ClaudeCodeAvailability`; `resolve_llm_selection`; settings fields, providers endpoint, 422s; Claude added to the registry | US2, US4 | Claude selectable end to end |
 | 6. Frontend | `LlmProviderFields`, Settings wiring, Chat warm-up, API client, E2E | US2, US4, US5 | Playwright plus manual a11y check |
@@ -250,4 +275,12 @@ second provider adds variables.
 
 ## Complexity Tracking
 
-No constitution violations. Nothing to justify.
+| Violation | Why needed | Simpler alternative rejected because |
+|---|---|---|
+| `Settings` component in `frontend/src/pages/Settings.tsx` stays over 20 lines (~362 today) while this feature modifies it (T087, T095) | The component is modified to load the provider list, hold `llmProvider`/`llmEffort` state, render `LlmProviderFields`, and reword one warning. The feature makes it *shorter*: the old model `<select>` and `LLM_OPTIONS` move into `LlmProviderFields` | Bringing it under 20 lines means splitting every settings section (languages, voice, speech model, corrections, suggestions) into its own component with shared form state. That is a refactor of the whole screen, unrelated to provider selection, and it would put regressions in unrelated settings inside this feature's diff. Tracked as a follow-up: split `Settings` into per-section components the next time a non-LLM setting is added |
+| `Chat` component in `frontend/src/pages/Chat.tsx` stays over 20 lines (~485 today) while this feature modifies it (T052) | One line is added to the existing `restoreTranscript` helper (itself ≤ 20 lines). The `Chat` component body is not otherwise changed | Splitting `Chat` (streaming, recording, feedback, audio, helper panel) is a large refactor with its own E2E risk and nothing to do with sessions. Tracked as a follow-up: extract `useChatStream` and `useRecorderFlow` hooks from `Chat` |
+
+The Boy Scout clause ("existing longer functions are brought within the limit when next modified")
+is met for every backend function this feature touches (`open_chat`, `send_message`,
+`chat_helper`, `_migrate_db`), and for every new frontend unit. The two entries above are the
+only exceptions.

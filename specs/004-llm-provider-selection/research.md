@@ -178,6 +178,7 @@ classifies:
 | Signal | Classification | User message (FR-028) |
 |---|---|---|
 | `FileNotFoundError` spawning `claude` | not installed | "Claude Code isn't installed on this computer. Install it, or switch to the local model in Settings." |
+| pre-flight check (R-8) finds `authMethod` ≠ `claude.ai` | not on plan | "Claude Code is signed in with an API key, which would bill a separate account. Sign in with your Claude plan, or switch to the local model in Settings." |
 | assistant message `error == "authentication_failed"` | not signed in | "Claude Code isn't signed in. Run `claude` in a terminal and sign in, or switch to the local model in Settings." |
 | `rate_limit_event.rate_limit_info.status == "rejected"`, or assistant `error == "rate_limit"` | usage limit | "You've reached your Claude plan's usage limit. Switch to the local model in Settings until it resets." |
 | result `api_error_status == 404` | model unavailable | "That Claude model isn't available on your plan. Choose a different Claude model in Settings." |
@@ -216,6 +217,16 @@ Entities).
 **Measured**: 0.13 s and no model call, so no plan usage (FR-021). That's cheap enough to run
 uncached on every `GET /api/settings/llm-providers` and on every settings save that selects Claude.
 
+**Pre-flight guard (added after analysis, FR-010a)**: checking only at save time leaves a gap. If
+the learner later re-signs Claude Code in with an API key, requests would bill that API account
+until they next open Settings. Scrubbing `ANTHROPIC_*` variables (R-2) does not catch a stored API
+key login. The provider therefore runs the same check, uncached, before every one-shot request and
+before every session spawn, and refuses with `not_on_plan`, `not_signed_in`, or `not_installed`
+before any prompt is sent. The cost is 0.13 s on one-shot requests that take 1.5–2.5 s, and
+nothing on later session turns, since a live session is checked once at spawn. A per-request
+field such as the stream `init` event's `apiKeySource` was considered but not used: it is absent
+from `--output-format json`, and its values were never measured.
+
 ---
 
 ## R-9 · Cancellation and the batched-delivery trade-off
@@ -236,6 +247,17 @@ incrementally. (a) is what bounds wasted plan usage today (FR-019).
 **Alternatives considered**: removing the `list(...)` batching to get true streaming. It's out of
 scope because it changes router behaviour for both providers, and the architecture document owns
 that decision.
+
+**Correction deadline (added after analysis)**: corrections run `evaluator.evaluate` in an executor
+thread under `asyncio.wait_for(correction_timeout_seconds)`
+(`corrections/services/strategies.py:91`). When `wait_for` times out, the reply is discarded but the
+thread, and so the `claude` process, keeps running up to the 120 s maximum and keeps using plan
+quota. That breaks FR-019's "discarded before it finishes MUST also be stopped". `stream_lines`
+therefore takes a per-call `timeout_seconds`, and `chat_json` passes
+`Settings.correction_timeout_seconds`. `StructuredLLMProvider` has exactly one client, the
+corrections module (see its docstring), so the structured deadline *is* the correction budget. The
+process is killed by the time the budget expires, and the evaluation fails open exactly as a slow
+Ollama evaluation does today.
 
 ---
 
@@ -361,8 +383,10 @@ in the process's context afterwards (it cannot be removed), which is why the par
 its own turn (FR-S09). A rebuilt session doesn't contain old guidance, since the database never
 stored it. That matches Ollama, where guidance is never in history.
 
-**Stderr**: a long-lived process's stderr must be drained, or a full pipe blocks it. Redirect to a
-per-session log file under the workdir, truncated on spawn. No pipe.
+**Stderr**: a long-lived process's stderr must be drained, or a full pipe blocks it. Redirect it to
+a per-session log file, truncated on spawn. No pipe. The log files live in a sibling directory,
+`Settings.claude_log_dir` (`~/.open-language/claude-logs/`), and not in the working directory, so
+the working directory stays truly empty (R-3).
 
 ---
 
@@ -394,8 +418,12 @@ other, and it keeps the comparison cheap.
 ## R-16 · Pool, concurrency, retry, and warm-up
 
 **Decision**: `ConversationSessionPool`, one per process, keyed by `SessionKey(kind, id)`:
-- Bounded LRU (max 3) with 30-minute idle expiry. The same eviction semantics as
-  `HelperSessionStore` (checked on access), plus `close()` on every evicted session.
+- Bounded LRU (max 3) with 30-minute idle expiry, checked on access like `HelperSessionStore`,
+  plus `close()` on every evicted session. Unlike helper threads, a session holds a process
+  (~240 MB), so expiry on access alone is not enough: an app left untouched would keep up to three
+  idle `claude` processes alive indefinitely (FR-S06). A **reaper** background task, started in the
+  FastAPI lifespan, calls `engine.evict_idle()` every `SESSION_REAPER_INTERVAL_SECONDS = 60` and is
+  cancelled on shutdown.
 - A per-key `threading.Lock` held for the whole turn (FR-S10). Different keys proceed in parallel.
 - On session-level failure (process exited, unparseable output, timeout), close, rebuild, and retry
   **once**. `ClaudeCodeFailure` kinds `usage_limit`, `not_signed_in`, `not_installed`, and
