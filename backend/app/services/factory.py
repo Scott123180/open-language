@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 
 from fastapi import Depends
@@ -12,8 +14,20 @@ from app.corrections.services.strategies import CorrectionStrategy
 from app.database import get_db
 from app.flashcards.services.sqlite_storage import SQLiteFlashcardStorageProvider
 from app.flashcards.services.storage import FlashcardStorageProvider
+from app.services.conversation import (
+    ConversationEngine,
+    ConversationSessionPool,
+    SessionCapableProvider,
+)
 from app.services.helper_sessions import HelperSessionStore
+from app.services.llm.availability import ProviderAvailabilityChecker
 from app.services.llm.base import LLMProvider, StructuredLLMProvider
+from app.services.llm.registry import (
+    ConfiguredLLMProvider,
+    build_availability_checkers,
+    build_llm_provider,
+)
+from app.services.llm.selection_types import LLMSelection
 from app.services.scenario.base import ScenarioProvider
 from app.services.scenario.static import StaticScenarioProvider
 from app.services.storage.base import AppSettingsRecord, StorageProvider
@@ -40,6 +54,18 @@ def get_helper_sessions() -> HelperSessionStore:
     return _get_helper_sessions()
 
 
+@lru_cache
+def get_conversation_engine() -> ConversationEngine:
+    """One engine per process: its pool holds every live conversation session."""
+    settings = get_settings()
+    pool = ConversationSessionPool(
+        settings.session_max_live,
+        timedelta(minutes=settings.session_idle_ttl_minutes),
+        clock=lambda: datetime.now(UTC),
+    )
+    return ConversationEngine(pool)
+
+
 def get_storage(db: Session = Depends(get_db)) -> StorageProvider:
     return SQLiteStorageProvider(db)
 
@@ -56,18 +82,29 @@ def get_app_settings(storage: StorageProvider = Depends(get_storage)) -> AppSett
     return storage.get_settings()
 
 
-def get_llm(app_settings: AppSettingsRecord = Depends(get_app_settings)) -> LLMProvider:
-    from app.services.llm.ollama import OllamaLLMProvider
+def _configured_provider(app_settings: AppSettingsRecord) -> ConfiguredLLMProvider:
+    selection = LLMSelection(app_settings.llm_provider, app_settings.llm_model)
+    return build_llm_provider(selection, get_settings(), app_settings.llm_effort)
 
-    return OllamaLLMProvider(model=app_settings.llm_model)
+
+def get_llm(app_settings: AppSettingsRecord = Depends(get_app_settings)) -> LLMProvider:
+    return _configured_provider(app_settings)
 
 
 def get_structured_llm(
     app_settings: AppSettingsRecord = Depends(get_app_settings),
 ) -> StructuredLLMProvider:
-    from app.services.llm.ollama import OllamaLLMProvider
+    return _configured_provider(app_settings)
 
-    return OllamaLLMProvider(model=app_settings.llm_model)
+
+def get_session_provider(
+    app_settings: AppSettingsRecord = Depends(get_app_settings),
+) -> SessionCapableProvider:
+    return _configured_provider(app_settings)
+
+
+def get_availability_checkers() -> Mapping[str, ProviderAvailabilityChecker]:
+    return build_availability_checkers(get_settings())
 
 
 def get_tts(app_settings: AppSettingsRecord = Depends(get_app_settings)) -> TTSProvider:

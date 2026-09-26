@@ -23,6 +23,7 @@ from app.services.storage.base import AppSettingsRecord
 from app.services.storage.sqlite import SQLiteStorageProvider
 from app.services.tts.base import TTSProvider
 from tests.integration.conftest import make_test_session
+from tests.support.engine_overrides import override_conversation_engine
 
 _DEFAULT_SETTINGS = AppSettingsRecord(
     llm_model="llama3.1",
@@ -91,6 +92,7 @@ def client_and_storage(tmp_path: Path):
     app.dependency_overrides[get_storage] = lambda: storage_instance
     app.dependency_overrides[get_app_settings] = lambda: _DEFAULT_SETTINGS
     app.dependency_overrides[get_llm] = lambda: stub_llm
+    override_conversation_engine(app, stub_llm)
     app.dependency_overrides[get_tts] = lambda: stub_tts
 
     with TestClient(app) as c:

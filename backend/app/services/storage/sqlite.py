@@ -81,6 +81,8 @@ def _settings_to_record(s: AppSettings) -> AppSettingsRecord:
         whisper_model=s.whisper_model,
         updated_at=s.updated_at,
         correction_mode=s.correction_mode,
+        llm_provider=s.llm_provider,
+        llm_effort=s.llm_effort,
     )
 
 

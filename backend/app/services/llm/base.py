@@ -4,7 +4,29 @@ from dataclasses import dataclass
 
 
 class LLMError(Exception):
-    pass
+    """A language-model request failed.
+
+    `user_message` is safe to show the learner and names a next step. `can_retry`
+    tells a caller whether a fresh session could fix the failure, without the caller
+    knowing which provider raised it (FR-S11).
+    """
+
+    DEFAULT_USER_MESSAGE = "The AI is not responding. Please try again."
+
+    def __init__(
+        self, detail: str, user_message: str = DEFAULT_USER_MESSAGE, can_retry: bool = True
+    ) -> None:
+        super().__init__(detail)
+        self._user_message = user_message
+        self._can_retry = can_retry
+
+    @property
+    def user_message(self) -> str:
+        return self._user_message
+
+    @property
+    def can_retry(self) -> bool:
+        return self._can_retry
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,6 @@
 # Open Language — Architecture
 
-**Status:** Living document · **Last updated:** 2026-08-25 · **Audience:** human contributors and LLM agents
+**Status:** Living document · **Last updated:** 2026-09-25 · **Audience:** human contributors and LLM agents
 
 This document explains what Open Language is, how it is put together, and — most importantly — **why** it
 is put together that way. Where a decision looks unusual, the rationale is stated inline rather than left
@@ -21,35 +21,54 @@ Companion documents:
 
 ## 1. What this project is
 
-Open Language is a **local, privacy-first spoken language-practice application**. A learner picks a
-role-play scenario ("buy a train ticket"), speaks or types in their target language, and an AI partner
-answers in character — out loud. Along the way the learner can ask for grammar feedback, translations,
-alternative phrasings, and word lookups; save unknown words; and later drill those words with
-spaced-repetition flashcards.
+Open Language is a **privacy-first spoken language-practice application, local by default**. A learner
+picks a role-play scenario ("buy a train ticket"), speaks or types in their target language, and an AI
+partner answers in character — out loud. Along the way the learner can ask for grammar feedback,
+translations, alternative phrasings, and word lookups; save unknown words; and later drill those words
+with spaced-repetition flashcards.
 
 ### The one decision everything else follows from
 
-**Every AI component runs on the user's own machine. There is no cloud, no API key, no account.**
+**Every AI capability sits behind a provider interface, and the default provider for each one runs on
+the user's own machine.** By default there is no cloud, no API key, and no account:
 
-- Speech-to-text: `faster-whisper`, loaded in-process
-- Language model: `Ollama` serving `llama3.1:8b` on `localhost:11434`
-- Text-to-speech: `Piper`, loaded in-process from local `.onnx` voice files
+- Speech-to-text: `faster-whisper`, loaded in-process — always local
+- Language model: `Ollama` serving `llama3.1:8b` on `localhost:11434` — the default. Claude, through the
+  learner's own signed-in Claude Code, is an opt-in alternative (feature 004)
+- Text-to-speech: `Piper`, loaded in-process from local `.onnx` voice files — always local
 - Persistence: a single SQLite file under `~/.open-language/`
 
-**Why this matters architecturally.** Practising a language means saying clumsy, personal, embarrassing
-things thousands of times. Shipping that audio to a third party is a real privacy cost, and metered API
-calls make a learner ration the exact behaviour the app exists to encourage. Committing to local-only
-inference removes both problems, and it cascades into almost every other choice in this document:
+**Why local is the default.** Practising a language means saying clumsy, personal, embarrassing things
+thousands of times. Shipping that audio to a third party is a real privacy cost, and metered API calls
+make a learner ration the exact behaviour the app exists to encourage. A local default removes both
+problems for every learner who doesn't choose otherwise — and speech never leaves the machine at all.
+
+**Why it is a default and not a rule.** A local 8B model has limits a learner may reasonably want to
+trade away; correction quality is the clearest case (see [Open items](#open-items-and-known-debt)). So
+each capability is a swappable provider (constitution Principle VI):
+
+- Feature code depends on an interface (`LLMProvider`, `StructuredLLMProvider`,
+  `SessionCapableProvider`, `STTProvider`, `TTSProvider`), never on a concrete provider.
+- One registry per capability turns the saved choice into a provider. For the language model that is
+  `build_llm_provider()` in `services/llm/registry.py`, and provider ids are listed only in
+  `services/llm/catalog.py`.
+- A cloud provider is used only once the learner selects it, and selecting it shows what leaves the
+  machine. The app never stores or logs credentials: Claude authenticates through Claude Code's own
+  sign-in, and the app refuses an API-key login so usage always draws on the learner's plan.
+- There is no silent fallback. If the selected provider fails, the learner is told what to do next.
+
+The local default still shapes almost every other choice in this document:
 
 - **No auth, no multi-tenancy, no rate limiting.** One user, one machine, one database file.
-- **No "offline mode".** There is no online mode to contrast it with. The spec says so explicitly.
-- **Latency is CPU/GPU-bound, not network-bound.** Optimisation effort goes into model loading, thread
-  offloading, and caching results — not into request batching or retries.
-- **Heavy work must leave the event loop.** Whisper, Piper, and Ollama calls are blocking and CPU-bound.
-  Every one of them is wrapped in `run_in_executor`, because a single slow synthesis would otherwise
-  freeze the whole single-process app.
-- **Caching is aggressive and permanent.** A TTS clip or an LLM explanation costs seconds of local
-  compute, so results are written to SQLite or to disk and never recomputed.
+- **No "offline mode".** The default stack has no online mode to contrast it with. A learner who picks
+  Claude gets a plain-language message when it can't be reached, not a degraded mode.
+- **Latency is CPU/GPU-bound, not network-bound** on the default stack. Optimisation effort goes into
+  model loading, keeping models loaded between turns, thread offloading, and caching results.
+- **Heavy work must leave the event loop.** Whisper, Piper, Ollama, and `claude` subprocess calls are
+  blocking. Every one of them is wrapped in `run_in_executor`, because a single slow synthesis would
+  otherwise freeze the whole single-process app.
+- **Caching is aggressive and permanent.** A TTS clip or an LLM explanation costs seconds of compute, so
+  results are written to SQLite or to disk and never recomputed.
 
 ---
 
@@ -91,12 +110,23 @@ flowchart TB
     SVC --> DB
     SVC --> CACHE
 
+    subgraph OptIn["Opt-in — only while the learner has selected Claude"]
+        CC["claude -p subprocess<br/>learner's Claude Code sign-in<br/>no tools · empty workdir"]
+        ANTH["Anthropic<br/>billed to the learner's Claude plan"]
+    end
+
+    SVC -. "stdin / stdout, text only" .-> CC
+    CC -. "HTTPS" .-> ANTH
+
     style Local fill:#0d948820,stroke:#0d9488
     style Browser fill:#78716c20,stroke:#78716c
+    style OptIn fill:#78716c10,stroke:#78716c,stroke-dasharray: 5 5
 ```
 
-Nothing in this diagram crosses the machine boundary. The only network call in the entire runtime is
-`localhost:11434` to Ollama.
+With the default providers nothing in this diagram crosses the machine boundary: the only network call
+in the runtime is `localhost:11434` to Ollama. Selecting Claude adds the dashed path. Conversation and
+learning-tool text then goes to Anthropic through the learner's own Claude Code; audio never does,
+because speech recognition and the voice have no cloud provider.
 
 ---
 
@@ -209,10 +239,11 @@ flowchart TB
         I8["CorrectionStorageProvider"]:::i
         I9["CorrectionEvaluator"]:::i
         I10["CorrectionStrategy"]:::i
+        I11["SessionCapableProvider /<br/>ConversationSession"]:::i
     end
 
     subgraph L4["Implementations"]
-        C1["OllamaLLMProvider"]:::c
+        C1["OllamaLLMProvider ·<br/>ClaudeCodeLLMProvider<br/>(via services/llm/registry.py)"]:::c
         C2["WhisperSTTProvider"]:::c
         C3["PiperTTSProvider"]:::c
         C4["SQLiteStorageProvider"]:::c
@@ -232,6 +263,7 @@ flowchart TB
         S7["prompts/templates.py"]:::s
         S8["LlmCorrectionEvaluator"]:::s
         S9["CorrectionPauseTracker"]:::s
+        S10["ConversationEngine<br/>+ session pool"]:::s
     end
 
     L1 --> L2
@@ -247,12 +279,14 @@ flowchart TB
 ```
 
 **The rule that shapes this diagram:** routers and domain services depend only on the ABC layer. The only
-module allowed to name a concrete class is `factory.py`. This is Dependency Inversion applied literally,
+module allowed to name a concrete class is `factory.py` — and, for language models, the provider registry
+it delegates to (`services/llm/registry.py`), where a saved provider id becomes a concrete class. This is Dependency Inversion applied literally,
 and it buys three things:
 
 - **Testability.** 323 backend tests run with zero models loaded. A fake `LLMProvider` is ten lines.
-- **Swappability.** Replacing Ollama with llama.cpp, or Piper with Coqui, is one new class plus one line
-  in the factory. No router changes.
+- **Swappability.** Replacing Piper with Coqui is one new class plus one line in the factory. Adding a
+  language-model provider is a catalogue entry, a registry builder, and a session class — which is how
+  Claude arrived in 004. No router changes.
 - **Startup cost control.** Concrete providers are imported *inside* the factory functions, not at module
   top level, so importing a router does not drag in `faster_whisper` or `piper`.
 
@@ -264,7 +298,7 @@ flowchart LR
     DB --> FST["get_flashcard_storage<br/>SQLiteFlashcardStorageProvider"]
     DB --> CST["get_correction_storage<br/>SQLiteCorrectionStorageProvider"]
     ST --> AS["get_app_settings<br/>AppSettingsRecord from DB"]
-    AS --> LLM["get_llm<br/>model = settings.llm_model"]
+    AS --> LLM["get_llm / get_session_provider<br/>build_llm_provider(provider, model, effort)"]
     AS --> TTS["get_tts<br/>voice = settings.tts_voice"]
     AS --> STT["get_stt<br/>model = settings.whisper_model"]
     AS --> SLLM["get_structured_llm<br/>constrained JSON output"]
@@ -273,7 +307,9 @@ flowchart LR
     CST --> CS
     SC["get_scenario_provider<br/>lru_cache singleton"]
 
+    ENG["get_conversation_engine<br/>lru_cache singleton"]
     LLM --> EP(["router endpoint"])
+    ENG --> EP
     TTS --> EP
     STT --> EP
     ST --> EP
@@ -524,7 +560,8 @@ sequenceDiagram
     participant W as faster-whisper
     participant CH as POST /api/chat/:id/message
     participant DB as SQLite
-    participant O as Ollama
+    participant E as ConversationEngine
+    participant O as LLM provider (Ollama by default)
     participant P as Piper
 
     U->>FE: tap record
@@ -546,12 +583,15 @@ sequenceDiagram
     CH->>DB: save user message
     CH-->>FE: SSE user_message_saved
     CH->>DB: load full history
-    CH->>O: run_in_executor(chat_stream, system + history)
-    O-->>CH: tokens
+    CH->>E: run_in_executor(stream_turn, TurnRequest)
+    E->>O: reply(pending turns) on the live session, or rebuild it from history
+    O-->>E: tokens
+    E-->>CH: tokens
     loop each token
         CH-->>FE: SSE data: {token}
     end
     CH->>DB: save assistant message
+    CH->>E: acknowledge(saved message id)
     CH->>P: run_in_executor(synthesize) — fire and forget
     CH-->>FE: SSE data: {done, message_id}
     deactivate CH
@@ -564,8 +604,9 @@ Points worth internalising:
 
 - **Every message is persisted the instant it exists** (FR-024). The user message is written *before* the
   LLM is called, so a crash mid-generation loses at most the AI's half of one turn.
-- **The full history is re-sent on every turn.** Ollama is stateless per call; `conversations` +
-  `messages` in SQLite are the only source of truth for context.
+- **Saved history is the source of truth; a session is only a cache of it.** Every turn hands the engine
+  the whole saved history. The engine reuses the conversation's live session only while the session's
+  turns line up with that history, and rebuilds it otherwise (see *Conversation sessions* below).
 - **TTS is fire-and-forget.** `loop.run_in_executor(None, _synthesize)` is launched without `await`, so the
   `done` event reaches the browser immediately. The frontend then requests `/api/audio/tts/{id}`, which
   serves the cached file if synthesis finished or synthesises on demand if it did not. The endpoint is
@@ -576,14 +617,54 @@ Points worth internalising:
   unidirectional, so WebSocket bidirectionality is wasted complexity; `EventSource` was rejected because
   it cannot send a POST body and the conversation history has to go up with the request.
 
-> **Accepted decision — batched tokens, streamed transport.** `chat.py` does
-> `token_list = await loop.run_in_executor(None, _stream_tokens)` where `_stream_tokens` does
-> `list(llm.chat_stream(...))`. That materialises the whole response before the first SSE frame, then
+> **Accepted decision — batched tokens, streamed transport.** `chat.py` runs
+> `await loop.run_in_executor(None, turn.collect)`, where `collect` does
+> `list(engine.stream_turn(...))`. That materialises the whole response before the first SSE frame, then
 > replays the tokens instantly, so the "typing" effect is cosmetic rather than real. This is a deliberate
 > trade: bridging a sync generator running in an executor thread to an async generator needs a queue and
 > its own cancellation handling, and on a local model the whole response arrives in a couple of seconds
 > anyway. The transport, the client parser, and `LLMProvider.chat_stream` all support true incremental
 > streaming already, so this stays a one-function change whenever the latency starts to matter.
+> Conversation sessions (004) change where the tokens come from, not how they reach the screen: delivery
+> is still batched, by the learner's decision.
+
+#### Conversation sessions
+
+Feature 004 keeps each conversation's language model "warm" between turns. Roleplay turns, the opening
+line, and expression-helper turns all go through one `ConversationEngine`
+(`app/services/conversation/`), which owns "produce the next reply for this conversation". Routers hand
+it a `TurnRequest` — the key, the standing system prompt, the saved history, and any per-turn guidance —
+and relay the tokens. They never build message lists or touch a provider directly, so adding a provider
+changes no router.
+
+- **The pool.** A `ConversationSessionPool`, one per process, holds at most **3** live sessions (LRU) and
+  closes any session idle for **30 minutes**. Expiry is checked on every access, and a lifespan task
+  (`run_session_reaper`) sweeps every **60 s**, so an untouched app holds no idle processes. Completing a
+  conversation closes its session, and shutdown closes them all, so no `claude` process outlives the
+  backend.
+- **Source of truth.** A session records the saved ids of the turns it has taken in. A turn reuses the
+  session only when those ids are a prefix of the saved history and every remaining turn is the
+  learner's (a Strict-mode pause plus its retry arrive together). A different provider, model, effort,
+  or standing prompt, a deleted or reordered message, or a reply that was never saved all force a
+  rebuild from history. The reuse/rebuild decision is the pure function `plan_session_use()`.
+- **One reply per rebuild.** Rebuilding costs exactly the reply the learner is waiting for, however long
+  the history (FR-S05).
+- **Locking and retries.** A per-conversation lock is held for the whole turn, so turns of one
+  conversation never interleave while different conversations run side by side. A session-level
+  failure (a process that died, unreadable output, a timeout) closes the session and retries once on a
+  rebuilt one; an account-level failure (not signed in, usage limit, unknown model) is reported at once.
+- **Ollama.** Its chat API is stateless, so an Ollama session keeps the turns in memory and resends them.
+  What it buys is `keep_alive`: every call keeps the model loaded for the idle TTL, removing the 4–49 s
+  reload a learner used to pay after five quiet minutes. Per-turn guidance (Gentle mode's recast
+  instruction) is appended to the system prompt for that call only, byte-identical to before.
+- **Claude.** A Claude session is one long-lived `claude -p --input-format stream-json` process per
+  conversation. Each turn writes one line to stdin and reads until that turn's result, so earlier turns
+  are never re-processed (later turns drop from 1.5–2.4 s to 0.7–0.8 s). Guidance travels inside the
+  turn's own message as a `<turn_guidance>` block that the standing prompt scopes to that reply. Its
+  stderr goes to `~/.open-language/claude-logs/`, never to the empty working directory.
+- **Warm-up.** Opening an existing conversation calls `POST /api/chat/{id}/session`, which builds the
+  session in the background (an empty Ollama preload, or a Claude process waiting on stdin) without
+  generating anything. The call is fire-and-forget: the first real turn reports any problem.
 
 ### 6.2 Prompt construction
 
@@ -1033,7 +1114,8 @@ Local inference fails in specific, predictable ways, and each has a designed res
 | Failure | Response |
 |---|---|
 | CUDA libraries missing or broken | `WhisperSTTProvider` catches any error whose text mentions cuda/cublas/cudnn, reloads the model on CPU with `int8`, and retries the same audio. The learner sees slower transcription, not an error. |
-| Ollama down | `LLMError` → SSE frame `{"error": "The AI is not responding. Please try again."}` — plain language, actionable, per Principle IV. |
+| Ollama down | `LLMError` → SSE frame `{"error": "The AI is not responding. Please try again."}`, or a 503 with the same text from a JSON endpoint — plain language, actionable, per Principle IV. |
+| Claude not installed, signed out, on an API key, over its usage limit, or unreachable | `ClaudeCodeFailure` carries a message naming the next step (sign in, switch to the local model, …), delivered the same way. The app never falls back to Ollama on its own. |
 | Empty or unintelligible audio | HTTP 400 with *"Could not understand audio. Please speak clearly and try again."* Conversation state is untouched. |
 | ffmpeg conversion failure | HTTP 422; the temp WAV is removed in a `finally` block regardless. |
 | Unhandled exception anywhere | Global handler in `main.py` logs the traceback server-side and returns a generic 500 — internals never leak into the UI. |
@@ -1125,6 +1207,7 @@ open-language/
 | `002-vocabulary-flashcards` | Word library, 4 deck algorithms, 4 practice modes, SRS, session summary, analytics dashboard | Merged |
 | `003-mywords-page-redesign` | My Words page UI/UX | In progress on `develop` |
 | `003-corrective-feedback-mode` | Off/Gentle/Strict grammar correction during practice, transcription-confidence gating, resume-aware chat screen | In progress |
+| `004-llm-provider-selection` | Provider catalogue and registry, Claude through Claude Code (opt-in), conversation sessions, actionable provider errors | In progress |
 
 `master` is the release branch; `develop` is the integration branch; feature branches are numbered and
 created by `.specify/scripts/bash/create-new-feature.sh`.
@@ -1163,7 +1246,9 @@ Traps specific to this codebase:
 - Never import across domain boundaries — `app/flashcards/` reaches the rest of the app only through the
   shared ABCs and `factory.py`.
 - Never hardcode a colour, a radius, or a shadow in the frontend.
-- Never add a network call to a third-party service. Local-only is the product, not a preference.
+- Never add a network call to a third-party service outside a provider interface. Local-only is the default,
+  not a limit: a cloud provider is a catalogue entry and a registry builder, used only once the learner
+  selects it (Principle VI).
 - Any function over 20 lines needs a justification, and any SOLID violation needs a Complexity Tracking
   entry in the plan.
 
@@ -1175,7 +1260,7 @@ Collected from the sections above so they are findable in one place:
 |---|---|---|
 | Token streaming is batched, not incremental — the typing effect is cosmetic | `app/routers/chat.py` | Accepted trade-off; revisit if perceived latency matters |
 | `_add_column_if_missing()` cannot express renames, type changes, or backfills | `app/database.py` | Fine while changes stay additive; replace with Alembic otherwise |
-| **Correction accuracy is not good enough on an 8B model** — see below | `app/corrections/` | Shipped with an in-app warning; the larger-model fix is blocked by 8 GB VRAM (T098), leaving a trade between `llama3.1:8b` and `mistral` |
+| **Correction accuracy is not good enough on an 8B model** — see below | `app/corrections/` | Shipped with an in-app warning; a larger local model is blocked by 8 GB VRAM (T098). Claude is now selectable as the larger model (004), but not yet benchmarked |
 | Background TTS writes through the request-scoped session after it is closed | `app/routers/chat.py` | Pre-dates 003; TTS cache paths can silently fail to persist |
 
 #### Roadmap: correction quality needs a larger model
@@ -1222,6 +1307,12 @@ Its one intermittent false positive reorders a correct sentence (`A mí me gusta
 nagged"), which is the story this feature actually fails, at the cost of three error classes going
 undetected. `ollama_model` is left at `llama3.1:8b` pending that product call. Genuinely resolving
 SC-003 needs either a GPU with more VRAM or a model in the 4–8 GB class that is stronger than both.
+
+**Update (feature 004): a larger model is already an option.** A learner can select Claude on the Settings
+screen and correction calls then run on it, at `medium` effort, through their own Claude plan — no new
+hardware needed. It has not been measured against the SC-003 benchmark yet; running
+`test_correction_benchmark.py` against Claude is the next step, and the local default stays
+`llama3.1:8b` until the `mistral` trade above is decided.
 
 Until then, the Settings screen carries a note stating that corrections come from the selected model, can
 be wrong, should be treated as a reason to double-check rather than as the last word, and improve with a

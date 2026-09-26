@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 
 from app.corrections.services.strategies import CorrectionStrategy, TurnContext, TurnPlan
 from app.services.llm.base import LLMError
@@ -130,3 +131,74 @@ class TestUnparseableOutputFailsOpen:
         off_events = off.send(off.create_conversation(), "Yo tener veinte años")
 
         assert _kinds(failing_events) == _kinds(off_events)
+
+
+class TestClaudeCorrections:
+    """T089: Claude failures during evaluation fail open exactly like Ollama's (003 FR-026)."""
+
+    SENTENCE = "Yo es muy cansado hoy"
+
+    def _claude_structured(self, runner, settings):
+        from app.services.llm.claude_code import ClaudeCodeLLMProvider
+        from tests.support.fake_availability import FakeAvailability
+
+        return ClaudeCodeLLMProvider(runner, FakeAvailability(), settings, "sonnet", "low")
+
+    def _use_structured(self, provider) -> None:
+        from app.main import app
+        from app.services.factory import get_structured_llm
+
+        app.dependency_overrides[get_structured_llm] = lambda: provider
+
+    def test_a_usage_limit_during_evaluation_gives_an_uncorrected_reply(self, make_harness):
+        from app.config import Settings
+        from tests.support.scripted_claude_runner import ScriptedClaudeCodeRunner
+
+        runner = ScriptedClaudeCodeRunner()
+        runner.fixtures["schema"] = "rate_limit_rejected.ndjson"
+        harness = make_harness(mode="gentle")
+        self._use_structured(self._claude_structured(runner, Settings(_env_file=None)))
+        conv_id = harness.create_conversation()
+
+        events = harness.send(conv_id, self.SENTENCE)
+
+        assert _kinds(events) == _OFF_MODE_SEQUENCE
+        assert len(runner.prompt_calls) == 1
+
+    def test_timed_out_claude_correction_has_its_process_stopped(self, make_harness, monkeypatch):
+        from app.config import get_settings
+
+        budget = 0.2
+        monkeypatch.setattr(get_settings(), "correction_timeout_seconds", budget, raising=False)
+        runner = BlockingUntilKilledRunner()
+        harness = make_harness(mode="gentle")
+        self._use_structured(self._claude_structured(runner, get_settings()))
+        conv_id = harness.create_conversation()
+
+        started = time.monotonic()
+        events = harness.send(conv_id, self.SENTENCE)
+
+        assert _kinds(events) == _OFF_MODE_SEQUENCE
+        assert runner.timeouts == [budget]
+        assert runner.killed_at is not None
+        assert runner.killed_at - started <= 0.5
+
+
+class BlockingUntilKilledRunner:
+    """A `claude` that never answers: only the per-call deadline ends it, by killing it."""
+
+    def __init__(self) -> None:
+        self.timeouts: list[float] = []
+        self.killed_at: float | None = None
+
+    def stream_lines(self, argv, stdin_text, timeout_seconds):
+        from app.services.llm.claude_code.failures import ClaudeCodeFailure, FailureKind
+
+        self.timeouts.append(timeout_seconds)
+        time.sleep(timeout_seconds)  # the watchdog's wait
+        self.killed_at = time.monotonic()  # the watchdog's kill
+        raise ClaudeCodeFailure(FailureKind.UNREACHABLE, "killed at its deadline")
+        yield  # pragma: no cover — makes this a generator, like the real runner
+
+    def spawn_interactive(self, argv, log_path):  # pragma: no cover — sessions aren't used here
+        raise AssertionError("a correction never opens a session")

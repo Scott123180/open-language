@@ -118,6 +118,7 @@ export default function Chat() {
   }
 
   const restoreTranscript = (existing: api.Message[]) => {
+    void api.warmSession(convId)
     setMessages(existing.map((m) => ({ id: m.id, role: m.role, content: m.content })))
     setIsStreaming(false)
     setOpeningDone(true)

@@ -26,7 +26,9 @@ vi.mock('../hooks/useRecorder', () => ({
 const CONV_ID = 7
 
 const settings = (correction_mode: api.CorrectionMode): api.AppSettings => ({
+  llm_provider: 'ollama',
   llm_model: 'llama3.1',
+  llm_effort: 'low',
   target_language: 'Spanish',
   native_language: 'English',
   tts_voice: 'es_ES-sharvard-medium',

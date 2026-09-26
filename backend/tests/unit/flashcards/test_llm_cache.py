@@ -3,7 +3,7 @@
 T048 covers:
   - Returns cached sentence on second call (no LLM call)
   - Generates new sentence via LLM for new word
-  - LLM error triggers graceful fallback (returns None)
+  - LLM error triggers graceful fallback (returns None); other errors propagate
   - Cache key includes word + language
 
 T065 extends with get_or_generate():
@@ -17,6 +17,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.flashcards.services.llm_cache import LlmCacheService
+from app.services.llm.base import LLMError
 
 
 @pytest.fixture()
@@ -61,18 +62,41 @@ class TestGetFillBlankSentence:
         assert result == "Elle dit ___ chaque matin."
         mock_storage.set_llm_cache.assert_called_once()
 
-    def test_returns_none_on_llm_error(self, mock_storage):
+    def test_returns_none_on_llm_error(self, mock_storage, caplog):
         mock_storage.get_llm_cache.return_value = None
 
         service = LlmCacheService(storage=mock_storage, llm_client=None)
-        with patch.object(
-            service, "_generate_sentence", side_effect=RuntimeError("LLM unavailable")
-        ):
+        with patch.object(service, "_generate_sentence", side_effect=LLMError("LLM unavailable")):
             result = service.get_fill_blank_sentence(
                 vocabulary_item_id=3, word="merci", language="fr", native_language="en"
             )
 
         assert result is None
+        assert any(record.levelname == "WARNING" for record in caplog.records)
+
+    def test_propagates_a_non_llm_failure(self, mock_storage):
+        mock_storage.get_llm_cache.return_value = None
+
+        service = LlmCacheService(storage=mock_storage, llm_client=None)
+        with (
+            patch.object(service, "_generate_sentence", side_effect=RuntimeError("bug")),
+            pytest.raises(RuntimeError, match="bug"),
+        ):
+            service.get_fill_blank_sentence(
+                vocabulary_item_id=3, word="merci", language="fr", native_language="en"
+            )
+
+    def test_returns_none_when_no_llm_client_is_configured(self, mock_storage):
+        mock_storage.get_llm_cache.return_value = None
+
+        service = LlmCacheService(storage=mock_storage, llm_client=None)
+
+        assert (
+            service.get_fill_blank_sentence(
+                vocabulary_item_id=3, word="merci", language="fr", native_language="en"
+            )
+            is None
+        )
 
     def test_does_not_call_llm_on_cache_hit(self, mock_storage):
         from datetime import UTC, datetime
@@ -169,11 +193,14 @@ class TestGetOrGenerate:
             )
         mock_storage.get_llm_cache.assert_called_with(1, "meanings", "es")
 
-    def test_returns_none_on_llm_error(self, mock_storage):
+    def test_propagates_llm_error_and_writes_no_cache(self, mock_storage):
         mock_storage.get_llm_cache.return_value = None
 
         service = LlmCacheService(storage=mock_storage, llm_client=None)
-        with patch.object(service, "_generate_content", side_effect=RuntimeError("LLM down")):
+        with (
+            patch.object(service, "_generate_content", side_effect=LLMError("LLM down")),
+            pytest.raises(LLMError, match="LLM down"),
+        ):
             service.get_or_generate(
                 vocabulary_item_id=3,
                 cache_type="usage",
@@ -181,4 +208,4 @@ class TestGetOrGenerate:
                 language="fr",
                 native_language="en",
             )
-        # result discarded; just verifying no exception raised
+        mock_storage.set_llm_cache.assert_not_called()

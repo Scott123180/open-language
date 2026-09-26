@@ -3,6 +3,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 
+from app.services.llm.catalog import DEFAULT_PROVIDER_ID
+from app.services.llm.selection_types import DEFAULT_EFFORT
+
 
 @dataclass(frozen=True)
 class ConversationRecord:
@@ -63,6 +66,8 @@ class AppSettingsRecord:
     whisper_model: str
     updated_at: datetime
     correction_mode: str = "off"
+    llm_provider: str = DEFAULT_PROVIDER_ID
+    llm_effort: str = DEFAULT_EFFORT
 
 
 class StorageProvider(ABC):

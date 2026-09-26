@@ -182,3 +182,82 @@ class TestMessageRecordExposesConfidence:
 
         assert record.transcription_confidence is None
         assert record.is_low_confidence is None
+
+
+class TestLlmProviderMigration:
+    """T016: a pre-004 database comes up as Ollama with its saved model untouched."""
+
+    @pytest.fixture()
+    def legacy_engine(self, tmp_path, monkeypatch):
+        from app import database
+
+        engine = create_engine(f"sqlite:///{tmp_path / 'pre-004.db'}")
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "CREATE TABLE app_settings ("
+                    "id INTEGER PRIMARY KEY, llm_model VARCHAR(100) NOT NULL)"
+                )
+            )
+            conn.execute(text("CREATE TABLE conversations (id INTEGER PRIMARY KEY)"))
+            conn.execute(
+                text("CREATE TABLE messages (id INTEGER PRIMARY KEY, content TEXT NOT NULL)")
+            )
+            conn.execute(text("CREATE TABLE vocabulary_items (id INTEGER PRIMARY KEY)"))
+            conn.commit()
+        monkeypatch.setattr(database, "_engine", engine)
+        return engine
+
+    def test_pre_004_database_defaults_to_ollama_and_keeps_model(self, legacy_engine):
+        from app.database import _migrate_db
+
+        with legacy_engine.connect() as conn:
+            conn.execute(text("INSERT INTO app_settings (id, llm_model) VALUES (1, 'llama3.1')"))
+            conn.commit()
+
+        _migrate_db()
+
+        with legacy_engine.connect() as conn:
+            stored = conn.execute(
+                text("SELECT llm_provider, llm_effort, llm_model FROM app_settings")
+            ).one()
+        assert tuple(stored) == ("ollama", "low", "llama3.1")
+
+    def test_migrate_db_applies_every_additive_column(self, legacy_engine):
+        from app.database import _ADDITIVE_COLUMNS, _migrate_db
+
+        _migrate_db()
+
+        with legacy_engine.connect() as conn:
+            for table, definition in _ADDITIVE_COLUMNS:
+                assert definition.split()[0] in _columns(conn, table), (table, definition)
+
+
+class TestFreshSchemaHasProviderColumns:
+    def _column_info(self, tmp_path) -> dict[str, tuple]:
+        import app.models.app_settings  # noqa: F401
+        from app.database import Base
+
+        engine = create_engine(f"sqlite:///{tmp_path / 'fresh.db'}")
+        Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["app_settings"]])
+        with engine.connect() as conn:
+            rows = conn.execute(text("PRAGMA table_info(app_settings)")).fetchall()
+        return {row[1]: (row[2], row[3]) for row in rows}
+
+    def test_llm_provider_is_a_required_short_string(self, tmp_path):
+        assert self._column_info(tmp_path)["llm_provider"] == ("VARCHAR(20)", 1)
+
+    def test_llm_effort_is_a_required_short_string(self, tmp_path):
+        assert self._column_info(tmp_path)["llm_effort"] == ("VARCHAR(10)", 1)
+
+    def test_migration_definitions_default_to_ollama_and_low(self):
+        from app.database import _ADDITIVE_COLUMNS
+
+        assert (
+            "app_settings",
+            "llm_provider VARCHAR(20) NOT NULL DEFAULT 'ollama'",
+        ) in _ADDITIVE_COLUMNS
+        assert (
+            "app_settings",
+            "llm_effort VARCHAR(10) NOT NULL DEFAULT 'low'",
+        ) in _ADDITIVE_COLUMNS

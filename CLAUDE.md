@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Open-Language** is a locally-run language learning application built using **SpecKit** (v1.0.1, skills-based integration), a specification-driven development (SDD) framework. All feature work goes through the SDD workflow below.
 
-The application is implemented and running: a FastAPI backend in [backend/app/](backend/app/) and a Vite/React frontend in [frontend/src/](frontend/src/). Two features have shipped — roleplay chat (001) and vocabulary flashcards (002) — with corrective feedback mode (003) in progress. Everything runs locally: Ollama for the LLM, Piper for TTS, faster-whisper for STT, SQLite for storage. No external services.
+The application is implemented and running: a FastAPI backend in [backend/app/](backend/app/) and a Vite/React frontend in [frontend/src/](frontend/src/). Features shipped so far: roleplay chat (001), vocabulary flashcards (002), corrective feedback mode (003, experimental), and LLM provider selection with conversation sessions (004). Every AI capability sits behind a provider interface, and the app is local by default: Ollama for the LLM, Piper for TTS, faster-whisper for STT, SQLite for storage. Cloud providers are opt-in — today, Claude as the conversation partner through the learner's signed-in Claude Code. STT and TTS are always local.
 
 Speech-to-text is implemented in [backend/app/services/stt/whisper.py](backend/app/services/stt/whisper.py); see [reference/TRANSCRIPTION_INTEGRATION.md](reference/TRANSCRIPTION_INTEGRATION.md) for the underlying `faster-whisper` + CUDA integration patterns.
 
@@ -239,6 +239,10 @@ When implementing transcription features, refer to [reference/TRANSCRIPTION_INTE
 Uvicorn, SQLAlchemy 2.0 over SQLite, `faster-whisper` 1.2.1 (STT), Piper (TTS), the `ollama` client
 (llama3.1), ffmpeg/pydub for audio conversion. Tested with pytest + pytest-cov.
 
+**Optional runtime prerequisite** — the Claude Code CLI (`claude`, verified with 2.1.283), only when a
+learner selects Claude. It is spawned as a subprocess, never a Python dependency, and the default test
+suite needs neither it nor Ollama (`-m claude_live` runs the opt-in live tests).
+
 **Frontend** — TypeScript 5.4 / React 18.3, Vite, react-router-dom v6, TanStack Query v5 (used by the
 flashcards pages), Recharts (analytics), react-markdown. Tested with Vitest + Testing Library and
 Playwright.
@@ -251,8 +255,21 @@ via `create_all()`, new columns via `_add_column_if_missing()` in
 feature: its own models, schemas, router, and `services/` behind a storage ABC.
 `backend/app/corrections/` (003) follows it, and adds a strategy seam: `build_correction_strategy()`
 in its `__init__.py` is the only place a correction-mode string becomes behaviour.
+`build_llm_provider()` in [backend/app/services/llm/registry.py](backend/app/services/llm/registry.py)
+(004) is the same seam for providers: the only place a provider id (`ollama`, `claude`) becomes a
+concrete class. Provider ids are listed once, in `services/llm/catalog.py`. Feature code depends on
+`LLMProvider` / `StructuredLLMProvider` / `SessionCapableProvider` through `services/factory.py`.
+`backend/app/services/conversation/` (004) is a domain service with no tables or routes:
+`ConversationEngine` produces the next roleplay or helper reply through a bounded, expiring session
+pool, with saved history as the source of truth.
 
 ## Recent Changes
+- **004-llm-provider-selection**: the learner chooses the conversation partner — Ollama (local, the
+  default) or Claude through their signed-in Claude Code, with a model and an effort level — on the
+  Settings screen, with no restart. Adds the provider catalogue and registry, the isolated
+  `claude -p` adapter (`services/llm/claude_code/`), conversation sessions (`services/conversation/`)
+  that keep Ollama loaded and a Claude process alive between turns, provider errors surfaced as
+  actionable messages (JSON endpoints return 503), and two `app_settings` columns
 - **003-corrective-feedback-mode** (in progress): Off/Gentle/Strict grammar correction during
   conversation practice; adds a `corrections` domain module, transcription-confidence gating, and a
   `StructuredLLMProvider` ABC for constrained JSON output. **Shipped as experimental**: detection is

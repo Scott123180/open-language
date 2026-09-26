@@ -505,3 +505,79 @@ describe('vocabulary, suggestions, settings and feedback', () => {
     expect(call(mock).url).toBe(`${BASE}/corrections/conversations/4`)
   })
 })
+
+describe('warmSession', () => {
+  it('POSTs the conversation session endpoint', async () => {
+    const mock = stubJson({ status: 'warming' }, { status: 202 })
+
+    await api.warmSession(7)
+
+    const { url, init } = call(mock)
+    expect(url).toBe(`${BASE}/chat/7/session`)
+    expect(init?.method).toBe('POST')
+  })
+
+  it.each([
+    [202, true],
+    [404, false],
+    [409, false],
+  ])('resolves quietly on HTTP %i', async (status, ok) => {
+    stubJson({ detail: 'ignored' }, { ok, status })
+
+    await expect(api.warmSession(7)).resolves.toBeUndefined()
+  })
+
+  it('resolves quietly when the network fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    await expect(api.warmSession(7)).resolves.toBeUndefined()
+  })
+})
+
+describe('LLM provider selection', () => {
+  const providers: api.LlmProviderOption[] = [
+    {
+      provider_id: 'ollama',
+      display_name: 'Ollama (local)',
+      is_local: true,
+      models: [{ model_id: 'llama3.1:8b', label: 'llama3.1:8b' }],
+      default_model: 'llama3.1:8b',
+      effort_levels: [],
+      default_effort: null,
+      is_available: true,
+      unavailable_reason: null,
+      unavailable_message: null,
+    },
+  ]
+
+  it('getLlmProviders reads the provider catalogue', async () => {
+    const mock = stubJson(providers)
+
+    await expect(api.getLlmProviders()).resolves.toEqual(providers)
+    expect(call(mock).url).toBe(`${BASE}/settings/llm-providers`)
+  })
+
+  it('updateSettings sends the provider, model, and effort', async () => {
+    const mock = stubJson({})
+    const update: Partial<api.AppSettings> = {
+      llm_provider: 'claude',
+      llm_model: 'sonnet',
+      llm_effort: 'medium',
+    }
+
+    await api.updateSettings(update)
+
+    expect(call(mock).body).toEqual(update)
+  })
+
+  it('a rejected save throws the server detail', async () => {
+    stubJson(
+      { detail: "That model isn't a Claude model. Choose Sonnet, Haiku, or Opus." },
+      { ok: false, status: 422 },
+    )
+
+    await expect(api.updateSettings({ llm_provider: 'claude' })).rejects.toThrow(
+      "That model isn't a Claude model. Choose Sonnet, Haiku, or Opus.",
+    )
+  })
+})

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { mockSettings } from './fixtures'
+import { mockLlmProviders, mockSettings } from './fixtures'
 
 async function setupSettingsRoutes(page: import('@playwright/test').Page) {
   await page.route('/api/settings', (route) => {
@@ -8,6 +8,7 @@ async function setupSettingsRoutes(page: import('@playwright/test').Page) {
     }
     return route.fulfill({ json: mockSettings })
   })
+  await mockLlmProviders(page)
 }
 
 async function setupHomeRoutes(page: import('@playwright/test').Page) {

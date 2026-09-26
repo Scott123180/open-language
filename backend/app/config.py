@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     whisper_device: str = "auto"
     low_confidence_threshold: float = 0.55
     correction_timeout_seconds: float = 8.0
+    claude_executable: str = "claude"
+    claude_workdir: Path = Path.home() / ".open-language" / "claude-workdir"
+    claude_log_dir: Path = Path.home() / ".open-language" / "claude-logs"
+    claude_request_timeout_seconds: float = 120.0
+    session_max_live: int = 3
+    session_idle_ttl_minutes: int = 30
     host: str = "127.0.0.1"
     port: int = 8000
 
@@ -24,7 +30,7 @@ class Settings(BaseSettings):
         "env_file_encoding": "utf-8",
     }
 
-    @field_validator("db_path", "voice_dir", mode="after")
+    @field_validator("db_path", "voice_dir", "claude_workdir", "claude_log_dir", mode="after")
     @classmethod
     def expand_user(cls, v: Path) -> Path:
         return v.expanduser()

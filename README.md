@@ -1,6 +1,10 @@
 # Open Language
 
-A local, privacy-first language practice app. Have spoken role-play conversations with an AI partner in your target language — no cloud, no API keys, everything runs on your machine.
+A privacy-first language practice app. Have spoken role-play conversations with an AI partner in your target language.
+
+Every AI capability — the conversation partner, speech recognition, and the voice — sits behind a swappable provider interface. The app is **local by default**: out of the box everything runs on your machine through Ollama, faster-whisper, and Piper, with no account, no API key, and no audio leaving your computer. That default exists because speaking practice means recording yourself making mistakes, over and over, and that audio shouldn't have to go anywhere.
+
+Cloud providers are opt-in. Today you can choose Claude as the conversation partner, through your own signed-in Claude Code — see [Enabling Claude (optional)](#enabling-claude-optional). Speech recognition and the voice stay local either way.
 
 ## Features
 
@@ -12,6 +16,7 @@ A local, privacy-first language practice app. Have spoken role-play conversation
 - **Suggested responses** — read-only hints you must speak or type yourself
 - **Expression helper** — ask "how do I say X?" in a separate side panel
 - **Conversation history** — all chats saved locally in SQLite
+- **Choice of conversation partner** — a local Ollama model (the default) or Claude via Claude Code, switched on the Settings screen without a restart
 
 ## Quick start
 
@@ -97,6 +102,8 @@ cp .env.example backend/.env
 | `OPEN_LANGUAGE_OLLAMA_MODEL` | `llama3.1:8b` | Ollama model (must match `ollama list`) |
 | `OPEN_LANGUAGE_WHISPER_MODEL` | `base` | faster-whisper model size (`tiny`, `base`, `small`, `medium`, `large-v2`) |
 | `OPEN_LANGUAGE_WHISPER_DEVICE` | `auto` | `cuda`, `cpu`, or `auto` |
+| `OPEN_LANGUAGE_CLAUDE_EXECUTABLE` | `claude` | The Claude Code command, if you enable Claude |
+| `OPEN_LANGUAGE_SESSION_IDLE_TTL_MINUTES` | `30` | How long an idle conversation keeps its model loaded (Ollama) or its process alive (Claude) |
 
 ## Running
 
@@ -135,6 +142,23 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 Open [http://localhost:8000](http://localhost:8000). FastAPI serves both the API and the built frontend from one port.
 
+## Enabling Claude (optional)
+
+The conversation partner can be Claude instead of the local Ollama model. The app drives your own signed-in Claude Code, so usage counts toward **your Claude plan** — the app never asks for, uses, or stores an API key.
+
+1. **Install Claude Code** — see [Claude Code's setup guide](https://docs.claude.com/en/docs/claude-code/setup). Check it's on your `PATH` with `claude --version`.
+2. **Sign in with your Claude plan, not an API key.** Run `claude` in a terminal and sign in with your Claude account. An API-key login would bill a separate API account, so the app refuses to use one.
+3. **Confirm the sign-in**: `claude auth status --text` should show you're logged in with your Claude account.
+4. **Select Claude on the Settings screen.** Under *Language model*, choose *Claude (via Claude Code)*, then a model (Sonnet by default) and an effort level (Low by default — the fastest replies). Save.
+
+If Claude Code is missing, signed out, or signed in with an API key, the Claude option is disabled and says which step is missing.
+
+**What is sent to Anthropic**: the text of your conversations and of the learning-tool requests (grammar checks, translations, word lookups, corrections), under your Claude account. **What stays on your computer**: your voice recordings and all audio (speech recognition and the voice are always local), and your saved history and vocabulary.
+
+Each request runs Claude Code as a plain chat model: no tools, no access to your files, no personal or project configuration, and no saved Claude session. If Claude Code is somewhere other than `claude` on your `PATH`, set `OPEN_LANGUAGE_CLAUDE_EXECUTABLE`.
+
+To go back, choose *Ollama (local)* on the Settings screen. The app never switches providers on its own: if Claude stops working, you'll see a message saying what to do.
+
 ## Running tests
 
 ```bash
@@ -146,10 +170,12 @@ pytest --cov=app --cov-report=term-missing
 npm test
 ```
 
+The default backend suite needs neither Ollama nor Claude Code. Tests that make real `claude -p` calls against your plan are opt-in: `pytest -m claude_live --no-cov`.
+
 ## Tech stack
 
 - **Frontend**: React 18, TypeScript, Vite, TanStack React Query, React Router v6
 - **Backend**: FastAPI, Uvicorn, SQLAlchemy (SQLite, WAL mode)
 - **STT**: [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (local)
-- **LLM**: [Ollama](https://ollama.ai) running llama3.1 (local)
+- **LLM**: [Ollama](https://ollama.ai) running llama3.1 (local, the default), or Claude through [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) (opt-in)
 - **TTS**: [Piper](https://github.com/rhasspy/piper) (local)

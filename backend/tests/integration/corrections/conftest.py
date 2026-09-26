@@ -29,6 +29,7 @@ from app.services.storage.base import AppSettingsRecord
 from app.services.storage.sqlite import SQLiteStorageProvider
 from app.services.tts.base import TTSProvider
 from tests.integration.conftest import make_test_session
+from tests.support.engine_overrides import override_conversation_engine
 
 
 def _enable_foreign_keys(dbapi_conn, _record):
@@ -216,61 +217,80 @@ def parse_sse(raw_text: str) -> list[dict]:
     ]
 
 
-@pytest.fixture
-def make_harness(tmp_path: Path):
-    """Build a harness for a given correction mode and optional strategy override."""
-    created: list[TestClient] = []
-    sessions: list[Session] = []
+class _RequestSessions:
+    """Hands out one SQLAlchemy session per request, all closed at teardown.
 
-    def _make(mode: str = "off", strategy: CorrectionStrategy | None = None):
-        from app.services.factory import get_correction_strategy
+    NullPool so each session owns its connection: the background TTS thread outlives the
+    request that created its session, and a pooled connection returned underneath it would be
+    reused while still in use.
+    """
 
-        db_file = tmp_path / f"test-{len(created)}.db"
-        assertion_session, pooled_engine = make_test_session(str(db_file))
-        sessions.append(assertion_session)
-        # NullPool so each session owns its connection: the background TTS thread
-        # outlives the request that created its session, and a pooled connection
-        # returned underneath it would be reused while still in use.
+    def __init__(self, db_file: Path, opened: list[Session]) -> None:
         engine = create_engine(
             f"sqlite:///{db_file}",
             connect_args={"check_same_thread": False},
             poolclass=NullPool,
         )
         event.listen(engine, "connect", _enable_foreign_keys)
-        session_maker = sessionmaker(bind=engine)
+        self._session_maker = sessionmaker(bind=engine)
+        self._opened = opened
+
+    def new_session(self) -> Session:
+        session = self._session_maker()
+        self._opened.append(session)
+        return session
+
+
+def _install_overrides(mode: str, requests: _RequestSessions, llm, tmp_path: Path) -> None:
+    app.dependency_overrides[get_scenario_provider] = lambda: StaticScenarioProvider()
+    app.dependency_overrides[get_storage] = lambda: SQLiteStorageProvider(requests.new_session())
+    app.dependency_overrides[get_correction_storage] = lambda: SQLiteCorrectionStorageProvider(
+        requests.new_session()
+    )
+    app.dependency_overrides[get_app_settings] = lambda: settings_with_mode(mode)
+    app.dependency_overrides[get_llm] = lambda: llm
+    override_conversation_engine(app, llm)
+    app.dependency_overrides[get_tts] = lambda: StubTTSProvider(tmp_path=tmp_path)
+
+
+class _HarnessFactory:
+    """Builds harnesses for a given correction mode, and tears every one of them down."""
+
+    def __init__(self, tmp_path: Path) -> None:
+        self._tmp_path = tmp_path
+        self._clients: list[TestClient] = []
+        self._sessions: list[Session] = []
+
+    def __call__(
+        self, mode: str = "off", strategy: CorrectionStrategy | None = None
+    ) -> CorrectionsHarness:
+        from app.services.factory import get_correction_strategy
+
+        db_file = self._tmp_path / f"test-{len(self._clients)}.db"
+        assertion_session, pooled_engine = make_test_session(str(db_file))
+        self._sessions.append(assertion_session)
+        requests = _RequestSessions(db_file, self._sessions)
         pooled_engine.dispose()
-
-        def new_session() -> Session:
-            session = session_maker()
-            sessions.append(session)
-            return session
-
-        def request_storage():
-            return SQLiteStorageProvider(new_session())
-
-        def request_correction_storage():
-            return SQLiteCorrectionStorageProvider(new_session())
-
         llm = RecordingLLMProvider(tokens=list(REPLY_TOKENS))
-
-        app.dependency_overrides[get_scenario_provider] = lambda: StaticScenarioProvider()
-        app.dependency_overrides[get_storage] = request_storage
-        app.dependency_overrides[get_correction_storage] = request_correction_storage
-        app.dependency_overrides[get_app_settings] = lambda: settings_with_mode(mode)
-        app.dependency_overrides[get_llm] = lambda: llm
-        app.dependency_overrides[get_tts] = lambda: StubTTSProvider(tmp_path=tmp_path)
+        _install_overrides(mode, requests, llm, self._tmp_path)
         if strategy is not None:
             app.dependency_overrides[get_correction_strategy] = lambda: strategy
-
         client = TestClient(app)
         client.__enter__()
-        created.append(client)
+        self._clients.append(client)
         return CorrectionsHarness(client, assertion_session, llm)
 
-    yield _make
+    def close(self) -> None:
+        for client in self._clients:
+            client.__exit__(None, None, None)
+        app.dependency_overrides.clear()
+        for session in self._sessions:
+            session.close()
 
-    for client in created:
-        client.__exit__(None, None, None)
-    app.dependency_overrides.clear()
-    for session in sessions:
-        session.close()
+
+@pytest.fixture
+def make_harness(tmp_path: Path):
+    """Build a harness for a given correction mode and optional strategy override."""
+    factory = _HarnessFactory(tmp_path)
+    yield factory
+    factory.close()

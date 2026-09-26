@@ -6,6 +6,7 @@ import {
   makeOpenSseBody,
   makeMessageSseBody,
   makeHelperSseBody,
+  mockWarmSession,
 } from './fixtures'
 
 const CHAT_URL = '/chat/1'
@@ -44,6 +45,7 @@ async function setupChatRoutes(page: import('@playwright/test').Page) {
   await page.route('/api/chat/1/suggestions', (route) =>
     route.fulfill({ json: { suggestions: ['Quiero un café.', 'Necesito ayuda.', '¿Cuánto cuesta?'] } }),
   )
+  await mockWarmSession(page)
 }
 
 test.describe('Chat page', () => {
@@ -150,6 +152,29 @@ test.describe('Chat page', () => {
     await page.goto(CHAT_URL)
     await page.getByRole('button', { name: /dismiss/i }).click()
     await expect(page.getByRole('alert')).not.toBeVisible()
+  })
+
+  test('shows a Claude usage-limit message from the stream and stops loading', async ({
+    page,
+  }) => {
+    const usageLimit =
+      "You've reached your Claude plan's usage limit. Switch to the local model in Settings until it resets."
+    await page.route('/api/chat/1/message', (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+        body:
+          `data: ${JSON.stringify({ event: 'user_message_saved', message_id: 10 })}\n\n` +
+          `data: ${JSON.stringify({ error: usageLimit })}\n\n`,
+      }),
+    )
+    await expect(page.getByLabel('Type a message')).toBeVisible()
+
+    await page.getByLabel('Type a message').fill('Hola')
+    await page.getByRole('button', { name: /send/i }).click()
+
+    await expect(page.getByRole('alert')).toContainText(usageLimit)
+    await expect(page.getByLabel('Type a message')).toBeEnabled()
   })
 
   test('shows error banner when message stream fails', async ({ page }) => {
@@ -380,5 +405,46 @@ test.describe('Chat page — resuming a conversation', () => {
     await page.getByRole('button', { name: /send/i }).click()
 
     await expect(page.getByText('Claro, aquí tiene.')).toBeVisible()
+  })
+
+  test('warms the session once when resuming, before any message is sent', async ({ page }) => {
+    await setupChatRoutes(page)
+    const warm = await mockWarmSession(page)
+    const sent: string[] = []
+    await page.route('/api/conversations/1/messages', (route) =>
+      route.fulfill({ json: existingMessages }),
+    )
+    await page.route('/api/chat/1/message', (route) => {
+      sent.push(route.request().method())
+      return route.fulfill({ status: 500 })
+    })
+    await page.goto(CHAT_URL)
+
+    await expect(page.getByText('Quiero un café con leche.')).toBeVisible()
+    await expect.poll(() => warm.calls).toEqual(['POST'])
+    expect(sent).toEqual([])
+  })
+
+  test('does not warm a new conversation, which opens instead', async ({ page }) => {
+    await setupChatRoutes(page)
+    const warm = await mockWarmSession(page)
+    await page.goto(CHAT_URL)
+
+    await expect(page.getByText('¡Hola! ¿Cómo estás?')).toBeVisible()
+    expect(warm.calls).toEqual([])
+  })
+
+  test('a failed warm-up shows the learner nothing', async ({ page }) => {
+    await setupChatRoutes(page)
+    const warm = await mockWarmSession(page, { status: 500 })
+    await page.route('/api/conversations/1/messages', (route) =>
+      route.fulfill({ json: existingMessages }),
+    )
+    await page.goto(CHAT_URL)
+
+    await expect(page.getByText('Quiero un café con leche.')).toBeVisible()
+    await expect.poll(() => warm.calls).toEqual(['POST'])
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    await expect(page.getByLabel('Type a message')).toBeEnabled()
   })
 })

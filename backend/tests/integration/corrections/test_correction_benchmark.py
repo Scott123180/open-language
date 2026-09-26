@@ -15,7 +15,9 @@ import pytest
 
 from app.config import get_settings
 from app.corrections.services.evaluator import EvaluationRequest, LlmCorrectionEvaluator
-from app.services.llm.ollama import OllamaLLMProvider
+from app.services.llm.catalog import DEFAULT_PROVIDER_ID
+from app.services.llm.registry import build_llm_provider
+from app.services.llm.selection_types import LLMSelection
 from tests.integration.corrections.test_chat_correction_modes import (
     CORRECT_SENTENCES,
     SENTENCES_WITH_AN_ERROR,
@@ -43,7 +45,8 @@ def _count_flagged(evaluator: LlmCorrectionEvaluator, sentences: list[str]) -> i
 @pytest.fixture()
 def real_evaluator() -> LlmCorrectionEvaluator:
     settings = get_settings()
-    return LlmCorrectionEvaluator(OllamaLLMProvider(model=settings.ollama_model))
+    selection = LLMSelection(DEFAULT_PROVIDER_ID, settings.ollama_model)
+    return LlmCorrectionEvaluator(build_llm_provider(selection, settings))
 
 
 def test_detection_rate_meets_sc_003(real_evaluator, capsys) -> None:

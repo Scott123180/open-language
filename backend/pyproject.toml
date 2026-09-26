@@ -32,9 +32,10 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "--cov=app --cov-report=term-missing --cov-fail-under=90 -m 'not benchmark'"
+addopts = "--cov=app --cov-report=term-missing --cov-fail-under=90 -m 'not benchmark and not claude_live'"
 markers = [
     "benchmark: measures detection quality against the real model; run by hand, not in CI",
+    "claude_live: makes real `claude -p` calls against the learner's plan; run by hand",
 ]
 
 [tool.coverage.report]

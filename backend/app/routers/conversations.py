@@ -4,7 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.prompts.templates import build_custom_title_prompt
-from app.services.factory import get_app_settings, get_llm, get_scenario_provider, get_storage
+from app.services.conversation import ConversationEngine, SessionKey, SessionKind
+from app.services.factory import (
+    get_app_settings,
+    get_conversation_engine,
+    get_llm,
+    get_scenario_provider,
+    get_storage,
+)
 from app.services.llm.base import ChatMessage, LLMError, LLMProvider
 from app.services.scenario.base import ScenarioProvider
 from app.services.storage.base import (
@@ -156,10 +163,13 @@ def patch_conversation(
     conversation_id: int,
     req: PatchConversationRequest,
     storage: StorageProvider = Depends(get_storage),
+    engine: ConversationEngine = Depends(get_conversation_engine),
 ):
     conv = storage.get_conversation(conversation_id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
     if req.status == "completed":
-        return _conv_response(storage.complete_conversation(conversation_id))
+        completed = storage.complete_conversation(conversation_id)
+        engine.end(SessionKey(SessionKind.ROLEPLAY, str(conversation_id)))  # FR-S12
+        return _conv_response(completed)
     raise HTTPException(status_code=400, detail=f"Unknown status: {req.status}")

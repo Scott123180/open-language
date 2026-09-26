@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 import pytest
 
 from app.models.vocabulary_item import VocabularyItem
+from app.services.llm.base import LLMError
 
 
 @pytest.fixture()
@@ -211,7 +212,7 @@ class TestWordInfoEndpoint:
         res = client_without_llm.get(f"/api/flashcards/words/{word.id}/info/meanings")
 
         assert res.status_code == 503
-        assert "unavailable" in res.json()["detail"].lower()
+        assert res.json()["detail"] == LLMError.DEFAULT_USER_MESSAGE
 
     def test_generates_and_caches_content_on_cache_miss(self, client, word):
         first = client.get(f"/api/flashcards/words/{word.id}/info/meanings")

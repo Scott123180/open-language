@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -11,6 +13,11 @@ from app.database import init_db
 from app.flashcards.router import router as flashcards_router
 from app.routers import audio, chat, conversations, learning, scenarios, vocabulary
 from app.routers import settings as settings_router
+from app.services.conversation import SESSION_REAPER_INTERVAL_SECONDS, run_session_reaper
+from app.services.factory import get_conversation_engine
+from app.services.llm.base import LLMError
+
+LLM_UNAVAILABLE_STATUS = 503
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +25,15 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    engine = get_conversation_engine()
+    reaper = asyncio.create_task(run_session_reaper(engine, SESSION_REAPER_INTERVAL_SECONDS))
     logger.info("Open Language backend started")
     yield
+    reaper.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await reaper
+    # No conversation session, and so no `claude` process, outlives the backend.
+    engine.close()
 
 
 app = FastAPI(title="Open Language", lifespan=lifespan)
@@ -33,6 +47,13 @@ app.include_router(vocabulary.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
 app.include_router(flashcards_router, prefix="/api")
 app.include_router(corrections_router, prefix="/api")
+
+
+@app.exception_handler(LLMError)
+async def llm_error_handler(request: Request, exc: LLMError) -> JSONResponse:
+    """Every provider failure reaches the learner as the provider's own next step (R-10)."""
+    logger.warning("Language model request failed for %s: %s", request.url.path, exc)
+    return JSONResponse(status_code=LLM_UNAVAILABLE_STATUS, content={"detail": exc.user_message})
 
 
 @app.exception_handler(Exception)

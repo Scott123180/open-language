@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+import logging
+
 from app.flashcards.services.storage import FlashcardStorageProvider
-from app.services.llm.base import ChatMessage
+from app.services.llm.base import ChatMessage, LLMError
+
+logger = logging.getLogger(__name__)
+
+_NO_LLM_CLIENT_DETAIL = "No language model is configured for this cache"
 
 
 class LlmCacheService:
@@ -24,7 +30,9 @@ class LlmCacheService:
 
         try:
             sentence = self._generate_sentence(word, language, native_language)
-        except Exception:
+        except LLMError as exc:
+            # A card without a sentence is still practisable, so a deck build never fails here.
+            logger.warning("Fill-in-the-blank sentence unavailable for %r: %s", word, exc)
             return None
 
         self._storage.set_llm_cache(
@@ -42,15 +50,13 @@ class LlmCacheService:
         word: str,
         language: str,
         native_language: str,
-    ) -> str | None:
+    ) -> str:
+        """Raises LLMError when nothing is cached and the model cannot answer."""
         cached = self._storage.get_llm_cache(vocabulary_item_id, cache_type, language)
         if cached is not None:
             return cached.content
 
-        try:
-            content = self._generate_content(word, cache_type, language, native_language)
-        except Exception:
-            return None
+        content = self._generate_content(word, cache_type, language, native_language)
 
         self._storage.set_llm_cache(
             vocabulary_item_id=vocabulary_item_id,
@@ -63,7 +69,7 @@ class LlmCacheService:
     def _generate_sentence(self, word: str, language: str, native_language: str) -> str:
         """Generate a fill-in-the-blank sentence using the LLM client."""
         if self._llm_client is None:
-            raise RuntimeError("No LLM client configured")
+            raise LLMError(_NO_LLM_CLIENT_DETAIL)
         prompt = (
             f"Create one natural sentence in {language} that uses the word '{word}'. "
             f"Replace the word with ___ in the sentence. Return only the sentence."
@@ -75,7 +81,7 @@ class LlmCacheService:
     ) -> str:
         """Generate contextual information for a word using the LLM client."""
         if self._llm_client is None:
-            raise RuntimeError("No LLM client configured")
+            raise LLMError(_NO_LLM_CLIENT_DETAIL)
         prompts = {
             "meanings": f"List all meanings and parts of speech for the {language} word '{word}'. Be concise. Respond in {native_language}.",
             "usage": f"Give 3 example sentences using the {language} word '{word}'. Respond in {native_language}.",

@@ -4,8 +4,11 @@ import * as api from '../services/api'
 import type { CorrectionMode, VoiceOption } from '../services/api'
 import { useTheme } from '../hooks/useTheme'
 import { IconArrowLeft } from '../components/shared/icons'
+import LlmProviderFields, { type LlmSelectionValue } from '../components/settings/LlmProviderFields'
+import { useLlmProviders } from '../components/settings/useLlmProviders'
 
-const LLM_OPTIONS = ['llama3.1', 'llama3.2', 'mistral']
+// Replaced by the saved choice on load; an unloaded choice is never sent.
+const UNLOADED_LLM: LlmSelectionValue = { provider: '', model: '', effort: '' }
 const WHISPER_MODEL_OPTIONS = [
   { value: 'base', label: 'Base — fast, lower accuracy' },
   { value: 'small', label: 'Small — balanced' },
@@ -26,7 +29,8 @@ const THEME_OPTIONS = [
 
 export default function Settings() {
   const { preference: themePreference, setTheme } = useTheme()
-  const [llmModel, setLlmModel] = useState('llama3.1')
+  const llmProviders = useLlmProviders()
+  const [llm, setLlm] = useState<LlmSelectionValue>(UNLOADED_LLM)
   const [whisperModel, setWhisperModel] = useState('base')
   const [ttsVoice, setTtsVoice] = useState('')
   const [voices, setVoices] = useState<VoiceOption[]>([])
@@ -41,7 +45,7 @@ export default function Settings() {
     api
       .getSettings()
       .then((settings) => {
-        setLlmModel(settings.llm_model)
+        setLlm({ provider: settings.llm_provider, model: settings.llm_model, effort: settings.llm_effort })
         setWhisperModel(settings.whisper_model)
         setTtsVoice(settings.tts_voice)
         setSuggestionCount(settings.suggestion_count)
@@ -63,7 +67,7 @@ export default function Settings() {
     setErrorMessage(null)
     try {
       await api.updateSettings({
-        llm_model: llmModel,
+        ...(llm.provider && { llm_provider: llm.provider, llm_model: llm.model, llm_effort: llm.effort }),
         whisper_model: whisperModel,
         tts_voice: ttsVoice,
         suggestion_count: suggestionCount,
@@ -110,30 +114,7 @@ export default function Settings() {
             maxWidth: '480px',
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label htmlFor='llm-model' style={{ fontWeight: 600 }}>
-              LLM Model
-            </label>
-            <select
-              id='llm-model'
-              value={llmModel}
-              onChange={(e) => setLlmModel(e.target.value)}
-              style={{
-                padding: '10px 12px',
-                borderRadius: 'var(--radius)',
-                border: '1px solid var(--color-border)',
-                background: 'var(--color-surface)',
-                color: 'var(--color-text)',
-                fontSize: '1rem',
-              }}
-            >
-              {LLM_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </div>
+          <LlmProviderFields providers={llmProviders} value={llm} onChange={setLlm} />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label htmlFor='whisper-model' style={{ fontWeight: 600 }}>
@@ -298,7 +279,7 @@ export default function Settings() {
               </span>
               <span style={{ fontSize: '0.85rem', color: 'var(--color-text)' }}>
                 Corrections come from the language model you selected above, and they can be wrong —
-                a small local model often flags sentences that were already correct. Treat a
+                a small model often flags sentences that were already correct. Treat a
                 correction as a reason to double-check, not as the last word. Accuracy improves with
                 a larger model, at the cost of a slower reply.
               </span>

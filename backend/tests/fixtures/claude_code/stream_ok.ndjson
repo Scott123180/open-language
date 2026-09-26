@@ -1,0 +1,9 @@
+{"type":"system","subtype":"init","tools":[],"mcp_servers":[],"model":"claude-sonnet-5"}
+{"type":"stream_event","event":{"type":"message_start"}}
+{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"¡Hola! "}}}
+{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"¿Adónde "}}}
+{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"viaja?"}}}
+{"type":"stream_event","event":{"type":"message_stop"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"¡Hola! ¿Adónde viaja?"}]}}
+{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"}}
+{"type":"result","subtype":"success","is_error":false,"result":"¡Hola! ¿Adónde viaja?"}

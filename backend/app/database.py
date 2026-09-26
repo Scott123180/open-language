@@ -4,6 +4,8 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
+from app.services.llm.catalog import DEFAULT_PROVIDER_ID
+from app.services.llm.selection_types import DEFAULT_EFFORT
 
 logger = logging.getLogger(__name__)
 
@@ -59,25 +61,26 @@ def init_db() -> None:
     _migrate_db()
 
 
+_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("conversations", "custom_prompt TEXT"),
+    ("app_settings", "whisper_model VARCHAR(50) NOT NULL DEFAULT 'base'"),
+    ("app_settings", "correction_mode VARCHAR(10) NOT NULL DEFAULT 'off'"),
+    ("vocabulary_items", "classification VARCHAR(20) NOT NULL DEFAULT 'not_practiced'"),
+    ("vocabulary_items", "manual_override BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("vocabulary_items", "tts_cache_path VARCHAR(500)"),
+    ("messages", "transcription_confidence FLOAT"),
+    ("messages", "is_low_confidence BOOLEAN"),
+    ("app_settings", f"llm_provider VARCHAR(20) NOT NULL DEFAULT '{DEFAULT_PROVIDER_ID}'"),
+    ("app_settings", f"llm_effort VARCHAR(10) NOT NULL DEFAULT '{DEFAULT_EFFORT}'"),
+)
+"""(table, column definition) pairs, in the order they were introduced."""
+
+
 def _migrate_db() -> None:
     """Apply additive schema migrations for existing databases."""
     with _engine.connect() as conn:
-        _add_column_if_missing(conn, "conversations", "custom_prompt TEXT")
-        _add_column_if_missing(
-            conn, "app_settings", "whisper_model VARCHAR(50) NOT NULL DEFAULT 'base'"
-        )
-        _add_column_if_missing(
-            conn, "app_settings", "correction_mode VARCHAR(10) NOT NULL DEFAULT 'off'"
-        )
-        _add_column_if_missing(
-            conn, "vocabulary_items", "classification VARCHAR(20) NOT NULL DEFAULT 'not_practiced'"
-        )
-        _add_column_if_missing(
-            conn, "vocabulary_items", "manual_override BOOLEAN NOT NULL DEFAULT FALSE"
-        )
-        _add_column_if_missing(conn, "vocabulary_items", "tts_cache_path VARCHAR(500)")
-        _add_column_if_missing(conn, "messages", "transcription_confidence FLOAT")
-        _add_column_if_missing(conn, "messages", "is_low_confidence BOOLEAN")
+        for table, column_definition in _ADDITIVE_COLUMNS:
+            _add_column_if_missing(conn, table, column_definition)
 
 
 def _add_column_if_missing(conn, table: str, column_definition: str) -> None:

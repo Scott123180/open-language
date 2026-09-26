@@ -43,6 +43,11 @@ saved model untouched (FR-006, FR-007).
 | `llm_model` only | unchanged | validated against the current provider |
 | both | as given | validated against the given provider |
 
+*(Added during implementation.)* When the resulting provider and model equal the stored ones, nothing
+new is being selected, so neither the model rules nor Claude's availability are re-checked. This keeps
+the Settings screen saveable after Claude's sign-in lapses (the form always sends its provider and
+model); requests keep failing with the sign-in message until the learner fixes it or switches (FR-029).
+
 ### `conversations.llm_model` (existing, unchanged)
 
 Still records the model a conversation started with. For Claude conversations it holds the alias

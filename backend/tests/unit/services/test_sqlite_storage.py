@@ -142,3 +142,30 @@ def test_get_or_create_different_input_selection_calls_compute_separately(
 
     storage.get_or_create_learning_result(msg.id, "word_lookup", "sed", compute)
     assert call_count == 2
+
+
+def test_fresh_settings_default_to_ollama_at_low_effort(storage: SQLiteStorageProvider) -> None:
+    settings = storage.get_settings()
+
+    assert settings.llm_provider == "ollama"
+    assert settings.llm_effort == "low"
+
+
+def test_update_settings_persists_provider_model_and_effort(
+    storage: SQLiteStorageProvider,
+) -> None:
+    updated = storage.update_settings(
+        llm_provider="claude", llm_model="sonnet", llm_effort="medium"
+    )
+    reread = storage.get_settings()
+
+    assert (updated.llm_provider, updated.llm_model, updated.llm_effort) == (
+        "claude",
+        "sonnet",
+        "medium",
+    )
+    assert (reread.llm_provider, reread.llm_model, reread.llm_effort) == (
+        "claude",
+        "sonnet",
+        "medium",
+    )

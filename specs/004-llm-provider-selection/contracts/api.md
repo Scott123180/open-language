@@ -103,6 +103,13 @@ The SSE frame sequence of `/open`, `/message`, and `/helper` is **unchanged** (`
 `feedback`, `token`…, `done`, or `error`). Sessions change where the tokens come from, not how
 they are delivered. Delivery stays batched (spec Assumptions).
 
+### 1.4a `POST /api/chat/{conversation_id}/open` (existing, one added case)
+
+*(Added during implementation.)* The opening line is for a conversation the learner hasn't spoken in
+yet. If its saved history already holds a learner message, the endpoint answers **409**
+`{"detail": "This conversation has already started."}` instead of generating a greeting that ignores
+the history. The chat screen only calls `open` on an empty conversation, so this changes no UI flow.
+
 ### 1.5 `POST /api/chat/{conversation_id}/session` (new): warm up
 
 Called by the chat screen when it mounts on an existing conversation (FR-S07). Starts building the
@@ -179,7 +186,10 @@ class ProviderAvailabilityChecker(ABC):
 
 Implementations are `AlwaysAvailable` (Ollama) and `ClaudeCodeAvailability(command_runner)`.
 Served through `factory.get_availability_checkers() -> Mapping[str, ProviderAvailabilityChecker]`,
-so tests override it with `app.dependency_overrides`.
+so tests override it with `app.dependency_overrides`. The factory delegates to
+`registry.build_availability_checkers(settings)`, so provider ids still meet concrete classes in one
+module only. If `claude auth status` can't be read at all (a timeout or non-JSON output), the checker
+reports `not_installed`, the closest of the three reasons, and logs a warning without the output.
 
 ### 2.5 `ClaudeCodeRunner` (new ABC; the subprocess boundary)
 
@@ -227,6 +237,9 @@ class ConversationSession(ABC):
     @property
     @abstractmethod
     def synced_turn_ids(self) -> Sequence[str]: ...
+    @property
+    @abstractmethod
+    def is_broken(self) -> bool: ...                             # a failed turn; never reused
     @abstractmethod
     def warm(self) -> None: ...                                  # no model reply, no plan usage
     @abstractmethod
@@ -242,8 +255,14 @@ class SessionCapableProvider(ABC):                               # ISP: separate
     @abstractmethod
     def session_fingerprint(self, standing_prompt: str) -> SessionFingerprint: ...
     @abstractmethod
-    def open_session(self, standing_prompt: str, history: Sequence[SavedTurn]) -> ConversationSession: ...
+    def open_session(self, key: SessionKey, standing_prompt: str,
+                     history: Sequence[SavedTurn]) -> ConversationSession: ...
 ```
+
+*(Added during implementation.)* `is_broken` lets the pool tell a failed session from a live one
+without knowing its provider. `open_session` takes the `SessionKey` because a Claude session names its
+stderr log after the conversation (`session-<kind>-<identifier>.log`); the identifier is sanitised to
+`[A-Za-z0-9_-]`, since helper ids come from the client.
 
 **Session contract suite** (`test_conversation_session_implementations.py`, parametrised over
 `OllamaSession` with a fake client and `ClaudeCodeSession` with a scripted runner):
@@ -318,5 +337,8 @@ it reports `loggedIn: true` with `authMethod: "claude.ai"`, the request is refus
 
 **Output parsing** relies only on these fields (research R-4, R-7): `type`,
 `event.delta.type`, `event.delta.text`, `message.error`, `rate_limit_info.status`, `is_error`,
-`result`, `structured_output`, and `api_error_status`. Unknown event types are ignored, so new
+`result`, `structured_output`, and `api_error_status`. Claude Code places the assistant error on the
+assistant event itself (`error`); the parser reads that field and, defensively, `message.error`.
+A stdout line that isn't JSON is skipped; output that never reaches a `result` line is
+`unexpected_response`. Unknown event types are ignored, so new
 Claude Code event types don't break parsing.

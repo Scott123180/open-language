@@ -36,7 +36,9 @@ export const mockConversationCompleted = {
 }
 
 export const mockSettings = {
+  llm_provider: 'ollama',
   llm_model: 'llama3.1',
+  llm_effort: 'low',
   target_language: 'Spanish',
   native_language: 'English',
   tts_voice: 'es_ES-davefx-medium',
@@ -44,6 +46,77 @@ export const mockSettings = {
   whisper_model: 'base',
   correction_mode: 'off',
   updated_at: '2026-03-20T10:00:00Z',
+}
+
+const OLLAMA_PROVIDER = {
+  provider_id: 'ollama',
+  display_name: 'Ollama (local)',
+  is_local: true,
+  models: [
+    { model_id: 'llama3.1:8b', label: 'llama3.1:8b' },
+    { model_id: 'llama3.2', label: 'llama3.2' },
+    { model_id: 'mistral', label: 'mistral' },
+  ],
+  default_model: 'llama3.1:8b',
+  effort_levels: [] as { effort_id: string; label: string }[],
+  default_effort: null as string | null,
+  is_available: true,
+  unavailable_reason: null as string | null,
+  unavailable_message: null as string | null,
+}
+
+const CLAUDE_PROVIDER = {
+  provider_id: 'claude',
+  display_name: 'Claude (via Claude Code)',
+  is_local: false,
+  models: [
+    { model_id: 'sonnet', label: 'Claude Sonnet' },
+    { model_id: 'haiku', label: 'Claude Haiku (fastest)' },
+    { model_id: 'opus', label: 'Claude Opus (most capable, uses more of your plan)' },
+  ],
+  default_model: 'sonnet',
+  effort_levels: [
+    { effort_id: 'low', label: 'Low — fastest replies' },
+    { effort_id: 'medium', label: 'Medium' },
+    { effort_id: 'high', label: 'High — deeper, slower replies' },
+  ],
+  default_effort: 'low' as string | null,
+  is_available: true,
+  unavailable_reason: null as string | null,
+  unavailable_message: null as string | null,
+}
+
+/** The provider catalogue with Claude signed in and ready (contracts/api.md §1.1). */
+export const mockLlmProvidersAvailable = [OLLAMA_PROVIDER, CLAUDE_PROVIDER]
+
+export type ClaudeUnavailableReason = 'not_installed' | 'not_signed_in' | 'not_on_plan'
+
+export const CLAUDE_UNAVAILABLE_MESSAGES: Record<ClaudeUnavailableReason, string> = {
+  not_installed: 'Install Claude Code to use Claude.',
+  not_signed_in: 'Sign in to Claude Code (run `claude` in a terminal) to use Claude.',
+  not_on_plan:
+    'Claude Code is signed in with an API key. Sign in with your Claude plan to use it here.',
+}
+
+/** The provider catalogue with Claude unavailable for `reason`. */
+export function mockLlmProvidersClaudeUnavailable(reason: ClaudeUnavailableReason) {
+  return [
+    OLLAMA_PROVIDER,
+    {
+      ...CLAUDE_PROVIDER,
+      is_available: false,
+      unavailable_reason: reason,
+      unavailable_message: CLAUDE_UNAVAILABLE_MESSAGES[reason],
+    },
+  ]
+}
+
+/** Serve the provider catalogue; defaults to Claude available. */
+export async function mockLlmProviders(
+  page: Page,
+  providers: unknown[] = mockLlmProvidersAvailable,
+) {
+  await page.route('/api/settings/llm-providers', (route) => route.fulfill({ json: providers }))
 }
 
 export const mockFeedbackNote = {
@@ -227,6 +300,7 @@ export async function mockChatApis(
   await page.route('/api/settings', (route) =>
     route.fulfill({ json: mockSettings }),
   )
+  await mockLlmProviders(page)
   await page.route('/api/conversations/1', (route) =>
     route.fulfill({ json: mockConversation }),
   )
@@ -246,10 +320,29 @@ export async function mockChatApis(
   await page.route('/api/audio/tts/**', (route) =>
     route.fulfill({ status: 200, body: '' }),
   )
+  await mockWarmSession(page)
   await page.route('/api/conversations/1', (route) => {
     if (route.request().method() === 'PATCH') {
       return route.fulfill({ json: { ...mockConversation, status: 'completed' } })
     }
     return route.fulfill({ json: mockConversation })
   })
+}
+
+/**
+ * Mock the conversation warm-up endpoint and record each request's method.
+ * `status` lets a test serve a failure; the chat screen must ignore it either way.
+ */
+export async function mockWarmSession(
+  page: Page,
+  options: { conversationId?: number; status?: number } = {},
+) {
+  const { conversationId = 1, status = 202 } = options
+  const calls: string[] = []
+  await page.route(`/api/chat/${conversationId}/session`, (route) => {
+    calls.push(route.request().method())
+    const body = status === 202 ? { status: 'warming' } : { detail: 'Internal error' }
+    return route.fulfill({ status, json: body })
+  })
+  return { calls }
 }

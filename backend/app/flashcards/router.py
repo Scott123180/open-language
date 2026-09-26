@@ -141,21 +141,7 @@ def get_word_info(
     # Read the cache before generating: get_or_generate writes on a miss, so a
     # lookup afterwards would report every response as cached.
     cached = storage.get_llm_cache(vocabulary_item_id, cache_type.value, word.target_language)
-
-    llm_cache = LlmCacheService(storage=storage, llm_client=llm)
-    content = llm_cache.get_or_generate(
-        vocabulary_item_id=vocabulary_item_id,
-        cache_type=cache_type.value,
-        word=word.word,
-        language=word.target_language,
-        native_language=word.native_language,
-    )
-    if content is None:
-        raise HTTPException(
-            status_code=503,
-            detail="LLM service unavailable. Please try again shortly.",
-        )
-
+    content = _word_info_content(LlmCacheService(storage=storage, llm_client=llm), word, cache_type)
     stored = cached or storage.get_llm_cache(
         vocabulary_item_id, cache_type.value, word.target_language
     )
@@ -165,6 +151,17 @@ def get_word_info(
         content=content,
         from_cache=cached is not None,
         generated_at=stored.generated_at if stored else datetime.now(UTC),
+    )
+
+
+def _word_info_content(llm_cache: LlmCacheService, word, cache_type: LlmCacheTypeEnum) -> str:
+    """Cached or freshly generated; an LLMError reaches the shared 503 handler."""
+    return llm_cache.get_or_generate(
+        vocabulary_item_id=word.id,
+        cache_type=cache_type.value,
+        word=word.word,
+        language=word.target_language,
+        native_language=word.native_language,
     )
 
 

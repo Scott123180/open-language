@@ -7,7 +7,9 @@ import * as api from '../services/api'
 vi.mock('../services/api')
 
 const mockSettings: api.AppSettings = {
+  llm_provider: 'ollama',
   llm_model: 'llama3.1',
+  llm_effort: 'low',
   target_language: 'es',
   native_language: 'en',
   tts_voice: 'es_ES-mls-medium',
@@ -28,6 +30,36 @@ const mockVoices: api.VoiceOption[] = [
   },
 ]
 
+const mockProviders: api.LlmProviderOption[] = [
+  {
+    provider_id: 'ollama',
+    display_name: 'Ollama (local)',
+    is_local: true,
+    models: [
+      { model_id: 'llama3.1:8b', label: 'llama3.1:8b' },
+      { model_id: 'llama3.2', label: 'llama3.2' },
+    ],
+    default_model: 'llama3.1:8b',
+    effort_levels: [],
+    default_effort: null,
+    is_available: true,
+    unavailable_reason: null,
+    unavailable_message: null,
+  },
+  {
+    provider_id: 'claude',
+    display_name: 'Claude (via Claude Code)',
+    is_local: false,
+    models: [{ model_id: 'sonnet', label: 'Claude Sonnet' }],
+    default_model: 'sonnet',
+    effort_levels: [{ effort_id: 'low', label: 'Low — fastest replies' }],
+    default_effort: 'low',
+    is_available: true,
+    unavailable_reason: null,
+    unavailable_message: null,
+  },
+]
+
 function renderSettings() {
   return render(
     <MemoryRouter>
@@ -39,20 +71,21 @@ function renderSettings() {
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(api.getVoices).mockResolvedValue(mockVoices)
+  vi.mocked(api.getLlmProviders).mockResolvedValue(mockProviders)
 })
 
 describe('Settings page', () => {
   it('renders with current settings loaded', async () => {
     vi.mocked(api.getSettings).mockResolvedValue(mockSettings)
     renderSettings()
-    await waitFor(() => expect(screen.getByLabelText(/llm model/i)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByLabelText('Model')).toBeInTheDocument())
     expect(screen.getByLabelText(/suggestion count/i)).toBeInTheDocument()
   })
 
   it('shows model selector with current llm_model value', async () => {
     vi.mocked(api.getSettings).mockResolvedValue(mockSettings)
     renderSettings()
-    const select = await screen.findByLabelText<HTMLSelectElement>(/llm model/i)
+    const select = await screen.findByLabelText<HTMLSelectElement>('Model')
     expect(select.value).toBe('llama3.1')
   })
 
@@ -68,7 +101,7 @@ describe('Settings page', () => {
     vi.mocked(api.updateSettings).mockResolvedValue({ ...mockSettings, llm_model: 'llama3.2', suggestion_count: 5 })
     renderSettings()
 
-    const select = await screen.findByLabelText<HTMLSelectElement>(/llm model/i)
+    const select = await screen.findByLabelText<HTMLSelectElement>('Model')
     fireEvent.change(select, { target: { value: 'llama3.2' } })
 
     const input = screen.getByLabelText<HTMLInputElement>(/suggestion count/i)
@@ -105,6 +138,54 @@ describe('Settings page', () => {
 
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
     expect(screen.getByText(/server error/i)).toBeInTheDocument()
+  })
+})
+
+describe('Settings page — language model provider', () => {
+  it('loads the provider catalogue and renders the provider fields', async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(mockSettings)
+    renderSettings()
+
+    const group = await screen.findByRole('group', { name: /language model/i })
+    expect(api.getLlmProviders).toHaveBeenCalled()
+    expect(group).toContainElement(screen.getByRole('radio', { name: 'Ollama (local)' }))
+  })
+
+  it('no longer renders the old hard-coded model list', async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(mockSettings)
+    renderSettings()
+
+    const select = await screen.findByLabelText('Model')
+    const options = Array.from(select.querySelectorAll('option')).map((o) => o.textContent)
+    expect(options).not.toContain('mistral')
+  })
+
+  it('saves the provider, model, and effort together', async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(mockSettings)
+    vi.mocked(api.updateSettings).mockResolvedValue(mockSettings)
+    renderSettings()
+
+    fireEvent.click(await screen.findByRole('radio', { name: 'Claude (via Claude Code)' }))
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() =>
+      expect(api.updateSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ llm_provider: 'claude', llm_model: 'sonnet', llm_effort: 'low' }),
+      ),
+    )
+  })
+
+  it('shows a rejected save and keeps the learner\'s choice', async () => {
+    const detail = 'Sign in to Claude Code (run `claude` in a terminal) to use Claude.'
+    vi.mocked(api.getSettings).mockResolvedValue(mockSettings)
+    vi.mocked(api.updateSettings).mockRejectedValue(new Error(detail))
+    renderSettings()
+
+    fireEvent.click(await screen.findByRole('radio', { name: 'Claude (via Claude Code)' }))
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(detail)
+    expect(screen.getByRole('radio', { name: 'Claude (via Claude Code)' })).toBeChecked()
   })
 })
 
@@ -228,3 +309,20 @@ describe('Settings page — correction accuracy warning', () => {
   })
 })
 
+describe('Settings page — provider-neutral correction warning', () => {
+  it('no longer blames a local model for false flags', async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(mockSettings)
+    renderSettings()
+
+    const warning = await screen.findByRole('note', { name: /correction accuracy/i })
+    expect(warning).not.toHaveTextContent(/local model/i)
+  })
+
+  it('keeps the false-flag caveat', async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(mockSettings)
+    renderSettings()
+
+    const warning = await screen.findByRole('note', { name: /correction accuracy/i })
+    expect(warning).toHaveTextContent(/flags sentences that were already correct/i)
+  })
+})

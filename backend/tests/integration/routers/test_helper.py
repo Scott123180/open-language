@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.services.factory import get_helper_sessions, get_llm
 from app.services.llm.base import ChatMessage, LLMProvider
+from tests.support.engine_overrides import override_conversation_engine
 
 
 class StubLLMProvider(LLMProvider):
@@ -51,6 +52,7 @@ def client_and_llm():
     stub_llm = StubLLMProvider(response="Hola means hello")
 
     app.dependency_overrides[get_llm] = lambda: stub_llm
+    override_conversation_engine(app, stub_llm)
 
     with TestClient(app) as c:
         yield c, stub_llm

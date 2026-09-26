@@ -1,7 +1,19 @@
 import { test, expect } from '@playwright/test'
-import { mockSettings, mockVoices } from './fixtures'
+import {
+  CLAUDE_UNAVAILABLE_MESSAGES,
+  type ClaudeUnavailableReason,
+  mockLlmProviders,
+  mockLlmProvidersClaudeUnavailable,
+  mockSettings,
+  mockVoices,
+} from './fixtures'
 
 const SETTINGS_URL = '/settings'
+
+// Every Settings visit loads the provider catalogue; tests override it where it matters.
+test.beforeEach(async ({ page }) => {
+  await mockLlmProviders(page)
+})
 
 async function setupSettingsRoutes(
   page: import('@playwright/test').Page,
@@ -37,10 +49,10 @@ test.describe('Settings page', () => {
     await expect(page.getByText('Loading settings…')).toBeVisible()
   })
 
-  test('loads and displays current LLM model', async ({ page }) => {
+  test('loads and displays current model', async ({ page }) => {
     await setupSettingsRoutes(page)
     await page.goto(SETTINGS_URL)
-    await expect(page.getByLabel('LLM Model')).toHaveValue('llama3.1')
+    await expect(page.getByLabel('Model', { exact: true })).toHaveValue('llama3.1')
   })
 
   test('loads and displays current suggestion count', async ({ page }) => {
@@ -52,8 +64,8 @@ test.describe('Settings page', () => {
   test('model select shows all available models', async ({ page }) => {
     await setupSettingsRoutes(page)
     await page.goto(SETTINGS_URL)
-    const select = page.getByLabel('LLM Model')
-    await expect(select.getByRole('option', { name: 'llama3.1' })).toBeAttached()
+    const select = page.getByLabel('Model', { exact: true })
+    await expect(select.getByRole('option', { name: 'llama3.1', exact: true })).toBeAttached()
     await expect(select.getByRole('option', { name: 'llama3.2' })).toBeAttached()
     await expect(select.getByRole('option', { name: 'mistral' })).toBeAttached()
   })
@@ -61,8 +73,8 @@ test.describe('Settings page', () => {
   test('changing model updates the select value', async ({ page }) => {
     await setupSettingsRoutes(page)
     await page.goto(SETTINGS_URL)
-    await page.getByLabel('LLM Model').selectOption('mistral')
-    await expect(page.getByLabel('LLM Model')).toHaveValue('mistral')
+    await page.getByLabel('Model', { exact: true }).selectOption('mistral')
+    await expect(page.getByLabel('Model', { exact: true })).toHaveValue('mistral')
   })
 
   test('changing suggestion count updates the input', async ({ page }) => {
@@ -86,7 +98,7 @@ test.describe('Settings page', () => {
     )
     await page.goto(SETTINGS_URL)
 
-    await page.getByLabel('LLM Model').selectOption('mistral')
+    await page.getByLabel('Model', { exact: true }).selectOption('mistral')
     await page.getByLabel('Suggestion Count (1–5)').fill('5')
     await page.getByRole('button', { name: /save/i }).click()
 
@@ -200,7 +212,7 @@ test.describe('Settings page', () => {
       suggestion_count: 5,
     })
     await page.goto(SETTINGS_URL)
-    await expect(page.getByLabel('LLM Model')).toHaveValue('llama3.2')
+    await expect(page.getByLabel('Model', { exact: true })).toHaveValue('llama3.2')
     await expect(page.getByLabel('Suggestion Count (1–5)')).toHaveValue('5')
   })
 
@@ -384,5 +396,97 @@ test.describe('Settings page — correction feedback mode', () => {
       .getAttribute('id')
     expect(warningId).toBeTruthy()
     expect(describedBy.split(/\s+/)).toContain(warningId as string)
+  })
+})
+
+test.describe('Settings page — language model provider', () => {
+  const modelSelect = (page: import('@playwright/test').Page) =>
+    page.getByLabel('Model', { exact: true })
+  const effortSelect = (page: import('@playwright/test').Page) =>
+    page.getByLabel('Effort', { exact: true })
+
+  test('switching to Claude shows its model and effort, and saves all three', async ({ page }) => {
+    let capturedBody: unknown = null
+    await page.route('/api/settings', (route) => {
+      if (route.request().method() === 'PUT') {
+        capturedBody = route.request().postDataJSON()
+        return route.fulfill({ json: mockSettings })
+      }
+      return route.fulfill({ json: mockSettings })
+    })
+    await page.route('/api/settings/voices', (route) => route.fulfill({ json: mockVoices }))
+    await page.goto(SETTINGS_URL)
+
+    await page.getByRole('radio', { name: 'Claude (via Claude Code)' }).check()
+
+    await expect(modelSelect(page).locator('option:checked')).toHaveText('Claude Sonnet')
+    await expect(effortSelect(page).locator('option:checked')).toHaveText('Low — fastest replies')
+    await page.getByRole('button', { name: /save/i }).click()
+    await expect(page.getByRole('status')).toContainText('Settings saved.')
+    expect(capturedBody).toMatchObject({
+      llm_provider: 'claude',
+      llm_model: 'sonnet',
+      llm_effort: 'low',
+    })
+  })
+
+  test('switching back to Ollama restores its default model and hides effort', async ({ page }) => {
+    await setupSettingsRoutes(page)
+    await page.goto(SETTINGS_URL)
+
+    await page.getByRole('radio', { name: 'Claude (via Claude Code)' }).check()
+    await expect(effortSelect(page)).toBeVisible()
+    await page.getByRole('radio', { name: 'Ollama (local)' }).check()
+
+    await expect(modelSelect(page)).toHaveValue('llama3.1:8b')
+    await expect(effortSelect(page)).toHaveCount(0)
+  })
+
+  test('a rejected save shows the reason', async ({ page }) => {
+    const detail = "That model isn't a Claude model. Choose Sonnet, Haiku, or Opus."
+    await page.route('/api/settings', (route) => {
+      if (route.request().method() === 'PUT') {
+        return route.fulfill({ status: 422, json: { detail } })
+      }
+      return route.fulfill({ json: mockSettings })
+    })
+    await page.route('/api/settings/voices', (route) => route.fulfill({ json: mockVoices }))
+    await page.goto(SETTINGS_URL)
+
+    await page.getByRole('radio', { name: 'Claude (via Claude Code)' }).check()
+    await page.getByRole('button', { name: /save/i }).click()
+
+    await expect(page.getByRole('alert')).toContainText(detail)
+    await expect(page.getByRole('radio', { name: 'Claude (via Claude Code)' })).toBeChecked()
+  })
+})
+
+test.describe('Settings page — Claude availability and privacy', () => {
+  const claudeRadio = (page: import('@playwright/test').Page) =>
+    page.getByRole('radio', { name: 'Claude (via Claude Code)' })
+
+  for (const reason of ['not_installed', 'not_signed_in', 'not_on_plan'] as ClaudeUnavailableReason[]) {
+    test(`Claude is disabled with its reason when ${reason}`, async ({ page }) => {
+      await mockLlmProviders(page, mockLlmProvidersClaudeUnavailable(reason))
+      await setupSettingsRoutes(page)
+      await page.goto(SETTINGS_URL)
+
+      const message = CLAUDE_UNAVAILABLE_MESSAGES[reason]
+      await expect(claudeRadio(page)).toBeDisabled()
+      await expect(page.getByText(message)).toBeVisible()
+      await expect(claudeRadio(page)).toHaveAccessibleDescription(message)
+    })
+  }
+
+  test('selecting Claude reveals the privacy notice, and Ollama hides it', async ({ page }) => {
+    await setupSettingsRoutes(page)
+    await page.goto(SETTINGS_URL)
+    const notice = page.getByRole('note', { name: /privacy/i })
+
+    await claudeRadio(page).check()
+    await expect(notice).toBeVisible()
+    await expect(notice).toContainText('sent to Anthropic')
+    await page.getByRole('radio', { name: 'Ollama (local)' }).check()
+    await expect(notice).toHaveCount(0)
   })
 })

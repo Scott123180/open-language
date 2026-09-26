@@ -45,7 +45,9 @@ export interface VocabularyItem {
 }
 
 export interface AppSettings {
+  llm_provider: string
   llm_model: string
+  llm_effort: string
   target_language: string
   native_language: string
   tts_voice: string
@@ -56,6 +58,32 @@ export interface AppSettings {
 }
 
 export type CorrectionMode = 'off' | 'gentle' | 'strict'
+
+export interface ModelOption {
+  model_id: string
+  label: string
+}
+
+export interface EffortOption {
+  effort_id: string
+  label: string
+}
+
+export type ProviderUnavailableReason = 'not_installed' | 'not_signed_in' | 'not_on_plan'
+
+/** One catalogue provider and whether it can be used right now (contracts/api.md §1.1). */
+export interface LlmProviderOption {
+  provider_id: string
+  display_name: string
+  is_local: boolean
+  models: ModelOption[]
+  default_model: string
+  effort_levels: EffortOption[]
+  default_effort: string | null
+  is_available: boolean
+  unavailable_reason: ProviderUnavailableReason | null
+  unavailable_message: string | null
+}
 
 export type FeedbackKind = 'correction' | 'repeat_request'
 
@@ -149,6 +177,19 @@ export const transcribeAudio = async (blob: Blob, language?: string): Promise<Tr
     throw new Error(body.detail ?? `HTTP ${res.status}`)
   }
   return res.json()
+}
+
+/**
+ * Ask the backend to get this conversation's session ready before the next turn (FR-S07).
+ * Fire-and-forget: the warm-up is invisible, so every failure is ignored and the first real
+ * turn reports any problem with its normal message.
+ */
+export const warmSession = async (conversationId: number): Promise<void> => {
+  try {
+    await fetch(`${BASE}/chat/${conversationId}/session`, { method: 'POST' })
+  } catch {
+    // Deliberately silent: see the doc comment above.
+  }
 }
 
 export const getTtsUrl = (messageId: number): string =>
@@ -328,6 +369,9 @@ export const getSettings = (): Promise<AppSettings> =>
 
 export const updateSettings = (updates: Partial<AppSettings>): Promise<AppSettings> =>
   apiFetch('/settings', { method: 'PUT', body: JSON.stringify(updates) })
+
+export const getLlmProviders = (): Promise<LlmProviderOption[]> =>
+  apiFetch('/settings/llm-providers')
 
 export const getVoices = (): Promise<VoiceOption[]> =>
   apiFetch('/settings/voices')
