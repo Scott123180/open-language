@@ -127,7 +127,7 @@ cd frontend
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). The Vite dev server proxies `/api` requests to the backend on port 8000.
+Open [http://localhost:5173](http://localhost:5173). The Vite dev server proxies `/api` requests to the backend on port 8000. In development the backend serves only the API, so [http://localhost:8000](http://localhost:8000) itself returns 404.
 
 ### Production (single process)
 
@@ -137,10 +137,10 @@ npm run build          # builds into ../backend/static/
 
 cd ../backend
 source .venv/bin/activate
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+OPEN_LANGUAGE_MODE=production uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-Open [http://localhost:8000](http://localhost:8000). FastAPI serves both the API and the built frontend from one port.
+Open [http://localhost:8000](http://localhost:8000). FastAPI serves both the API and the built frontend from one port. Production mode refuses to start if the frontend hasn't been built, rather than serving nothing.
 
 ## Enabling Claude (optional)
 

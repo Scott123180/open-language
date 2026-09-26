@@ -62,3 +62,22 @@ def test_claude_directories_expand_the_home_shortcut(monkeypatch):
 
     assert configured.claude_workdir == Path.home() / "cw"
     assert configured.claude_log_dir == Path.home() / "cl"
+
+
+def test_mode_defaults_to_development(monkeypatch):
+    monkeypatch.delenv("OPEN_LANGUAGE_MODE", raising=False)
+
+    assert Settings(_env_file=None).is_production is False
+
+
+def test_production_mode_is_set_from_the_environment(monkeypatch):
+    monkeypatch.setenv("OPEN_LANGUAGE_MODE", "production")
+
+    assert Settings(_env_file=None).is_production is True
+
+
+def test_an_unknown_mode_is_rejected(monkeypatch):
+    monkeypatch.setenv("OPEN_LANGUAGE_MODE", "staging")
+
+    with pytest.raises(ValueError):
+        Settings(_env_file=None)

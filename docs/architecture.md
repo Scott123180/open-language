@@ -1085,7 +1085,7 @@ Development and production differ only in who serves the static assets.
 flowchart TB
     subgraph DEV["Development — ./run.sh"]
         D1["Vite dev server :5173<br/>HMR + proxy /api → :8000"]
-        D2["Uvicorn :8000 --reload"]
+        D2["Uvicorn :8000 --reload<br/>/api routers only"]
         D3["ollama serve :11434"]
         D1 -->|"proxy"| D2
         D2 --> D3
@@ -1093,7 +1093,7 @@ flowchart TB
 
     subgraph PROD["Production — ./run.sh --prod"]
         P1["npm run build<br/>→ backend/static/"]
-        P2["Uvicorn :8000<br/>/api routers +<br/>StaticFiles mount at / with html=True"]
+        P2["Uvicorn :8000, OPEN_LANGUAGE_MODE=production<br/>/api routers +<br/>StaticFiles mount at / with html=True"]
         P3["ollama serve :11434"]
         P1 --> P2
         P2 --> P3
@@ -1105,6 +1105,12 @@ reverse proxy for what is fundamentally a desktop application. `StaticFiles(...,
 the SPA fallback — unknown paths return `index.html`, which is what lets React Router own client-side
 routing. Note the ordering constraint in `main.py`: the catch-all static mount at `/` is registered
 **after** every `/api` router, because a mount at `/` would otherwise shadow them.
+
+**Why the mount is gated on mode.** `serve_built_frontend()` mounts `backend/static/` only when
+`OPEN_LANGUAGE_MODE=production`, and fails at startup if production mode finds no build. It used to mount
+whenever the directory existed, so a development backend served whatever was built last on :8000 next to
+the live Vite app on :5173 — a stale frontend that looked current. Development now has exactly one
+frontend.
 
 `run.sh` is the single entry point and does real work beyond starting processes: it verifies prerequisites
 (Python 3.11+, Node 20+, ffmpeg, espeak-ng, Ollama), creates the venv, installs both dependency trees,

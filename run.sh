@@ -259,7 +259,7 @@ start_prod() {
 
   info "Starting server on http://localhost:8000 ..."
   cd "$BACKEND_DIR"
-  PYTHONPATH="$BACKEND_DIR" \
+  PYTHONPATH="$BACKEND_DIR" OPEN_LANGUAGE_MODE=production \
     "$VENV/bin/uvicorn" app.main:app --host 0.0.0.0 --port 8000 \
     > >(add_timestamps >> /tmp/open-language-backend.log) 2>&1 &
   PIDS+=($!)

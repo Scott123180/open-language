@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.config import Settings, get_settings
 from app.corrections.router import router as corrections_router
 from app.database import init_db
 from app.flashcards.router import router as flashcards_router
@@ -18,6 +19,7 @@ from app.services.factory import get_conversation_engine
 from app.services.llm.base import LLMError
 
 LLM_UNAVAILABLE_STATUS = 503
+STATIC_DIR = Path(__file__).parent.parent / "static"
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +67,21 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     )
 
 
-_static_dir = Path(__file__).parent.parent / "static"
-if _static_dir.exists():
-    app.mount("/", StaticFiles(directory=str(_static_dir), html=True), name="static")
+class FrontendBuildMissingError(RuntimeError):
+    """Production mode was asked to serve a frontend that has not been built."""
+
+
+def serve_built_frontend(app: FastAPI, static_dir: Path, settings: Settings) -> None:
+    """Mount the built frontend at `/` in production; in development Vite serves it."""
+    if not settings.is_production:
+        return
+    if not (static_dir / "index.html").exists():
+        raise FrontendBuildMissingError(
+            f"Production mode needs a built frontend in {static_dir}. "
+            "Run `npm run build` in frontend/, or start with ./run.sh --prod."
+        )
+    # Registered after every /api router: a mount at `/` would otherwise shadow them.
+    app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
+
+
+serve_built_frontend(app, STATIC_DIR, get_settings())

@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
@@ -23,6 +24,8 @@ class Settings(BaseSettings):
     session_idle_ttl_minutes: int = 30
     host: str = "127.0.0.1"
     port: int = 8000
+    # Development leaves the frontend to Vite; only production serves the built copy.
+    mode: Literal["development", "production"] = "development"
 
     model_config = {
         "env_prefix": "OPEN_LANGUAGE_",
@@ -34,6 +37,10 @@ class Settings(BaseSettings):
     @classmethod
     def expand_user(cls, v: Path) -> Path:
         return v.expanduser()
+
+    @property
+    def is_production(self) -> bool:
+        return self.mode == "production"
 
 
 @lru_cache
