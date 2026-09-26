@@ -1,32 +1,53 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.0.0 → 1.1.0
-Bump type: MINOR — two new principles added (IV and V).
+Version change: 1.1.0 → 1.2.0
+Bump type: MINOR — one new principle (VI) and one new quality gate. The other edits are
+corrections: a title typo, removed command names, and an internal contradiction on function length.
 
 Modified principles:
-  - I. Clean Code          → unchanged
+  - I. Clean Code          → function-length rule restated as a hard limit of 20 lines, with longer
+                             functions allowed only with documented justification (was "≤ 20 lines
+                             as a guideline", contradicting the 30-line quality gate)
   - II. SOLID Principles   → unchanged
   - III. TDD               → unchanged
+  - IV. Simple UI & UX     → unchanged
+  - V. Extensibility       → unchanged
 
 Added sections:
-  - IV. Simple UI & Good User Experience
-  - V. Extensibility & Compartmentalization
+  - VI. Provider Independence (local by default, cloud opt-in, no credentials held, no silent
+    fallback)
+  - Quality Gates: "New AI capabilities and providers MUST satisfy Principle VI"
+
+Modified sections:
+  - Title: "Open-Langua Constitution" → "Open-Language Constitution" (typo)
+  - Quality Gates: function-length gate 30 → 20 lines, scoped to new or modified functions so
+    that existing code is brought into line when touched (Boy Scout Rule) rather than failing every
+    branch at once. At amendment time 45 of 337 backend functions exceed 20 lines and 20 exceed 30,
+    so the old 30-line gate was not being enforced either.
+  - Development Workflow: /speckit.specify, /speckit.plan, /speckit.tasks → /speckit-specify,
+    /speckit-plan, /speckit-tasks (the dot forms were removed on 2026-08-25)
 
 Removed sections: N/A
 
-Templates reviewed:
-  - .specify/templates/plan-template.md   ✅ — no changes required; Constitution Check is dynamic
-  - .specify/templates/spec-template.md   ✅ — no changes required; SC / FR sections compatible
-  - .specify/templates/tasks-template.md  ✅ — updated: removed "Tests are OPTIONAL" language that
-                                               conflicted with the TDD mandate; test tasks are now
-                                               mandatory per the Red-Green-Refactor cycle
-  - .specify/templates/checklist-template.md ✅ — dynamic template; no changes required
+Templates reviewed (not modified by this command):
+  - .specify/templates/plan-template.md      ✅ — Constitution Check is filled dynamically; picks up VI
+  - .specify/templates/spec-template.md      ✅ — no changes required
+  - .specify/templates/tasks-template.md     ✅ — no changes required
+  - .specify/templates/checklist-template.md ✅ — dynamic; no changes required
 
-Follow-up TODOs: None — all placeholders resolved.
+Dependent documents needing follow-up (outside this command's scope):
+  - CLAUDE.md — cites "v1.1.0, ratified 2026-03-15" and lists the non-negotiables; update to v1.2.0
+    and add Principle VI
+  - specs/004-llm-provider-selection/plan.md — add a Principle VI row to the Constitution Check
+    table (004 already satisfies it: FR-004, FR-010/011, FR-026, FR-029)
+
+Follow-up TODOs: None — all placeholders resolved. Template resolution was done by reading
+.specify/templates/constitution-template.md directly: resolve-template.sh fails on the known
+missing resolve_template_content function, and that file is the only layer in the stack.
 -->
 
-# Open-Langua Constitution
+# Open-Language Constitution
 
 ## Core Principles
 
@@ -34,7 +55,8 @@ Follow-up TODOs: None — all placeholders resolved.
 
 All code MUST be written to be read by humans first and computers second.
 
-- Functions and methods MUST do one thing and do it well; keep them short (≤ 20 lines as a guideline).
+- Functions and methods MUST do one thing and do it well, and MUST NOT exceed 20 lines. A longer
+  function is permitted only with a documented justification (see Quality Gates).
 - Names MUST be intention-revealing: variables, functions, and classes should communicate their
   purpose without requiring a comment.
 - Magic numbers and strings MUST be replaced with named constants.
@@ -124,6 +146,31 @@ integrations can be added without modifying existing modules.
 accommodate new languages, pedagogical approaches, and third-party content over time. Tight
 compartmentalisation makes that growth additive, not disruptive.
 
+### VI. Provider Independence
+
+Every AI capability MUST be replaceable without touching the features that use it, and the learner
+MUST always know, and choose, where their words go.
+
+- **Behind an interface.** Every AI capability (language model, speech-to-text, text-to-speech, and
+  any future one) MUST sit behind a provider interface. Feature code MUST NOT import a concrete
+  provider. A provider identifier MUST become behaviour in exactly one place, a registry or factory,
+  and nowhere else.
+- **Local by default, cloud opt-in.** The fully local stack MUST be the default configuration. A
+  provider that sends data off the learner's machine MUST be used only after the learner explicitly
+  selects it, and selecting it MUST show a plain-language notice of what data leaves the machine
+  and what stays.
+- **No credentials held.** The application MUST NOT store, log, or return provider credentials.
+  Authentication MUST be delegated to the provider's own tooling, and the application MAY expose
+  only whether a provider is usable, never the credential or account details behind it.
+- **No silent fallback.** The provider the learner selected MUST be the one used. When it fails,
+  the learner MUST be told what happened and what to do next (Principle IV). The application MUST
+  NOT quietly switch to a different provider.
+
+**Rationale**: Practising a language means saying clumsy, personal things thousands of times, which
+is why the local stack is the default. A swappable provider layer lets the learner trade privacy for
+capability knowingly rather than by accident, and lets new backends be added without touching any
+feature (Principle V applied to AI services).
+
 ## Quality Gates
 
 The following gates MUST pass before any feature branch is merged:
@@ -131,18 +178,20 @@ The following gates MUST pass before any feature branch is merged:
 - All tests pass (zero failures, zero skips without documented reason).
 - New code meets ≥ 90% line coverage.
 - No new SOLID violations without documented justification in Complexity Tracking.
-- No functions longer than 30 lines without documented justification.
+- No new or modified function longer than 20 lines without documented justification in Complexity
+  Tracking. Existing longer functions are brought within the limit when next modified.
 - No commented-out code.
 - Linter and formatter report zero errors.
 - UI changes MUST pass a manual accessibility check (contrast, touch targets, screen-reader
   labels).
 - New feature domains MUST expose a defined interface; no direct cross-module imports.
+- New AI capabilities and new providers MUST satisfy Principle VI.
 
 ## Development Workflow
 
 1. Specifications MUST be written and reviewed before implementation begins
-   (`/speckit.specify` → `/speckit.plan`).
-2. Tasks MUST be generated from the approved plan (`/speckit.tasks`) and worked in priority order.
+   (`/speckit-specify` → `/speckit-plan`).
+2. Tasks MUST be generated from the approved plan (`/speckit-tasks`) and worked in priority order.
 3. TDD cycle MUST be applied to every implementation task — test tasks are never optional.
 4. Each user story MUST be independently testable and demonstrable before moving to the next.
 5. Code review MUST verify SOLID compliance, test coverage, and UI/UX quality gates before merge.
@@ -163,4 +212,4 @@ All pull requests and code reviews MUST verify compliance with this constitution
 violates a principle MUST be justified in the implementation plan's Complexity Tracking table
 before the plan is approved.
 
-**Version**: 1.1.0 | **Ratified**: 2026-03-15 | **Last Amended**: 2026-03-17
+**Version**: 1.2.0 | **Ratified**: 2026-03-15 | **Last Amended**: 2026-09-25

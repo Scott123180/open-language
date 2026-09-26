@@ -50,4 +50,10 @@
   providers (Story 5, FR-S01 to FR-S13, SC-004 to SC-004d). Batched delivery was explicitly kept.
   Revalidated: all items pass. Session requirements are stated as learner-visible outcomes (warmth,
   recall, one reply per rebuild, bounded resources), not as mechanisms.
+- Revision 4 (consistency pass): removed a leftover "streaming replies word by word" claim; renamed
+  Claude Code's "session history" to "saved Claude Code conversations" so it no longer collides
+  with the app's conversation sessions; raised Story 5 to P2 to match the plan's build order;
+  updated the edge cases that predated sessions; added the signed-in-with-an-API-key scenario and
+  the effort-visibility requirement (FR-025a); made FR-S03 cover helper threads; replaced a
+  paraphrase presented as the learner's words with their actual words.
 - Validation passed on the first iteration of each revision.

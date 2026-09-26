@@ -1,4 +1,4 @@
-# Feature Specification: LLM Provider Selection
+# Feature Specification: LLM Provider Selection and Conversation Sessions
 
 **Feature Branch**: `004-llm-provider-selection`
 **Created**: 2026-09-25
@@ -9,9 +9,10 @@ draw on their Claude plan instead of a metered API key. The learner picks the pr
 the Settings screen and can switch without a restart. Everything that works today keeps working
 with Ollama as the default. Reposition the docs from 'local-only, no cloud' to 'provider-agnostic,
 local by default, cloud opt-in'. Make the configured Ollama host actually take effect."
-Revised 2026-09-25: "If I pick Claude I should be able to choose the model and the level of effort.
-Both providers could benefit from sessions, and the provider interface should support them. This
-might be a large refactor, but the product is much stronger."
+Revised 2026-09-25 after planning. The learner asked whether picking Claude would let them "choose
+model and level of effort", and then asked for sessions: "Both could benefit from sessions and I
+think we should have an interface that supports that. this might end up being a large refactor, but
+the product is much stronger."
 
 ## Context
 
@@ -78,17 +79,17 @@ address and confirm requests go there.
 3. **Given** the Ollama host is configured to an address other than the default, **When** any
    language-model feature runs, **Then** the request goes to the configured address.
 4. **Given** Ollama is the provider, **When** a learner uses any language-model feature, **Then**
-   it behaves as it did before this feature, including streaming replies word by word and
-   corrective feedback.
+   it behaves as it did before this feature, including how replies are delivered to the chat
+   screen and corrective feedback.
 
 ---
 
 ### User Story 2 - Learner switches the conversation partner to Claude (Priority: P2)
 
 A learner who has Claude Code installed and signed in opens Settings, chooses Claude as the
-language-model provider, picks a Claude model and an effort level, and saves. Their next message, whether a roleplay
-reply, a learning-tool request, a flashcard explanation, or a correction, is answered by Claude on
-their Claude plan. Switching back to Ollama works the same way. No restart is needed in either
+language-model provider, picks a Claude model and an effort level, and saves. Their next message,
+whether a roleplay reply, a learning-tool request, a flashcard explanation, or a correction, is
+answered by Claude on their Claude plan. Switching back to Ollama works the same way. No restart is needed in either
 direction.
 
 **Why this priority**: This is the capability the learner asked for. It depends on Story 1's seam.
@@ -125,8 +126,8 @@ response from Claude. Switch back to Ollama and confirm the next request goes to
 Whatever the learner types, and whatever a roleplay drifts into, Claude answers with text and
 nothing else. It cannot read, create, or change files, run commands, or reach other tools. It does
 not pick up instructions from the learner's own Claude Code setup (personal or project
-instruction files, hooks, plugins, connected tool servers). The app's requests also don't fill the
-learner's Claude Code session history.
+instruction files, hooks, plugins, connected tool servers). The app's requests also never appear
+in the learner's own list of saved Claude Code conversations (the ones `claude --resume` offers).
 
 **Why this priority**: Claude Code is a coding agent with real access to the machine. Without this
 isolation, a conversation-practice message could lead to file or shell actions, and the learner's
@@ -135,8 +136,8 @@ personal coding instructions would bleed into the roleplay. It ships together wi
 **Independent Test**: With Claude selected, send messages that ask Claude to list files, read a
 file, or run a command. It replies in conversation and performs no action. Add a distinctive
 instruction to the learner's personal Claude Code instruction file and confirm replies do not
-follow it. After a session of practice, confirm no new entries appear in the learner's Claude Code
-session history.
+follow it. After a stretch of practice, confirm no new entries appear in the learner's saved
+Claude Code conversations.
 
 **Acceptance Scenarios**:
 
@@ -145,8 +146,8 @@ session history.
 2. **Given** the learner's personal or project Claude Code configuration contains instructions,
    hooks, plugins, or tool servers, **When** the app sends a request, **Then** none of them is
    loaded or triggered.
-3. **Given** Claude is selected, **When** the learner has practised for a session, **Then** the
-   learner's Claude Code session history contains no entries created by the app.
+3. **Given** Claude is selected, **When** the learner has practised for a while, **Then** the
+   learner's saved Claude Code conversations contain no entries created by the app.
 
 ---
 
@@ -175,19 +176,22 @@ a network failure and confirm each produces an actionable message.
    option is disabled and a note says Claude Code must be installed.
 2. **Given** Claude Code is installed but not signed in, **When** the learner opens Settings,
    **Then** the Claude option is disabled and a note says to sign in to Claude Code.
-3. **Given** Claude Code is installed and signed in, **When** the learner selects Claude, **Then**
+3. **Given** Claude Code is signed in with an API key rather than a Claude plan, **When** the
+   learner opens Settings, **Then** the Claude option is disabled and a note says to sign in with
+   their Claude plan, because an API key would bill a separate account.
+4. **Given** Claude Code is installed and signed in, **When** the learner selects Claude, **Then**
    a notice states that conversation text is sent to Anthropic, counts toward their Claude plan's
    usage, and that audio stays local.
-4. **Given** Claude is selected and the plan's usage limit has been reached, **When** any
+5. **Given** Claude is selected and the plan's usage limit has been reached, **When** any
    language-model feature runs, **Then** the learner sees a message saying the Claude usage limit
    was reached and suggesting switching to the local model until it resets.
-5. **Given** Claude is selected and Anthropic is unreachable, **When** any language-model feature
+6. **Given** Claude is selected and Anthropic is unreachable, **When** any language-model feature
    runs, **Then** the learner sees a message saying Claude could not be reached, which suggests
    retrying or switching to the local model.
 
 ---
 
-### User Story 5 - The conversation partner stays warm and in context (Priority: P3)
+### User Story 5 - The conversation partner stays warm and in context (Priority: P2)
 
 A learner practising a roleplay gets quick replies from the second turn onward, whichever provider
 they use. When they return to a conversation, including after pausing for a while, restarting the
@@ -195,10 +199,11 @@ app, or reopening it from History, the partner still knows everything said so fa
 is not held up by the model loading, because the app got it ready while the learner was reading.
 The same holds for the expression helper's side thread.
 
-**Why this priority**: Stories 1–3 make Claude available. This story makes both providers feel like
-a partner who is already in the conversation rather than one starting cold every turn, which is
-what speaking fluidity depends on. It builds on the provider layer, so it comes after it. It is
-independently valuable for Ollama learners alone.
+**Why this priority**: This story makes both providers feel like a partner who is already in the
+conversation rather than one starting cold every turn, which is what speaking fluidity depends on.
+It builds only on Story 1, and it is independently valuable for Ollama learners with no Claude at
+all. The plan builds it before the Claude provider on purpose: the conversation path is restructured
+while there is only one provider, so every existing test guards the refactor.
 
 **Independent Test**: For each provider, hold a ten-turn roleplay and time the replies. Tell the
 partner your name in turn 1 and ask for it in turn 10. Pause for ten minutes and send another turn.
@@ -265,14 +270,16 @@ default. The README explains how to enable Claude.
   the next message onward. Earlier messages are sent to the new provider as context unchanged.
 - **Cached learning-tool and flashcard content.** Explanations generated by one provider stay valid
   and are reused after switching. The cache is not cleared or keyed by provider.
-- **Slower responses.** Every Claude request starts a fresh Claude Code process, which adds startup
-  time on top of the model's own response time. Measured during planning, a complete roleplay reply
-  takes 1.5–2.5 s and a structured correction about 1.7 s, well inside the existing 8 s correction
-  budget. Corrective feedback keeps its existing rule that a slow correction never blocks or fails
-  the reply.
+- **Slower one-shot responses.** One-shot Claude requests (learning tools, flashcards, suggestions,
+  titles, corrections) each start a fresh Claude Code process, which adds start-up time on top of
+  the model's own response time. Measured during planning, a structured correction takes about
+  1.7 s, well inside the existing 8 s correction budget. Corrective feedback keeps its existing rule
+  that a slow correction never blocks or fails the reply. Conversation turns avoid this cost through
+  sessions (Story 5).
 - **Several requests at once.** Opening a conversation can trigger a reply and a title together, and
-  learning tools can be opened while a reply streams. Concurrent Claude requests each run
-  independently. None waits on or corrupts another.
+  learning tools can be opened while a reply is being generated. Requests for different purposes
+  each run independently, and none waits on or corrupts another. Only turns within the same
+  conversation are serialised (see below).
 - **Claude Code updates.** Claude Code updates itself. The provider depends only on documented
   non-interactive behaviour, and if its output changes shape the learner gets a clear "unexpected
   response from Claude" error rather than garbled text.
@@ -332,14 +339,15 @@ default. The README explains how to enable Claude.
   sign-in, so that usage draws on their Claude plan. It MUST NOT use any mode of Claude Code that
   switches authentication to a separately billed API key.
 - **FR-011**: The app MUST NOT read, store, log, or transmit the learner's Claude credentials.
-- **FR-012**: Each Claude request MUST run with no tools available: no file access, no command
-  execution, no web access, no tool servers.
-- **FR-013**: Each Claude request MUST ignore the learner's personal and project Claude Code
+- **FR-012**: Every Claude invocation, one-shot or session, MUST run with no tools available: no file
+  access, no command execution, no web access, no tool servers.
+- **FR-013**: Every Claude invocation MUST ignore the learner's personal and project Claude Code
   customisation (instruction files, hooks, plugins, skills, tool servers). Only the app's own
   instructions shape the reply.
-- **FR-014**: Each Claude request MUST replace Claude Code's default coding-assistant instructions
-  with the app's own instruction text for that request.
-- **FR-015**: Claude requests MUST NOT be saved to the learner's Claude Code session history.
+- **FR-014**: Every Claude invocation MUST replace Claude Code's default coding-assistant
+  instructions with the app's own instruction text.
+- **FR-015**: Claude requests MUST NOT be saved to the learner's list of saved Claude Code
+  conversations. The app's conversation sessions (FR-S01 onward) live only in the running app.
 - **FR-016**: The Claude provider MUST accept the conversation shape the app already produces,
   including instruction (system) messages in the message list and histories that open with an
   assistant turn.
@@ -362,9 +370,10 @@ default. The README explains how to enable Claude.
 - **FR-S02**: Roleplay conversations and the expression helper MUST be served through sessions.
   One-shot features (learning tools, flashcards, suggestions, titles, correction evaluation) MUST
   keep using one-shot requests.
-- **FR-S03**: Saved conversation history MUST remain the single source of truth. Every session
-  reply MUST be produced from a context equivalent to the saved history at that moment. A session
-  that cannot be brought into line with it MUST be rebuilt from storage before replying.
+- **FR-S03**: The app's own record of a conversation MUST remain the single source of truth: the
+  saved messages for a roleplay, or the helper thread's stored turns for the expression helper.
+  Every session reply MUST be produced from a context equivalent to that record at that moment. A
+  session that cannot be brought into line with it MUST be rebuilt from the record before replying.
 - **FR-S04**: A session MUST be rebuilt transparently when it is missing (app restart, idle expiry,
   eviction) or stale (provider, model, effort, scenario, or language changed). The only difference
   the learner may notice is latency.
@@ -401,7 +410,10 @@ default. The README explains how to enable Claude.
 - **FR-024**: Changing the provider on the Settings screen MUST reset the model to that provider's
   default model.
 - **FR-025**: The Settings screen MUST show the Claude option as unavailable when it is, with
-  guidance naming the missing step (install Claude Code, or sign in to it).
+  guidance naming the missing step: install Claude Code, sign in to it, or sign in with a Claude
+  plan instead of an API key.
+- **FR-025a**: The Settings screen MUST show the effort control only while Claude is the selected
+  provider.
 - **FR-026**: When Claude is selected, the Settings screen MUST show a notice stating that
   conversation text is sent to Anthropic, counts toward the learner's Claude plan usage, and that
   audio stays on the learner's machine.
@@ -427,9 +439,10 @@ default. The README explains how to enable Claude.
 ### Key Entities
 
 - **Language-model provider**: The service that turns a conversation into a reply. It has an
-  identifier (Ollama or Claude), a list of models it serves, a default model, and an availability
-  state (Ollama is always selectable; Claude is selectable only when Claude Code is installed and
-  signed in).
+  identifier (Ollama or Claude), a list of models it serves, a default model, the effort levels it
+  offers (Claude only), and an availability state (Ollama is always selectable; Claude is selectable
+  only when Claude Code is installed and signed in with a Claude plan). Every provider can answer
+  one-shot requests and hold conversation sessions.
 - **App settings** (existing, extended): The learner's saved preferences. Gains the selected
   language-model provider and the Claude effort level next to the existing selected model.
 - **Conversation session** (in memory, never persisted): a provider's live, warmed-up hold on one
@@ -437,8 +450,9 @@ default. The README explains how to enable Claude.
   already taken in, the standing instructions and provider selection it was built for, and when it
   was last used. It can always be discarded and rebuilt from saved history.
 - **Provider availability** (read-only view): What the Settings screen needs to render the choice:
-  each provider's identifier, display name, models, default model, whether it is currently
-  available, and, when it is not, the reason. It never includes credentials or account details.
+  each provider's identifier, display name, models, default model, effort levels, whether it is
+  currently available, and, when it is not, the reason. It never includes credentials or account
+  details.
 
 ## Success Criteria *(mandatory)*
 
@@ -465,8 +479,8 @@ default. The README explains how to enable Claude.
 - **SC-005**: Across a scripted set of at least 10 messages that ask Claude to touch files, run
   commands, or follow instructions planted in the learner's Claude Code configuration, 0 result in
   an action or in those instructions being followed.
-- **SC-006**: A practice session of any length with Claude selected adds 0 entries to the learner's
-  Claude Code session history, and no app-initiated request is billed outside the learner's plan.
+- **SC-006**: Practice of any length with Claude selected adds 0 entries to the learner's saved
+  Claude Code conversations, and no app-initiated request is billed outside the learner's plan.
 - **SC-007**: Each of the six Claude failure types (not installed, not signed in, usage limit,
   model not available, unreachable or timed out, unexpected response) shows the learner a message
   naming a next step, with no crash or stuck loading indicator.
@@ -479,8 +493,8 @@ default. The README explains how to enable Claude.
 
 - **Integration route**: "Claude SDK" here means the learner's installed Claude Code in its
   non-interactive (`claude -p`) mode, signed in to a Claude subscription. It does not mean the
-  Anthropic API with an API key. Planning decides whether the app drives Claude Code directly or
-  through Anthropic's Agent SDK, which wraps the same installation.
+  Anthropic API with an API key. Planning chose to drive Claude Code directly rather than through
+  Anthropic's Agent SDK, which wraps the same installation (research R-1).
 - **Personal use**: The Claude provider draws on the learner's own subscription on their own
   machine. Anyone else running the app needs their own Claude Code installation and sign-in. The
   app neither bundles nor shares credentials.
