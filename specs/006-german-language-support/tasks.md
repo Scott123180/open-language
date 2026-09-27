@@ -640,17 +640,17 @@ selected, and the chosen voice is used for the next partner reply (spec US4).
 
 ### Tests for User Story 4 (write first, see them fail)
 
-- [ ] T095 [P] [US4] Extend `backend/tests/integration/routers/test_audio_tts.py`: after `PUT {"target_language": "de", "tts_voice": "de_DE-kerstin-low"}`, the next German message is synthesised with `de_DE-kerstin-low`, and a German flashcard word (`GET /flashcards/tts/{id}`) uses it too (US4-2).
-- [ ] T096 [P] [US4] Extend `frontend/src/components/settings/TtsVoiceField.test.tsx`: when the selected voice has `is_installed: false`, the hint "Not installed. Run ./run.sh --setup to download it." renders with `role="status"`, and it is linked from the `<select>` via `aria-describedby`. Installed voices show no hint.
-- [ ] T097 [P] [US4] Extend `frontend/e2e/practice-language.spec.ts`:
+- [X] T095 [P] [US4] Extend `backend/tests/integration/routers/test_audio_tts.py`: after `PUT {"target_language": "de", "tts_voice": "de_DE-kerstin-low"}`, the next German message is synthesised with `de_DE-kerstin-low`, and a German flashcard word (`GET /flashcards/tts/{id}`) uses it too (US4-2).
+- [X] T096 [P] [US4] Extend `frontend/src/components/settings/TtsVoiceField.test.tsx`: when the selected voice has `is_installed: false`, the hint "Not installed. Run ./run.sh --setup to download it." renders with `role="status"`, and it is linked from the `<select>` via `aria-describedby`. Installed voices show no hint.
+- [X] T097 [P] [US4] Extend `frontend/e2e/practice-language.spec.ts`:
   - with German selected, choose "Kerstin (Germany)", Save, and the PUT body carries `"tts_voice": "de_DE-kerstin-low"`;
   - reloading Settings shows Kerstin selected (the mocked `selected_voice`);
   - with `mockVoices` marking Kerstin `is_installed: false`, the not-installed hint shows.
 
 ### Implementation for User Story 4
 
-- [ ] T098 [US4] Add the not-installed hint to `frontend/src/components/settings/TtsVoiceField.tsx` (passes T096). `VoiceDetails` gains the hint row, wired with `aria-describedby` on the select, with every function ≤ 20 lines.
-- [ ] T099 [US4] Run the suites. T095–T097 must pass. Confirm manually (quickstart §4 step 1) that the next German reply is spoken by the chosen voice.
+- [X] T098 [US4] Add the not-installed hint to `frontend/src/components/settings/TtsVoiceField.tsx` (passes T096). `VoiceDetails` gains the hint row, wired with `aria-describedby` on the select, with every function ≤ 20 lines.
+- [X] T099 [US4] Run the suites. T095–T097 must pass. Confirm manually (quickstart §4 step 1) that the next German reply is spoken by the chosen voice.
 
 **Checkpoint**: All four stories work independently.
 

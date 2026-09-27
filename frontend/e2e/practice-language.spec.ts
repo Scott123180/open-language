@@ -194,3 +194,42 @@ test.describe('Practice language — switching back and forth (US2)', () => {
     await expect.poll(() => languages).toEqual(['es'])
   })
 })
+
+test.describe('Practice language — choosing a German voice (US4)', () => {
+  test('choosing Kerstin saves her for German', async ({ page }) => {
+    const state = await openSettings(page)
+    await page.getByRole('radio', { name: 'German' }).check()
+
+    await page.getByLabel('Voice').selectOption('de_DE-kerstin-low')
+    await page.getByRole('button', { name: /save/i }).click()
+
+    await expect.poll(() => state.puts.length).toBe(1)
+    expect(state.puts[0]).toMatchObject({ target_language: 'de', tts_voice: 'de_DE-kerstin-low' })
+  })
+
+  test('on reload, the remembered German voice is selected', async ({ page }) => {
+    const [spanish, german] = mockPracticeLanguages
+    const languages = [spanish, { ...german, selected_voice: 'de_DE-kerstin-low' }]
+    await openSettings(
+      page,
+      { ...mockSettings, target_language: 'de', tts_voice: 'de_DE-kerstin-low' },
+      languages,
+    )
+
+    await expect(page.getByLabel('Voice')).toHaveValue('de_DE-kerstin-low')
+  })
+
+  test('a voice that is not installed says how to get it', async ({ page }) => {
+    const voices = mockVoices.map((v) =>
+      v.key === 'de_DE-kerstin-low' ? { ...v, is_installed: false } : v,
+    )
+    await openSettings(page, { ...mockSettings, target_language: 'de', tts_voice: 'de_DE-kerstin-low' })
+    // Registered after openSettings, so it answers the reload in place of the default list.
+    await page.route('/api/settings/voices', (route) => route.fulfill({ json: voices }))
+    await page.reload()
+
+    await expect(page.getByRole('status').filter({ hasText: 'Not installed' })).toHaveText(
+      'Not installed. Run ./run.sh --setup to download it.',
+    )
+  })
+})

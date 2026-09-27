@@ -206,3 +206,34 @@ def test_a_cached_wav_is_served_without_a_voice_check(speech_setup, tmp_path: Pa
 
     assert response.status_code == 200
     assert builder.synthesized == []
+
+
+# --- 006 US4: the chosen German voice is the one that speaks (T095) ---------------------
+
+
+@pytest.fixture
+def stored_settings_client(tmp_path: Path):
+    """Settings read from storage, as in production, so a PUT reaches the next request."""
+    from app.database import get_db
+
+    session, _engine = make_test_session(str(tmp_path / "voices.db"))
+    app.dependency_overrides[get_db] = lambda: session
+    builder = override_speech(app)
+    with TestClient(app) as client:
+        yield client, SQLiteStorageProvider(session), builder
+    app.dependency_overrides.clear()
+    session.close()
+
+
+def test_the_chosen_german_voice_speaks_the_next_message_and_words(stored_settings_client):
+    client, storage, builder = stored_settings_client
+    saved = client.put(
+        "/api/settings", json={"target_language": "de", "tts_voice": "de_DE-kerstin-low"}
+    )
+    message_id = _message_in(storage, "de", "Guten Tag")
+    word_id = storage.save_vocabulary_item("Haus", "house", "de", "en").id
+
+    assert saved.status_code == 200
+    assert client.get(f"/api/audio/tts/{message_id}").status_code == 200
+    assert client.get(f"/api/flashcards/tts/{word_id}").status_code == 200
+    assert builder.voice_keys == ["de_DE-kerstin-low", "de_DE-kerstin-low"]

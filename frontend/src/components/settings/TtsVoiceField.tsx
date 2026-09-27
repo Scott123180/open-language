@@ -14,6 +14,8 @@ const QUALITY_LABELS: Record<string, string> = {
   low: 'Low quality',
   x_low: 'Low quality (fast)',
 }
+const NOT_INSTALLED_HINT_ID = 'tts-voice-not-installed'
+const NOT_INSTALLED_HINT = 'Not installed. Run ./run.sh --setup to download it.'
 const PACE_DESCRIPTIONS: Record<string, { label: string; description: string }> = {
   slow: { label: 'Slow', description: 'Deliberate pace — ideal for beginners' },
   natural: { label: 'Natural', description: 'Conversational native speed' },
@@ -29,6 +31,7 @@ export default function TtsVoiceField({ value, voices, onChange }: TtsVoiceField
       value={value}
       options={voices.map((voice) => ({ value: voice.key, label: voice.display_name }))}
       onChange={onChange}
+      describedBy={selected && !selected.is_installed ? NOT_INSTALLED_HINT_ID : undefined}
     >
       {selected && <VoiceDetails voice={selected} />}
     </SelectField>
@@ -40,6 +43,11 @@ function VoiceDetails({ voice }: { voice: VoiceOption }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
       <p style={hintStyle}>{describeVoice(voice)}</p>
+      {!voice.is_installed && (
+        <p id={NOT_INSTALLED_HINT_ID} role="status" style={hintStyle}>
+          {NOT_INSTALLED_HINT}
+        </p>
+      )}
       {pace && (
         <p style={hintStyle}>
           Pace: <strong style={{ color: 'var(--color-text)' }}>{pace.label}</strong> —{' '}

@@ -107,3 +107,11 @@ Audio source: each dictation sentence synthesised by Piper, resampled to 16 kHz 
 `pytest -m claude_live tests/live -k german` (Claude Code 2.1.283, Sonnet, low effort): **passed**.
 The reply to "Guten Abend, einen Tisch für zwei Personen, bitte." was non-empty and had no flagged
 English or Spanish word.
+
+## US4: the chosen German voice speaks the next reply (T099)
+
+Real backend on an isolated database, real Ollama and Piper. After
+`PUT /api/settings {"target_language": "de", "tts_voice": "de_DE-kerstin-low"}`, a new
+Order-at-a-Restaurant conversation opened in German ("Willkommen im Restaurant! …"), and
+`GET /api/audio/tts/1` returned a 5.5 s WAV at **16,000 Hz**, which is Kerstin (Thorsten is
+22,050 Hz). Listening by ear was not possible in this session.

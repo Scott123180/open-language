@@ -57,3 +57,30 @@ describe('TtsVoiceField', () => {
     expect(screen.queryByText(/quality/i)).not.toBeInTheDocument()
   })
 })
+
+describe('TtsVoiceField — a voice that is not installed (006 US4)', () => {
+  const missing: VoiceOption[] = [
+    { ...voices[0], is_installed: true },
+    { ...voices[1], is_installed: false },
+  ]
+
+  it('shows how to install the selected voice, as a status', () => {
+    render(<TtsVoiceField value="es_MX-claude-high" voices={missing} onChange={vi.fn()} />)
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Not installed. Run ./run.sh --setup to download it.',
+    )
+  })
+
+  it('links the hint to the select', () => {
+    render(<TtsVoiceField value="es_MX-claude-high" voices={missing} onChange={vi.fn()} />)
+
+    expect(screen.getByLabelText('Voice')).toHaveAccessibleDescription(/not installed/i)
+  })
+
+  it('shows no hint for an installed voice', () => {
+    render(<TtsVoiceField value="es_ES-mls-medium" voices={missing} onChange={vi.fn()} />)
+
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+})

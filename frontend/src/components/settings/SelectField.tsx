@@ -12,6 +12,8 @@ interface SelectFieldProps {
   value: string
   options: SelectOption[]
   onChange: (value: string) => void
+  // The id of a hint that describes the current value, announced with the select.
+  describedBy?: string
   // Hint text or details shown under the select.
   children?: ReactNode
 }
@@ -27,6 +29,7 @@ export default function SelectField(props: SelectFieldProps) {
         id={props.id}
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
+        aria-describedby={props.describedBy}
         style={controlStyle}
       >
         {props.options.map(selectOption)}
