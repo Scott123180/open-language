@@ -548,7 +548,7 @@ decks and statistics (spec US3).
 
 ### Tests for User Story 3 (write first, see them fail)
 
-- [ ] T077 [P] [US3] Extend `backend/tests/unit/test_database.py` (data-model §7):
+- [X] T077 [P] [US3] Extend `backend/tests/unit/test_database.py` (data-model §7):
   - `_ADDITIVE_COLUMNS` ends with `("decks", "target_language VARCHAR(20) NOT NULL DEFAULT 'es'")` then `("practice_sessions", "target_language VARCHAR(20) NOT NULL DEFAULT 'es'")`;
   - migrating a database that has a deck and a session without the column leaves both reading `'es'` (FR-021).
 
@@ -556,16 +556,16 @@ decks and statistics (spec US3).
   - those rows are unchanged in their pre-006 columns;
   - both new columns read `es`;
   - `GET /api/flashcards/decks?language=es` lists both decks.
-- [ ] T078 [P] [US3] Extend `backend/tests/contract/service_interfaces/test_flashcard_storage_provider.py`:
+- [X] T078 [P] [US3] Extend `backend/tests/contract/service_interfaces/test_flashcard_storage_provider.py`:
   - `list_words`, `list_decks`, `create_deck`, `get_sessions_since`, `get_card_results_since`, `get_classification_counts` and `get_classification_snapshots_since` each require the keyword-only `language` parameter (calling without it raises `TypeError`);
   - `DeckRecord` and `SessionRecord` have `target_language`.
-- [ ] T079 [P] [US3] Extend `backend/tests/unit/flashcards/test_word_library.py` and `backend/tests/unit/flashcards/test_analytics_service.py` against a fake or SQLite storage seeded with es and de words, decks, sessions, results and snapshots:
+- [X] T079 [P] [US3] Extend `backend/tests/unit/flashcards/test_word_library.py` and `backend/tests/unit/flashcards/test_analytics_service.py` against a fake or SQLite storage seeded with es and de words, decks, sessions, results and snapshots:
   - each storage method returns only its language's rows;
   - `create_session` copies the deck's language;
   - deleting the deck leaves the session's `target_language` intact;
   - `AnalyticsService(storage, "de").build_summary("all")` counts only German figures, including `current_streak` (a day with only Spanish practice does not count) and `sessions_this_week`.
-- [ ] T080 [P] [US3] Extend `backend/tests/unit/flashcards/test_llm_cache.py`: the fill-blank and word-info prompts for a `de` word contain "German" and "English" and no bare codes. The cache slot is still keyed by the code (`language="de"`).
-- [ ] T081 [P] [US3] Write `backend/tests/integration/practice_languages/test_flashcards_by_language.py` (contracts §8, SC-006) with mixed es/de fixtures:
+- [X] T080 [P] [US3] Extend `backend/tests/unit/flashcards/test_llm_cache.py`: the fill-blank and word-info prompts for a `de` word contain "German" and "English" and no bare codes. The cache slot is still keyed by the code (`language="de"`).
+- [X] T081 [P] [US3] Write `backend/tests/integration/practice_languages/test_flashcards_by_language.py` (contracts §8, SC-006) with mixed es/de fixtures:
   - `GET /api/flashcards/words?language=de`, `/decks?language=de` and `/analytics?language=de&range=all` contain no `es` word, deck, session, result or snapshot count, and vice versa;
   - each of those GETs without `language`, or with `language=fr` → 422;
   - `POST /decks` with `language=de`: the `all` and `filtered` sources draw only German words; `selected_word_ids` including an `es` word → 422 "Some selected words are in another language. Reload the word list."; the response has `target_language: "de"`;
@@ -574,7 +574,7 @@ decks and statistics (spec US3).
   - the same spelling in both languages has separate classifications and LLM-cache rows (FR-023).
 
   Update the existing `backend/tests/integration/flashcards/test_*_endpoints.py` calls to pass `language=es`.
-- [ ] T082 [P] [US3] Write the frontend flashcards tests:
+- [X] T082 [P] [US3] Write the frontend flashcards tests:
   - `frontend/src/hooks/flashcards/useWordLibrary.test.ts`, `useDecks.test.ts` and `useFlashcardAnalytics.test.ts`: each passes `usePracticeLanguages().current.language_id` to the API call, includes it in the query key, and does not fetch until the language is known.
   - Extend `frontend/src/services/flashcardsApi.test.ts`:
     - `fetchWords(language, filters)`, `listDecks(language)` and `fetchAnalytics(language, range)` send `language=` as a query parameter;
@@ -582,7 +582,7 @@ decks and statistics (spec US3).
     - `describeAudioFailure(url)` returns the JSON `detail` of a 503, and a generic "Audio is unavailable for this word." otherwise.
   - Write `frontend/src/components/flashcards/useWordAudio.test.ts`: `play(rate)` plays; on an audio error it sets `failureMessage` from `describeAudioFailure`.
   - Extend `AudioControls.test.tsx`: the failure message renders with `role="status"`.
-- [ ] T083 [P] [US3] Extend `frontend/e2e/flashcards.spec.ts`, `flashcard-practice.spec.ts` and `flashcard-analytics.spec.ts`, with a new fixture helper `mockPracticeLanguageSetting(page, 'es' | 'de')` in `frontend/e2e/fixtures.ts`.
+- [X] T083 [P] [US3] Extend `frontend/e2e/flashcards.spec.ts`, `flashcard-practice.spec.ts` and `flashcard-analytics.spec.ts`, with a new fixture helper `mockPracticeLanguageSetting(page, 'es' | 'de')` in `frontend/e2e/fixtures.ts`.
   - Change the `target_language: 'fr'` word fixtures to `'es'`, and add German word fixtures.
   - Every `/api/flashcards/words`, `/decks` and `/analytics` request carries `language=<setting>`. Assert it in the route handler.
   - Change the exact-match route `'/api/flashcards/decks'` (flashcards.spec.ts:251) to a predicate matching the path with any query string, so that it does not also match `/decks/{id}`.
@@ -591,20 +591,20 @@ decks and statistics (spec US3).
 
 ### Implementation for User Story 3
 
-- [ ] T084 [US3] Add `target_language: Mapped[str] = mapped_column(String(20), nullable=False)`, with **no** Python default, to `Deck` and `PracticeSession` in `backend/app/flashcards/models.py`. Append the two entries to `_ADDITIVE_COLUMNS` in `backend/app/database.py`, exactly `"target_language VARCHAR(20) NOT NULL DEFAULT 'es'"`, with the default built from `DEFAULT_PRACTICE_LANGUAGE` (passes T077).
-- [ ] T085 [US3] Update the flashcard storage in `backend/app/flashcards/services/storage.py` and `sqlite_storage.py` (passes T078 and the storage parts of T079):
+- [X] T084 [US3] Add `target_language: Mapped[str] = mapped_column(String(20), nullable=False)`, with **no** Python default, to `Deck` and `PracticeSession` in `backend/app/flashcards/models.py`. Append the two entries to `_ADDITIVE_COLUMNS` in `backend/app/database.py`, exactly `"target_language VARCHAR(20) NOT NULL DEFAULT 'es'"`, with the default built from `DEFAULT_PRACTICE_LANGUAGE` (passes T077).
+- [X] T085 [US3] Update the flashcard storage in `backend/app/flashcards/services/storage.py` and `sqlite_storage.py` (passes T078 and the storage parts of T079):
   - add `target_language: str` to `DeckRecord` and `SessionRecord`, and copy it in `_deck_to_record` and `_session_to_record`;
   - add the required keyword-only `language: str` to the seven methods in data-model §8, in both the ABC and SQLite;
   - `create_session` reads the deck's language via `_deck_language(deck_id)`;
   - `get_card_results_since` and `get_classification_snapshots_since` join `PracticeSession` on `session_id` and filter `PracticeSession.target_language == language`;
   - bring `create_deck` (33 lines) under 20 with `_insert_cards(deck_id, cards)`, and `list_words` with `_filtered_word_query(...)`.
-- [ ] T086 [US3] Update the flashcard services (passes the service parts of T079):
+- [X] T086 [US3] Update the flashcard services (passes the service parts of T079):
   - `AnalyticsService.__init__(self, storage, language: str)` passes `language=self._language` to every storage call, in `backend/app/flashcards/services/analytics.py`;
   - bring `hardest_words` (29 lines) under 20 with `_tally_by_word(results)` and `_hardest_candidate(vocab_id, counts)`;
   - in `backend/app/flashcards/services/session.py`, `SessionService._snapshot_classifications` and `_calculate_streak` use the session's `target_language` (load the session once, then pass the language down).
-- [ ] T087 [US3] Use language names in `LlmCacheService._generate_sentence` and `_generate_content` in `backend/app/flashcards/services/llm_cache.py`: `language_name(language)` and `language_name(native_language)` in the prompt text, while the `_CacheSlot` keeps the code (passes T080). Import from `app.practice_languages` only.
-- [ ] T088 [US3] Update `backend/app/flashcards/schemas.py`: `language: str = Field(..., pattern=PRACTICE_LANGUAGE_PATTERN)` on `DeckConfigRequest`, and `target_language: str` on `DeckDetail` and `DeckSummary`. Build the pattern from `PRACTICE_LANGUAGES` in the flashcards module; do not import it from `routers/settings.py`.
-- [ ] T089 [US3] Update `backend/app/flashcards/router.py` (passes T081), bringing every function listed for this file in plan.md § "Function-length plan" under 20 lines as it is touched:
+- [X] T087 [US3] Use language names in `LlmCacheService._generate_sentence` and `_generate_content` in `backend/app/flashcards/services/llm_cache.py`: `language_name(language)` and `language_name(native_language)` in the prompt text, while the `_CacheSlot` keeps the code (passes T080). Import from `app.practice_languages` only.
+- [X] T088 [US3] Update `backend/app/flashcards/schemas.py`: `language: str = Field(..., pattern=PRACTICE_LANGUAGE_PATTERN)` on `DeckConfigRequest`, and `target_language: str` on `DeckDetail` and `DeckSummary`. Build the pattern from `PRACTICE_LANGUAGES` in the flashcards module; do not import it from `routers/settings.py`.
+- [X] T089 [US3] Update `backend/app/flashcards/router.py` (passes T081), bringing every function listed for this file in plan.md § "Function-length plan" under 20 lines as it is touched:
   - `get_words`, `list_decks` and `get_analytics` take `language: str = Query(..., pattern=…)`;
   - `create_deck` passes `body.language` to the pool and to `storage.create_deck`, with `_require_same_language(words, language)` raising the 422;
   - `refresh_deck` passes `deck.target_language`;
@@ -612,18 +612,18 @@ decks and statistics (spec US3).
   - `get_analytics` constructs `AnalyticsService(storage, language)`;
   - `_build_deck_detail` and `_deck_summary` set `target_language`.
   - Extractions: `_word_list_item`, `_deck_word_pool`, `_require_same_language`, `_deck_name`, `_deck_summary`, `_learned_card_ids`, `_refresh_candidates`, `_missed_word_ids` and `_missed_deck_cards`.
-- [ ] T090 [US3] Delete `get_tts` from `backend/app/services/factory.py`, and its test cases from `backend/tests/unit/services/test_factory.py`. Its three callers were moved in T056, T057 and T058. `grep -rn "get_tts\b" backend/app backend/tests` must return nothing, and the full backend suite must pass.
-- [ ] T091 [US3] Update the frontend flashcards API and hooks (passes T082's API and hook tests):
+- [X] T090 [US3] Delete `get_tts` from `backend/app/services/factory.py`, and its test cases from `backend/tests/unit/services/test_factory.py`. Its three callers were moved in T056, T057 and T058. `grep -rn "get_tts\b" backend/app backend/tests` must return nothing, and the full backend suite must pass.
+- [X] T091 [US3] Update the frontend flashcards API and hooks (passes T082's API and hook tests):
   - in `frontend/src/services/flashcardsApi.ts`: `fetchWords(language, filters)`, `listDecks(language)`, `fetchAnalytics(language, range)`, `language` in `DeckConfigPayload`, `target_language` on `DeckSummary`/`DeckDetail`, and `describeAudioFailure(url)`;
   - implement `frontend/src/hooks/flashcards/useWordLibrary.ts`, `useDecks.ts` and `useFlashcardAnalytics.ts`, each with the query keys `['flashcard-words', language, filters]`, `['flashcard-decks', language]` and `['analytics', language, range]` and `enabled: !!language`.
-- [ ] T092 [US3] Replace the inline `useQuery` calls with the hooks, keeping existing `invalidateQueries` calls working with the prefix keys:
+- [X] T092 [US3] Replace the inline `useQuery` calls with the hooks, keeping existing `invalidateQueries` calls working with the prefix keys:
   - `frontend/src/pages/Flashcards.tsx` uses `useWordLibrary(filters)`;
   - `frontend/src/pages/FlashcardDecks.tsx` uses `useDecks()`;
   - `frontend/src/pages/FlashcardAnalytics.tsx` uses `useFlashcardAnalytics(range)`.
 
   In `frontend/src/components/flashcards/DeckConfigPanel.tsx`, add `language: current.language_id` from `usePracticeLanguages()` to the `createDeck` payload. Each page change is the one hook swap recorded in plan.md Complexity Tracking.
-- [ ] T093 [US3] Split `frontend/src/components/flashcards/AudioControls.tsx` (52 lines) into a `useWordAudio(ttsUrl)` hook (in `components/flashcards/useWordAudio.ts`) and an `AudioFailureMessage` component (`role="status"`, muted token text). Every function must be ≤ 20 lines, and the two buttons are unchanged (passes T082's audio tests).
-- [ ] T094 [US3] Run the full backend and frontend suites. T077–T083 must pass, along with every pre-existing flashcards test and E2E spec.
+- [X] T093 [US3] Split `frontend/src/components/flashcards/AudioControls.tsx` (52 lines) into a `useWordAudio(ttsUrl)` hook (in `components/flashcards/useWordAudio.ts`) and an `AudioFailureMessage` component (`role="status"`, muted token text). Every function must be ≤ 20 lines, and the two buttons are unchanged (passes T082's audio tests).
+- [X] T094 [US3] Run the full backend and frontend suites. T077–T083 must pass, along with every pre-existing flashcards test and E2E spec.
 
 **Checkpoint**: Flashcards are fully per-language. Existing decks and history sit under Spanish, and
 a session in progress finishes in its own language.

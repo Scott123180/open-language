@@ -20,8 +20,11 @@ from app.flashcards.services.storage import FlashcardStorageProvider
 
 
 class AnalyticsService:
-    def __init__(self, storage: FlashcardStorageProvider) -> None:
+    """Every figure is for one practice language (FR-020)."""
+
+    def __init__(self, storage: FlashcardStorageProvider, language: str) -> None:
         self._storage = storage
+        self._language = language
 
     def build_summary(self, range_param: str) -> AnalyticsSummary:
         cutoff = self._cutoff_for_range(range_param)
@@ -37,7 +40,7 @@ class AnalyticsService:
         )
 
     def accuracy_trend(self, cutoff: datetime | None) -> list[AccuracyPoint]:
-        sessions = self._storage.get_sessions_since(cutoff)
+        sessions = self._storage.get_sessions_since(cutoff, language=self._language)
         points = []
         for s in sessions:
             if s.cards_reviewed == 0:
@@ -54,7 +57,7 @@ class AnalyticsService:
         return points
 
     def daily_activity(self, cutoff: datetime | None) -> list[DailyActivityPoint]:
-        sessions = self._storage.get_sessions_since(cutoff)
+        sessions = self._storage.get_sessions_since(cutoff, language=self._language)
         by_date: dict[str, int] = defaultdict(int)
         for s in sessions:
             date_str = s.started_at.date().isoformat()
@@ -67,7 +70,9 @@ class AnalyticsService:
     def classification_over_time(
         self, cutoff: datetime | None
     ) -> list[ClassificationOverTimePoint]:
-        snapshots = self._storage.get_classification_snapshots_since(cutoff)
+        snapshots = self._storage.get_classification_snapshots_since(
+            cutoff, language=self._language
+        )
         return [
             ClassificationOverTimePoint(
                 date=snap.snapshotted_at.date().isoformat(),
@@ -80,7 +85,7 @@ class AnalyticsService:
         ]
 
     def classification_now(self) -> ClassificationNow:
-        counts = self._storage.get_classification_counts()
+        counts = self._storage.get_classification_counts(language=self._language)
         return ClassificationNow(
             not_practiced=counts.get("not_practiced", 0),
             difficult=counts.get("difficult", 0),
@@ -89,37 +94,31 @@ class AnalyticsService:
         )
 
     def hardest_words(self, limit: int, cutoff: datetime | None) -> list[HardestWord]:
-        results = self._storage.get_card_results_since(cutoff)
-        by_word: dict[int, dict[str, int]] = defaultdict(lambda: {"total": 0, "didnt_know": 0})
-        for r in results:
-            if r.vocabulary_item_id is None:
-                continue
-            by_word[r.vocabulary_item_id]["total"] += 1
-            if r.rating == "didnt_know":
-                by_word[r.vocabulary_item_id]["didnt_know"] += 1
-
-        candidates = []
-        for vocab_id, counts in by_word.items():
-            if counts["didnt_know"] == 0:
-                continue
-            word = self._storage.get_word(vocab_id)
-            if word is None:
-                continue
-            success_rate = (counts["total"] - counts["didnt_know"]) / counts["total"]
-            candidates.append(
-                HardestWord(
-                    id=word.id,
-                    word=word.word,
-                    encounters=counts["total"],
-                    success_rate=round(success_rate, 4),
-                )
-            )
-
+        results = self._storage.get_card_results_since(cutoff, language=self._language)
+        candidates = [
+            candidate
+            for vocab_id, counts in _tally_by_word(results).items()
+            if (candidate := self._hardest_candidate(vocab_id, counts)) is not None
+        ]
         candidates.sort(key=lambda hw: hw.success_rate)
         return candidates[:limit]
 
+    def _hardest_candidate(self, vocab_id: int, counts: dict[str, int]) -> HardestWord | None:
+        if counts["didnt_know"] == 0:
+            return None
+        word = self._storage.get_word(vocab_id)
+        if word is None:
+            return None
+        success_rate = (counts["total"] - counts["didnt_know"]) / counts["total"]
+        return HardestWord(
+            id=word.id,
+            word=word.word,
+            encounters=counts["total"],
+            success_rate=round(success_rate, 4),
+        )
+
     def mode_performance(self, cutoff: datetime | None) -> list[ModePerformanceItem]:
-        sessions = self._storage.get_sessions_since(cutoff)
+        sessions = self._storage.get_sessions_since(cutoff, language=self._language)
         by_mode: dict[str, dict[str, int]] = defaultdict(lambda: {"knew_it": 0, "total": 0})
         for s in sessions:
             if s.cards_reviewed == 0:
@@ -136,7 +135,7 @@ class AnalyticsService:
         return items
 
     def streak(self) -> int:
-        sessions = self._storage.get_sessions_since(cutoff=None)
+        sessions = self._storage.get_sessions_since(None, language=self._language)
         if not sessions:
             return 0
         completed_dates = {s.started_at.date() for s in sessions if s.started_at}
@@ -149,7 +148,7 @@ class AnalyticsService:
         return count
 
     def _build_at_a_glance(self) -> AtAGlanceStats:
-        counts = self._storage.get_classification_counts()
+        counts = self._storage.get_classification_counts(language=self._language)
         return AtAGlanceStats(
             total_words=sum(counts.values()),
             words_learned=counts.get("learned", 0),
@@ -159,10 +158,10 @@ class AnalyticsService:
 
     def _count_sessions_this_week(self) -> int:
         cutoff = datetime.now(UTC) - timedelta(days=7)
-        return len(self._storage.get_sessions_since(cutoff))
+        return len(self._storage.get_sessions_since(cutoff, language=self._language))
 
     def _recently_learned(self) -> list[RecentlyLearnedWord]:
-        words = self._storage.list_words(classifications=["learned"])
+        words = self._storage.list_words(classifications=["learned"], language=self._language)
         result = []
         for w in words:
             schedule = self._storage.get_srs_schedule(w.id)
@@ -184,3 +183,15 @@ class AnalyticsService:
         if range_param == "30d":
             return now - timedelta(days=30)
         return None
+
+
+def _tally_by_word(results) -> dict[int, dict[str, int]]:
+    """Encounters and "didn't know" ratings per word."""
+    by_word: dict[int, dict[str, int]] = defaultdict(lambda: {"total": 0, "didnt_know": 0})
+    for r in results:
+        if r.vocabulary_item_id is None:
+            continue
+        by_word[r.vocabulary_item_id]["total"] += 1
+        if r.rating == "didnt_know":
+            by_word[r.vocabulary_item_id]["didnt_know"] += 1
+    return by_word

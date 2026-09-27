@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { mockPracticeLanguageSetting, requestedLanguage } from './fixtures'
 
 const mockAnalytics = {
   at_a_glance: {
@@ -37,7 +38,9 @@ const mockAnalytics = {
 }
 
 async function mockAnalyticsApi(page: import('@playwright/test').Page, data = mockAnalytics) {
+  await mockPracticeLanguageSetting(page, 'es')
   await page.route('/api/flashcards/analytics**', (route) => {
+    if (requestedLanguage(route) !== 'es') return
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) })
   })
 }

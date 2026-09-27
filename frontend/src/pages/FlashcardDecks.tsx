@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useDecks } from '../hooks/flashcards/useDecks'
 import * as api from '../services/flashcardsApi'
 import type { PracticeMode, GenerationAlgorithm } from '../services/flashcardsApi'
 import ErrorBanner from '../components/shared/ErrorBanner'
@@ -73,10 +74,7 @@ export default function FlashcardDecks() {
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [showCreate])
 
-  const { data: decks = [], isLoading } = useQuery({
-    queryKey: ['flashcard-decks'],
-    queryFn: api.listDecks,
-  })
+  const { data: decks = [], isLoading } = useDecks()
 
   const deleteMutation = useMutation({
     mutationFn: api.deleteDeck,

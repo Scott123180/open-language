@@ -6,6 +6,16 @@ import Flashcards from './Flashcards'
 import * as api from '../services/flashcardsApi'
 
 vi.mock('../services/flashcardsApi')
+// The Flashcards screens show the practice language's data; Spanish here.
+vi.mock('../hooks/usePracticeLanguages', () => ({
+  usePracticeLanguages: () => ({
+    current: { language_id: 'es', display_name: 'Spanish' },
+    languages: [],
+    nameOf: (id: string) => id,
+    isLoading: false,
+    error: null,
+  }),
+}))
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => ({
@@ -173,6 +183,7 @@ describe('Flashcards — filtering', () => {
 
     await waitFor(() =>
       expect(api.fetchWords).toHaveBeenCalledWith(
+        'es',
         expect.objectContaining({ classification: ['difficult'] })
       )
     )
@@ -185,7 +196,7 @@ describe('Flashcards — filtering', () => {
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'merci' } })
 
     await waitFor(() =>
-      expect(api.fetchWords).toHaveBeenCalledWith(expect.objectContaining({ search: 'merci' }))
+      expect(api.fetchWords).toHaveBeenCalledWith('es', expect.objectContaining({ search: 'merci' }))
     )
   })
 })

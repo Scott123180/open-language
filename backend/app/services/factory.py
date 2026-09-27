@@ -109,13 +109,6 @@ def get_availability_checkers() -> Mapping[str, ProviderAvailabilityChecker]:
     return build_availability_checkers(get_settings())
 
 
-def get_tts(app_settings: AppSettingsRecord = Depends(get_app_settings)) -> TTSProvider:
-    from app.services.tts.piper import PiperTTSProvider
-
-    voice = voice_for(app_settings.target_language, app_settings.voice_choices)
-    return PiperTTSProvider(voice_name=voice, voice_dir=get_settings().voice_dir)
-
-
 def get_voice_installation() -> VoiceInstallation:
     from app.services.tts.piper import PiperVoiceInstallation
 

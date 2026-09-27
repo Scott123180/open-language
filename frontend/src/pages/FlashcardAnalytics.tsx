@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import * as api from '../services/flashcardsApi'
+import { useFlashcardAnalytics } from '../hooks/flashcards/useFlashcardAnalytics'
 import type { AnalyticsRange } from '../services/flashcardsApi'
 import {
   AccuracyTrendChart,
@@ -62,10 +61,7 @@ export default function FlashcardAnalytics() {
   const [range, setRange] = useState<AnalyticsRange>('7d')
   const navigate = useNavigate()
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['analytics', range],
-    queryFn: () => api.fetchAnalytics(range),
-  })
+  const { data, isLoading, error } = useFlashcardAnalytics(range)
 
   if (isLoading) {
     return (

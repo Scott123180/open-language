@@ -5,6 +5,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from app.practice_languages import PRACTICE_LANGUAGES
+
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
@@ -89,7 +91,12 @@ class DeckCardItem(BaseModel):
     fill_blank_sentence: str | None = None
 
 
+PRACTICE_LANGUAGE_PATTERN = f"^({'|'.join(PRACTICE_LANGUAGES)})$"
+
+
 class DeckConfigRequest(BaseModel):
+    # Required: a deck is built from one language's words (FR-020).
+    language: str = Field(..., pattern=PRACTICE_LANGUAGE_PATTERN)
     name: str | None = None
     size: int = Field(default=20, ge=1, le=500)
     word_source: str = "all"  # "all" | "filtered" | "selected"
@@ -112,6 +119,7 @@ class DeckDetail(BaseModel):
     actual_size: int
     size_adjusted: bool
     created_at: datetime
+    target_language: str
     cards: list[DeckCardItem]
 
 
@@ -122,6 +130,7 @@ class DeckSummary(BaseModel):
     algorithm: GenerationAlgorithmEnum
     card_count: int
     created_at: datetime
+    target_language: str
     last_practiced_at: datetime | None = None
     session_count: int = 0
     last_accuracy: float | None = None

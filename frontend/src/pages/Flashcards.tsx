@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useWordLibrary } from '../hooks/flashcards/useWordLibrary'
 import * as api from '../services/flashcardsApi'
 import type { WordFilters, WordSort, WordClassification, WordListItem as WordListItemType } from '../services/flashcardsApi'
 import WordFilterBar from '../components/flashcards/WordFilterBar'
@@ -36,10 +37,7 @@ export default function Flashcards() {
   const [showBulkConfirm, setShowBulkConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { data: words = [], isLoading } = useQuery({
-    queryKey: ['flashcard-words', filters],
-    queryFn: () => api.fetchWords(filters),
-  })
+  const { data: words = [], isLoading } = useWordLibrary(filters)
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.deleteWord(id),

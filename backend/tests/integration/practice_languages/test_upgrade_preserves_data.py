@@ -12,8 +12,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 
 from app import database
+from app.flashcards.services.sqlite_storage import SQLiteFlashcardStorageProvider
 from app.main import app
-from app.services.factory import get_storage
+from app.services.factory import get_flashcard_storage, get_storage
 from app.services.storage.sqlite import SQLiteStorageProvider
 from tests.integration.conftest import _configure_sqlite, make_test_session
 
@@ -38,8 +39,31 @@ SEED_005 = (
     f"(1, 'café', 'coffee', 'es', 'en', 1, '{NOW}', 'learned', 0),"
     f"(2, 'billete', 'ticket', 'es', 'en', 2, '{NOW}', 'difficult', 1),"
     f"(3, 'año', 'year', 'es', 'en', NULL, '{NOW}', 'not_practiced', 0)",
+    "INSERT INTO decks (id, name, practice_mode, algorithm, requested_size, created_at, "
+    f"last_practiced_at) VALUES (1, 'Café words', 'recall', 'mixed_review', 2, '{NOW}', '{NOW}'),"
+    f"(2, 'Travel', 'listen', 'not_practiced', 1, '{NOW}', NULL)",
+    "INSERT INTO deck_cards (id, deck_id, vocabulary_item_id, position) VALUES "
+    "(1, 1, 1, 0), (2, 1, 2, 1), (3, 2, 3, 0)",
+    "INSERT INTO practice_sessions (id, deck_id, practice_mode, algorithm, started_at, ended_at, "
+    "total_cards, cards_reviewed, knew_it_count, guessed_count, didnt_know_count, completed) "
+    f"VALUES (1, 1, 'recall', 'mixed_review', '{NOW}', '{NOW}', 2, 2, 1, 0, 1, 1)",
+    "INSERT INTO card_results (id, session_id, vocabulary_item_id, rating, rated_at) VALUES "
+    f"(1, 1, 1, 'knew_it', '{NOW}'), (2, 1, 2, 'didnt_know', '{NOW}')",
+    "INSERT INTO session_classification_snapshots (id, session_id, snapshotted_at, "
+    "not_practiced_count, difficult_count, almost_learned_count, learned_count) "
+    f"VALUES (1, 1, '{NOW}', 1, 1, 0, 1)",
 )
-PRESERVED_TABLES = ("app_settings", "conversations", "messages", "vocabulary_items")
+PRESERVED_TABLES = (
+    "app_settings",
+    "conversations",
+    "messages",
+    "vocabulary_items",
+    "decks",
+    "deck_cards",
+    "practice_sessions",
+    "card_results",
+    "session_classification_snapshots",
+)
 
 
 def _build_005_database(db_file: Path) -> None:
@@ -88,6 +112,9 @@ def client(upgraded):
     db_file, _before = upgraded
     session, _engine = make_test_session(str(db_file))
     app.dependency_overrides[get_storage] = lambda: SQLiteStorageProvider(session)
+    app.dependency_overrides[get_flashcard_storage] = lambda: SQLiteFlashcardStorageProvider(
+        session
+    )
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -113,3 +140,19 @@ def test_exactly_one_voice_choice_is_seeded(upgraded):
         rows = conn.execute("SELECT target_language, voice_key FROM voice_choices").fetchall()
 
     assert rows == [("es", "es_AR-daniela-high")]
+
+
+def test_existing_decks_and_sessions_belong_to_spanish(upgraded):
+    db_file, _before = upgraded
+
+    with sqlite3.connect(db_file) as conn:
+        decks = conn.execute("SELECT DISTINCT target_language FROM decks").fetchall()
+        sessions = conn.execute("SELECT DISTINCT target_language FROM practice_sessions").fetchall()
+
+    assert (decks, sessions) == ([("es",)], [("es",)])
+
+
+def test_existing_decks_list_under_spanish(client):
+    decks = client.get("/api/flashcards/decks", params={"language": "es"}).json()
+
+    assert sorted(deck["name"] for deck in decks) == ["Café words", "Travel"]

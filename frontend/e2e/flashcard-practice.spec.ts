@@ -1,4 +1,10 @@
 import { test, expect } from '@playwright/test'
+import {
+  GERMAN_VOICE_UNAVAILABLE_MESSAGE,
+  isDeckCollection,
+  mockPracticeLanguageSetting,
+  requestedLanguage,
+} from './fixtures'
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -7,7 +13,7 @@ const mockWords = [
     id: 1,
     word: 'bonjour',
     translation: 'hello',
-    target_language: 'fr',
+    target_language: 'es',
     native_language: 'en',
     classification: 'not_practiced',
     manual_override: false,
@@ -18,7 +24,7 @@ const mockWords = [
     id: 2,
     word: 'merci',
     translation: 'thank you',
-    target_language: 'fr',
+    target_language: 'es',
     native_language: 'en',
     classification: 'difficult',
     manual_override: false,
@@ -66,11 +72,13 @@ const mockSummary = {
 }
 
 async function setupPracticeMocks(page: import('@playwright/test').Page) {
+  await mockPracticeLanguageSetting(page, 'es')
   await page.route('/api/flashcards/words**', (route) => route.fulfill({ json: mockWords }))
-  await page.route('/api/flashcards/decks', (route) => {
+  await page.route(isDeckCollection, (route) => {
     if (route.request().method() === 'POST') {
       return route.fulfill({ status: 201, json: mockDeck })
     }
+    if (requestedLanguage(route) === null) return
     return route.fulfill({ json: [{ ...mockDeck, card_count: 2, last_practiced_at: null, session_count: 0, last_accuracy: null }] })
   })
   await page.route('/api/flashcards/decks/1', (route) => route.fulfill({ json: mockDeck }))
@@ -216,6 +224,16 @@ test.describe('FlashcardPractice — Listen mode', () => {
 
   test('shows flip button in listen mode', async ({ page }) => {
     await expect(page.getByRole('button', { name: /flip/i })).toBeVisible()
+  })
+
+  test('a word whose voice is not installed says why (006)', async ({ page }) => {
+    await page.route('/api/flashcards/tts/**', (route) =>
+      route.fulfill({ status: 503, json: { detail: GERMAN_VOICE_UNAVAILABLE_MESSAGE } }),
+    )
+
+    await page.getByRole('button', { name: /listen/i }).click()
+
+    await expect(page.getByRole('status').filter({ hasText: GERMAN_VOICE_UNAVAILABLE_MESSAGE })).toBeVisible()
   })
 })
 

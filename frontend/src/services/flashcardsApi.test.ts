@@ -32,7 +32,7 @@ describe('apiFetch behaviour', () => {
   it('sends JSON content-type and returns the parsed body', async () => {
     const mock = stubJson([{ id: 1 }])
 
-    await expect(api.listDecks()).resolves.toEqual([{ id: 1 }])
+    await expect(api.listDecks('es')).resolves.toEqual([{ id: 1 }])
     expect(call(mock).init?.headers).toMatchObject({ 'Content-Type': 'application/json' })
   })
 
@@ -61,31 +61,33 @@ describe('apiFetch behaviour', () => {
       })
     )
 
-    await expect(api.listDecks()).rejects.toThrow('Internal Server Error')
+    await expect(api.listDecks('es')).rejects.toThrow('Internal Server Error')
   })
 })
 
 describe('word library endpoints', () => {
-  it('requests words with no query string when no filters are given', async () => {
+  it('requests only the language when no filters are given', async () => {
     const mock = stubJson([])
 
-    await api.fetchWords()
+    await api.fetchWords('de')
 
-    expect(call(mock).url).toBe(`${BASE}/words`)
+    expect(call(mock).url).toBe(`${BASE}/words?language=de`)
   })
 
   it('repeats the classification parameter once per selected value', async () => {
     const mock = stubJson([])
 
-    await api.fetchWords({ classification: ['difficult', 'learned'] })
+    await api.fetchWords('es', { classification: ['difficult', 'learned'] })
 
-    expect(call(mock).url).toBe(`${BASE}/words?classification=difficult&classification=learned`)
+    expect(call(mock).url).toBe(
+      `${BASE}/words?language=es&classification=difficult&classification=learned`,
+    )
   })
 
   it('passes date range and search filters through', async () => {
     const mock = stubJson([])
 
-    await api.fetchWords({ date_from: '2026-01-01', date_to: '2026-02-01', search: 'hola' })
+    await api.fetchWords('es', { date_from: '2026-01-01', date_to: '2026-02-01', search: 'hola' })
 
     const { url } = call(mock)
     expect(url).toContain('date_from=2026-01-01')
@@ -96,9 +98,9 @@ describe('word library endpoints', () => {
   it('omits filters that are empty strings', async () => {
     const mock = stubJson([])
 
-    await api.fetchWords({ search: '', date_from: '' })
+    await api.fetchWords('es', { search: '', date_from: '' })
 
-    expect(call(mock).url).toBe(`${BASE}/words`)
+    expect(call(mock).url).toBe(`${BASE}/words?language=es`)
   })
 
   it('PATCHes a single word classification', async () => {
@@ -146,6 +148,7 @@ describe('word library endpoints', () => {
 
 describe('deck endpoints', () => {
   const payload: api.DeckConfigPayload = {
+    language: 'de',
     size: 10,
     word_source: 'all',
     practice_mode: 'recall',
@@ -269,16 +272,50 @@ describe('analytics endpoint', () => {
   it('defaults to the 7-day range', async () => {
     const mock = stubJson({})
 
-    await api.fetchAnalytics()
+    await api.fetchAnalytics('de')
 
-    expect(call(mock).url).toBe(`${BASE}/analytics?range=7d`)
+    expect(call(mock).url).toBe(`${BASE}/analytics?language=de&range=7d`)
   })
 
   it('passes an explicit range through', async () => {
     const mock = stubJson({})
 
-    await api.fetchAnalytics('all')
+    await api.fetchAnalytics('es', 'all')
 
-    expect(call(mock).url).toBe(`${BASE}/analytics?range=all`)
+    expect(call(mock).url).toBe(`${BASE}/analytics?language=es&range=all`)
+  })
+})
+
+describe('deck list and audio failures (006)', () => {
+  it('lists one language\'s decks', async () => {
+    const mock = stubJson([])
+
+    await api.listDecks('de')
+
+    expect(call(mock).url).toBe(`${BASE}/decks?language=de`)
+  })
+
+  it('a 503 explains why a word cannot be played', async () => {
+    stubJson({ detail: "The German voice isn't installed." }, { ok: false, status: 503 })
+
+    await expect(api.describeAudioFailure('/api/flashcards/tts/3')).resolves.toBe(
+      "The German voice isn't installed.",
+    )
+  })
+
+  it('any other failure gets a generic message', async () => {
+    stubJson({ detail: 'boom' }, { ok: false, status: 500 })
+
+    await expect(api.describeAudioFailure('/api/flashcards/tts/3')).resolves.toBe(
+      'Audio is unavailable for this word.',
+    )
+  })
+
+  it('a network error gets the generic message too', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+
+    await expect(api.describeAudioFailure('/api/flashcards/tts/3')).resolves.toBe(
+      'Audio is unavailable for this word.',
+    )
   })
 })

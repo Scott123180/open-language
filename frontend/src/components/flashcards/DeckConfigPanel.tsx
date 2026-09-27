@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { usePracticeLanguages } from '../../hooks/usePracticeLanguages'
 import * as api from '../../services/flashcardsApi'
 import type { DeckDetail, GenerationAlgorithm, PracticeMode } from '../../services/flashcardsApi'
 import { IconEye, IconVolume, IconPenLine, IconTextCursor, IconShuffle, IconSparkles, IconFlame, IconTrophy } from '../shared/icons'
@@ -65,6 +66,8 @@ export default function DeckConfigPanel({ onCreated, onCancel }: Props) {
   const [algorithm, setAlgorithm] = useState<GenerationAlgorithm>('mixed_review')
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // A new deck is built from the practice language's words (FR-020).
+  const { current: practiceLanguage } = usePracticeLanguages()
 
   const effectiveSize = useCustom ? parseInt(customSize, 10) || 0 : size
   const canAdvance = step === 0 ? effectiveSize >= 1 : true
@@ -75,6 +78,7 @@ export default function DeckConfigPanel({ onCreated, onCancel }: Props) {
     setError(null)
     try {
       const deck = await api.createDeck({
+        language: practiceLanguage?.language_id ?? '',
         size: effectiveSize,
         word_source: 'all',
         practice_mode: mode,

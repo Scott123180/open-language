@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 
 from app.flashcards.schemas import (
+    PRACTICE_LANGUAGE_PATTERN,
     BulkDeleteRequest,
     BulkDeleteResponse,
     CardResultRequest,
@@ -34,7 +35,7 @@ from app.flashcards.schemas import (
     WordListItem,
 )
 from app.flashcards.services.llm_cache import LlmCacheService
-from app.flashcards.services.storage import FlashcardStorageProvider, WordRecord
+from app.flashcards.services.storage import DeckRecord, FlashcardStorageProvider, WordRecord
 from app.services.factory import get_flashcard_storage, get_llm, get_speech_for_language
 from app.services.llm.base import LLMProvider
 from app.services.tts.selection import SpeechForLanguage
@@ -42,6 +43,10 @@ from app.services.tts.selection import SpeechForLanguage
 router = APIRouter(prefix="/flashcards", tags=["flashcards"])
 
 WORD_NOT_FOUND = "Word not found."
+OTHER_LANGUAGE_WORDS = "Some selected words are in another language. Reload the word list."
+
+# Required on every collection: the Flashcards screens show one language at a time (FR-020).
+LanguageQuery = Annotated[str, Query(pattern=PRACTICE_LANGUAGE_PATTERN)]
 
 
 def _storage(
@@ -57,6 +62,7 @@ def _storage(
 
 @router.get("/words", response_model=list[WordListItem])
 def get_words(
+    language: LanguageQuery,
     classification: Annotated[list[str] | None, Query()] = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
@@ -68,21 +74,23 @@ def get_words(
         date_from=date_from,
         date_to=date_to,
         search=search,
+        language=language,
     )
-    return [
-        WordListItem(
-            id=r.id,
-            word=r.word,
-            translation=r.translation,
-            target_language=r.target_language,
-            native_language=r.native_language,
-            classification=WordClassificationEnum(r.classification),
-            manual_override=r.manual_override,
-            saved_at=r.saved_at,
-            source_conversation_id=r.source_conversation_id,
-        )
-        for r in records
-    ]
+    return [_word_list_item(r) for r in records]
+
+
+def _word_list_item(r: WordRecord) -> WordListItem:
+    return WordListItem(
+        id=r.id,
+        word=r.word,
+        translation=r.translation,
+        target_language=r.target_language,
+        native_language=r.native_language,
+        classification=WordClassificationEnum(r.classification),
+        manual_override=r.manual_override,
+        saved_at=r.saved_at,
+        source_conversation_id=r.source_conversation_id,
+    )
 
 
 @router.patch("/words/{vocabulary_item_id}/classification", response_model=WordListItem)
@@ -97,17 +105,7 @@ def patch_word_classification(
     updated = storage.update_word_classification(
         vocabulary_item_id, body.classification.value, manual_override=True
     )
-    return WordListItem(
-        id=updated.id,
-        word=updated.word,
-        translation=updated.translation,
-        target_language=updated.target_language,
-        native_language=updated.native_language,
-        classification=WordClassificationEnum(updated.classification),
-        manual_override=updated.manual_override,
-        saved_at=updated.saved_at,
-        source_conversation_id=updated.source_conversation_id,
-    )
+    return _word_list_item(updated)
 
 
 @router.delete("/words", response_model=BulkDeleteResponse)
@@ -241,6 +239,7 @@ def _build_deck_detail(
         actual_size=len(cards),
         size_adjusted=len(cards) != deck_record.requested_size,
         created_at=deck_record.created_at,
+        target_language=deck_record.target_language,
         cards=cards,
     )
 
@@ -252,47 +251,47 @@ def create_deck(
 ) -> DeckDetail:
     from app.flashcards.services.deck_generation import DeckGenerationService
 
-    # Resolve word pool
-    if body.word_source == "selected":
-        words = [storage.get_word(wid) for wid in body.selected_word_ids]
-        words = [w for w in words if w is not None]
-    elif body.word_source == "filtered":
-        words = storage.list_words(
-            classifications=(
-                [c.value for c in body.filter_classifications]
-                if body.filter_classifications
-                else None
-            ),
-            date_from=body.filter_date_from,
-            date_to=body.filter_date_to,
-            search=body.filter_search,
-        )
-    else:
-        words = storage.list_words()
-
-    from datetime import UTC
-
-    # T063: exclude Learned words whose SRS schedule is not yet due
     now = datetime.now(UTC)
-    eligible_words = _filter_srs_eligible(words, storage, now)
-
-    service = DeckGenerationService()
-    selected = service.select_words(eligible_words, body.size, body.algorithm.value)
-
-    name = body.name or f"Deck \u2014 {now.strftime('%b %d, %Y')}"
-
-    cards_data = _build_cards_data(selected, body.practice_mode.value, storage)
+    # T063: exclude Learned words whose SRS schedule is not yet due
+    eligible = _filter_srs_eligible(_deck_word_pool(body, storage), storage, now)
+    selected = DeckGenerationService().select_words(eligible, body.size, body.algorithm.value)
     deck_record, card_records = storage.create_deck(
-        name=name,
+        name=_deck_name(body, now),
         practice_mode=body.practice_mode.value,
         algorithm=body.algorithm.value,
         requested_size=body.size,
-        cards=cards_data,
+        cards=_build_cards_data(selected, body.practice_mode.value, storage),
+        language=body.language,
     )
-
     word_lookup = {w.id: w.word for w in selected}
     translation_lookup = {w.id: w.translation for w in selected}
     return _build_deck_detail(deck_record, card_records, word_lookup, translation_lookup)
+
+
+def _deck_word_pool(body: DeckConfigRequest, storage: FlashcardStorageProvider) -> list:
+    """The words a new deck may draw from, all in the deck's language."""
+    if body.word_source == "selected":
+        words = [storage.get_word(wid) for wid in body.selected_word_ids]
+        return _require_same_language([w for w in words if w is not None], body.language)
+    if body.word_source != "filtered":
+        return storage.list_words(language=body.language)
+    return storage.list_words(
+        classifications=[c.value for c in body.filter_classifications or []] or None,
+        date_from=body.filter_date_from,
+        date_to=body.filter_date_to,
+        search=body.filter_search,
+        language=body.language,
+    )
+
+
+def _require_same_language(words: list, language: str) -> list:
+    if any(w.target_language != language for w in words):
+        raise HTTPException(status_code=422, detail=OTHER_LANGUAGE_WORDS)
+    return words
+
+
+def _deck_name(body: DeckConfigRequest, now: datetime) -> str:
+    return body.name or f"Deck \u2014 {now.strftime('%b %d, %Y')}"
 
 
 def _filter_srs_eligible(words: list, storage: FlashcardStorageProvider, now: datetime) -> list:
@@ -344,24 +343,23 @@ def _build_cards_data(
 
 @router.get("/decks", response_model=list[DeckSummary])
 def list_decks(
+    language: LanguageQuery,
     storage: FlashcardStorageProvider = Depends(_storage),
 ) -> list[DeckSummary]:
-    decks = storage.list_decks()
-    result = []
-    for d in decks:
-        cards = storage.get_deck_cards(d.id)
-        result.append(
-            DeckSummary(
-                id=d.id,
-                name=d.name,
-                practice_mode=PracticeModeEnum(d.practice_mode),
-                algorithm=GenerationAlgorithmEnum(d.algorithm),
-                card_count=len(cards),
-                created_at=d.created_at,
-                last_practiced_at=d.last_practiced_at,
-            )
-        )
-    return result
+    return [_deck_summary(d, storage) for d in storage.list_decks(language=language)]
+
+
+def _deck_summary(deck: DeckRecord, storage: FlashcardStorageProvider) -> DeckSummary:
+    return DeckSummary(
+        id=deck.id,
+        name=deck.name,
+        practice_mode=PracticeModeEnum(deck.practice_mode),
+        algorithm=GenerationAlgorithmEnum(deck.algorithm),
+        card_count=len(storage.get_deck_cards(deck.id)),
+        created_at=deck.created_at,
+        target_language=deck.target_language,
+        last_practiced_at=deck.last_practiced_at,
+    )
 
 
 @router.get("/decks/{deck_id}", response_model=DeckDetail)
@@ -393,17 +391,7 @@ def update_deck_name(
     deck = storage.get_deck(deck_id)
     if deck is None:
         raise HTTPException(status_code=404, detail="Deck not found.")
-    updated = storage.update_deck_name(deck_id, body.name)
-    cards = storage.get_deck_cards(deck_id)
-    return DeckSummary(
-        id=updated.id,
-        name=updated.name,
-        practice_mode=PracticeModeEnum(updated.practice_mode),
-        algorithm=GenerationAlgorithmEnum(updated.algorithm),
-        card_count=len(cards),
-        created_at=updated.created_at,
-        last_practiced_at=updated.last_practiced_at,
-    )
+    return _deck_summary(storage.update_deck_name(deck_id, body.name), storage)
 
 
 @router.post("/decks/{deck_id}/refresh", response_model=DeckDetail)
@@ -416,29 +404,26 @@ def refresh_deck(
     deck = storage.get_deck(deck_id)
     if deck is None:
         raise HTTPException(status_code=404, detail="Deck not found.")
-
-    existing_cards = storage.get_deck_cards(deck_id)
-    learned_ids = set()
-    for c in existing_cards:
-        if c.vocabulary_item_id:
-            w = storage.get_word(c.vocabulary_item_id)
-            if w and w.classification == "learned":
-                learned_ids.add(c.vocabulary_item_id)
-
-    all_words = storage.list_words()
-    eligible = [
-        w
-        for w in all_words
-        if w.id not in {c.vocabulary_item_id for c in existing_cards} or w.id in learned_ids
-    ]
-
-    service = DeckGenerationService()
-    selected = service.select_words(eligible, deck.requested_size, deck.algorithm)
+    candidates = _refresh_candidates(deck, storage.get_deck_cards(deck_id), storage)
+    selected = DeckGenerationService().select_words(candidates, deck.requested_size, deck.algorithm)
 
     cards_data = [{"vocabulary_item_id": w.id, "position": i} for i, w in enumerate(selected)]
     new_cards = storage.replace_deck_cards(deck_id, cards_data)
     word_lookup = {w.id: w.word for w in selected}
     return _build_deck_detail(deck, new_cards, word_lookup)
+
+
+def _learned_card_ids(cards: list, storage: FlashcardStorageProvider) -> set[int]:
+    words = (storage.get_word(c.vocabulary_item_id) for c in cards if c.vocabulary_item_id)
+    return {w.id for w in words if w and w.classification == "learned"}
+
+
+def _refresh_candidates(deck: DeckRecord, cards: list, storage: FlashcardStorageProvider) -> list:
+    """The deck's own language's words not already in it, plus the ones it has learned."""
+    in_deck = {c.vocabulary_item_id for c in cards}
+    learned = _learned_card_ids(cards, storage)
+    words = storage.list_words(language=deck.target_language)
+    return [w for w in words if w.id not in in_deck or w.id in learned]
 
 
 @router.delete("/decks/{deck_id}", status_code=204)
@@ -577,40 +562,34 @@ def create_missed_deck(
     session = storage.get_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found.")
+    missed_ids = _missed_word_ids(storage.get_card_results_for_session(session_id))
+    if not missed_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="No 'Didn't Know' words in this session to create a missed deck.",
+        )
+    deck_record, card_records = storage.create_deck(
+        name=f"Missed Words \u2014 {datetime.now(UTC).strftime('%b %d, %Y')}",
+        practice_mode=session.practice_mode,
+        algorithm="not_practiced",
+        requested_size=len(missed_ids),
+        cards=_missed_deck_cards(missed_ids),
+        language=session.target_language,
+    )
+    word_lookup = {vid: w.word for vid in missed_ids if (w := storage.get_word(vid))}
+    return _build_deck_detail(deck_record, card_records, word_lookup)
 
-    results = storage.get_card_results_for_session(session_id)
-    didnt_know_ids = [
+
+def _missed_word_ids(results: list) -> list[int]:
+    return [
         r.vocabulary_item_id
         for r in results
         if r.rating == "didnt_know" and r.vocabulary_item_id is not None
     ]
 
-    if not didnt_know_ids:
-        raise HTTPException(
-            status_code=400,
-            detail="No 'Didn't Know' words in this session to create a missed deck.",
-        )
 
-    from datetime import UTC
-
-    now = datetime.now(UTC)
-    cards_data = [
-        {"vocabulary_item_id": vid, "position": i} for i, vid in enumerate(didnt_know_ids)
-    ]
-    deck_record, card_records = storage.create_deck(
-        name=f"Missed Words \u2014 {now.strftime('%b %d, %Y')}",
-        practice_mode=session.practice_mode,
-        algorithm="not_practiced",
-        requested_size=len(didnt_know_ids),
-        cards=cards_data,
-    )
-
-    word_lookup = {}
-    for vid in didnt_know_ids:
-        w = storage.get_word(vid)
-        if w:
-            word_lookup[vid] = w.word
-    return _build_deck_detail(deck_record, card_records, word_lookup)
+def _missed_deck_cards(missed_ids: list[int]) -> list[dict]:
+    return [{"vocabulary_item_id": vid, "position": i} for i, vid in enumerate(missed_ids)]
 
 
 # ---------------------------------------------------------------------------
@@ -620,10 +599,10 @@ def create_missed_deck(
 
 @router.get("/analytics")
 def get_analytics(
+    language: LanguageQuery,
     range: str = "7d",
     storage: FlashcardStorageProvider = Depends(_storage),
 ):
     from app.flashcards.services.analytics import AnalyticsService
 
-    service = AnalyticsService(storage)
-    return service.build_summary(range)
+    return AnalyticsService(storage, language).build_summary(range)

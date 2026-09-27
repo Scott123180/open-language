@@ -4,6 +4,16 @@ import DeckConfigPanel from './DeckConfigPanel'
 import * as api from '../../services/flashcardsApi'
 
 vi.mock('../../services/flashcardsApi')
+// The Flashcards screens show the practice language's data; Spanish here.
+vi.mock('../../hooks/usePracticeLanguages', () => ({
+  usePracticeLanguages: () => ({
+    current: { language_id: 'es', display_name: 'Spanish' },
+    languages: [],
+    nameOf: (id: string) => id,
+    isLoading: false,
+    error: null,
+  }),
+}))
 
 const onCreated = vi.fn()
 const onCancel = vi.fn()
@@ -169,6 +179,7 @@ describe('DeckConfigPanel — generating', () => {
 
     await waitFor(() =>
       expect(api.createDeck).toHaveBeenCalledWith({
+        language: 'es',
         size: 20,
         word_source: 'all',
         practice_mode: 'recall',
@@ -189,6 +200,7 @@ describe('DeckConfigPanel — generating', () => {
 
     await waitFor(() =>
       expect(api.createDeck).toHaveBeenCalledWith({
+        language: 'es',
         size: 40,
         word_source: 'all',
         practice_mode: 'listen',

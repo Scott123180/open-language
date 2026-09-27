@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Page, Route } from '@playwright/test'
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -515,3 +515,55 @@ export async function mockGermanChatApis(page: Page, languages: unknown[] = mock
   await mockWarmSession(page, { conversationId: id })
   return { ttsRequests }
 }
+
+// ── Flashcards by practice language (006) ─────────────────────────────────────
+
+export type PracticeLanguageId = 'es' | 'de'
+
+/** Serve the stored practice language and the language catalogue the Flashcards pages load. */
+export async function mockPracticeLanguageSetting(page: Page, language: PracticeLanguageId) {
+  await page.route('/api/settings', (route) =>
+    route.fulfill({ json: { ...mockSettings, target_language: language } }),
+  )
+  await mockPracticeLanguagesApi(page)
+}
+
+/** Matches the deck collection with any query string, but not `/decks/{id}`. */
+export const isDeckCollection = (url: URL) => url.pathname === '/api/flashcards/decks'
+
+/**
+ * The `language` a flashcards collection request carries. A request without one is answered
+ * 422, as the backend does, so a page that forgets it fails its test.
+ */
+export function requestedLanguage(route: Route): string | null {
+  const language = new URL(route.request().url()).searchParams.get('language')
+  if (language === null) {
+    void route.fulfill({ status: 422, json: { detail: 'language is required' } })
+  }
+  return language
+}
+
+export const mockGermanWords = [
+  {
+    id: 11,
+    word: 'Haus',
+    translation: 'house',
+    target_language: 'de',
+    native_language: 'en',
+    classification: 'not_practiced',
+    manual_override: false,
+    saved_at: '2026-03-23T10:00:00Z',
+    source_conversation_id: 3,
+  },
+  {
+    id: 12,
+    word: 'Straße',
+    translation: 'street',
+    target_language: 'de',
+    native_language: 'en',
+    classification: 'difficult',
+    manual_override: false,
+    saved_at: '2026-03-24T10:00:00Z',
+    source_conversation_id: 3,
+  },
+]

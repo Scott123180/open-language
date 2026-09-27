@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test'
-import { mockHomeApis, mockScenario } from './fixtures'
+import {
+  isDeckCollection,
+  mockGermanWords,
+  mockHomeApis,
+  mockPracticeLanguageSetting,
+  mockScenario,
+  requestedLanguage,
+} from './fixtures'
 
 // ── Mock word data ─────────────────────────────────────────────────────────────
 
@@ -8,7 +15,7 @@ const mockWords = [
     id: 1,
     word: 'bonjour',
     translation: 'hello',
-    target_language: 'fr',
+    target_language: 'es',
     native_language: 'en',
     classification: 'not_practiced',
     manual_override: false,
@@ -19,7 +26,7 @@ const mockWords = [
     id: 2,
     word: 'merci',
     translation: 'thank you',
-    target_language: 'fr',
+    target_language: 'es',
     native_language: 'en',
     classification: 'difficult',
     manual_override: false,
@@ -30,7 +37,7 @@ const mockWords = [
     id: 3,
     word: 'au revoir',
     translation: 'goodbye',
-    target_language: 'fr',
+    target_language: 'es',
     native_language: 'en',
     classification: 'learned',
     manual_override: false,
@@ -39,12 +46,19 @@ const mockWords = [
   },
 ]
 
-async function mockFlashcardApis(page: import('@playwright/test').Page, words = mockWords) {
+async function mockFlashcardApis(
+  page: import('@playwright/test').Page,
+  words: typeof mockWords = mockWords,
+  language: 'es' | 'de' = 'es',
+) {
+  await mockPracticeLanguageSetting(page, language)
   await page.route('/api/flashcards/words**', (route) => {
     const url = new URL(route.request().url())
+    const requested = requestedLanguage(route)
+    if (requested === null) return
     const classifications = url.searchParams.getAll('classification')
     const search = url.searchParams.get('search') ?? ''
-    let filtered = words
+    let filtered = words.filter((w) => w.target_language === requested)
     if (classifications.length > 0) {
       filtered = filtered.filter((w) => classifications.includes(w.classification))
     }
@@ -248,10 +262,12 @@ test.describe('Deck creation wizard', () => {
       created_at: '2026-03-22T10:00:00Z',
       cards: [],
     }
-    await page.route('/api/flashcards/decks', (route) => {
+    await mockPracticeLanguageSetting(page, 'es')
+    await page.route(isDeckCollection, (route) => {
       if (route.request().method() === 'POST') {
         return route.fulfill({ status: 201, json: createdDeck })
       }
+      if (requestedLanguage(route) === null) return
       return route.fulfill({ json: deckList })
     })
     await page.goto('/flashcards/decks')
@@ -351,5 +367,56 @@ test.describe('Flashcards navigation from home', () => {
     await page.getByRole('link', { name: 'Flashcards' }).click()
     await expect(page).toHaveURL('/flashcards')
     await expect(page.getByText('bonjour')).toBeVisible()
+  })
+})
+
+test.describe('Flashcards — one practice language at a time (006)', () => {
+  const allWords = [...mockWords, ...mockGermanWords]
+
+  test('with German selected, only German words are listed', async ({ page }) => {
+    await mockFlashcardApis(page, allWords, 'de')
+    await page.goto('/flashcards')
+
+    await expect(page.getByText('Straße')).toBeVisible()
+    await expect(page.getByText('bonjour')).toHaveCount(0)
+  })
+
+  test('switching back to Spanish never shows a German word', async ({ page }) => {
+    await mockFlashcardApis(page, allWords, 'de')
+    await page.goto('/flashcards')
+    await expect(page.getByText('Haus', { exact: true })).toBeVisible()
+
+    await page.unroute('/api/settings')
+    await mockPracticeLanguageSetting(page, 'es')
+    await page.goto('/flashcards')
+
+    await expect(page.getByText('Haus', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('bonjour')).toBeVisible()
+    await expect(page.getByText('Haus', { exact: true })).toHaveCount(0)
+  })
+
+  test('a new deck is created in the practice language', async ({ page }) => {
+    const bodies: Record<string, unknown>[] = []
+    await mockPracticeLanguageSetting(page, 'de')
+    await page.route(isDeckCollection, (route) => {
+      if (route.request().method() === 'POST') {
+        bodies.push(route.request().postDataJSON())
+        return route.fulfill({
+          status: 201,
+          json: { id: 5, name: 'D', practice_mode: 'recall', algorithm: 'mixed_review', requested_size: 20, actual_size: 0, size_adjusted: true, created_at: '2026-03-22T10:00:00Z', target_language: 'de', cards: [] },
+        })
+      }
+      if (requestedLanguage(route) === null) return
+      return route.fulfill({ json: [] })
+    })
+    await page.goto('/flashcards/decks')
+
+    await page.getByRole('button', { name: /new deck/i }).first().click()
+    await page.getByRole('button', { name: /next/i }).click()
+    await page.getByRole('button', { name: /next/i }).click()
+    await page.getByRole('button', { name: /generate deck/i }).click()
+
+    await expect.poll(() => bodies.length).toBe(1)
+    expect(bodies[0]).toMatchObject({ language: 'de' })
   })
 })

@@ -37,12 +37,19 @@ class FakeStorage:
     card_results: list[CardResultRecord] = field(default_factory=list)
     snapshots: list[ClassificationSnapshotRecord] = field(default_factory=list)
     classification_counts: dict[str, int] = field(default_factory=dict)
+    counts_by_language: dict[str, dict[str, int]] = field(default_factory=dict)
 
     # -- word library --
     def list_words(
-        self, classifications=None, date_from=None, date_to=None, search=None, word_ids=None
+        self,
+        classifications=None,
+        date_from=None,
+        date_to=None,
+        search=None,
+        *,
+        language,
     ):
-        return self.words
+        return [w for w in self.words if w.target_language == language]
 
     def get_word(self, vocabulary_item_id):
         for w in self.words:
@@ -51,22 +58,27 @@ class FakeStorage:
         return None
 
     # -- analytics --
-    def get_sessions_since(self, cutoff):
+    def get_sessions_since(self, cutoff, *, language):
+        sessions = [s for s in self.sessions if s.target_language == language]
         if cutoff is None:
-            return list(self.sessions)
-        return [s for s in self.sessions if s.started_at >= cutoff]
+            return sessions
+        return [s for s in sessions if s.started_at >= cutoff]
 
-    def get_card_results_since(self, cutoff):
-        session_ids = {s.id for s in self.get_sessions_since(cutoff)}
+    def get_card_results_since(self, cutoff, *, language):
+        session_ids = {s.id for s in self.get_sessions_since(cutoff, language=language)}
         return [r for r in self.card_results if r.session_id in session_ids]
 
-    def get_classification_counts(self):
+    def get_classification_counts(self, *, language):
+        if self.counts_by_language:
+            return dict(self.counts_by_language.get(language, {}))
         return dict(self.classification_counts)
 
-    def get_classification_snapshots_since(self, cutoff):
+    def get_classification_snapshots_since(self, cutoff, *, language):
+        session_ids = {s.id for s in self.get_sessions_since(None, language=language)}
+        snapshots = [s for s in self.snapshots if s.session_id in session_ids or not self.sessions]
         if cutoff is None:
-            return list(self.snapshots)
-        return [s for s in self.snapshots if s.snapshotted_at >= cutoff]
+            return snapshots
+        return [s for s in snapshots if s.snapshotted_at >= cutoff]
 
     # -- stubs for unused methods --
     def get_recent_ratings(self, *a, **kw):
@@ -105,6 +117,7 @@ def _make_session(
     cards_reviewed=None,
     total_cards=5,
     completed=True,
+    language="es",
 ):
     started = datetime.now(UTC) - timedelta(days=days_ago)
     reviewed = cards_reviewed if cards_reviewed is not None else knew_it + guessed + didnt_know
@@ -121,6 +134,7 @@ def _make_session(
         guessed_count=guessed,
         didnt_know_count=didnt_know,
         completed=completed,
+        target_language=language,
     )
 
 
@@ -160,7 +174,7 @@ class TestAccuracyTrend:
         storage = FakeStorage(
             sessions=[_make_session(1, knew_it=4, guessed=0, didnt_know=0, cards_reviewed=4)],
         )
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         trend = svc.accuracy_trend(cutoff=None)
         assert len(trend) == 1
         assert trend[0].session_id == 1
@@ -170,7 +184,7 @@ class TestAccuracyTrend:
         storage = FakeStorage(
             sessions=[_make_session(1, knew_it=2, guessed=1, didnt_know=1, cards_reviewed=4)],
         )
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         trend = svc.accuracy_trend(cutoff=None)
         assert trend[0].accuracy == pytest.approx(0.5)
 
@@ -181,7 +195,7 @@ class TestAccuracyTrend:
                 _make_session(2, knew_it=1, days_ago=1, cards_reviewed=1),
             ]
         )
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         cutoff = datetime.now(UTC) - timedelta(days=5)
         trend = svc.accuracy_trend(cutoff=cutoff)
         assert len(trend) == 1
@@ -191,7 +205,7 @@ class TestAccuracyTrend:
         storage = FakeStorage(
             sessions=[_make_session(1, knew_it=0, guessed=0, didnt_know=0, cards_reviewed=0)],
         )
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         trend = svc.accuracy_trend(cutoff=None)
         assert len(trend) == 0
 
@@ -206,7 +220,7 @@ class TestDailyActivity:
         storage = FakeStorage(
             sessions=[_make_session(1, cards_reviewed=5, days_ago=0)],
         )
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         activity = svc.daily_activity(cutoff=None)
         assert len(activity) >= 1
         today = datetime.now(UTC).date().isoformat()
@@ -218,7 +232,7 @@ class TestDailyActivity:
         s1 = _make_session(1, cards_reviewed=3, days_ago=0)
         s2 = _make_session(2, cards_reviewed=4, days_ago=0)
         storage = FakeStorage(sessions=[s1, s2])
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         activity = svc.daily_activity(cutoff=None)
         today = datetime.now(UTC).date().isoformat()
         today_point = next((p for p in activity if p.date == today), None)
@@ -232,7 +246,7 @@ class TestDailyActivity:
                 _make_session(2, cards_reviewed=2, days_ago=1),
             ]
         )
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         cutoff = datetime.now(UTC) - timedelta(days=30)
         activity = svc.daily_activity(cutoff=cutoff)
         total = sum(p.cards_reviewed for p in activity)
@@ -249,7 +263,7 @@ class TestClassificationOverTime:
         storage = FakeStorage(
             snapshots=[_make_snapshot(1, session_id=1, days_ago=2, np=10, d=3, al=2, ln=1)],
         )
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         series = svc.classification_over_time(cutoff=None)
         assert len(series) == 1
         pt = series[0]
@@ -265,7 +279,7 @@ class TestClassificationOverTime:
                 _make_snapshot(2, session_id=2, days_ago=2, np=3, d=1, al=1, ln=2),
             ]
         )
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         cutoff = datetime.now(UTC) - timedelta(days=30)
         series = svc.classification_over_time(cutoff=cutoff)
         assert len(series) == 1
@@ -287,7 +301,7 @@ class TestClassificationNow:
                 "learned": 7,
             }
         )
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         now = svc.classification_now()
         assert now.not_practiced == 10
         assert now.difficult == 3
@@ -296,7 +310,7 @@ class TestClassificationNow:
 
     def test_missing_classifications_default_to_zero(self):
         storage = FakeStorage(classification_counts={"learned": 4})
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         now = svc.classification_now()
         assert now.not_practiced == 0
         assert now.difficult == 0
@@ -328,7 +342,7 @@ class TestHardestWords:
         ]
         sessions = [_make_session(1)]
         storage = FakeStorage(words=words, sessions=sessions, card_results=results)
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         hardest = svc.hardest_words(limit=10, cutoff=None)
         assert hardest[0].id == 2  # perro is harder
         assert hardest[1].id == 1
@@ -340,7 +354,7 @@ class TestHardestWords:
         ]
         sessions = [_make_session(1)]
         storage = FakeStorage(words=words, sessions=sessions, card_results=results)
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         hardest = svc.hardest_words(limit=3, cutoff=None)
         assert len(hardest) <= 3
 
@@ -349,7 +363,7 @@ class TestHardestWords:
         results = [_make_result(1, session_id=1, vocab_id=1, rating="knew_it")]
         sessions = [_make_session(1)]
         storage = FakeStorage(words=words, sessions=sessions, card_results=results)
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         hardest = svc.hardest_words(limit=10, cutoff=None)
         assert len(hardest) == 0
 
@@ -366,7 +380,7 @@ class TestModePerformance:
             _make_session(2, practice_mode="produce", knew_it=2, cards_reviewed=4),
         ]
         storage = FakeStorage(sessions=sessions)
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         perf = svc.mode_performance(cutoff=None)
         modes = {p.mode: p.accuracy for p in perf}
         assert "recall" in modes
@@ -380,7 +394,7 @@ class TestModePerformance:
             _make_session(2, practice_mode="recall", knew_it=0, cards_reviewed=4),
         ]
         storage = FakeStorage(sessions=sessions)
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         perf = svc.mode_performance(cutoff=None)
         recall = next(p for p in perf if p.mode == "recall")
         assert recall.accuracy == pytest.approx(0.5)
@@ -394,12 +408,12 @@ class TestModePerformance:
 class TestStreak:
     def test_no_sessions_returns_zero(self):
         storage = FakeStorage()
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         assert svc.streak() == 0
 
     def test_practiced_today_is_streak_1(self):
         storage = FakeStorage(sessions=[_make_session(1, days_ago=0)])
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         assert svc.streak() >= 1
 
     def test_consecutive_days_count(self):
@@ -410,7 +424,7 @@ class TestStreak:
                 _make_session(3, days_ago=2),
             ]
         )
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         assert svc.streak() == 3
 
     def test_gap_breaks_streak(self):
@@ -420,5 +434,61 @@ class TestStreak:
                 _make_session(2, days_ago=2),  # gap on day 1
             ]
         )
-        svc = AnalyticsService(storage)
+        svc = AnalyticsService(storage, "es")
         assert svc.streak() == 1
+
+
+# ---------------------------------------------------------------------------
+# 006: every figure is for one language (T079)
+# ---------------------------------------------------------------------------
+
+
+def _german_word(id, word="Haus", classification="learned"):
+    return WordRecord(
+        id=id,
+        word=word,
+        translation="house",
+        target_language="de",
+        native_language="en",
+        source_conversation_id=None,
+        saved_at=datetime.now(UTC),
+        classification=classification,
+        manual_override=False,
+        tts_cache_path=None,
+    )
+
+
+class TestFiguresForOneLanguage:
+    @pytest.fixture()
+    def storage(self):
+        return FakeStorage(
+            words=[_make_word(1, "casa", "learned"), _german_word(2)],
+            sessions=[
+                _make_session(1, knew_it=3, cards_reviewed=3, days_ago=0, language="de"),
+                _make_session(2, knew_it=1, didnt_know=1, days_ago=1, language="es"),
+                _make_session(3, knew_it=2, cards_reviewed=2, days_ago=2, language="de"),
+            ],
+            card_results=[
+                _make_result(1, 2, 1, "didnt_know"),
+                _make_result(2, 1, 2, "didnt_know"),
+                _make_result(3, 1, 2, "knew_it"),
+            ],
+            counts_by_language={"de": {"learned": 1}, "es": {"learned": 1, "difficult": 4}},
+        )
+
+    def test_the_summary_counts_only_german_words_and_sessions(self, storage):
+        summary = AnalyticsService(storage, "de").build_summary("all")
+
+        assert summary.at_a_glance.total_words == 1
+        assert sorted(p.session_id for p in summary.accuracy_trend) == [1, 3]
+        assert [w.word for w in summary.hardest_words] == ["Haus"]
+
+    def test_a_day_with_only_spanish_practice_breaks_the_german_streak(self, storage):
+        summary = AnalyticsService(storage, "de").build_summary("all")
+
+        assert summary.at_a_glance.current_streak == 1
+
+    def test_sessions_this_week_counts_only_german_sessions(self, storage):
+        summary = AnalyticsService(storage, "de").build_summary("all")
+
+        assert summary.at_a_glance.sessions_this_week == 2

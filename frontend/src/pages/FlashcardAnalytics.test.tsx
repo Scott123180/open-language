@@ -6,6 +6,16 @@ import FlashcardAnalytics from './FlashcardAnalytics'
 import * as api from '../services/flashcardsApi'
 
 vi.mock('../services/flashcardsApi')
+// The Flashcards screens show the practice language's data; Spanish here.
+vi.mock('../hooks/usePracticeLanguages', () => ({
+  usePracticeLanguages: () => ({
+    current: { language_id: 'es', display_name: 'Spanish' },
+    languages: [],
+    nameOf: (id: string) => id,
+    isLoading: false,
+    error: null,
+  }),
+}))
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => ({
@@ -111,7 +121,7 @@ describe('FlashcardAnalytics — range toggle', () => {
     renderPage()
     await screen.findByText('Total Words')
 
-    expect(api.fetchAnalytics).toHaveBeenCalledWith('7d')
+    expect(api.fetchAnalytics).toHaveBeenCalledWith('es', '7d')
     expect(screen.getByRole('button', { name: '7 Days' })).toHaveAttribute('aria-pressed', 'true')
   })
 
@@ -121,7 +131,7 @@ describe('FlashcardAnalytics — range toggle', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '30 Days' }))
 
-    await waitFor(() => expect(api.fetchAnalytics).toHaveBeenCalledWith('30d'))
+    await waitFor(() => expect(api.fetchAnalytics).toHaveBeenCalledWith('es', '30d'))
     // The new range is a new query key, so the page blanks to its loading state
     // before the buttons come back.
     const thirtyDays = await screen.findByRole('button', { name: '30 Days' })
@@ -135,7 +145,7 @@ describe('FlashcardAnalytics — range toggle', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'All Time' }))
 
-    await waitFor(() => expect(api.fetchAnalytics).toHaveBeenCalledWith('all'))
+    await waitFor(() => expect(api.fetchAnalytics).toHaveBeenCalledWith('es', 'all'))
   })
 })
 

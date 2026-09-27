@@ -5,6 +5,7 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
 from app.conversation_levels import DEFAULT_CONVERSATION_LEVEL
+from app.practice_languages import DEFAULT_PRACTICE_LANGUAGE
 from app.services.llm.catalog import DEFAULT_PROVIDER_ID
 from app.services.llm.selection_types import DEFAULT_EFFORT
 from app.services.tts.voices import AVAILABLE_VOICES
@@ -78,6 +79,12 @@ _ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
     (
         "app_settings",
         f"conversation_level VARCHAR(12) NOT NULL DEFAULT '{DEFAULT_CONVERSATION_LEVEL.value}'",
+    ),
+    # Existing decks and practice history belong to the pre-006 language (FR-021).
+    ("decks", f"target_language VARCHAR(20) NOT NULL DEFAULT '{DEFAULT_PRACTICE_LANGUAGE}'"),
+    (
+        "practice_sessions",
+        f"target_language VARCHAR(20) NOT NULL DEFAULT '{DEFAULT_PRACTICE_LANGUAGE}'",
     ),
 )
 """(table, column definition) pairs, in the order they were introduced."""

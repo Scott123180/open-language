@@ -6,6 +6,16 @@ import FlashcardDecks from './FlashcardDecks'
 import * as api from '../services/flashcardsApi'
 
 vi.mock('../services/flashcardsApi')
+// The Flashcards screens show the practice language's data; Spanish here.
+vi.mock('../hooks/usePracticeLanguages', () => ({
+  usePracticeLanguages: () => ({
+    current: { language_id: 'es', display_name: 'Spanish' },
+    languages: [],
+    nameOf: (id: string) => id,
+    isLoading: false,
+    error: null,
+  }),
+}))
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => ({
@@ -28,6 +38,7 @@ const deck = (over: Partial<api.DeckSummary> = {}): api.DeckSummary => ({
   algorithm: 'mixed_review',
   card_count: 12,
   created_at: '2026-03-20T10:00:00Z',
+  target_language: 'es',
   last_practiced_at: null,
   session_count: 0,
   last_accuracy: null,

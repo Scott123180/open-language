@@ -37,6 +37,7 @@ class DeckRecord:
     requested_size: int
     created_at: datetime
     last_practiced_at: datetime | None
+    target_language: str
 
 
 @dataclass(frozen=True)
@@ -62,6 +63,7 @@ class SessionRecord:
     guessed_count: int
     didnt_know_count: int
     completed: bool
+    target_language: str
 
 
 @dataclass(frozen=True)
@@ -131,8 +133,10 @@ class FlashcardStorageProvider(ABC):
         date_from: datetime | None = None,
         date_to: datetime | None = None,
         search: str | None = None,
+        *,
+        language: str,
     ) -> list[WordRecord]:
-        """Return vocabulary words, optionally filtered."""
+        """Return one language's vocabulary words, optionally filtered."""
         ...
 
     @abstractmethod
@@ -172,13 +176,15 @@ class FlashcardStorageProvider(ABC):
         algorithm: str,
         requested_size: int,
         cards: list[dict],
+        *,
+        language: str,
     ) -> tuple[DeckRecord, list[DeckCardRecord]]:
-        """Persist a new deck and its cards; return (deck, cards)."""
+        """Persist a new deck in `language` and its cards; return (deck, cards)."""
         ...
 
     @abstractmethod
-    def list_decks(self) -> list[DeckRecord]:
-        """Return all decks, most recently created first."""
+    def list_decks(self, *, language: str) -> list[DeckRecord]:
+        """Return one language's decks, most recently created first."""
         ...
 
     @abstractmethod
@@ -216,7 +222,7 @@ class FlashcardStorageProvider(ABC):
         algorithm: str,
         total_cards: int,
     ) -> SessionRecord:
-        """Create and return a new incomplete practice session."""
+        """Create and return a new incomplete practice session, in its deck's language."""
         ...
 
     @abstractmethod
@@ -310,18 +316,20 @@ class FlashcardStorageProvider(ABC):
     # --- Analytics ---
 
     @abstractmethod
-    def get_sessions_since(self, cutoff: datetime | None) -> list[SessionRecord]:
-        """Return sessions started on or after cutoff (None = all time)."""
+    def get_sessions_since(self, cutoff: datetime | None, *, language: str) -> list[SessionRecord]:
+        """Return one language's sessions started on or after cutoff (None = all time)."""
         ...
 
     @abstractmethod
-    def get_card_results_since(self, cutoff: datetime | None) -> list[CardResultRecord]:
-        """Return card results from sessions started since cutoff."""
+    def get_card_results_since(
+        self, cutoff: datetime | None, *, language: str
+    ) -> list[CardResultRecord]:
+        """Return card results from one language's sessions started since cutoff."""
         ...
 
     @abstractmethod
-    def get_classification_counts(self) -> dict[str, int]:
-        """Return current count of words per classification."""
+    def get_classification_counts(self, *, language: str) -> dict[str, int]:
+        """Return the current count of one language's words per classification."""
         ...
 
     @abstractmethod
@@ -338,7 +346,7 @@ class FlashcardStorageProvider(ABC):
 
     @abstractmethod
     def get_classification_snapshots_since(
-        self, cutoff: datetime | None
+        self, cutoff: datetime | None, *, language: str
     ) -> list[ClassificationSnapshotRecord]:
-        """Return classification snapshots since cutoff (None = all time)."""
+        """Return one language's classification snapshots since cutoff (None = all time)."""
         ...

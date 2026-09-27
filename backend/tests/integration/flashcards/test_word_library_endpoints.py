@@ -74,17 +74,17 @@ def three_words(db_session):
 
 class TestGetWords:
     def test_returns_empty_list_when_no_words(self, client):
-        response = client.get("/api/flashcards/words")
+        response = client.get("/api/flashcards/words?language=es")
         assert response.status_code == 200
         assert response.json() == []
 
     def test_returns_all_words(self, client, three_words):
-        response = client.get("/api/flashcards/words")
+        response = client.get("/api/flashcards/words?language=es")
         assert response.status_code == 200
         assert len(response.json()) == 3
 
     def test_filter_by_single_classification(self, client, three_words):
-        response = client.get("/api/flashcards/words?classification=difficult")
+        response = client.get("/api/flashcards/words?language=es&classification=difficult")
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
@@ -92,21 +92,21 @@ class TestGetWords:
 
     def test_filter_by_multiple_classifications(self, client, three_words):
         response = client.get(
-            "/api/flashcards/words?classification=difficult&classification=learned"
+            "/api/flashcards/words?language=es&classification=difficult&classification=learned"
         )
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 2
 
     def test_filter_by_search(self, client, three_words):
-        response = client.get("/api/flashcards/words?search=merci")
+        response = client.get("/api/flashcards/words?language=es&search=merci")
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
         assert data[0]["word"] == "merci"
 
     def test_word_item_has_required_fields(self, client, word):
-        response = client.get("/api/flashcards/words")
+        response = client.get("/api/flashcards/words?language=es")
         assert response.status_code == 200
         item = response.json()[0]
         assert "id" in item
@@ -148,7 +148,7 @@ class TestDeleteWord:
         response = client.delete(f"/api/flashcards/words/{word.id}")
         assert response.status_code == 204
 
-        list_response = client.get("/api/flashcards/words")
+        list_response = client.get("/api/flashcards/words?language=es")
         assert list_response.json() == []
 
     def test_returns_404_for_missing_word(self, client):
@@ -163,7 +163,7 @@ class TestBulkDeleteWords:
         assert response.status_code == 200
         assert response.json()["deleted"] == 2
 
-        list_response = client.get("/api/flashcards/words")
+        list_response = client.get("/api/flashcards/words?language=es")
         remaining = list_response.json()
         assert len(remaining) == 1
         assert remaining[0]["word"] == "oui"

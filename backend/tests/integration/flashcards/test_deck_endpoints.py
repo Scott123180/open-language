@@ -104,6 +104,7 @@ def test_not_practiced_algorithm_creates_deck(client, seeded_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "recall",
@@ -120,6 +121,7 @@ def test_difficult_algorithm_creates_deck(client, seeded_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "recall",
@@ -136,6 +138,7 @@ def test_previously_guessed_algorithm_creates_deck(client, seeded_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "recall",
@@ -151,6 +154,7 @@ def test_mixed_review_algorithm_creates_deck(client, seeded_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 4,
             "word_source": "all",
             "practice_mode": "recall",
@@ -167,6 +171,7 @@ def test_size_adjusted_when_pool_smaller_than_requested(client, seeded_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 100,
             "word_source": "all",
             "practice_mode": "recall",
@@ -184,6 +189,7 @@ def test_deck_cards_are_subset_of_pool(client, seeded_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 4,
             "word_source": "all",
             "practice_mode": "recall",
@@ -204,6 +210,7 @@ def test_list_decks(client, seeded_words):
     client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "recall",
@@ -212,9 +219,15 @@ def test_list_decks(client, seeded_words):
     )
     client.post(
         "/api/flashcards/decks",
-        json={"size": 2, "word_source": "all", "practice_mode": "recall", "algorithm": "difficult"},
+        json={
+            "language": "es",
+            "size": 2,
+            "word_source": "all",
+            "practice_mode": "recall",
+            "algorithm": "difficult",
+        },
     )
-    res = client.get("/api/flashcards/decks")
+    res = client.get("/api/flashcards/decks?language=es")
     assert res.status_code == 200
     assert len(res.json()) == 2
 
@@ -223,6 +236,7 @@ def test_get_deck_by_id(client, seeded_words):
     create_res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "recall",
@@ -244,6 +258,7 @@ def test_rename_deck(client, seeded_words):
     create_res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "recall",
@@ -260,6 +275,7 @@ def test_delete_deck(client, seeded_words):
     create_res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "recall",
@@ -282,6 +298,7 @@ def test_listen_mode_deck_creation(client, seeded_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "listen",
@@ -298,6 +315,7 @@ def test_produce_mode_deck_creation(client, seeded_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "produce",
@@ -314,6 +332,7 @@ def test_fill_blank_mode_deck_creation(client, seeded_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "fill_blank",
@@ -331,6 +350,7 @@ def test_fill_blank_deck_cards_have_sentence_field(client, seeded_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "fill_blank",
@@ -347,6 +367,7 @@ def test_non_fill_blank_deck_cards_have_no_sentence(client, seeded_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "recall",
@@ -395,6 +416,7 @@ def test_learned_word_past_due_appears_in_deck(client, db_session):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 10,
             "word_source": "all",
             "practice_mode": "recall",
@@ -438,6 +460,7 @@ def test_learned_word_not_yet_due_excluded_from_deck(client, db_session):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 10,
             "word_source": "all",
             "practice_mode": "recall",
@@ -458,6 +481,7 @@ def test_refresh_deck_returns_200(client, seeded_words):
     create_res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 4,
             "word_source": "all",
             "practice_mode": "recall",
@@ -473,6 +497,7 @@ def test_refresh_preserves_deck_name_and_mode(client, seeded_words):
     create_res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "recall",
@@ -496,6 +521,7 @@ def test_refresh_deck_returns_deck_detail_with_cards(client, seeded_words):
     create_res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 3,
             "word_source": "all",
             "practice_mode": "recall",

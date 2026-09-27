@@ -74,11 +74,3 @@ def test_voice_installation_looks_in_the_configured_voice_directory():
 
     assert isinstance(installation, PiperVoiceInstallation)
     assert installation.voice_dir == factory.get_settings().voice_dir
-
-
-def test_get_tts_speaks_the_practice_language_with_its_chosen_voice():
-    from dataclasses import replace
-
-    record = replace(_RECORD, target_language="de", voice_choices={"de": "de_DE-kerstin-low"})
-
-    assert factory.get_tts(record).voice_name == "de_DE-kerstin-low"

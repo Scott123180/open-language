@@ -33,6 +33,7 @@ const deck = (cards: api.DeckCardItem[]): api.DeckDetail => ({
   actual_size: cards.length,
   size_adjusted: false,
   created_at: '2026-03-20T10:00:00Z',
+  target_language: 'es',
   cards,
 })
 

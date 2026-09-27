@@ -28,14 +28,14 @@ class SessionService:
 
     def end_session(self, session_id: int, completed: bool) -> SessionSummary:
         """End the session, recalculate classifications, return summary."""
-        self._storage.end_session(session_id, completed)
+        session = self._storage.end_session(session_id, completed)
         self._recalculate_classifications(session_id)
-        self._snapshot_classifications(session_id)
+        self._snapshot_classifications(session_id, session.target_language)
         return self.build_summary(session_id)
 
-    def _snapshot_classifications(self, session_id: int) -> None:
-        """Persist current classification distribution after recalculation."""
-        counts = self._storage.get_classification_counts()
+    def _snapshot_classifications(self, session_id: int, language: str) -> None:
+        """Persist the session language's classification distribution after recalculation."""
+        counts = self._storage.get_classification_counts(language=language)
         self._storage.create_classification_snapshot(
             session_id=session_id,
             not_practiced=counts.get("not_practiced", 0),
@@ -52,7 +52,7 @@ class SessionService:
 
         results = self._storage.get_card_results_for_session(session_id)
         words_needing_work = self._build_words_needing_work(results)
-        streak = self._calculate_streak()
+        streak = self._calculate_streak(session.target_language)
 
         return SessionSummary(
             session_id=session_id,
@@ -117,9 +117,9 @@ class SessionService:
                     )
         return needing_work
 
-    def _calculate_streak(self) -> int:
-        """Count consecutive calendar days with at least one completed session."""
-        sessions = self._storage.get_sessions_since(cutoff=None)
+    def _calculate_streak(self, language: str) -> int:
+        """Count consecutive calendar days with at least one session in `language`."""
+        sessions = self._storage.get_sessions_since(None, language=language)
         if not sessions:
             return 0
 

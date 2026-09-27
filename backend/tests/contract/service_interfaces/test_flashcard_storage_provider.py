@@ -124,3 +124,49 @@ class TestFlashcardStorageProviderContract:
     def test_cannot_instantiate_directly(self):
         with pytest.raises(TypeError):
             FlashcardStorageProvider()
+
+
+# --- 006: every listing, count and creation is scoped to one language (T078) -----------
+
+LANGUAGE_SCOPED_METHODS = (
+    "list_words",
+    "list_decks",
+    "create_deck",
+    "get_sessions_since",
+    "get_card_results_since",
+    "get_classification_counts",
+    "get_classification_snapshots_since",
+)
+
+
+def _implementations():
+    from app.flashcards.services.sqlite_storage import SQLiteFlashcardStorageProvider
+
+    return (FlashcardStorageProvider, SQLiteFlashcardStorageProvider)
+
+
+@pytest.mark.parametrize("method", LANGUAGE_SCOPED_METHODS)
+@pytest.mark.parametrize("cls", _implementations(), ids=lambda c: c.__name__)
+def test_language_is_a_required_keyword_only_parameter(cls, method):
+    parameter = inspect.signature(getattr(cls, method)).parameters.get("language")
+
+    assert parameter is not None, f"{cls.__name__}.{method} has no language parameter"
+    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    assert parameter.default is inspect.Parameter.empty
+
+
+def test_calling_without_a_language_raises_type_error():
+    from app.flashcards.services.sqlite_storage import SQLiteFlashcardStorageProvider
+
+    with pytest.raises(TypeError):
+        SQLiteFlashcardStorageProvider(db=None).list_decks()
+
+
+@pytest.mark.parametrize("record", ["DeckRecord", "SessionRecord"])
+def test_deck_and_session_records_carry_their_language(record):
+    import dataclasses
+
+    from app.flashcards.services import storage
+
+    fields = {field.name for field in dataclasses.fields(getattr(storage, record))}
+    assert "target_language" in fields

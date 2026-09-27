@@ -55,6 +55,7 @@ def deck(client, two_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "recall",
@@ -81,6 +82,7 @@ def test_create_deck_returns_201(client, two_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "recall",
@@ -94,6 +96,7 @@ def test_create_deck_contains_cards(client, two_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "recall",
@@ -109,6 +112,7 @@ def test_create_deck_auto_generates_name(client, two_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 2,
             "word_source": "all",
             "practice_mode": "recall",
@@ -123,6 +127,7 @@ def test_create_deck_with_explicit_name(client, two_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "name": "My Custom Deck",
             "size": 2,
             "word_source": "all",
@@ -137,6 +142,7 @@ def test_create_deck_size_adjusted_when_pool_too_small(client, two_words):
     res = client.post(
         "/api/flashcards/decks",
         json={
+            "language": "es",
             "size": 50,
             "word_source": "all",
             "practice_mode": "recall",

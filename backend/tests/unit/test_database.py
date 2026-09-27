@@ -254,13 +254,13 @@ class TestConversationLevelMigration:
     def legacy_engine(self, tmp_path, monkeypatch):
         return _legacy_engine(tmp_path / "pre-005.db", monkeypatch)
 
-    def test_conversation_level_is_the_last_additive_column(self):
+    def test_conversation_level_is_an_additive_column(self):
         from app.database import _ADDITIVE_COLUMNS
 
-        assert _ADDITIVE_COLUMNS[-1] == (
+        assert (
             "app_settings",
             "conversation_level VARCHAR(12) NOT NULL DEFAULT 'natural'",
-        )
+        ) in _ADDITIVE_COLUMNS
 
     def test_adds_the_column_to_an_existing_database(self, legacy_engine):
         from app.database import _migrate_db
@@ -378,3 +378,36 @@ class TestVoiceChoiceSeed:
         _migrate_db()
 
         assert self._choices(legacy_engine) == [("es", "es_AR-daniela-high")]
+
+
+class TestFlashcardLanguageColumns:
+    """006 T077: existing decks and practice history belong to Spanish (FR-021)."""
+
+    @pytest.fixture()
+    def legacy_engine(self, tmp_path, monkeypatch):
+        return _legacy_engine(tmp_path / "pre-006-flashcards.db", monkeypatch)
+
+    def test_the_two_language_columns_are_the_last_additive_columns(self):
+        from app.database import _ADDITIVE_COLUMNS
+
+        assert _ADDITIVE_COLUMNS[-2:] == (
+            ("decks", "target_language VARCHAR(20) NOT NULL DEFAULT 'es'"),
+            ("practice_sessions", "target_language VARCHAR(20) NOT NULL DEFAULT 'es'"),
+        )
+
+    def test_an_existing_deck_and_session_read_spanish(self, legacy_engine):
+        from app.database import _migrate_db
+
+        with legacy_engine.connect() as conn:
+            conn.execute(text("INSERT INTO decks (id) VALUES (1)"))
+            conn.execute(text("INSERT INTO practice_sessions (id) VALUES (1)"))
+            conn.commit()
+
+        _migrate_db()
+
+        with legacy_engine.connect() as conn:
+            deck = conn.execute(text("SELECT target_language FROM decks")).scalar_one()
+            session = conn.execute(
+                text("SELECT target_language FROM practice_sessions")
+            ).scalar_one()
+        assert (deck, session) == ("es", "es")

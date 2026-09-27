@@ -29,6 +29,8 @@ class Deck(Base):
     practice_mode: Mapped[str] = mapped_column(String(30), nullable=False)
     algorithm: Mapped[str] = mapped_column(String(30), nullable=False)
     requested_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    # No Python default: every new deck names its language (FR-021 comes from the ALTER TABLE).
+    target_language: Mapped[str] = mapped_column(String(20), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
@@ -76,6 +78,8 @@ class PracticeSession(Base):
     guessed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     didnt_know_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Copied from the deck at start; kept when the deck is deleted.
+    target_language: Mapped[str] = mapped_column(String(20), nullable=False)
 
 
 class CardResult(Base):

@@ -58,6 +58,7 @@ def _deck_to_record(d: Deck) -> DeckRecord:
         requested_size=d.requested_size,
         created_at=d.created_at,
         last_practiced_at=d.last_practiced_at,
+        target_language=d.target_language,
     )
 
 
@@ -85,6 +86,7 @@ def _session_to_record(s: PracticeSession) -> SessionRecord:
         guessed_count=s.guessed_count,
         didnt_know_count=s.didnt_know_count,
         completed=s.completed,
+        target_language=s.target_language,
     )
 
 
@@ -143,6 +145,29 @@ def _snapshot_to_record(s: SessionClassificationSnapshot) -> ClassificationSnaps
     )
 
 
+def _deck_card(deck_id: int, card: dict) -> DeckCard:
+    return DeckCard(
+        deck_id=deck_id,
+        vocabulary_item_id=card["vocabulary_item_id"],
+        position=card["position"],
+        fill_blank_sentence=card.get("fill_blank_sentence"),
+    )
+
+
+def _filtered_word_query(query, classifications, saved_between, search):
+    """Narrow a word query by classification, saved-date range and a word search."""
+    date_from, date_to = saved_between
+    if classifications:
+        query = query.filter(VocabularyItem.classification.in_(classifications))
+    if date_from:
+        query = query.filter(VocabularyItem.saved_at >= date_from)
+    if date_to:
+        query = query.filter(VocabularyItem.saved_at <= date_to)
+    if search:
+        query = query.filter(VocabularyItem.word.ilike(f"%{search}%"))
+    return query
+
+
 _RATING_COUNTER = {
     "knew_it": "knew_it_count",
     "guessed": "guessed_count",
@@ -163,16 +188,11 @@ class SQLiteFlashcardStorageProvider(FlashcardStorageProvider):
         date_from: datetime | None = None,
         date_to: datetime | None = None,
         search: str | None = None,
+        *,
+        language: str,
     ) -> list[WordRecord]:
-        query = self._db.query(VocabularyItem)
-        if classifications:
-            query = query.filter(VocabularyItem.classification.in_(classifications))
-        if date_from:
-            query = query.filter(VocabularyItem.saved_at >= date_from)
-        if date_to:
-            query = query.filter(VocabularyItem.saved_at <= date_to)
-        if search:
-            query = query.filter(VocabularyItem.word.ilike(f"%{search}%"))
+        query = self._db.query(VocabularyItem).filter(VocabularyItem.target_language == language)
+        query = _filtered_word_query(query, classifications, (date_from, date_to), search)
         rows = query.order_by(VocabularyItem.saved_at.desc()).all()
         return [_word_to_record(r) for r in rows]
 
@@ -221,6 +241,8 @@ class SQLiteFlashcardStorageProvider(FlashcardStorageProvider):
         algorithm: str,
         requested_size: int,
         cards: list[dict],
+        *,
+        language: str,
     ) -> tuple[DeckRecord, list[DeckCardRecord]]:
         deck = Deck(
             name=name,
@@ -228,28 +250,29 @@ class SQLiteFlashcardStorageProvider(FlashcardStorageProvider):
             algorithm=algorithm,
             requested_size=requested_size,
             created_at=datetime.now(UTC),
+            target_language=language,
         )
         self._db.add(deck)
         self._db.flush()  # get deck.id before inserting cards
-
-        card_rows = [
-            DeckCard(
-                deck_id=deck.id,
-                vocabulary_item_id=card["vocabulary_item_id"],
-                position=card["position"],
-                fill_blank_sentence=card.get("fill_blank_sentence"),
-            )
-            for card in cards
-        ]
-        self._db.add_all(card_rows)
-        self._db.commit()
+        card_rows = self._insert_cards(deck.id, cards)
         self._db.refresh(deck)
-        for c in card_rows:
-            self._db.refresh(c)
         return _deck_to_record(deck), [_deck_card_to_record(c) for c in card_rows]
 
-    def list_decks(self) -> list[DeckRecord]:
-        rows = self._db.query(Deck).order_by(Deck.created_at.desc()).all()
+    def _insert_cards(self, deck_id: int, cards: list[dict]) -> list[DeckCard]:
+        card_rows = [_deck_card(deck_id, card) for card in cards]
+        self._db.add_all(card_rows)
+        self._db.commit()
+        for c in card_rows:
+            self._db.refresh(c)
+        return card_rows
+
+    def list_decks(self, *, language: str) -> list[DeckRecord]:
+        rows = (
+            self._db.query(Deck)
+            .filter(Deck.target_language == language)
+            .order_by(Deck.created_at.desc())
+            .all()
+        )
         return [_deck_to_record(r) for r in rows]
 
     def get_deck(self, deck_id: int) -> DeckRecord | None:
@@ -279,20 +302,7 @@ class SQLiteFlashcardStorageProvider(FlashcardStorageProvider):
 
     def replace_deck_cards(self, deck_id: int, cards: list[dict]) -> list[DeckCardRecord]:
         self._db.execute(delete(DeckCard).where(DeckCard.deck_id == deck_id))
-        card_rows = [
-            DeckCard(
-                deck_id=deck_id,
-                vocabulary_item_id=card["vocabulary_item_id"],
-                position=card["position"],
-                fill_blank_sentence=card.get("fill_blank_sentence"),
-            )
-            for card in cards
-        ]
-        self._db.add_all(card_rows)
-        self._db.commit()
-        for c in card_rows:
-            self._db.refresh(c)
-        return [_deck_card_to_record(c) for c in card_rows]
+        return [_deck_card_to_record(c) for c in self._insert_cards(deck_id, cards)]
 
     # --- Practice sessions ---
 
@@ -309,11 +319,15 @@ class SQLiteFlashcardStorageProvider(FlashcardStorageProvider):
             algorithm=algorithm,
             started_at=datetime.now(UTC),
             total_cards=total_cards,
+            target_language=self._deck_language(deck_id),
         )
         self._db.add(session)
         self._db.commit()
         self._db.refresh(session)
         return _session_to_record(session)
+
+    def _deck_language(self, deck_id: int) -> str:
+        return self._db.get(Deck, deck_id).target_language
 
     def get_session(self, session_id: int) -> SessionRecord | None:
         row = self._db.get(PracticeSession, session_id)
@@ -509,26 +523,30 @@ class SQLiteFlashcardStorageProvider(FlashcardStorageProvider):
 
     # --- Analytics ---
 
-    def get_sessions_since(self, cutoff: datetime | None) -> list[SessionRecord]:
-        query = self._db.query(PracticeSession)
+    def get_sessions_since(self, cutoff: datetime | None, *, language: str) -> list[SessionRecord]:
+        query = self._db.query(PracticeSession).filter(PracticeSession.target_language == language)
         if cutoff:
             query = query.filter(PracticeSession.started_at >= cutoff)
         rows = query.order_by(PracticeSession.started_at.asc()).all()
         return [_session_to_record(r) for r in rows]
 
-    def get_card_results_since(self, cutoff: datetime | None) -> list[CardResultRecord]:
-        query = self._db.query(CardResult)
+    def get_card_results_since(
+        self, cutoff: datetime | None, *, language: str
+    ) -> list[CardResultRecord]:
+        query = (
+            self._db.query(CardResult)
+            .join(PracticeSession, CardResult.session_id == PracticeSession.id)
+            .filter(PracticeSession.target_language == language)
+        )
         if cutoff:
-            query = query.join(
-                PracticeSession,
-                CardResult.session_id == PracticeSession.id,
-            ).filter(PracticeSession.started_at >= cutoff)
+            query = query.filter(PracticeSession.started_at >= cutoff)
         rows = query.order_by(CardResult.rated_at.asc()).all()
         return [_card_result_to_record(r) for r in rows]
 
-    def get_classification_counts(self) -> dict[str, int]:
+    def get_classification_counts(self, *, language: str) -> dict[str, int]:
         rows = (
             self._db.query(VocabularyItem.classification, func.count(VocabularyItem.id))
+            .filter(VocabularyItem.target_language == language)
             .group_by(VocabularyItem.classification)
             .all()
         )
@@ -556,9 +574,13 @@ class SQLiteFlashcardStorageProvider(FlashcardStorageProvider):
         return _snapshot_to_record(row)
 
     def get_classification_snapshots_since(
-        self, cutoff: datetime | None
+        self, cutoff: datetime | None, *, language: str
     ) -> list[ClassificationSnapshotRecord]:
-        query = self._db.query(SessionClassificationSnapshot)
+        query = (
+            self._db.query(SessionClassificationSnapshot)
+            .join(PracticeSession, SessionClassificationSnapshot.session_id == PracticeSession.id)
+            .filter(PracticeSession.target_language == language)
+        )
         if cutoff:
             query = query.filter(SessionClassificationSnapshot.snapshotted_at >= cutoff)
         rows = query.order_by(SessionClassificationSnapshot.snapshotted_at.asc()).all()

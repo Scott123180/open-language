@@ -1,59 +1,76 @@
+import type { CSSProperties, ReactNode } from 'react'
 import { IconVolume, IconClock } from '../shared/icons'
+import { useWordAudio } from './useWordAudio'
 
 interface Props {
   ttsUrl: string
   onPlay?: (playbackRate: number) => void
 }
 
-export default function AudioControls({ ttsUrl, onPlay }: Props) {
-  function play(rate: number) {
-    if (onPlay) {
-      onPlay(rate)
-      return
-    }
-    const audio = new Audio(ttsUrl)
-    audio.playbackRate = rate
-    audio.play().catch(() => {})
-  }
+const NORMAL_RATE = 1.0
+const SLOW_RATE = 0.6
 
+const rowStyle: CSSProperties = { display: 'flex', gap: '8px', justifyContent: 'center' }
+const buttonStyle: CSSProperties = {
+  padding: '8px 16px',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius)',
+  background: 'var(--color-surface)',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+}
+const failureStyle: CSSProperties = {
+  margin: '8px 0 0',
+  textAlign: 'center',
+  fontSize: '0.85rem',
+  color: 'var(--color-text-muted)',
+}
+
+export default function AudioControls({ ttsUrl, onPlay }: Props) {
+  const audio = useWordAudio(ttsUrl)
+  const play = (rate: number) => (onPlay ? onPlay(rate) : void audio.play(rate))
   return (
-    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-      <button
-        aria-label="Listen"
-        onClick={() => play(1.0)}
-        style={{
-          padding: '8px 16px',
-          border: '1px solid var(--color-border)',
-          borderRadius: 'var(--radius)',
-          background: 'var(--color-surface)',
-          color: 'var(--color-text)',
-          cursor: 'pointer',
-          fontSize: '0.9rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-        }}
-      >
-        <IconVolume size={14} /> Listen
-      </button>
-      <button
-        aria-label="Slow speed"
-        onClick={() => play(0.6)}
-        style={{
-          padding: '8px 16px',
-          border: '1px solid var(--color-border)',
-          borderRadius: 'var(--radius)',
-          background: 'var(--color-surface)',
-          color: 'var(--color-text-muted)',
-          cursor: 'pointer',
-          fontSize: '0.85rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-        }}
-      >
-        <IconClock size={14} /> Slow
-      </button>
+    <div>
+      <div style={rowStyle}>
+        <AudioButton label="Listen" onClick={() => play(NORMAL_RATE)} isPrimary>
+          <IconVolume size={14} /> Listen
+        </AudioButton>
+        <AudioButton label="Slow speed" onClick={() => play(SLOW_RATE)}>
+          <IconClock size={14} /> Slow
+        </AudioButton>
+      </div>
+      <AudioFailureMessage message={audio.failureMessage} />
     </div>
+  )
+}
+
+interface AudioButtonProps {
+  label: string
+  onClick: () => void
+  isPrimary?: boolean
+  children: ReactNode
+}
+
+function AudioButton({ label, onClick, isPrimary = false, children }: AudioButtonProps) {
+  const style: CSSProperties = {
+    ...buttonStyle,
+    color: isPrimary ? 'var(--color-text)' : 'var(--color-text-muted)',
+    fontSize: isPrimary ? '0.9rem' : '0.85rem',
+  }
+  return (
+    <button aria-label={label} onClick={onClick} style={style}>
+      {children}
+    </button>
+  )
+}
+
+function AudioFailureMessage({ message }: { message: string | null }) {
+  if (!message) return null
+  return (
+    <p role="status" style={failureStyle}>
+      {message}
+    </p>
   )
 }

@@ -39,6 +39,7 @@ export interface DeckDetail {
   actual_size: number
   size_adjusted: boolean
   created_at: string
+  target_language: string
   cards: DeckCardItem[]
 }
 
@@ -49,6 +50,7 @@ export interface DeckSummary {
   algorithm: GenerationAlgorithm
   card_count: number
   created_at: string
+  target_language: string
   last_practiced_at: string | null
   session_count: number
   last_accuracy: number | null
@@ -172,14 +174,14 @@ export interface WordFilters {
   date_preset?: 'week' | 'month'
 }
 
-export function fetchWords(filters: WordFilters = {}): Promise<WordListItem[]> {
-  const params = new URLSearchParams()
+// Every collection is one practice language's (FR-020); the backend requires `language`.
+export function fetchWords(language: string, filters: WordFilters = {}): Promise<WordListItem[]> {
+  const params = new URLSearchParams({ language })
   filters.classification?.forEach((c) => params.append('classification', c))
   if (filters.date_from) params.set('date_from', filters.date_from)
   if (filters.date_to) params.set('date_to', filters.date_to)
   if (filters.search) params.set('search', filters.search)
-  const qs = params.toString()
-  return apiFetch<WordListItem[]>(`/words${qs ? `?${qs}` : ''}`)
+  return apiFetch<WordListItem[]>(`/words?${params.toString()}`)
 }
 
 export function updateClassification(
@@ -211,11 +213,27 @@ export function getVocabTtsUrl(vocabularyItemId: number): string {
   return `${BASE}/tts/${vocabularyItemId}`
 }
 
+const AUDIO_UNAVAILABLE = 'Audio is unavailable for this word.'
+const VOICE_UNAVAILABLE_STATUS = 503
+
+/** Why a word's audio did not play: the server's 503 reason, or a generic line (FR-018). */
+export async function describeAudioFailure(ttsUrl: string): Promise<string> {
+  try {
+    const res = await fetch(ttsUrl)
+    if (res.status !== VOICE_UNAVAILABLE_STATUS) return AUDIO_UNAVAILABLE
+    const body = await res.json()
+    return typeof body.detail === 'string' ? body.detail : AUDIO_UNAVAILABLE
+  } catch {
+    return AUDIO_UNAVAILABLE
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Deck endpoints
 // ---------------------------------------------------------------------------
 
 export interface DeckConfigPayload {
+  language: string
   name?: string | null
   size: number
   word_source: 'all' | 'filtered' | 'selected'
@@ -232,8 +250,8 @@ export function createDeck(payload: DeckConfigPayload): Promise<DeckDetail> {
   return apiFetch<DeckDetail>('/decks', { method: 'POST', body: JSON.stringify(payload) })
 }
 
-export function listDecks(): Promise<DeckSummary[]> {
-  return apiFetch<DeckSummary[]>('/decks')
+export function listDecks(language: string): Promise<DeckSummary[]> {
+  return apiFetch<DeckSummary[]>(`/decks?language=${encodeURIComponent(language)}`)
 }
 
 export function getDeck(id: number): Promise<DeckDetail> {
@@ -301,6 +319,9 @@ export function createMissedDeck(sessionId: number): Promise<DeckDetail> {
 
 export type AnalyticsRange = '7d' | '30d' | 'all'
 
-export function fetchAnalytics(range: AnalyticsRange = '7d'): Promise<AnalyticsSummary> {
-  return apiFetch<AnalyticsSummary>(`/analytics?range=${range}`)
+export function fetchAnalytics(
+  language: string,
+  range: AnalyticsRange = '7d',
+): Promise<AnalyticsSummary> {
+  return apiFetch<AnalyticsSummary>(`/analytics?language=${encodeURIComponent(language)}&range=${range}`)
 }
