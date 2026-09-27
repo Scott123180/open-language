@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import * as api from '../services/api'
@@ -12,6 +13,15 @@ function formatDate(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+// Each conversation keeps the language it started in, whatever is selected now (FR-012).
+const languageTagStyle: CSSProperties = {
+  padding: '1px 8px',
+  fontSize: '0.75rem',
+  color: 'var(--color-text-muted)',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-lg)',
 }
 
 export default function History() {
@@ -112,7 +122,10 @@ export default function History() {
                   color: 'var(--color-text)',
                 }}
               >
-                <span style={{ fontWeight: 600 }}>{conv.scenario_title}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 600 }}>{conv.scenario_title}</span>
+                  <span style={languageTagStyle}>{conv.target_language_name}</span>
+                </span>
                 <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
                   {formatDate(conv.started_at)}
                 </span>

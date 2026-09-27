@@ -462,7 +462,7 @@ use each learning tool once (spec US1).
   - `LOANWORD_ALLOWLIST = frozenset({"hotel", "taxi", "ticket", "ok"})`.
 
   Also write `test_german_evaluation_set.py` (not a benchmark, so it runs in CI) asserting 10 × 5 turns, 20 sentences, and that every sentence has an umlaut or ß.
-- [ ] T067 [US1] Write `backend/tests/integration/practice_languages/test_german_benchmark.py`, marked `@pytest.mark.benchmark` (SC-002). Model it on `tests/integration/conversation_levels/test_level_benchmark.py`, which drives the real model through `build_llm_provider(LLMSelection(DEFAULT_PROVIDER_ID, …))` and a real `ConversationEngine`. Do **not** use `level_harness.py`: it holds test doubles only.
+- [X] T067 [US1] Write `backend/tests/integration/practice_languages/test_german_benchmark.py`, marked `@pytest.mark.benchmark` (SC-002). Model it on `tests/integration/conversation_levels/test_level_benchmark.py`, which drives the real model through `build_llm_provider(LLMSelection(DEFAULT_PROVIDER_ID, …))` and a real `ConversationEngine`. Do **not** use `level_harness.py`: it holds test doubles only.
   - Flag a reply token when `wordfreq.zipf_frequency(t, "de") < 2.0` and `max(zipf(t, "en"), zipf(t, "es")) >= 3.0`, after excluding capitalised mid-sentence tokens (proper nouns) and `LOANWORD_ALLOWLIST`.
   - Write every flagged reply to `specs/006-german-language-support/german-review-sheet.md` for a human verdict.
   - Assert that the unflagged share is ≥ 95%.
@@ -471,12 +471,12 @@ use each learning tool once (spec US1).
   - "Ich möchte ein Hotel" → no flags;
   - "Ich möchte the menu" → flags "the";
   - "Quiero un café, bitte" → flags "quiero".
-- [ ] T068 [US1] Write `backend/tests/integration/practice_languages/test_transcription_benchmark.py`, marked `@pytest.mark.benchmark` (SC-003).
+- [X] T068 [US1] Write `backend/tests/integration/practice_languages/test_transcription_benchmark.py`, marked `@pytest.mark.benchmark` (SC-003).
   - Synthesise each `DICTATION_SENTENCES` item with `de_DE-kerstin-low` through `PiperTTSProvider` into `tmp_path`, convert it to 16 kHz mono, and transcribe it with `WhisperSTTProvider(get_settings().whisper_model)` and `language_hint="de"`.
   - A sentence passes when every umlaut or ß word appears exactly, and the WER is ≤ 20% after lower-casing and stripping punctuation.
   - Print a table of sentence, transcript, WER and pass. Assert ≥ 18 of 20.
   - Run both benchmarks with `backend/.venv/bin/pytest -m benchmark tests/integration/practice_languages -s`, and record the results in the PR description. If either falls short, add the result to `docs/architecture.md` § "Open items" (quickstart §3) before continuing.
-- [ ] T069 [US1] Add a German turn to `backend/tests/live/test_claude_code_live.py`, marked `@pytest.mark.claude_live` like the file's existing tests and so deselected by default (FR-026; analysis G1):
+- [X] T069 [US1] Add a German turn to `backend/tests/live/test_claude_code_live.py`, marked `@pytest.mark.claude_live` like the file's existing tests and so deselected by default (FR-026; analysis G1):
   - open a `de` scenario conversation through the real `claude -p` adapter;
   - assert the reply is non-empty and passes the T067 purity check (no flagged non-German word);
   - run it by hand with `backend/.venv/bin/pytest -m claude_live tests/live -k german`, and record the result in the PR description.
@@ -500,7 +500,7 @@ and the continued conversation stays Spanish with a Spanish voice (spec US2).
 
 ### Tests for User Story 2 (write first, see them fail)
 
-- [ ] T070 [P] [US2] Write `backend/tests/integration/practice_languages/test_conversation_language.py` (FR-006, FR-009, FR-014, FR-019, FR-025; US2-2, US2-3).
+- [X] T070 [P] [US2] Write `backend/tests/integration/practice_languages/test_conversation_language.py` (FR-006, FR-009, FR-014, FR-019, FR-025; US2-2, US2-3).
   - Fixture: an `es` conversation with messages, stored while the setting is `es`. Then `PUT {"target_language": "de"}`.
   - Assert, one test each:
     - `open`/`message`/`session` on the `es` conversation build Spanish standing prompts;
@@ -511,24 +511,24 @@ and the continued conversation stays Spanish with a Spanish voice (spec US2).
     - `POST /vocabulary` with an unknown `source_conversation_id` → 404 "Conversation not found";
     - a new conversation created now is `de`;
     - no pre-existing conversation, message or vocabulary row changed (compare snapshots).
-- [ ] T071 [P] [US2] Extend `backend/tests/integration/routers/test_vocabulary.py` (contracts §7):
+- [X] T071 [P] [US2] Extend `backend/tests/integration/routers/test_vocabulary.py` (contracts §7):
   - "Straße", "Übung" and "schön" round-trip byte-exact through save → `GET /vocabulary`;
   - "Haus" saved from a `de` conversation and from an `es` conversation gives two rows with different ids and languages (FR-023);
   - a second save of "Haus" from the same `de` conversation returns 200 `already_saved: true`;
   - "Haus" and "haus" are distinct, because nothing folds case (research R12).
-- [ ] T072 [P] [US2] Extend `frontend/src/pages/History.test.tsx`, then `frontend/e2e/history.spec.ts`: with `mockConversation` (Spanish) and `mockGermanConversation` in the list, each row shows its language name ("Spanish", "German") as text next to the title, and the name is part of the row's accessible name (FR-012).
-- [ ] T073 [P] [US2] Extend `frontend/e2e/practice-language.spec.ts`:
+- [X] T072 [P] [US2] Extend `frontend/src/pages/History.test.tsx`, then `frontend/e2e/history.spec.ts`: with `mockConversation` (Spanish) and `mockGermanConversation` in the list, each row shows its language name ("Spanish", "German") as text next to the title, and the name is part of the row's accessible name (FR-012).
+- [X] T073 [P] [US2] Extend `frontend/e2e/practice-language.spec.ts`:
   - **Round trip**: switch Settings to German and save, then back to Spanish, and the Voice list shows the Spanish voices with `es_AR-daniela-high` selected (the mock's Spanish `selected_voice`; US2-4).
   - **Older conversation**: with the settings mock at `de`, opening `mockConversation` (Spanish) shows the "Spanish" tag, the helper label "English → Spanish", and a transcribe request carrying `language=es` (US2-2).
 
 ### Implementation for User Story 2
 
-- [ ] T074 [US2] Derive the saved word's languages from the source conversation in `backend/app/routers/vocabulary.py` (passes T070's vocabulary rows and T071):
+- [X] T074 [US2] Derive the saved word's languages from the source conversation in `backend/app/routers/vocabulary.py` (passes T070's vocabulary rows and T071):
   - `_word_languages(storage, req, app_settings) -> tuple[str, str]` returns the source conversation's `(target_language, native_language)`, raises 404 when the id is unknown, and falls back to `app_settings.target_language`/`native_language` when no id is given;
   - `_save_response(item)` builds the response;
   - `save_vocabulary` must be ≤ 20 lines.
-- [ ] T075 [US2] Render `conv.target_language_name` in each Past Chats row in `frontend/src/pages/History.tsx` as a muted tag. Use `--color-text-muted`, `--radius-lg` and a border token; no new colour (passes T072).
-- [ ] T076 [US2] Run the full backend and frontend suites. T070–T073 must pass. Confirm T017 (SC-005) still passes.
+- [X] T075 [US2] Render `conv.target_language_name` in each Past Chats row in `frontend/src/pages/History.tsx` as a muted tag. Use `--color-text-muted`, `--radius-lg` and a border token; no new colour (passes T072).
+- [X] T076 [US2] Run the full backend and frontend suites. T070–T073 must pass. Confirm T017 (SC-005) still passes.
 
 **Checkpoint**: Spanish and German can be alternated freely. Each conversation is self-consistent,
 and nothing is rewritten.

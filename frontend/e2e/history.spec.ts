@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { mockConversation, mockConversationCompleted, mockMessages } from './fixtures'
+import { mockConversation, mockConversationCompleted, mockGermanConversation, mockMessages } from './fixtures'
 
 const HISTORY_URL = '/history'
 
@@ -147,5 +147,18 @@ test.describe('History page', () => {
     await page.getByRole('button', { name: /hotel check-in/i }).click()
     await expect(page.getByText('¡Hola! ¿En qué puedo ayudarte hoy?')).not.toBeVisible()
     await expect(page.getByText('No messages.')).toBeVisible()
+  })
+})
+
+test.describe('History page — conversation languages (006)', () => {
+  test('each row names its conversation language', async ({ page }) => {
+    await setupHistoryRoutes(page, [mockConversation, mockGermanConversation])
+    await page.route(`/api/conversations/${mockGermanConversation.id}/messages`, (route) =>
+      route.fulfill({ json: [] }),
+    )
+    await page.goto(HISTORY_URL)
+
+    await expect(page.getByRole('button', { name: /Coffee Shop.*Spanish/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Coffee Shop.*German/ })).toBeVisible()
   })
 })

@@ -56,6 +56,11 @@ class Reply:
     def flagged(self) -> list[str]:
         return foreign_words(self.text)
 
+    @property
+    def is_pure_german(self) -> bool:
+        """An empty reply is a failure, never a trivially clean one."""
+        return bool(self.text.strip()) and not self.flagged
+
 
 def _conversation(scenario_id: str, conversation_id: int) -> ConversationRecord:
     title = next(s.title for s in StaticScenarioProvider().get_all() if s.id == scenario_id)
@@ -134,11 +139,13 @@ def test_german_replies_meet_sc_002(capsys) -> None:
     replies = [
         reply for scenario, turns in GERMAN_TURNS.items() for reply in player.play(scenario, turns)
     ]
-    pure = sum(not reply.flagged for reply in replies)
+    pure = sum(reply.is_pure_german for reply in replies)
     sheet = _write_review_sheet(replies, REVIEW_SHEET)
 
     with capsys.disabled():
         print(f"\nSC-002 replies with no flagged word: {pure}/{len(replies)}")  # noqa: T201
         print(f"Review sheet: {sheet}")  # noqa: T201
+        for reply in replies[:3]:
+            print(f"  {reply.learner_text} → {reply.text}")  # noqa: T201
 
     assert pure >= SC_002_MIN_PURE_SHARE * len(replies)

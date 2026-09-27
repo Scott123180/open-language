@@ -10,17 +10,23 @@ About 35 small requests, mostly Haiku and Sonnet at low effort.
 import json
 import os
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from app.config import Settings
+from app.conversation_levels import ConversationLevel
 from app.corrections.prompts import CORRECTION_JSON_SCHEMA, build_evaluation_prompt
 from app.corrections.services.evaluator import _parse_findings
+from app.routers.chat import _standing_roleplay_prompt
 from app.services.conversation import SavedTurn, SessionKey, SessionKind
 from app.services.llm.base import ChatMessage
 from app.services.llm.claude_code import ClaudeCodeAvailability, ClaudeCodeLLMProvider
 from app.services.llm.claude_code.runner import SubprocessClaudeCodeRunner
+from app.services.scenario.static import StaticScenarioProvider
+from app.services.storage.base import ConversationRecord
+from tests.integration.practice_languages.text_purity import foreign_words
 
 pytestmark = pytest.mark.claude_live
 
@@ -161,3 +167,32 @@ def test_a_ten_turn_session_remembers_stays_fast_and_survives_a_rebuild(runner, 
     assert "bartolo" in recalled.lower()
     assert rebuild_seconds <= FIRST_REPLY_BUDGET_SECONDS
     assert list(settings.claude_workdir.iterdir()) == []
+
+
+GERMAN_CONVERSATION = ConversationRecord(
+    id=1,
+    scenario_id="order-at-restaurant",
+    scenario_title="Order at a Restaurant",
+    target_language="de",
+    native_language="en",
+    status="active",
+    started_at=datetime.now(UTC),
+    ended_at=None,
+    llm_model="sonnet",
+)
+
+
+def test_a_german_conversation_replies_only_in_german(runner, settings):
+    """006 FR-026: Claude holds a German conversation from the same prompts as Ollama."""
+    standing = _standing_roleplay_prompt(
+        GERMAN_CONVERSATION, StaticScenarioProvider(), ConversationLevel.NATURAL
+    )
+    key = SessionKey(SessionKind.ROLEPLAY, "live-german")
+    session = _provider(runner, settings).open_session(key, standing, [])
+    turn = SavedTurn("m0", "user", "Guten Abend, einen Tisch für zwei Personen, bitte.")
+
+    reply = "".join(session.reply([turn], None))
+    session.close()
+
+    assert reply.strip()
+    assert foreign_words(reply) == [], reply

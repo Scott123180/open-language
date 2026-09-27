@@ -1305,6 +1305,7 @@ Collected from the sections above so they are findable in one place:
 | **Correction accuracy is not good enough on an 8B model** — see below | `app/corrections/` | Shipped with an in-app warning; a larger local model is blocked by 8 GB VRAM (T098). Claude is now selectable as the larger model (004), but not yet benchmarked |
 | Background TTS writes through the request-scoped session after it is closed | `app/routers/chat.py` | Pre-dates 003; TTS cache paths can silently fail to persist |
 | **Conversation levels are not kept closely enough by an 8B model** — see below | `app/conversation_levels/` | Shipped with an in-app warning (005, T042); SC-001 missed, SC-003 partly missed |
+| **German transcription misses SC-003 on every Whisper size** — 13/20 on `base`, 16/20 on `small`, 17/20 on `medium` (target 18/20), measured on Piper-synthesised speech | `app/services/stt/` | 006; misses are single umlaut words. `small` is the practical recommendation for German today; figures in `specs/006-german-language-support/benchmark-results.md` |
 
 #### Roadmap: correction quality needs a larger model
 

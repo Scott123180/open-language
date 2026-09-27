@@ -5,7 +5,9 @@ import {
   mockGermanChatApis,
   mockGermanConversation,
   mockHomeApis,
+  mockChatApis,
   mockLlmProviders,
+  mockPracticeLanguages,
   mockPracticeLanguagesApi,
   mockPracticeLanguagesGermanVoiceMissing,
   mockSettings,
@@ -33,10 +35,14 @@ async function statefulSettings(page: Page, initial: StoredSettings = mockSettin
   return state
 }
 
-async function openSettings(page: Page, initial: StoredSettings = mockSettings) {
+async function openSettings(
+  page: Page,
+  initial: StoredSettings = mockSettings,
+  languages: unknown[] = mockPracticeLanguages,
+) {
   await mockLlmProviders(page)
   await mockConversationLevelsApi(page)
-  await mockPracticeLanguagesApi(page)
+  await mockPracticeLanguagesApi(page, languages)
   const state = await statefulSettings(page, initial)
   await page.goto(SETTINGS_URL)
   await expect(page.getByRole('group', { name: 'Practice language' })).toBeVisible()
@@ -143,5 +149,48 @@ test.describe('Practice language — a German conversation', () => {
     await expect(page.getByText('Guten Tag!')).toBeVisible()
     await page.waitForTimeout(300)
     expect(ttsRequests).toEqual([])
+  })
+})
+
+test.describe('Practice language — switching back and forth (US2)', () => {
+  test('returning to Spanish brings back the remembered Spanish voice', async ({ page }) => {
+    const [spanish, german] = mockPracticeLanguages
+    const languages = [{ ...spanish, selected_voice: 'es_AR-daniela-high' }, german]
+    const state = await openSettings(page, mockSettings, languages)
+
+    await page.getByRole('radio', { name: 'German' }).check()
+    await page.getByRole('button', { name: /save/i }).click()
+    await expect.poll(() => state.puts.length).toBe(1)
+    await page.getByRole('radio', { name: 'Spanish' }).check()
+
+    await expect(voiceOptions(page)).toHaveText(['David (Spain)', 'Daniela (Argentina)'])
+    await expect(page.getByLabel('Voice')).toHaveValue('es_AR-daniela-high')
+  })
+
+  test('an older Spanish conversation stays Spanish while German is selected', async ({ page }) => {
+    const languages: string[] = []
+    await stubMicrophone(page)
+    await mockChatApis(page)
+    await page.route('/api/settings', (route) =>
+      route.fulfill({ json: { ...mockSettings, target_language: 'de' } }),
+    )
+    await page.route('/api/audio/transcribe', (route) => {
+      languages.push(route.request().postData()?.match(/name="language"\r\n\r\n(\w+)/)?.[1] ?? '')
+      return route.fulfill({
+        json: { text: 'Hola', detected_language: 'es', confidence: 0.9, is_low_confidence: false },
+      })
+    })
+    await page.route('/api/chat/1/message', (route) =>
+      route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream' }, body: '' }),
+    )
+    await page.goto('/chat/1')
+    await expect(page.getByLabel('Type a message')).toBeVisible()
+
+    await expect(page.locator('header').getByText('Spanish', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Open expression helper' }).click()
+    await expect(page.getByText('English → Spanish')).toBeVisible()
+    await page.getByRole('button', { name: /record|microphone/i }).click()
+    await page.getByRole('button', { name: /stop|recording/i }).click()
+    await expect.poll(() => languages).toEqual(['es'])
   })
 })

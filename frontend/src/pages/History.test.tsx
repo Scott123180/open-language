@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import History from './History'
@@ -122,5 +122,32 @@ describe('History page', () => {
     await waitFor(() =>
       expect(screen.queryByText('Hola, ¿en qué puedo ayudarte?')).not.toBeInTheDocument(),
     )
+  })
+})
+
+describe('History page — conversation languages (006)', () => {
+  const german: api.Conversation = {
+    ...mockConversations[1],
+    id: 3,
+    scenario_title: 'Im Café',
+    target_language: 'de',
+    target_language_name: 'German',
+  }
+
+  it('labels each conversation with its own language', async () => {
+    vi.mocked(api.getConversations).mockResolvedValue([mockConversations[0], german])
+    renderHistory()
+
+    const spanishRow = await screen.findByRole('button', { name: /Buy a Train Ticket/ })
+    const germanRow = screen.getByRole('button', { name: /Im Café/ })
+    expect(within(spanishRow).getByText('Spanish')).toBeInTheDocument()
+    expect(within(germanRow).getByText('German')).toBeInTheDocument()
+  })
+
+  it('includes the language in the row name', async () => {
+    vi.mocked(api.getConversations).mockResolvedValue([german])
+    renderHistory()
+
+    expect(await screen.findByRole('button', { name: /Im Café.*German/ })).toBeInTheDocument()
   })
 })
