@@ -1,5 +1,6 @@
 """Integration tests for the /api/conversations router."""
 
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -19,7 +20,6 @@ _DEFAULT_SETTINGS = AppSettingsRecord(
     llm_model="llama3.1",
     target_language="es",
     native_language="en",
-    tts_voice="es_ES-mls-medium",
     suggestion_count=3,
     whisper_model="base",
     updated_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),
@@ -177,3 +177,44 @@ def test_create_custom_conversation_falls_back_when_llm_fails(client: TestClient
 
     assert response.status_code == 201
     assert response.json()["scenario_title"] == "Custom Scenario"
+
+
+# --- 006: conversation language names (T018) ------------------------------------------
+
+
+def _names(item: dict) -> tuple[str, str]:
+    return item["target_language_name"], item["native_language_name"]
+
+
+def test_every_conversation_response_carries_both_language_names(client: TestClient) -> None:
+    created = client.post("/api/conversations", json={"scenario_id": _VALID_SCENARIO_ID}).json()
+    conv_id = created["id"]
+    fetched = client.get(f"/api/conversations/{conv_id}").json()
+    listed = client.get("/api/conversations").json()[0]
+    patched = client.patch(f"/api/conversations/{conv_id}", json={"status": "completed"}).json()
+
+    for item in (created, fetched, listed, patched):
+        assert _names(item) == ("Spanish", "English")
+
+
+def test_a_conversation_started_in_german_is_german(client: TestClient) -> None:
+    app.dependency_overrides[get_app_settings] = lambda: replace(
+        _DEFAULT_SETTINGS, target_language="de"
+    )
+
+    data = client.post("/api/conversations", json={"scenario_id": _VALID_SCENARIO_ID}).json()
+
+    assert (data["target_language"], *_names(data)) == ("de", "German", "English")
+
+
+def test_each_conversation_lists_with_its_own_language_name(client: TestClient) -> None:
+    storage_instance = client.app.dependency_overrides[get_storage]()
+    for code in ("es", "de"):
+        storage_instance.create_conversation("s", "S", code, "en", "llama3.1")
+
+    listed = client.get("/api/conversations").json()
+
+    assert sorted((c["target_language"], c["target_language_name"]) for c in listed) == [
+        ("de", "German"),
+        ("es", "Spanish"),
+    ]

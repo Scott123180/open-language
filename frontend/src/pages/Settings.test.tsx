@@ -28,6 +28,8 @@ const mockVoices: api.VoiceOption[] = [
     locale: 'es_ES',
     quality: 'medium',
     speaking_rate: 'natural',
+    language: 'es',
+    is_installed: true,
   },
 ]
 
@@ -99,8 +101,21 @@ function renderSettings() {
   )
 }
 
+const mockPracticeLanguages: api.PracticeLanguageOption[] = [
+  {
+    language_id: 'es',
+    display_name: 'Spanish',
+    is_default: true,
+    default_voice: 'es_ES-davefx-medium',
+    selected_voice: 'es_ES-mls-medium',
+    is_voice_installed: true,
+    voice_unavailable_message: null,
+  },
+]
+
 beforeEach(() => {
   vi.resetAllMocks()
+  vi.mocked(api.getPracticeLanguages).mockResolvedValue(mockPracticeLanguages)
   vi.mocked(api.getVoices).mockResolvedValue(mockVoices)
   vi.mocked(api.getLlmProviders).mockResolvedValue(mockProviders)
   vi.mocked(api.getConversationLevels).mockResolvedValue(mockLevels)

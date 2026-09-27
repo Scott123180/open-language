@@ -1,10 +1,62 @@
 """Unit tests for the voice catalog."""
 
-from app.services.tts.voices import AVAILABLE_VOICES
+from app.services.tts.voices import AVAILABLE_VOICES, VoiceInfo, voices_for
 
 
-def test_available_voices_has_exactly_two_entries() -> None:
-    assert len(AVAILABLE_VOICES) == 2
+def test_available_voices_lists_spanish_then_german() -> None:
+    assert [v.key for v in AVAILABLE_VOICES] == [
+        "es_ES-davefx-medium",
+        "es_AR-daniela-high",
+        "de_DE-thorsten-medium",
+        "de_DE-kerstin-low",
+    ]
+
+
+def _voice(key: str) -> VoiceInfo:
+    return next(v for v in AVAILABLE_VOICES if v.key == key)
+
+
+def test_thorsten_is_a_natural_medium_male_german_voice() -> None:
+    assert _voice("de_DE-thorsten-medium") == VoiceInfo(
+        key="de_DE-thorsten-medium",
+        display_name="Thorsten (Germany)",
+        gender="male",
+        locale="de_DE",
+        quality="medium",
+        speaking_rate="natural",
+    )
+
+
+def test_kerstin_is_a_natural_low_female_german_voice() -> None:
+    assert _voice("de_DE-kerstin-low") == VoiceInfo(
+        key="de_DE-kerstin-low",
+        display_name="Kerstin (Germany)",
+        gender="female",
+        locale="de_DE",
+        quality="low",
+        speaking_rate="natural",
+    )
+
+
+def test_a_voice_language_is_the_locale_prefix() -> None:
+    voice = VoiceInfo(
+        key="k",
+        display_name="K",
+        gender="male",
+        locale="de_DE",
+        quality="low",
+        speaking_rate="natural",
+    )
+
+    assert voice.language == "de"
+
+
+def test_voices_for_german_lists_both_german_voices_in_order() -> None:
+    assert [v.key for v in voices_for("de")] == ["de_DE-thorsten-medium", "de_DE-kerstin-low"]
+
+
+def test_voices_for_an_unknown_language_is_empty() -> None:
+    assert voices_for("fr") == ()
 
 
 def test_each_voice_has_non_empty_key() -> None:

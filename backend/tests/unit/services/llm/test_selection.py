@@ -22,7 +22,6 @@ def _record(provider: str = "ollama", model: str = "llama3.1:8b") -> AppSettings
         llm_model=model,
         target_language="es",
         native_language="en",
-        tts_voice="es_ES-davefx-medium",
         suggestion_count=1,
         whisper_model="base",
         updated_at=datetime.now(UTC),

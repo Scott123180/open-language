@@ -93,3 +93,36 @@ def test_get_voice_loads_from_correct_path(tmp_path: Path) -> None:
 
     mock_piper_voice_cls.load.assert_called_once_with(expected_model_path)
     assert result is mock_voice
+
+
+# --- 006: voice installation (T010) --------------------------------------------------
+
+VOICE_KEY = "de_DE-thorsten-medium"
+
+
+def _install(voice_dir: Path, *suffixes: str) -> None:
+    for suffix in suffixes:
+        (voice_dir / f"{VOICE_KEY}{suffix}").write_bytes(b"")
+
+
+def test_a_voice_with_model_and_config_is_installed(tmp_path: Path) -> None:
+    from app.services.tts.piper import PiperVoiceInstallation
+
+    _install(tmp_path, ".onnx", ".onnx.json")
+
+    assert PiperVoiceInstallation(tmp_path).is_installed(VOICE_KEY) is True
+
+
+@pytest.mark.parametrize("present", [".onnx", ".onnx.json"])
+def test_a_voice_missing_either_file_is_not_installed(tmp_path: Path, present: str) -> None:
+    from app.services.tts.piper import PiperVoiceInstallation
+
+    _install(tmp_path, present)
+
+    assert PiperVoiceInstallation(tmp_path).is_installed(VOICE_KEY) is False
+
+
+def test_nothing_is_installed_in_an_empty_directory(tmp_path: Path) -> None:
+    from app.services.tts.piper import PiperVoiceInstallation
+
+    assert PiperVoiceInstallation(tmp_path).is_installed(VOICE_KEY) is False

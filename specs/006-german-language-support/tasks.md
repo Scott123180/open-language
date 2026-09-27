@@ -66,14 +66,14 @@ its own:
 
 **Purpose**: Package skeletons and a green baseline to measure against.
 
-- [ ] T001 [P] Create empty package files `backend/app/practice_languages/__init__.py`, `backend/tests/unit/practice_languages/__init__.py` and `backend/tests/integration/practice_languages/__init__.py`
-- [ ] T002 Record the green baseline before any change:
+- [X] T001 [P] Create empty package files `backend/app/practice_languages/__init__.py`, `backend/tests/unit/practice_languages/__init__.py` and `backend/tests/integration/practice_languages/__init__.py`
+- [X] T002 Record the green baseline before any change:
   - from `backend/`: `backend/.venv/bin/pytest`, `backend/.venv/bin/ruff check .` and `backend/.venv/bin/black --check .`;
   - from `frontend/`: `npm run lint`, `npm run build` (runs `tsc -b`, the only step that type-checks test files), `npm test` and `npm run test:e2e`.
 
   All must pass. Note any pre-existing failure in the PR description rather than fixing it in this feature.
-- [ ] T003 Back up the local database: `cp ~/.open-language/app.db ~/.open-language/app.db.pre-006`. It is used by quickstart §4 (SC-005) and must be taken before the app runs any 006 code.
-- [ ] T004 Freeze the pre-006 schema as a test fixture, `backend/tests/fixtures/schema_005.sql` (analysis U2). The SC-005 tests must not build their "before" database from the live ORM metadata, which already contains 006 tables and columns.
+- [X] T003 Back up the local database: `cp ~/.open-language/app.db ~/.open-language/app.db.pre-006`. It is used by quickstart §4 (SC-005) and must be taken before the app runs any 006 code.
+- [X] T004 Freeze the pre-006 schema as a test fixture, `backend/tests/fixtures/schema_005.sql` (analysis U2). The SC-005 tests must not build their "before" database from the live ORM metadata, which already contains 006 tables and columns.
   - `git worktree add "$SCRATCH/wt-005" 329cf72` (the 005 release commit).
   - In that worktree, run `init_db()` against an empty database with `OPEN_LANGUAGE_DB_PATH` set to a scratch file, using this repository's `backend/.venv/bin/python`.
   - Dump `sqlite3 <file> .schema > backend/tests/fixtures/schema_005.sql`, then `git worktree remove "$SCRATCH/wt-005"`.
@@ -98,7 +98,7 @@ Every story depends on these.
 
 ### Tests for the foundation (write first, see them fail)
 
-- [ ] T005 [P] Write catalogue unit tests in `backend/tests/unit/practice_languages/test_catalog.py` (data-model §1, invariants I1–I6):
+- [X] T005 [P] Write catalogue unit tests in `backend/tests/unit/practice_languages/test_catalog.py` (data-model §1, invariants I1–I6):
   - `PRACTICE_LANGUAGES` keys iterate exactly `["es", "de"]`;
   - names are "Spanish" and "German";
   - the default voices are `es_ES-davefx-medium` and `de_DE-thorsten-medium`;
@@ -110,13 +110,13 @@ Every story depends on these.
   - every code matches `^[a-z]{2}$` (I6);
   - `PracticeLanguage` is frozen: assigning a field raises `FrozenInstanceError`;
   - `set(app.practice_languages.__all__)` is exactly `{"PracticeLanguage", "PRACTICE_LANGUAGES", "DEFAULT_PRACTICE_LANGUAGE", "UnknownLanguage", "language_name", "ConversationLanguages", "voice_for", "voice_unavailable_message"}`.
-- [ ] T006 [P] Write naming unit tests in `backend/tests/unit/practice_languages/test_naming.py` (data-model §2, research R2):
+- [X] T006 [P] Write naming unit tests in `backend/tests/unit/practice_languages/test_naming.py` (data-model §2, research R2):
   - `language_name("de") == "German"`, `language_name("es") == "Spanish"` and `language_name("en") == "English"`;
   - `language_name("fr")` and `language_name("")` raise `UnknownLanguage`, a `ValueError` subclass whose message names the code;
   - `ConversationLanguages.of("de", "en")` has `target_code == "de"`, `target_name == "German"` and `native_name == "English"`;
   - `ConversationLanguages.of("xx", "en")` and `ConversationLanguages.of("de", "xx")` raise `UnknownLanguage`;
   - the value object is frozen.
-- [ ] T007 [P] Write voice-resolution unit tests in `backend/tests/unit/practice_languages/test_voices.py` (data-model §4):
+- [X] T007 [P] Write voice-resolution unit tests in `backend/tests/unit/practice_languages/test_voices.py` (data-model §4):
   - `voice_for("de", {})` is `"de_DE-thorsten-medium"`;
   - `voice_for("de", {"de": "de_DE-kerstin-low"})` is `"de_DE-kerstin-low"`;
   - `voice_for("de", {"de": "es_ES-davefx-medium"})` is `"de_DE-thorsten-medium"`, because a mismatched choice is never returned (FR-018);
@@ -124,7 +124,7 @@ Every story depends on these.
   - `voice_for("es", {"de": "de_DE-kerstin-low"})` is `"es_ES-davefx-medium"`;
   - `voice_for("fr", {})` raises `UnknownLanguage`;
   - `voice_unavailable_message("de")` contains "German voice isn't installed", "./run.sh --setup" and "keep practising in text", and contains no voice key.
-- [ ] T008 [P] Extend `backend/tests/unit/services/test_voices.py` (data-model §3):
+- [X] T008 [P] Extend `backend/tests/unit/services/test_voices.py` (data-model §3):
   - `AVAILABLE_VOICES` has four entries in the order `es_ES-davefx-medium`, `es_AR-daniela-high`, `de_DE-thorsten-medium`, `de_DE-kerstin-low`;
   - `de_DE-thorsten-medium` is display name "Thorsten (Germany)", male, locale `de_DE`, quality medium, speaking rate natural;
   - `de_DE-kerstin-low` is "Kerstin (Germany)", female, `de_DE`, low, natural;
@@ -132,21 +132,21 @@ Every story depends on these.
   - `voices_for("de")` returns the two German voices in catalogue order;
   - `voices_for("fr") == ()`;
   - keep the existing `test_davefx_is_the_first_voice`.
-- [ ] T009 [P] Write `backend/tests/unit/services/test_speech_selection.py` for `SpeechForLanguage` (contracts §9, research R6), using a fake `VoiceInstallation` and a recording builder:
+- [X] T009 [P] Write `backend/tests/unit/services/test_speech_selection.py` for `SpeechForLanguage` (contracts §9, research R6), using a fake `VoiceInstallation` and a recording builder:
   - `voice_key("de")` returns what the injected resolver returns;
   - `is_available("de")` is the installation's answer for that key;
   - `provider_for("de")` calls the builder once with that key and returns its provider;
   - when the voice is not installed, `provider_for` raises `VoiceUnavailable` whose `user_message` equals the injected message function's output for `"de"`, and **the builder is never called** (no fallback);
   - `VoiceUnavailable` is a subclass of `TTSError`.
-- [ ] T010 [P] Extend `backend/tests/unit/services/test_piper_tts.py`: `PiperVoiceInstallation(tmp_path).is_installed(key)` is `True` only when both `<key>.onnx` and `<key>.onnx.json` exist in `tmp_path`; it is `False` with either file missing, and `False` for an empty directory.
-- [ ] T011 [P] Extend `backend/tests/unit/test_database.py` (data-model §4 seed):
+- [X] T010 [P] Extend `backend/tests/unit/services/test_piper_tts.py`: `PiperVoiceInstallation(tmp_path).is_installed(key)` is `True` only when both `<key>.onnx` and `<key>.onnx.json` exist in `tmp_path`; it is `False` with either file missing, and `False` for an empty directory.
+- [X] T011 [P] Extend `backend/tests/unit/test_database.py` (data-model §4 seed):
   - after `init_db()` the `voice_choices` table exists, with columns `target_language` (primary key), `voice_key` and `updated_at`;
   - an `app_settings` row `('es', 'es_AR-daniela-high')` is seeded as a `voice_choices` row `('es', 'es_AR-daniela-high')`;
   - a row `('de', 'es_ES-davefx-medium')` (mismatched) seeds nothing;
   - an existing `voice_choices` row is not overwritten by the seed;
   - with no `app_settings` row, nothing is seeded and nothing fails;
   - running `_migrate_db()` twice leaves exactly one row (idempotent).
-- [ ] T012 [P] Extend `backend/tests/unit/services/test_sqlite_storage.py` (data-model §6):
+- [X] T012 [P] Extend `backend/tests/unit/services/test_sqlite_storage.py` (data-model §6):
   - `get_settings().voice_choices == {}` on a fresh database;
   - after `save_voice_choice("de", "de_DE-kerstin-low")` it is `{"de": "de_DE-kerstin-low"}`;
   - a second `save_voice_choice("de", "de_DE-thorsten-medium")` updates in place, so there is still one row for `de`;
@@ -154,16 +154,16 @@ Every story depends on these.
   - `AppSettingsRecord` has no `tts_voice` attribute.
 
   Update the `AppSettingsRecord(...)` constructions in `backend/tests/unit/services/test_factory.py` and `backend/tests/unit/services/llm/test_selection.py` to drop `tts_voice=` (a compile-level change to test fixtures, done here so the suite is red only for the new behaviour).
-- [ ] T013 [P] Extend `backend/tests/contract/service_interfaces/test_storage_provider.py`: `StorageProvider` declares the abstract method `save_voice_choice(target_language, voice_key)`, and `SQLiteStorageProvider` implements it.
-- [ ] T014 [P] Extend `backend/tests/contract/service_interfaces/test_tts_provider.py`: `VoiceInstallation` is an ABC with exactly one abstract method, `is_installed`, and `PiperVoiceInstallation` implements it.
-- [ ] T015 [P] Write the endpoint contract test in `backend/tests/contract/test_practice_languages_api.py` (contracts §1). Override `get_voice_installation` with a fake.
+- [X] T013 [P] Extend `backend/tests/contract/service_interfaces/test_storage_provider.py`: `StorageProvider` declares the abstract method `save_voice_choice(target_language, voice_key)`, and `SQLiteStorageProvider` implements it.
+- [X] T014 [P] Extend `backend/tests/contract/service_interfaces/test_tts_provider.py`: `VoiceInstallation` is an ABC with exactly one abstract method, `is_installed`, and `PiperVoiceInstallation` implements it.
+- [X] T015 [P] Write the endpoint contract test in `backend/tests/contract/test_practice_languages_api.py` (contracts §1). Override `get_voice_installation` with a fake.
   - `GET /api/settings/practice-languages` returns 200 with exactly the `PRACTICE_LANGUAGES` entries, in order.
   - Each item's keys are exactly `{"language_id", "display_name", "is_default", "default_voice", "selected_voice", "is_voice_installed", "voice_unavailable_message"}`.
   - Exactly one item has `is_default: true`, and it is `DEFAULT_PRACTICE_LANGUAGE`.
   - The set of `language_id` values equals the set `PUT /api/settings` accepts for `target_language`: PUT each id and expect 200.
   - `voice_unavailable_message` is non-null exactly when `is_voice_installed` is false (fake German uninstalled, Spanish installed).
   - `selected_voice` for `de` is the default when the stored choice is the mismatched `es_ES-davefx-medium`.
-- [ ] T016 [P] Extend `backend/tests/integration/routers/test_settings.py` (contracts §2, §3), one test per row of the contracts §2 table:
+- [X] T016 [P] Extend `backend/tests/integration/routers/test_settings.py` (contracts §2, §3), one test per row of the contracts §2 table:
   - `PUT {"target_language": "de"}` → 200, and the response `tts_voice` is `de_DE-thorsten-medium`; the stored `es` choice is unchanged;
   - `PUT {"target_language": "de", "tts_voice": "de_DE-kerstin-low"}` → 200, remembered for `de`;
   - `PUT {"tts_voice": "de_DE-kerstin-low"}` with stored `es` → 422 with detail "That voice is for German. Choose a Spanish voice.", and nothing written;
@@ -174,7 +174,7 @@ Every story depends on these.
   - `GET /api/settings/voices` returns four voices, each with `language` and `is_installed` (fake installation).
 
   Replace any existing assertion that `PUT {"tts_voice": …}` is stored unvalidated.
-- [ ] T017 [P] Write `backend/tests/integration/practice_languages/test_upgrade_preserves_data.py` (SC-005, FR-024, research R13):
+- [X] T017 [P] Write `backend/tests/integration/practice_languages/test_upgrade_preserves_data.py` (SC-005, FR-024, research R13):
   - Build a pre-006 SQLite file in `tmp_path` by executing `backend/tests/fixtures/schema_005.sql` (T004) with `sqlite3.Connection.executescript`. Never use `create_all()` here: the shared `Base.metadata` already holds the 006 schema, so a database built from it cannot fail this test for the right reason.
   - Seed it with: two Spanish conversations with messages, three Spanish vocabulary items, and `app_settings` with `target_language='es'` and `tts_voice='es_AR-daniela-high'`.
   - Snapshot every row of `conversations`, `messages`, `vocabulary_items` and `app_settings` (pre-006 columns only).
@@ -185,61 +185,61 @@ Every story depends on these.
     - there is exactly one `voice_choices` row.
 
   US3 extends this test to decks and sessions (T077).
-- [ ] T018 [P] Extend `backend/tests/integration/routers/test_conversations.py` (contracts §4):
+- [X] T018 [P] Extend `backend/tests/integration/routers/test_conversations.py` (contracts §4):
   - every `ConversationResponse` (create, get, list, patch) carries `target_language_name` and `native_language_name`;
   - a conversation created while the stored `target_language` is `de` has `target_language == "de"`, `target_language_name == "German"` and `native_language_name == "English"`;
   - a mixed es/de fixture lists each conversation with its own name.
-- [ ] T019 [P] Write `backend/tests/integration/test_voice_unavailable_surface.py` (research R6), modelled on `backend/tests/integration/test_llm_error_surface.py`: a route raising `VoiceUnavailable("…message…")` returns **503** with `{"detail": "…message…"}`, not a 500.
+- [X] T019 [P] Write `backend/tests/integration/test_voice_unavailable_surface.py` (research R6), modelled on `backend/tests/integration/test_llm_error_surface.py`: a route raising `VoiceUnavailable("…message…")` returns **503** with `{"detail": "…message…"}`, not a 500.
 
 ### Implementation for the foundation
 
-- [ ] T020 Implement `backend/app/practice_languages/catalog.py` to pass T005's catalogue assertions:
+- [X] T020 Implement `backend/app/practice_languages/catalog.py` to pass T005's catalogue assertions:
   - `@dataclass(frozen=True, slots=True) class PracticeLanguage` with `code: str`, `name: str` and `default_voice: str`;
   - `PRACTICE_LANGUAGES: Mapping[str, PracticeLanguage]` as a `MappingProxyType` holding `es` ("Spanish", `es_ES-davefx-medium`) then `de` ("German", `de_DE-thorsten-medium`);
   - `DEFAULT_PRACTICE_LANGUAGE = "es"`;
   - `NATIVE_LANGUAGE_NAMES: Mapping[str, str] = MappingProxyType({"en": "English"})`.
-- [ ] T021 Implement `backend/app/practice_languages/naming.py` to pass T006:
+- [X] T021 Implement `backend/app/practice_languages/naming.py` to pass T006:
   - `class UnknownLanguage(ValueError)`, whose message names the code and says it is not in the language catalogue;
   - `language_name(code: str) -> str`, looking in `PRACTICE_LANGUAGES`, then in `NATIVE_LANGUAGE_NAMES`;
   - `@dataclass(frozen=True, slots=True) class ConversationLanguages` with `target_code`, `target_name` and `native_name`, and `@classmethod of(cls, target_code, native_code)`. The target must be a practice language; `language_name` is used for both.
-- [ ] T022 Add a read-only `language` property to `VoiceInfo` (`self.locale.split("_")[0]`), the two German `VoiceInfo` entries exactly as in data-model §3, and `voices_for(language_code: str) -> tuple[VoiceInfo, ...]`, all in `backend/app/services/tts/voices.py` (passes T008).
-- [ ] T023 Implement `backend/app/practice_languages/voices.py` to pass T007. It imports `AVAILABLE_VOICES` from `app.services.tts.voices`, which is catalogue data, not a provider.
+- [X] T022 Add a read-only `language` property to `VoiceInfo` (`self.locale.split("_")[0]`), the two German `VoiceInfo` entries exactly as in data-model §3, and `voices_for(language_code: str) -> tuple[VoiceInfo, ...]`, all in `backend/app/services/tts/voices.py` (passes T008).
+- [X] T023 Implement `backend/app/practice_languages/voices.py` to pass T007. It imports `AVAILABLE_VOICES` from `app.services.tts.voices`, which is catalogue data, not a provider.
   - `voice_for(code: str, voice_choices: Mapping[str, str]) -> str` returns the choice only if it is a known voice whose `language == code`, and otherwise `PRACTICE_LANGUAGES[code].default_voice`. It raises `UnknownLanguage` for an unknown code.
   - `voice_unavailable_message(code: str) -> str` returns "The {name} voice isn't installed, so {name} can't be read aloud. Run ./run.sh --setup to download it. You can keep practising in text."
-- [ ] T024 Export exactly the eight public names from `backend/app/practice_languages/__init__.py` via `__all__`, with a module docstring stating that callers import only from here (passes T005's `__all__` test).
-- [ ] T025 Add `"de_DE-thorsten-medium"` and `"de_DE-kerstin-low"` to the `PIPER_VOICES=( … )` array in `run.sh`, after the two Spanish keys (FR-017; passes T005 I4). Run `./run.sh --setup` once locally and confirm both `.onnx` and `.onnx.json` files land in `~/.local/share/piper-voices`.
-- [ ] T026 Add the `VoiceChoice` ORM model in the new file `backend/app/models/voice_choice.py`:
+- [X] T024 Export exactly the eight public names from `backend/app/practice_languages/__init__.py` via `__all__`, with a module docstring stating that callers import only from here (passes T005's `__all__` test).
+- [X] T025 Add `"de_DE-thorsten-medium"` and `"de_DE-kerstin-low"` to the `PIPER_VOICES=( … )` array in `run.sh`, after the two Spanish keys (FR-017; passes T005 I4). Run `./run.sh --setup` once locally and confirm both `.onnx` and `.onnx.json` files land in `~/.local/share/piper-voices`.
+- [X] T026 Add the `VoiceChoice` ORM model in the new file `backend/app/models/voice_choice.py`:
   - `__tablename__ = "voice_choices"`;
   - `target_language: Mapped[str] = mapped_column(String(20), primary_key=True)`;
   - `voice_key: Mapped[str] = mapped_column(String(200), nullable=False)`;
   - `updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))`.
 
   Register it in `init_db()`'s model import list in `backend/app/database.py`. In `backend/app/models/app_settings.py`, change `AppSettings.target_language`'s `default="es"` to `default=DEFAULT_PRACTICE_LANGUAGE`, imported from `app.practice_languages` (analysis I2; required by T100). Add a one-line comment on `AppSettings.tts_voice` in `backend/app/models/app_settings.py`: "Legacy (pre-006): read once by `_seed_voice_choices`; never written."
-- [ ] T027 Implement `_seed_voice_choices(conn)` in `backend/app/database.py` and call it at the end of `_migrate_db()` (passes T011). It must be ≤ 20 lines, with a helper if needed.
+- [X] T027 Implement `_seed_voice_choices(conn)` in `backend/app/database.py` and call it at the end of `_migrate_db()` (passes T011). It must be ≤ 20 lines, with a helper if needed.
   - Read `target_language, tts_voice` from `app_settings WHERE id = 1`; return if there is no row.
   - Seed only when `tts_voice` is a key in `AVAILABLE_VOICES` whose `.language == target_language`, using `INSERT OR IGNORE INTO voice_choices (target_language, voice_key, updated_at) VALUES (:l, :v, CURRENT_TIMESTAMP)`, then commit.
-- [ ] T028 Replace `tts_voice: str` in `AppSettingsRecord` with `voice_choices: Mapping[str, str] = field(default_factory=dict)`, and add the abstract `save_voice_choice(self, target_language: str, voice_key: str) -> None`, both in `backend/app/services/storage/base.py` (data-model §6).
+- [X] T028 Replace `tts_voice: str` in `AppSettingsRecord` with `voice_choices: Mapping[str, str] = field(default_factory=dict)`, and add the abstract `save_voice_choice(self, target_language: str, voice_key: str) -> None`, both in `backend/app/services/storage/base.py` (data-model §6).
 
   In `backend/app/services/storage/sqlite.py`:
   - load all `VoiceChoice` rows into a `dict` in `_settings_to_record`;
   - implement `save_voice_choice` as a get-or-create upsert with commit.
 
   This passes T012 and T013.
-- [ ] T029 Add `class VoiceUnavailable(TTSError)` to `backend/app/services/tts/base.py`, with `__init__(self, user_message: str)` storing `self.user_message`. Add `class VoiceInstallation(ABC)` with the abstract `is_installed(self, voice_key: str) -> bool` in the same file.
-- [ ] T030 Add `class PiperVoiceInstallation(VoiceInstallation)` to `backend/app/services/tts/piper.py`. Its constructor takes `voice_dir: Path` (expanded). `is_installed` checks that both `<key>.onnx` and `<key>.onnx.json` exist (passes T010, T014).
-- [ ] T031 Implement `SpeechForLanguage` in the new file `backend/app/services/tts/selection.py`, passing T009. It must not import anything from `app.practice_languages` or `piper`.
+- [X] T029 Add `class VoiceUnavailable(TTSError)` to `backend/app/services/tts/base.py`, with `__init__(self, user_message: str)` storing `self.user_message`. Add `class VoiceInstallation(ABC)` with the abstract `is_installed(self, voice_key: str) -> bool` in the same file.
+- [X] T030 Add `class PiperVoiceInstallation(VoiceInstallation)` to `backend/app/services/tts/piper.py`. Its constructor takes `voice_dir: Path` (expanded). `is_installed` checks that both `<key>.onnx` and `<key>.onnx.json` exist (passes T010, T014).
+- [X] T031 Implement `SpeechForLanguage` in the new file `backend/app/services/tts/selection.py`, passing T009. It must not import anything from `app.practice_languages` or `piper`.
   - Its constructor takes `resolve_voice: Callable[[str], str]`, `installation: VoiceInstallation`, `build: Callable[[str], TTSProvider]` and `unavailable_message: Callable[[str], str]`.
   - Methods:
     - `voice_key(language_code)`;
     - `is_available(language_code)`;
     - `provider_for(language_code)`, which raises `VoiceUnavailable(unavailable_message(code))` before calling `build` when the voice is not installed.
-- [ ] T032 Create the shared test double `backend/tests/support/fake_speech.py` (analysis U1), used by every test that previously overrode `get_tts` or patched `PiperTTSProvider`:
+- [X] T032 Create the shared test double `backend/tests/support/fake_speech.py` (analysis U1), used by every test that previously overrode `get_tts` or patched `PiperTTSProvider`:
   - `FakeVoiceInstallation(installed: set[str] | None = None)`: every voice is installed when `None`;
   - `RecordingTtsBuilder`, which records `(voice_key, text, output_path)` for each synthesis, writes a tiny valid WAV so `FileResponse` works, and exposes `voice_keys`;
   - `override_speech(app, *, voice_choices=None, installed=None) -> RecordingTtsBuilder`, which sets `app.dependency_overrides` for `get_voice_installation` and `get_speech_for_language`. It builds a real `SpeechForLanguage` with `voice_for` and `voice_unavailable_message`, so production resolution logic stays under test.
 
   Write `backend/tests/unit/services/test_fake_speech.py` first: the override resolves the German default, records synthesis, and raises `VoiceUnavailable` when a voice is left out of `installed`.
-- [ ] T033 Wire the factory in `backend/app/services/factory.py`:
+- [X] T033 Wire the factory in `backend/app/services/factory.py`:
   - add `get_voice_installation() -> VoiceInstallation`, returning `PiperVoiceInstallation(get_settings().voice_dir)`;
   - add `get_speech_for_language(app_settings = Depends(get_app_settings), installation = Depends(get_voice_installation)) -> SpeechForLanguage`, with:
     - `resolve_voice=partial(voice_for, voice_choices=app_settings.voice_choices)`;
@@ -247,8 +247,8 @@ Every story depends on these.
     - `unavailable_message=voice_unavailable_message`.
 
   Keep `get_tts` for now, reading `voice_for(app_settings.target_language, app_settings.voice_choices)` instead of the removed `tts_voice`. Its callers migrate in US1 (chat, audio) and US3 (flashcards), and T081 deletes it. Extend `backend/tests/unit/services/test_factory.py` first: `get_speech_for_language` resolves the German choice from `voice_choices`, and `get_tts` no longer reads `tts_voice`.
-- [ ] T034 Register `@app.exception_handler(VoiceUnavailable)` in `backend/app/main.py`, returning `JSONResponse(status_code=503, content={"detail": exc.user_message})`. Define the status as a named constant next to `LLM_UNAVAILABLE_STATUS` (passes T019).
-- [ ] T035 Extend `backend/app/routers/settings.py` to pass T015 and T016. Import only `app.practice_languages` and the voice catalogue. Every function must be ≤ 20 lines; extract `_voice_update(req, stored)` and `_language_response(language, app_settings, installation)`.
+- [X] T034 Register `@app.exception_handler(VoiceUnavailable)` in `backend/app/main.py`, returning `JSONResponse(status_code=503, content={"detail": exc.user_message})`. Define the status as a named constant next to `LLM_UNAVAILABLE_STATUS` (passes T019).
+- [X] T035 Extend `backend/app/routers/settings.py` to pass T015 and T016. Import only `app.practice_languages` and the voice catalogue. Every function must be ≤ 20 lines; extract `_voice_update(req, stored)` and `_language_response(language, app_settings, installation)`.
   - Add `PRACTICE_LANGUAGE_PATTERN = f"^({'|'.join(PRACTICE_LANGUAGES)})$"` and apply it to `UpdateSettingsRequest.target_language`.
   - `_to_response` sets `tts_voice=voice_for(record.target_language, record.voice_choices)`.
   - In `update_settings_endpoint`:
@@ -259,25 +259,25 @@ Every story depends on these.
     - call `storage.save_voice_choice(effective, req.tts_voice)` **only after** all validation (including `_llm_updates`) has passed, so a rejected request writes nothing.
   - Add `language: str` and `is_installed: bool` to `VoiceResponse`. `get_voices_endpoint` takes `installation: VoiceInstallation = Depends(get_voice_installation)`.
   - Add `PracticeLanguageResponse` (the seven fields of contracts §1) and `@router.get("/settings/practice-languages", response_model=list[PracticeLanguageResponse])`, built in catalogue order from `get_app_settings` and `get_voice_installation`.
-- [ ] T036 Add `target_language_name: str` and `native_language_name: str` to `ConversationResponse` in `backend/app/routers/conversations.py`, filled in `_conv_response` via `ConversationLanguages.of(r.target_language, r.native_language)` (passes T018). `create_conversation` is not modified.
-- [ ] T037 [P] Write failing tests in `frontend/src/services/api.test.ts`, following the file's fetch-mock pattern:
+- [X] T036 Add `target_language_name: str` and `native_language_name: str` to `ConversationResponse` in `backend/app/routers/conversations.py`, filled in `_conv_response` via `ConversationLanguages.of(r.target_language, r.native_language)` (passes T018). `create_conversation` is not modified.
+- [X] T037 [P] Write failing tests in `frontend/src/services/api.test.ts`, following the file's fetch-mock pattern:
   - `getPracticeLanguages()` issues `GET /api/settings/practice-languages` and returns the parsed list;
   - a `Conversation` from `getConversation` exposes `target_language_name`.
-- [ ] T038 Extend `frontend/src/services/api.ts` (passes T037):
+- [X] T038 Extend `frontend/src/services/api.ts` (passes T037):
   - `export interface PracticeLanguageOption { language_id: string; display_name: string; is_default: boolean; default_voice: string; selected_voice: string; is_voice_installed: boolean; voice_unavailable_message: string | null }`;
   - `export const getPracticeLanguages = (): Promise<PracticeLanguageOption[]>`, next to `getConversationLevels`;
   - add `target_language_name: string` and `native_language_name: string` to `Conversation`;
   - add `language: string` and `is_installed: boolean` to `VoiceOption`.
 
   Update every typed fixture that `tsc -b` then rejects: `frontend/src/pages/Chat.test.tsx`, `History.test.tsx`, `Settings.test.tsx`, and the component tests using `VoiceOption`. Confirm `npm run build` passes.
-- [ ] T039 [P] Write `frontend/src/hooks/usePracticeLanguages.test.ts`:
+- [X] T039 [P] Write `frontend/src/hooks/usePracticeLanguages.test.ts`:
   - it loads the catalogue and the settings, and exposes `{ languages, current, nameOf, isLoading, error }`;
   - `current` is the entry whose `language_id` equals `settings.target_language`;
   - `nameOf('de') === 'German'`, and `nameOf('xx') === 'xx'` (the code is shown, never a crash);
   - a failed load sets `error` and leaves `languages` empty.
 
   Then implement `frontend/src/hooks/usePracticeLanguages.ts`, shaped like `useConversationLevels.ts`. It lives in the shared `hooks/` folder because Settings, Home and Flashcards all use it (Principle V).
-- [ ] T040 [P] Extend `frontend/e2e/fixtures.ts` (contracts §10):
+- [X] T040 [P] Extend `frontend/e2e/fixtures.ts` (contracts §10):
   - change `target_language: 'Spanish'` / `native_language: 'English'` to `'es'` / `'en'` in `mockConversation` and `mockSettings`, and add `target_language_name: 'Spanish'` and `native_language_name: 'English'` to `mockConversation`;
   - add `mockPracticeLanguages`: both languages installed, with values matching the backend catalogue;
   - add `mockPracticeLanguagesGermanVoiceMissing`: German `is_voice_installed: false`, with the exact backend message text;
@@ -307,7 +307,7 @@ use each learning tool once (spec US1).
 
 ### Tests for User Story 1 (write first, see them fail)
 
-- [ ] T041 [P] [US1] Write `backend/tests/integration/practice_languages/test_language_in_prompts.py` (contracts §5, research R2) for a `de` conversation. Use the recording session provider (`tests/support/recording_session_provider.py`) and a recording `LLMProvider`.
+- [X] T041 [P] [US1] Write `backend/tests/integration/practice_languages/test_language_in_prompts.py` (contracts §5, research R2) for a `de` conversation. Use the recording session provider (`tests/support/recording_session_provider.py`) and a recording `LLMProvider`.
   - The prompts that must contain "German" and "English", and never the bare code (`" de "`, `"in de"`, `"de."`, `" en "`, `"in en"`):
     - the roleplay standing prompt from `POST /chat/{id}/open`, `/message` and `/session`;
     - the opening instruction ("Begin the conversation in German.");
@@ -319,34 +319,34 @@ use each learning tool once (spec US1).
   - Repeat the same checks for an `es` conversation with "Spanish" (Spanish prompts now name the language too).
   - For **every** scenario from `StaticScenarioProvider.get_all()`, a `de` conversation's standing prompt names German (FR-007).
   - The `de` correction evaluation prompt contains "valid in some region where German is spoken" (spec Edge Case "Regional German") and "capitalisation" in its never-report list (spec Edge Case "German noun capitalisation").
-- [ ] T042 [P] [US1] Extend `backend/tests/integration/routers/test_learning.py` (contracts §5):
+- [X] T042 [P] [US1] Extend `backend/tests/integration/routers/test_learning.py` (contracts §5):
   - each of the four endpoints accepts the trimmed request (`{message_id, content}`, plus `preceding_message` for grammar, and `{message_id, selection, sentence_context}` for word lookup) and builds its prompt from the message's conversation languages;
   - a request with an unknown `message_id` → 404 "Message not found";
   - an old-style request that still sends `target_language`/`native_language` succeeds, and those values are ignored (prove it by sending `"fr"`);
   - the cache behaviour (`cached` true on the second call) is unchanged;
   - 005's level-qualified phrasing key is unchanged.
-- [ ] T043 [P] [US1] Extend `backend/tests/integration/routers/test_helper.py`:
+- [X] T043 [P] [US1] Extend `backend/tests/integration/routers/test_helper.py`:
   - `POST /chat/helper` with `{message, helper_session_id, conversation_id}` for a `de` conversation builds a standing prompt naming German and English;
   - an unknown `conversation_id` → 404;
   - the level rules (005) are still appended.
-- [ ] T044 [P] [US1] Extend `backend/tests/integration/routers/test_transcribe.py` (contracts §6.1):
+- [X] T044 [P] [US1] Extend `backend/tests/integration/routers/test_transcribe.py` (contracts §6.1):
   - `language=de` passes `"de"` to the STT fake;
   - `language=fr` → 422 "Unsupported language", and the STT fake is not called;
   - an absent `language` still passes `None`.
-- [ ] T045 [P] [US1] Extend `backend/tests/integration/routers/test_audio_tts.py` (contracts §6.2). Override `get_voice_installation` and inject a recording builder via `get_speech_for_language`.
+- [X] T045 [P] [US1] Extend `backend/tests/integration/routers/test_audio_tts.py` (contracts §6.2). Override `get_voice_installation` and inject a recording builder via `get_speech_for_language`.
   - A message in a `de` conversation is synthesised with a `de_DE-*` key, even while the setting is `es`.
   - A message in an `es` conversation uses the learner's Spanish choice.
   - An uninstalled German voice → 503 with the German `voice_unavailable_message`, and the builder is never called.
   - A cached WAV is served with no voice check.
   - The recording builder asserts voice language == conversation language on every call (FR-018).
-- [ ] T046 [P] [US1] Extend `backend/tests/integration/routers/test_chat_message.py`:
+- [X] T046 [P] [US1] Extend `backend/tests/integration/routers/test_chat_message.py`:
   - after a reply in a `de` conversation, background synthesis uses a German voice;
   - with the German voice uninstalled, the reply streams normally, **no** synthesis is attempted, `set_tts_path` is not called, and exactly one warning is logged (`caplog`).
-- [ ] T047 [P] [US1] Write `backend/tests/integration/practice_languages/test_word_audio_language.py` (FR-014, FR-018; analysis C1), using `override_speech` (T032):
+- [X] T047 [P] [US1] Write `backend/tests/integration/practice_languages/test_word_audio_language.py` (FR-014, FR-018; analysis C1), using `override_speech` (T032):
   - `GET /api/flashcards/tts/{id}` for a `de` word uses a `de_DE-*` voice while the setting is `es`, and an `es` word uses the learner's Spanish choice while the setting is `de`;
   - with the German voice uninstalled, a `de` word returns 503 with the German `voice_unavailable_message`, and nothing is synthesised;
   - a cached word WAV is served with no voice check.
-- [ ] T048 [P] [US1] Write `frontend/src/components/settings/PracticeLanguageFieldset.test.tsx`:
+- [X] T048 [P] [US1] Write `frontend/src/components/settings/PracticeLanguageFieldset.test.tsx`:
   - a `<fieldset>` with the legend "Practice language" and one radio per catalogue language, labelled with `display_name`;
   - reflects `value`, and calls `onChange(language_id)`;
   - one short hint says new conversations use this language and existing ones keep theirs.
@@ -356,8 +356,8 @@ use each learning tool once (spec US1).
   - `setPracticeLanguage('de')` also sets `ttsVoice` to German's `selected_voice` from the catalogue;
   - `voicesForLanguage` contains only voices whose `language` matches the form's language;
   - `save()` sends `target_language` and `tts_voice` together.
-- [ ] T049 [P] [US1] Write `frontend/src/components/home/PracticeLanguageNote.test.tsx`: it renders "Practising **German**" (the name in `<strong>`) with a link "Change in Settings" to `/settings`, renders nothing while loading, and renders nothing on a load error (Home stays usable).
-- [ ] T050 [P] [US1] Write the Chat unit tests:
+- [X] T049 [P] [US1] Write `frontend/src/components/home/PracticeLanguageNote.test.tsx`: it renders "Practising **German**" (the name in `<strong>`) with a link "Change in Settings" to `/settings`, renders nothing while loading, and renders nothing on a load error (Home stays usable).
+- [X] T050 [P] [US1] Write the Chat unit tests:
   - `frontend/src/components/chat/useConversationLanguage.test.ts`: from a `Conversation`, it returns `{ targetCode, targetName, nativeName }`; it returns `isVoiceInstalled` and `voiceUnavailableMessage` for `targetCode` from the practice-languages catalogue; while loading it reports the voice as installed, so audio is never blocked by a slow fetch.
   - `ConversationLanguageTag.test.tsx`: plain text "German" with the accessible name "Conversation language: German", and **no** interactive element.
   - `VoiceUnavailableNotice.test.tsx`: `role="status"` with the given message; renders nothing when the message is null.
@@ -368,7 +368,7 @@ use each learning tool once (spec US1).
   - a `de` conversation's recording sends `language=de` while the settings mock says `es`;
   - the header shows "German";
   - with German uninstalled, the notice shows and `AudioPlayer` receives `src={null}`.
-- [ ] T051 [P] [US1] Write `frontend/e2e/practice-language.spec.ts` (contracts §10):
+- [X] T051 [P] [US1] Write `frontend/e2e/practice-language.spec.ts` (contracts §10):
   - **Settings**: choosing German swaps the Voice list to only "Thorsten (Germany)" and "Kerstin (Germany)", with Thorsten pre-selected. Saving sends `{"target_language": "de", "tts_voice": "de_DE-thorsten-medium", …}` (assert the request body). The level and correction experimental warnings are still visible.
   - **Home**: shows "Practising German" after the settings mock returns `de`.
   - **Chat** for `mockGermanConversation`:
@@ -381,40 +381,40 @@ use each learning tool once (spec US1).
 
 ### Implementation for User Story 1
 
-- [ ] T052 [US1] Name the languages at the chat call sites in `backend/app/routers/chat.py` (passes T041's chat, suggestion and correction rows):
+- [X] T052 [US1] Name the languages at the chat call sites in `backend/app/routers/chat.py` (passes T041's chat, suggestion and correction rows):
   - `_standing_roleplay_prompt` builds `ConversationLanguages.of(conversation.target_language, conversation.native_language)` and passes `target_name`/`native_name` to `build_roleplay_system_prompt`;
   - `open_chat` passes `target_name` to `build_open_chat_user_prompt`;
   - `_suggestion_prompt` passes `target_name`;
   - `_turn_context` fills `TurnContext.target_language`/`native_language` with the names.
 
   Add a one-line docstring to `TurnContext` in `backend/app/corrections/services/strategies.py` saying that its language fields are display names used only in prompt text. This is a docstring-only edit; no corrections logic changes.
-- [ ] T053 [US1] Move the helper to `conversation_id` in `backend/app/routers/chat.py` (passes T043). `HelperRequest` becomes `{message: str, helper_session_id: str, conversation_id: int}`. `chat_helper` gains `storage = Depends(get_storage)`, calls `_require_conversation`, and passes `ConversationLanguages` to `_helper_turn_request`, which calls `build_helper_system_prompt(languages.target_name, languages.native_name)`. Keep `with_learner_text_rules`.
-- [ ] T054 [US1] Refactor `backend/app/routers/learning.py` to pass T041's learning rows and T042:
+- [X] T053 [US1] Move the helper to `conversation_id` in `backend/app/routers/chat.py` (passes T043). `HelperRequest` becomes `{message: str, helper_session_id: str, conversation_id: int}`. `chat_helper` gains `storage = Depends(get_storage)`, calls `_require_conversation`, and passes `ConversationLanguages` to `_helper_turn_request`, which calls `build_helper_system_prompt(languages.target_name, languages.native_name)`. Keep `with_learner_text_rules`.
+- [X] T054 [US1] Refactor `backend/app/routers/learning.py` to pass T041's learning rows and T042:
   - add `conversation_languages_for_message(storage, message_id) -> ConversationLanguages`, which raises `HTTPException(404, "Message not found")` for a missing message;
   - add `@dataclass(frozen=True) CachedToolRequest(message_id, tool_type, cache_key, prompt)` and `_cached_llm_result(storage, llm, request) -> dict`, replacing the four copies of the `nonlocal computed` closure;
   - drop `native_language` from `TranslateRequest`, `target_language` from `PhrasingRequest`, and both from `WordLookupRequest`;
   - `grammar_check`, `translate`, `alternative_phrasing` and `word_lookup` each resolve languages via the helper, and no longer read `app_settings.target_language` or `app_settings.native_language`. `alternative_phrasing` keeps `get_app_settings` for the level only.
 
   Each endpoint must be ≤ 20 lines (plan.md function-length plan).
-- [ ] T055 [US1] Validate the transcription language in `backend/app/routers/audio.py` (passes T044):
+- [X] T055 [US1] Validate the transcription language in `backend/app/routers/audio.py` (passes T044):
   - `_require_supported_language(language)` raises 422 "Unsupported language" when `language is not None and language not in PRACTICE_LANGUAGES`;
   - split `transcribe_audio` (39 lines) into `_require_supported_language`, `_wav_from_upload(file)` and `_transcribe_off_loop(stt, wav_path, language)`, each ≤ 20 lines, with behaviour otherwise unchanged.
-- [ ] T056 [US1] Move `GET /audio/tts/{message_id}` to `SpeechForLanguage` in `backend/app/routers/audio.py` (passes T045).
+- [X] T056 [US1] Move `GET /audio/tts/{message_id}` to `SpeechForLanguage` in `backend/app/routers/audio.py` (passes T045).
   - Replace `tts = Depends(get_tts)` with `speech = Depends(get_speech_for_language)`.
   - Load the message, then its conversation (404 "Conversation not found" if it is missing).
   - Serve the cached WAV if it exists. Otherwise call `speech.provider_for(conversation.target_language).synthesize(...)`; `VoiceUnavailable` propagates to the 503 handler.
   - Split the 24-line function into `_cached_wav(message)` and `_synthesize_and_cache(speech, storage, message, language)`.
   - In the same task, replace the `get_tts` override in `backend/tests/integration/routers/test_audio_tts.py` with `override_speech(...)` from `tests/support/fake_speech.py` (T032).
-- [ ] T057 [US1] Move chat reply synthesis to `SpeechForLanguage` in `backend/app/routers/chat.py` (passes T046):
+- [X] T057 [US1] Move chat reply synthesis to `SpeechForLanguage` in `backend/app/routers/chat.py` (passes T046):
   - `_RoleplayContext` holds `speech: SpeechForLanguage` in place of `tts`, and `_roleplay_context` depends on `get_speech_for_language`;
   - `persist` calls `_schedule_tts` only when `speech.is_available(conversation.target_language)`, and otherwise logs one warning naming the language (not the text);
   - `_schedule_tts` takes the provider from `speech.provider_for(...)`.
   - In the same task, move every chat-path test double from `get_tts`/`PiperTTSProvider` to `override_speech(...)` (T032), in: `backend/tests/integration/routers/test_chat_message.py`, `test_chat_open.py`, `test_chat_sessions.py`, `backend/tests/integration/corrections/conftest.py`, `backend/tests/integration/conversation_levels/level_harness.py` (replace `RecordingTTS`) and `backend/tests/integration/test_llm_error_surface.py`. The full backend suite must be green at the end of this task, not only the new tests.
-- [ ] T058 [US1] Move flashcard word audio to `SpeechForLanguage` now, so the MVP never speaks a word in another language's voice (analysis C1; passes T047).
+- [X] T058 [US1] Move flashcard word audio to `SpeechForLanguage` now, so the MVP never speaks a word in another language's voice (analysis C1; passes T047).
   - In `backend/app/flashcards/router.py`, `get_vocab_tts` takes `speech: SpeechForLanguage = Depends(get_speech_for_language)` and calls `speech.provider_for(word.target_language)`.
   - Split it into `_cached_word_audio(word)` and `_synthesize_word(speech, storage, word)`, each ≤ 20 lines.
   - Replace the `get_tts` override in `backend/tests/integration/flashcards/conftest.py` with `override_speech(...)`.
-- [ ] T059 [US1] Update the frontend API client in `frontend/src/services/api.ts`:
+- [X] T059 [US1] Update the frontend API client in `frontend/src/services/api.ts`:
   - `translateMessage(messageId, content)`;
   - `getAlternativePhrasing(messageId, content)`;
   - `lookupWord(messageId, selection, sentenceContext?)`;
@@ -423,8 +423,8 @@ use each learning tool once (spec US1).
   Remove the language arguments and body fields (contracts §5). Update the callers:
   - `frontend/src/components/chat/MessageBubble.tsx` and `LearningToolPanel.tsx` remove their `targetLanguage`/`nativeLanguage` props and pass-throughs;
   - update their tests and `frontend/src/services/api.test.ts` to match.
-- [ ] T060 [P] [US1] Implement `frontend/src/components/settings/PracticeLanguageFieldset.tsx`, with props `{ languages, value, onChange }`, patterned on `CorrectionModeFieldset.tsx`: native radios, `RadioCard`, `aria-describedby` hint, and tokens only (passes T048's fieldset tests).
-- [ ] T061 [US1] Extend `frontend/src/components/settings/useSettingsForm.ts` (passes T048's form tests), keeping every function ≤ 20 lines:
+- [X] T060 [P] [US1] Implement `frontend/src/components/settings/PracticeLanguageFieldset.tsx`, with props `{ languages, value, onChange }`, patterned on `CorrectionModeFieldset.tsx`: native radios, `RadioCard`, `aria-describedby` hint, and tokens only (passes T048's fieldset tests).
+- [X] T061 [US1] Extend `frontend/src/components/settings/useSettingsForm.ts` (passes T048's form tests), keeping every function ≤ 20 lines:
   - add `practiceLanguage` to `SettingsValues`, loaded from `target_language` in `toValues` and sent as `target_language` in `toUpdate`;
   - get the catalogue from `usePracticeLanguages()`;
   - `setPracticeLanguage` sets both `practiceLanguage` and `ttsVoice = languages.find(...).selected_voice`;
@@ -435,14 +435,14 @@ use each learning tool once (spec US1).
   - pass `form.voicesForLanguage` to `TtsVoiceField`.
 
   The page stays declarative layout only; this is the `Settings` row in plan.md § Complexity Tracking.
-- [ ] T062 [P] [US1] Implement `frontend/src/components/home/PracticeLanguageNote.tsx` using `usePracticeLanguages().current` and a `react-router` `Link` with `className="back-link"`-style muted text (passes T049). Add it to `frontend/src/pages/Home.tsx` directly under the `<nav>`, as one element (plan.md Complexity Tracking).
-- [ ] T063 [US1] Implement `frontend/src/components/chat/useConversationLanguage.ts`, `ConversationLanguageTag.tsx` and `VoiceUnavailableNotice.tsx` (passes T050's unit tests).
+- [X] T062 [P] [US1] Implement `frontend/src/components/home/PracticeLanguageNote.tsx` using `usePracticeLanguages().current` and a `react-router` `Link` with `className="back-link"`-style muted text (passes T049). Add it to `frontend/src/pages/Home.tsx` directly under the `<nav>`, as one element (plan.md Complexity Tracking).
+- [X] T063 [US1] Implement `frontend/src/components/chat/useConversationLanguage.ts`, `ConversationLanguageTag.tsx` and `VoiceUnavailableNotice.tsx` (passes T050's unit tests).
 
   Update `frontend/src/components/chat/ExpressionHelperPanel.tsx`:
   - it takes `conversationId`, `targetName` and `nativeName` props;
   - its label is `{nativeName} → {targetName}`;
   - it passes `conversationId` to `streamHelper`.
-- [ ] T064 [US1] Wire the language into `frontend/src/pages/Chat.tsx` (passes T050's Chat tests):
+- [X] T064 [US1] Wire the language into `frontend/src/pages/Chat.tsx` (passes T050's Chat tests):
   - keep the loaded `Conversation` in state;
   - replace the `targetLanguage`/`nativeLanguage` `useState`s, and their `setTargetLanguage`/`setNativeLanguage` calls in the settings effect, with `const language = useConversationLanguage(conversation)`;
   - pass `language.targetCode` to `api.transcribeAudio`;
@@ -452,11 +452,11 @@ use each learning tool once (spec US1).
   - pass `conversationId`, `targetName` and `nativeName` to `ExpressionHelperPanel`.
 
   No other state, effect or handler is added (plan.md Complexity Tracking).
-- [ ] T065 [US1] Run `cd frontend && npm run lint && npm run build && npm test && npm run test:e2e`. T051 must now pass, and every pre-existing spec must still pass.
+- [X] T065 [US1] Run `cd frontend && npm run lint && npm run build && npm test && npm run test:e2e`. T051 must now pass, and every pre-existing spec must still pass.
 
 ### Benchmarks for User Story 1 (hand-run; research R8, R14)
 
-- [ ] T066 [P] [US1] Write `backend/tests/integration/practice_languages/german_evaluation_set.py`:
+- [X] T066 [P] [US1] Write `backend/tests/integration/practice_languages/german_evaluation_set.py`:
   - `GERMAN_TURNS`: 10 scenario ids from `StaticScenarioProvider`, each with 5 scripted learner turns in correct, simple German;
   - `DICTATION_SENTENCES`: 20 German sentences, each containing at least one of ä, ö, ü or ß, e.g. "Ich hätte gern einen Kaffee und ein Stück Kuchen, bitte.";
   - `LOANWORD_ALLOWLIST = frozenset({"hotel", "taxi", "ticket", "ok"})`.

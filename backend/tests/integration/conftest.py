@@ -1,5 +1,6 @@
 """Shared fixtures for integration tests."""
 
+import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
@@ -11,6 +12,16 @@ def _configure_sqlite(dbapi_conn, _):
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
+
+
+@pytest.fixture(autouse=True)
+def isolated_tts_cache(tmp_path, monkeypatch):
+    """Speech a test synthesises lands in its own tmp_path, never the learner's audio cache."""
+    from app.flashcards import router as flashcards_router
+    from app.routers import audio, chat
+
+    for module in (audio, chat, flashcards_router):
+        monkeypatch.setattr(module, "_tts_cache_dir", lambda: tmp_path / "tts_cache")
 
 
 def make_test_session(db_path: str):

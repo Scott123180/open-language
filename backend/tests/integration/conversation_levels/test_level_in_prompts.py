@@ -6,7 +6,6 @@ from app.conversation_levels import ConversationLevel, with_partner_speech_rules
 from app.corrections.services.strategies import TurnPlan
 from app.services.conversation import SessionKind
 from tests.integration.conversation_levels.level_harness import (
-    RecordingTTS,
     level_harness,
     wait_until,
 )
@@ -112,11 +111,10 @@ class TestTheLevelTouchesNothingElse:
             harness.set_level(level)
             conversation_id = harness.new_conversation()
             events = harness.open(conversation_id)
-            wait_until(lambda: RecordingTTS.built and RecordingTTS.built[-1].synthesized)
-            tts = RecordingTTS.built[-1]
-            [(text, path)] = tts.synthesized
+            wait_until(lambda: len(harness.speech.synthesized) == len(voices) + 1)
+            voice, text, path = harness.speech.synthesized[-1]
             assert text == "".join(e["token"] for e in events if "token" in e)
             assert path.name == f"{events[-1]['message_id']}.wav"
-            voices.append(tts.voice_name)
+            voices.append(voice)
 
         assert voices[0] == voices[1]

@@ -2,14 +2,19 @@
 
 import json
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services.factory import get_helper_sessions, get_llm
+from app.services.factory import get_helper_sessions, get_llm, get_storage
 from app.services.llm.base import ChatMessage, LLMProvider
+from app.services.storage.sqlite import SQLiteStorageProvider
+from tests.integration.conftest import make_test_session
 from tests.support.engine_overrides import override_conversation_engine
+
+CONVERSATION_ID = 1
 
 
 class StubLLMProvider(LLMProvider):
@@ -48,10 +53,21 @@ def clear_helper_sessions():
 
 
 @pytest.fixture
-def client_and_llm():
+def storage(tmp_path: Path):
+    session, _engine = make_test_session(str(tmp_path / "helper.db"))
+    storage = SQLiteStorageProvider(session)
+    conversation = storage.create_conversation("s", "S", "es", "en", "llama3.1")
+    assert conversation.id == CONVERSATION_ID
+    yield storage
+    session.close()
+
+
+@pytest.fixture
+def client_and_llm(storage):
     stub_llm = StubLLMProvider(response="Hola means hello")
 
     app.dependency_overrides[get_llm] = lambda: stub_llm
+    app.dependency_overrides[get_storage] = lambda: storage
     override_conversation_engine(app, stub_llm)
 
     with TestClient(app) as c:
@@ -69,8 +85,7 @@ def test_helper_streams_tokens_and_done(client_and_llm) -> None:
         json={
             "message": "How do I say hello?",
             "helper_session_id": "abc123",
-            "target_language": "Spanish",
-            "native_language": "English",
+            "conversation_id": CONVERSATION_ID,
         },
     ) as response:
         assert response.status_code == 200
@@ -97,8 +112,7 @@ def test_helper_second_call_preserves_session_context(client_and_llm) -> None:
         json={
             "message": "How do I say hello?",
             "helper_session_id": session_id,
-            "target_language": "Spanish",
-            "native_language": "English",
+            "conversation_id": CONVERSATION_ID,
         },
     ) as r:
         r.read()
@@ -109,8 +123,7 @@ def test_helper_second_call_preserves_session_context(client_and_llm) -> None:
         json={
             "message": "And goodbye?",
             "helper_session_id": session_id,
-            "target_language": "Spanish",
-            "native_language": "English",
+            "conversation_id": CONVERSATION_ID,
         },
     ) as r:
         r.read()
@@ -139,8 +152,7 @@ def test_helper_token_content_is_correct(client_and_llm) -> None:
         json={
             "message": "How do I say hello?",
             "helper_session_id": "token-test",
-            "target_language": "Spanish",
-            "native_language": "English",
+            "conversation_id": CONVERSATION_ID,
         },
     ) as response:
         response.read()
@@ -149,3 +161,46 @@ def test_helper_token_content_is_correct(client_and_llm) -> None:
     events = _parse_sse(raw)
     tokens = "".join(e["token"] for e in events if "token" in e)
     assert tokens == "Hola means hello"
+
+
+# --- 006: the helper names its conversation's languages (T043) -------------------------
+
+
+def _ask(client, conversation_id: int, session_id: str = "lang-test"):
+    body = {"message": "How do I say hello?", "helper_session_id": session_id}
+    return client.post("/api/chat/helper", json={**body, "conversation_id": conversation_id})
+
+
+def _standing_prompt(stub_llm: StubLLMProvider) -> str:
+    return stub_llm.received_messages[-1][0].content
+
+
+def test_a_german_conversation_names_german_and_english(client_and_llm, storage) -> None:
+    client, stub_llm = client_and_llm
+    german = storage.create_conversation("s", "S", "de", "en", "llama3.1")
+
+    _ask(client, german.id)
+
+    prompt = _standing_prompt(stub_llm)
+    assert "German" in prompt and "English" in prompt
+
+
+def test_an_unknown_conversation_is_404(client_and_llm) -> None:
+    client, stub_llm = client_and_llm
+
+    response = _ask(client, 9999)
+
+    assert (response.status_code, response.json()) == (404, {"detail": "Conversation not found"})
+    assert stub_llm.received_messages == []
+
+
+def test_the_level_rules_are_still_appended(client_and_llm, storage) -> None:
+    client, stub_llm = client_and_llm
+    _ask(client, CONVERSATION_ID, "natural")
+    natural = _standing_prompt(stub_llm)
+    storage.update_settings(conversation_level="beginner")
+
+    _ask(client, CONVERSATION_ID, "beginner")
+
+    beginner = _standing_prompt(stub_llm)
+    assert beginner.startswith(natural) and beginner != natural

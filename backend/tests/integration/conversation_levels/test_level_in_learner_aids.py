@@ -8,6 +8,7 @@ reply-length or question rule) and R6 (a level change rebuilds the helper sessio
 import pytest
 
 from app.conversation_levels import ConversationLevel, with_learner_text_rules
+from app.practice_languages import language_name
 from app.prompts.templates import (
     build_helper_system_prompt,
     build_phrasing_prompt,
@@ -41,7 +42,7 @@ def _suggestion_prompt(harness, conversation_id: int) -> str:
     messages = harness.storage().get_messages(conversation_id)
     history_text = "\n".join(f"{m.role}: {m.content}" for m in messages)
     settings = harness.storage().get_settings()
-    target_language = harness.conversation(conversation_id).target_language
+    target_language = language_name(harness.conversation(conversation_id).target_language)
     return build_suggestion_prompt(history_text, target_language, settings.suggestion_count)
 
 
@@ -59,7 +60,7 @@ def _request_phrasing(harness, message_id: int) -> str:
 
 
 def _phrasing_prompt(harness) -> str:
-    target_language = harness.storage().get_settings().target_language
+    target_language = language_name(harness.storage().get_settings().target_language)
     return build_phrasing_prompt(LEARNER_MESSAGE, target_language)
 
 

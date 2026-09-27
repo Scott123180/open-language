@@ -6,6 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.config import get_settings
 from app.conversation_levels import DEFAULT_CONVERSATION_LEVEL
 from app.database import Base
+from app.practice_languages import DEFAULT_PRACTICE_LANGUAGE
 from app.services.llm.catalog import DEFAULT_PROVIDER_ID
 from app.services.llm.selection_types import DEFAULT_EFFORT
 
@@ -21,8 +22,11 @@ class AppSettings(Base):
         String(100), nullable=False, default=lambda: get_settings().ollama_model
     )
     llm_effort: Mapped[str] = mapped_column(String(10), nullable=False, default=DEFAULT_EFFORT)
-    target_language: Mapped[str] = mapped_column(String(20), nullable=False, default="es")
+    target_language: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=DEFAULT_PRACTICE_LANGUAGE
+    )
     native_language: Mapped[str] = mapped_column(String(20), nullable=False, default="en")
+    # Legacy (pre-006): read once by `_seed_voice_choices`; never written.
     tts_voice: Mapped[str] = mapped_column(
         String(200), nullable=False, default="es_ES-davefx-medium"
     )

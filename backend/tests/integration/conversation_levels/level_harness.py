@@ -21,6 +21,7 @@ from app.conversation_levels import ConversationLevel
 from app.corrections.services.sqlite_storage import SQLiteCorrectionStorageProvider
 from app.corrections.services.strategies import NULL_TURN_PLAN, CorrectionStrategy, TurnPlan
 from app.main import app
+from app.practice_languages import ConversationLanguages
 from app.prompts.templates import build_roleplay_system_prompt
 from app.services.conversation import (
     ConversationEngine,
@@ -48,9 +49,9 @@ from app.services.llm.base import ChatMessage, LLMProvider
 from app.services.scenario.static import StaticScenarioProvider
 from app.services.storage.base import ConversationRecord
 from app.services.storage.sqlite import SQLiteStorageProvider
-from app.services.tts import piper
 from tests.integration.conftest import make_test_session
 from tests.support.engine_overrides import TEST_IDLE_TTL, TEST_MAX_LIVE
+from tests.support.fake_speech import RecordingTtsBuilder, override_speech
 from tests.support.recording_session_provider import RecordingSessionProvider
 
 SCENARIO_ID = "order-at-restaurant"
@@ -100,20 +101,6 @@ class HookedSessionProvider(RecordingSessionProvider):
         super().wait_if_gated()
 
 
-class RecordingTTS(piper.PiperTTSProvider):
-    """Stands in for Piper: built by the real `get_tts`, records instead of speaking."""
-
-    built: list["RecordingTTS"] = []
-
-    def __init__(self, voice_name: str, voice_dir: Path) -> None:
-        super().__init__(voice_name, voice_dir)
-        self.synthesized: list[tuple[str, Path]] = []
-        RecordingTTS.built.append(self)
-
-    def synthesize(self, text: str, output_path: Path) -> None:
-        self.synthesized.append((text, output_path))
-
-
 class CapturingLLM(LLMProvider):
     """Records each prompt sent through `chat` and answers with a fixed numbered list."""
 
@@ -149,6 +136,7 @@ class LevelHarness:
     provider: HookedSessionProvider
     llm: CapturingLLM
     strategy: FixedStrategy
+    speech: RecordingTtsBuilder
     new_session: Callable[[], object]
     scenarios: StaticScenarioProvider = field(default_factory=StaticScenarioProvider)
 
@@ -187,12 +175,13 @@ class LevelHarness:
         else:
             scenario = next(s for s in self.scenarios.get_all() if s.id == record.scenario_id)
             description, character = scenario.description, scenario.ai_context_prompt
+        languages = ConversationLanguages.of(record.target_language, record.native_language)
         return build_roleplay_system_prompt(
             scenario_title=record.scenario_title,
             scenario_description=description,
             character_description=character,
-            target_language=record.target_language,
-            native_language=record.native_language,
+            target_language=languages.target_name,
+            native_language=languages.native_name,
         )
 
     def open(self, conversation_id: int) -> list[dict]:
@@ -206,11 +195,11 @@ class LevelHarness:
         return self.client.post(f"/api/chat/{conversation_id}/session").json()
 
     def ask_helper(self, message: str, helper_session_id: str = "helper-1") -> list[dict]:
+        """Ask in a new conversation: the helper takes its languages from one (FR-009)."""
         body = {
             "message": message,
             "helper_session_id": helper_session_id,
-            "target_language": "Spanish",
-            "native_language": "English",
+            "conversation_id": self.new_conversation(),
         }
         return self.stream("/api/chat/helper", body)
 
@@ -269,8 +258,6 @@ def _install_overrides(harness: LevelHarness) -> None:
 def level_harness(tmp_path: Path, monkeypatch) -> Iterator[LevelHarness]:
     """Yield a harness on a fresh database; use from a pytest fixture."""
     opened: list = []
-    RecordingTTS.built.clear()
-    monkeypatch.setattr(piper, "PiperTTSProvider", RecordingTTS)
     harness = _new_harness(_session_factory(tmp_path / "levels.db", opened))
     _install_overrides(harness)
     with harness.client:
@@ -287,5 +274,6 @@ def _new_harness(new_session: Callable[[], object]) -> LevelHarness:
         HookedSessionProvider(),
         CapturingLLM(),
         FixedStrategy(),
+        override_speech(app),
         new_session,
     )

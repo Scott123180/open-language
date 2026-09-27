@@ -2,7 +2,6 @@
 
 import datetime
 import json
-import struct
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -15,21 +14,20 @@ from app.services.factory import (
     get_llm,
     get_scenario_provider,
     get_storage,
-    get_tts,
 )
 from app.services.llm.base import ChatMessage, LLMProvider
 from app.services.scenario.static import StaticScenarioProvider
 from app.services.storage.base import AppSettingsRecord
 from app.services.storage.sqlite import SQLiteStorageProvider
-from app.services.tts.base import TTSProvider
 from tests.integration.conftest import make_test_session
+from tests.integration.conversation_levels.level_harness import wait_until
 from tests.support.engine_overrides import override_conversation_engine
+from tests.support.fake_speech import override_speech
 
 _DEFAULT_SETTINGS = AppSettingsRecord(
     llm_model="llama3.1",
     target_language="es",
     native_language="en",
-    tts_voice="es_ES-mls-medium",
     suggestion_count=3,
     whisper_model="base",
     updated_at=datetime.datetime.now(datetime.UTC),
@@ -53,32 +51,6 @@ class StubLLMProvider(LLMProvider):
         return "".join(self._tokens)
 
 
-class StubTTSProvider(TTSProvider):
-    def __init__(self, tmp_path: Path) -> None:
-        self._tmp_path = tmp_path
-
-    @property
-    def voice_name(self) -> str:
-        return "stub-voice"
-
-    def synthesize(self, text: str, output_path: Path) -> None:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, "wb") as f:
-            f.write(b"RIFF")
-            f.write(struct.pack("<I", 36))
-            f.write(b"WAVE")
-            f.write(b"fmt ")
-            f.write(struct.pack("<I", 16))
-            f.write(struct.pack("<H", 1))
-            f.write(struct.pack("<H", 1))
-            f.write(struct.pack("<I", 16000))
-            f.write(struct.pack("<I", 32000))
-            f.write(struct.pack("<H", 2))
-            f.write(struct.pack("<H", 16))
-            f.write(b"data")
-            f.write(struct.pack("<I", 0))
-
-
 @pytest.fixture
 def client_and_storage(tmp_path: Path):
     db_file = tmp_path / "test.db"
@@ -86,14 +58,13 @@ def client_and_storage(tmp_path: Path):
     storage_instance = SQLiteStorageProvider(session)
 
     stub_llm = StubLLMProvider(tokens=["Buenos", " dias"])
-    stub_tts = StubTTSProvider(tmp_path=tmp_path)
 
     app.dependency_overrides[get_scenario_provider] = lambda: StaticScenarioProvider()
     app.dependency_overrides[get_storage] = lambda: storage_instance
     app.dependency_overrides[get_app_settings] = lambda: _DEFAULT_SETTINGS
     app.dependency_overrides[get_llm] = lambda: stub_llm
     override_conversation_engine(app, stub_llm)
-    app.dependency_overrides[get_tts] = lambda: stub_tts
+    override_speech(app)
 
     with TestClient(app) as c:
         yield c, storage_instance
@@ -245,3 +216,64 @@ def test_send_message_event_order(client_and_storage) -> None:
     assert events[-1].get("done") is True
     middle = events[1:-1]
     assert all("token" in e for e in middle)
+
+
+# --- 006: replies are spoken in the conversation's language (T046) ----------------------
+
+
+@pytest.fixture
+def speaking_client(tmp_path: Path):
+    """Returns a builder: `speaking_client(installed=…)` → (client, storage, tts builder)."""
+    session, _engine = make_test_session(str(tmp_path / "speaking.db"))
+    storage_instance = SQLiteStorageProvider(session)
+    stub_llm = StubLLMProvider(tokens=["Guten", " Tag"])
+    app.dependency_overrides[get_storage] = lambda: storage_instance
+    app.dependency_overrides[get_app_settings] = lambda: _DEFAULT_SETTINGS
+    override_conversation_engine(app, stub_llm)
+    clients: list[TestClient] = []
+
+    def build(installed=None):
+        builder = override_speech(app, installed=installed)
+        clients.append(TestClient(app))
+        return clients[-1].__enter__(), storage_instance, builder
+
+    yield build
+    for client in clients:
+        client.__exit__(None, None, None)
+    app.dependency_overrides.clear()
+    session.close()
+
+
+def _send_in_german(client: TestClient, storage: SQLiteStorageProvider) -> int:
+    conversation = storage.create_conversation("buy-train-ticket", "S", "de", "en", "llama3.1")
+    with client.stream(
+        "POST", f"/api/chat/{conversation.id}/message", json={"content": "Hallo"}
+    ) as response:
+        response.read()
+    return _parse_sse_lines(response.text)[-1]["message_id"]
+
+
+def test_a_german_reply_is_synthesised_with_a_german_voice(speaking_client) -> None:
+    client, storage, builder = speaking_client()
+
+    _send_in_german(client, storage)
+
+    wait_until(lambda: builder.synthesized)
+    assert builder.voice_keys == ["de_DE-thorsten-medium"]
+
+
+def test_without_the_german_voice_the_reply_streams_and_nothing_is_spoken(
+    speaking_client, caplog
+) -> None:
+    client, storage, builder = speaking_client(installed={"es_ES-davefx-medium"})
+
+    with caplog.at_level("WARNING", logger="app.routers.chat"):
+        reply_id = _send_in_german(client, storage)
+
+    assert storage.get_message(reply_id).content == "Guten Tag"
+    assert builder.synthesized == []
+    assert storage.get_message(reply_id).tts_audio_path is None
+    warnings = [r for r in caplog.records if r.name == "app.routers.chat"]
+    assert len(warnings) == 1
+    assert "German" in warnings[0].getMessage()
+    assert "Guten Tag" not in warnings[0].getMessage()

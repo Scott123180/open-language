@@ -9,15 +9,16 @@ vi.mock('../../services/api', () => ({
 import * as api from '../../services/api'
 
 const baseProps = {
-  targetLanguage: 'Spanish',
-  nativeLanguage: 'English',
+  conversationId: 7,
+  targetName: 'German',
+  nativeName: 'English',
   onClose: vi.fn(),
 }
 
-/** streamHelper(content, sessionId, target, native, onToken, onDone, onError) */
+/** streamHelper(content, sessionId, conversationId, onToken, onDone, onError) */
 const resolveImmediately = () =>
   vi.mocked(api.streamHelper).mockImplementation(
-    async (_content, _sessionId, _target, _native, _onToken, onDone, _onError) => {
+    async (_content, _sessionId, _conversationId, _onToken, onDone, _onError) => {
       onDone()
     }
   )
@@ -73,5 +74,27 @@ describe('ExpressionHelperPanel', () => {
     await screen.findByText('Test message')
 
     expect(container.querySelector('[data-testid="main-chat"]')?.textContent).toBe('')
+  })
+})
+
+describe('ExpressionHelperPanel — conversation languages (006)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('labels the direction with the conversation languages', () => {
+    render(<ExpressionHelperPanel {...baseProps} />)
+
+    expect(screen.getByText('English → German')).toBeInTheDocument()
+  })
+
+  it('asks the helper about this conversation', async () => {
+    resolveImmediately()
+    render(<ExpressionHelperPanel {...baseProps} />)
+
+    send('How do I say hello?')
+
+    await screen.findByText('How do I say hello?')
+    expect(vi.mocked(api.streamHelper).mock.calls[0][2]).toBe(7)
   })
 })

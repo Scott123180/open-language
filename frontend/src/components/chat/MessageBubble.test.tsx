@@ -96,8 +96,6 @@ describe('MessageBubble — word lookup on selection', () => {
     role: 'assistant' as const,
     content: 'Hola, ¿qué tal?',
     messageId: 3,
-    targetLanguage: 'Spanish',
-    nativeLanguage: 'English',
     conversationId: 7,
   }
 
@@ -123,7 +121,7 @@ describe('MessageBubble — word lookup on selection', () => {
     fireEvent.mouseUp(screen.getByText(lookupProps.content))
 
     await waitFor(() =>
-      expect(api.lookupWord).toHaveBeenCalledWith(3, 'Hola', 'Spanish', 'English', 'Hola, ¿qué tal?')
+      expect(api.lookupWord).toHaveBeenCalledWith(3, 'Hola', 'Hola, ¿qué tal?')
     )
     expect(await screen.findByText('a greeting')).toBeInTheDocument()
   })
@@ -136,7 +134,7 @@ describe('MessageBubble — word lookup on selection', () => {
     fireEvent.mouseUp(screen.getByText(lookupProps.content))
 
     await waitFor(() =>
-      expect(api.translateMessage).toHaveBeenCalledWith(3, 'qué tal', 'English')
+      expect(api.translateMessage).toHaveBeenCalledWith(3, 'qué tal')
     )
     expect(api.lookupWord).not.toHaveBeenCalled()
   })

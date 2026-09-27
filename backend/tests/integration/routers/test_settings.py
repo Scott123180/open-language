@@ -394,3 +394,127 @@ def test_an_unknown_level_is_422_and_nothing_is_stored(client: TestClient) -> No
 
     assert response.status_code == 422
     assert client.get("/api/settings").json() == before
+
+
+# --- 006: practice language and a voice per language (T016) ---------------------------
+
+
+def test_choosing_german_answers_with_germans_default_voice(client: TestClient) -> None:
+    client.put("/api/settings", json={"tts_voice": "es_AR-daniela-high"})
+
+    response = client.put("/api/settings", json={"target_language": "de"})
+
+    assert response.status_code == 200
+    assert (response.json()["target_language"], response.json()["tts_voice"]) == (
+        "de",
+        "de_DE-thorsten-medium",
+    )
+
+
+def test_choosing_german_leaves_the_spanish_choice_untouched(client: TestClient) -> None:
+    client.put("/api/settings", json={"tts_voice": "es_AR-daniela-high"})
+
+    client.put("/api/settings", json={"target_language": "de"})
+
+    back = client.put("/api/settings", json={"target_language": "es"}).json()
+    assert back["tts_voice"] == "es_AR-daniela-high"
+
+
+def test_a_language_and_its_voice_are_saved_together(client: TestClient) -> None:
+    response = client.put(
+        "/api/settings", json={"target_language": "de", "tts_voice": "de_DE-kerstin-low"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["tts_voice"] == "de_DE-kerstin-low"
+    assert client.get("/api/settings").json()["tts_voice"] == "de_DE-kerstin-low"
+
+
+def test_a_voice_for_another_language_is_422_and_nothing_is_written(client: TestClient) -> None:
+    before = client.get("/api/settings").json()
+
+    response = client.put("/api/settings", json={"tts_voice": "de_DE-kerstin-low"})
+
+    assert (response.status_code, response.json()) == (
+        422,
+        {"detail": "That voice is for German. Choose a Spanish voice."},
+    )
+    assert client.get("/api/settings").json() == before
+
+
+def test_an_unknown_voice_is_422_and_nothing_is_written(client: TestClient) -> None:
+    before = client.get("/api/settings").json()
+
+    response = client.put("/api/settings", json={"tts_voice": "xx_XX-nope-low"})
+
+    assert (response.status_code, response.json()) == (422, {"detail": "Unknown voice."})
+    assert client.get("/api/settings").json() == before
+
+
+def test_an_unknown_practice_language_is_422_and_nothing_is_written(client: TestClient) -> None:
+    before = client.get("/api/settings").json()
+
+    assert client.put("/api/settings", json={"target_language": "fr"}).status_code == 422
+    assert client.get("/api/settings").json() == before
+
+
+def test_a_voice_rejected_with_a_bad_model_writes_no_voice(client, claude_availability) -> None:
+    response = client.put(
+        "/api/settings",
+        json={"tts_voice": "es_AR-daniela-high", "llm_provider": "ollama", "llm_model": "sonnet"},
+    )
+
+    assert response.status_code == 422
+    assert client.get("/api/settings").json()["tts_voice"] == "es_ES-davefx-medium"
+
+
+def test_switching_back_to_spanish_restores_the_earlier_spanish_voice(client: TestClient) -> None:
+    client.put("/api/settings", json={"target_language": "es", "tts_voice": "es_AR-daniela-high"})
+    client.put("/api/settings", json={"target_language": "de", "tts_voice": "de_DE-kerstin-low"})
+
+    response = client.put("/api/settings", json={"target_language": "es"})
+
+    assert response.json()["tts_voice"] == "es_AR-daniela-high"
+
+
+def test_a_language_and_provider_change_apply_together(client, claude_availability) -> None:
+    response = client.put("/api/settings", json={"target_language": "de", "llm_provider": "claude"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert (data["target_language"], data["llm_provider"], data["llm_model"]) == (
+        "de",
+        "claude",
+        "sonnet",
+    )
+
+
+def test_a_language_change_never_changes_the_provider(client, claude_availability) -> None:
+    client.put("/api/settings", json={"llm_provider": "claude", "llm_model": "haiku"})
+
+    data = client.put("/api/settings", json={"target_language": "de"}).json()
+
+    assert (data["llm_provider"], data["llm_model"]) == ("claude", "haiku")
+
+
+@pytest.fixture
+def voice_installation():
+    from app.services.factory import get_voice_installation
+    from tests.support.fake_speech import FakeVoiceInstallation
+
+    installation = FakeVoiceInstallation({"es_ES-davefx-medium", "de_DE-thorsten-medium"})
+    app.dependency_overrides[get_voice_installation] = lambda: installation
+    return installation
+
+
+def test_voices_lists_all_four_with_language_and_installation(
+    client: TestClient, voice_installation
+) -> None:
+    voices = client.get("/api/settings/voices").json()
+
+    assert [(v["key"], v["language"], v["is_installed"]) for v in voices] == [
+        ("es_ES-davefx-medium", "es", True),
+        ("es_AR-daniela-high", "es", False),
+        ("de_DE-thorsten-medium", "de", True),
+        ("de_DE-kerstin-low", "de", False),
+    ]

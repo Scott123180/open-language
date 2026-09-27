@@ -21,7 +21,10 @@ from app.corrections.services.storage import FeedbackDraft
 
 @dataclass(frozen=True)
 class TurnContext:
-    """Everything a mode needs to decide what to do with one learner message."""
+    """Everything a mode needs to decide what to do with one learner message.
+
+    Its language fields are display names ("German"), used only in prompt text.
+    """
 
     conversation_id: int
     learner_text: str

@@ -22,7 +22,6 @@ from app.services.factory import (
     get_scenario_provider,
     get_session_provider,
     get_storage,
-    get_tts,
 )
 from app.services.helper_sessions import HelperSessionStore
 from app.services.llm.base import LLMError
@@ -30,31 +29,21 @@ from app.services.llm.selection_types import LLMSelection
 from app.services.scenario.static import StaticScenarioProvider
 from app.services.storage.base import AppSettingsRecord
 from app.services.storage.sqlite import SQLiteStorageProvider
-from app.services.tts.base import TTSProvider
 from tests.integration.conftest import make_test_session
 from tests.support.engine_overrides import install_session_provider
+from tests.support.fake_speech import override_speech
 from tests.support.recording_session_provider import RecordingSessionProvider
 
 _SETTINGS = AppSettingsRecord(
     llm_model="llama3.1",
     target_language="es",
     native_language="en",
-    tts_voice="es_ES-mls-medium",
     suggestion_count=1,
     whisper_model="base",
     updated_at=datetime.datetime.now(datetime.UTC),
 )
 GENTLE_SUFFIX = " Recast any mistake naturally."
 _WAIT_SECONDS = 2.0
-
-
-class SilentTTS(TTSProvider):
-    @property
-    def voice_name(self) -> str:
-        return "silent"
-
-    def synthesize(self, text: str, output_path: Path) -> None:
-        """Nothing to hear in these tests."""
 
 
 class ScriptedStrategy(CorrectionStrategy):
@@ -89,8 +78,7 @@ class Harness:
         body = {
             "message": message,
             "helper_session_id": helper_session_id,
-            "target_language": "Spanish",
-            "native_language": "English",
+            "conversation_id": self.new_conversation(),
         }
         return self._stream("/api/chat/helper", body)
 
@@ -127,7 +115,7 @@ def _install_chat_overrides(new_session, strategy: ScriptedStrategy) -> None:
     app.dependency_overrides[get_scenario_provider] = lambda: StaticScenarioProvider()
     app.dependency_overrides[get_storage] = lambda: SQLiteStorageProvider(new_session())
     app.dependency_overrides[get_app_settings] = lambda: _SETTINGS
-    app.dependency_overrides[get_tts] = SilentTTS
+    override_speech(app)
     app.dependency_overrides[get_correction_strategy] = lambda: strategy
     app.dependency_overrides[get_correction_storage] = lambda: SQLiteCorrectionStorageProvider(
         new_session()

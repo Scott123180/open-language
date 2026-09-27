@@ -38,3 +38,25 @@ def test_synthesize_raises_on_empty_text(tmp_path):
 
 def test_voice_name_is_string():
     assert isinstance(StubTTSProvider().voice_name, str)
+
+
+# --- 006: voice installation contract (T014) -----------------------------------------
+
+
+def test_voice_installation_is_an_abc_with_only_is_installed():
+    from abc import ABC
+
+    from app.services.tts.base import VoiceInstallation
+
+    assert issubclass(VoiceInstallation, ABC)
+    assert VoiceInstallation.__abstractmethods__ == frozenset({"is_installed"})
+
+
+def test_piper_voice_installation_implements_the_contract(tmp_path):
+    from app.services.tts.base import VoiceInstallation
+    from app.services.tts.piper import PiperVoiceInstallation
+
+    installation = PiperVoiceInstallation(tmp_path)
+
+    assert isinstance(installation, VoiceInstallation)
+    assert installation.is_installed("any-voice") is False

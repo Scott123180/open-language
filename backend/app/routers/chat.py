@@ -25,6 +25,7 @@ from app.corrections.services.strategies import (
     TurnContext,
     TurnPlan,
 )
+from app.practice_languages import ConversationLanguages
 from app.prompts.templates import (
     build_helper_system_prompt,
     build_open_chat_user_prompt,
@@ -48,8 +49,8 @@ from app.services.factory import (
     get_llm,
     get_scenario_provider,
     get_session_provider,
+    get_speech_for_language,
     get_storage,
-    get_tts,
 )
 from app.services.helper_sessions import HelperSessionStore, HelperTurn
 from app.services.llm.base import ChatMessage, LLMError, LLMProvider
@@ -61,6 +62,7 @@ from app.services.storage.base import (
     StorageProvider,
 )
 from app.services.tts.base import TTSProvider
+from app.services.tts.selection import SpeechForLanguage
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +113,11 @@ def _level_of(app_settings: AppSettingsRecord) -> ConversationLevel:
     return ConversationLevel(app_settings.conversation_level)
 
 
+def _languages_of(conversation: ConversationRecord) -> ConversationLanguages:
+    """Prompts name the conversation's languages ("German"), never their codes (research R2)."""
+    return ConversationLanguages.of(conversation.target_language, conversation.native_language)
+
+
 def _roleplay_key(conversation_id: int) -> SessionKey:
     return SessionKey(SessionKind.ROLEPLAY, str(conversation_id))
 
@@ -120,12 +127,13 @@ def _standing_roleplay_prompt(
 ) -> str:
     """The system prompt that holds for the whole conversation, with the level's rules last."""
     scenario_description, character_description = _resolve_scenario_context(conversation, provider)
+    languages = _languages_of(conversation)
     roleplay_prompt = build_roleplay_system_prompt(
         scenario_title=conversation.scenario_title,
         scenario_description=scenario_description,
         character_description=character_description,
-        target_language=conversation.target_language,
-        native_language=conversation.native_language,
+        target_language=languages.target_name,
+        native_language=languages.native_name,
     )
     return with_partner_speech_rules(roleplay_prompt, level)
 
@@ -177,7 +185,7 @@ class _RoleplayContext:
     conversation: ConversationRecord
     standing_prompt: str
     storage: StorageProvider
-    tts: TTSProvider
+    speech: SpeechForLanguage
     engine: ConversationEngine
     provider: SessionCapableProvider
 
@@ -192,16 +200,28 @@ class _RoleplayContext:
         message = self.storage.save_message(
             conversation_id=self.conversation.id, role=ASSISTANT_ROLE, content=content
         )
-        _schedule_tts(asyncio.get_running_loop(), self.storage, self.tts, message.id, content)
+        self._speak(message)
         return _SavedReply(
             f"{ROLEPLAY_TURN_PREFIX}{message.id}", {"done": True, "message_id": message.id}
+        )
+
+    def _speak(self, message: MessageRecord) -> None:
+        """Read the reply aloud in the conversation's language, or skip it and say why once."""
+        language = self.conversation.target_language
+        if not self.speech.is_available(language):
+            name = _languages_of(self.conversation).target_name
+            logger.warning("The %s voice isn't installed; the reply is not read aloud", name)
+            return
+        provider = self.speech.provider_for(language)
+        _schedule_tts(
+            asyncio.get_running_loop(), self.storage, provider, message.id, message.content
         )
 
 
 def _roleplay_context(
     conversation_id: int,
     storage: StorageProvider = Depends(get_storage),
-    tts: TTSProvider = Depends(get_tts),
+    speech: SpeechForLanguage = Depends(get_speech_for_language),
     scenarios: ScenarioProvider = Depends(get_scenario_provider),
     engine: ConversationEngine = Depends(get_conversation_engine),
     provider: SessionCapableProvider = Depends(get_session_provider),
@@ -209,7 +229,7 @@ def _roleplay_context(
 ) -> _RoleplayContext:
     conversation = _require_conversation(storage, conversation_id)
     standing_prompt = _standing_roleplay_prompt(conversation, scenarios, _level_of(app_settings))
-    return _RoleplayContext(conversation, standing_prompt, storage, tts, engine, provider)
+    return _RoleplayContext(conversation, standing_prompt, storage, speech, engine, provider)
 
 
 @router.post("/chat/{conversation_id}/open")
@@ -217,7 +237,7 @@ async def open_chat(context: _RoleplayContext = Depends(_roleplay_context)):
     history = _saved_turns(context.storage.get_messages(context.conversation.id))
     if any(turn.role == USER_ROLE for turn in history):
         raise HTTPException(status_code=409, detail=CONVERSATION_ALREADY_STARTED)
-    instruction = build_open_chat_user_prompt(context.conversation.target_language)
+    instruction = build_open_chat_user_prompt(_languages_of(context.conversation).target_name)
     turn = context.turn(history, guidance=None, opening=instruction)
     return StreamingResponse(_relay_engine_reply(turn, context.persist), media_type=SSE_MEDIA_TYPE)
 
@@ -305,11 +325,12 @@ def _turn_context(
     history: list,
     is_low_confidence: bool = False,
 ) -> TurnContext:
+    languages = _languages_of(conversation)
     return TurnContext(
         conversation_id=conversation_id,
         learner_text=content,
-        target_language=conversation.target_language,
-        native_language=conversation.native_language,
+        target_language=languages.target_name,
+        native_language=languages.native_name,
         preceding_character_line=_last_character_line(history),
         is_low_confidence=is_low_confidence,
     )
@@ -446,7 +467,7 @@ def _suggestion_prompt(
     """Today's suggestion prompt, with the level's learner-text rules last (FR-017)."""
     history_text = "\n".join(f"{m.role}: {m.content}" for m in messages)
     prompt = build_suggestion_prompt(
-        history_text, conversation.target_language, app_settings.suggestion_count
+        history_text, _languages_of(conversation).target_name, app_settings.suggestion_count
     )
     return with_learner_text_rules(prompt, _level_of(app_settings))
 
@@ -463,30 +484,34 @@ def _parse_numbered_suggestions(text: str, count: int) -> list[str]:
 class HelperRequest(BaseModel):
     message: str
     helper_session_id: str
-    target_language: str
-    native_language: str
+    conversation_id: int
 
 
 @router.post("/chat/helper")
 async def chat_helper(
     req: HelperRequest,
+    storage: StorageProvider = Depends(get_storage),
     helper_sessions: HelperSessionStore = Depends(get_helper_sessions),
     engine: ConversationEngine = Depends(get_conversation_engine),
     provider: SessionCapableProvider = Depends(get_session_provider),
     app_settings: AppSettingsRecord = Depends(get_app_settings),
 ):
+    languages = _languages_of(_require_conversation(storage, req.conversation_id))
     stored = helper_sessions.get_history(req.helper_session_id)
-    request = _helper_turn_request(req, stored, _level_of(app_settings))
+    request = _helper_turn_request(req, stored, languages, _level_of(app_settings))
     answer = _HelperAnswer(helper_sessions, req, answer_index=len(stored) + 1)
     turn = _EngineTurn(engine, provider, request)
     return StreamingResponse(_relay_engine_reply(turn, answer.persist), media_type=SSE_MEDIA_TYPE)
 
 
 def _helper_turn_request(
-    req: HelperRequest, stored: list[HelperTurn], level: ConversationLevel
+    req: HelperRequest,
+    stored: list[HelperTurn],
+    languages: ConversationLanguages,
+    level: ConversationLevel,
 ) -> TurnRequest:
     """The helper's turn. Only its target-language phrase follows the level (research R6)."""
-    helper_prompt = build_helper_system_prompt(req.target_language, req.native_language)
+    helper_prompt = build_helper_system_prompt(languages.target_name, languages.native_name)
     question = SavedTurn(f"{HELPER_TURN_PREFIX}{len(stored)}", USER_ROLE, req.message)
     return TurnRequest(
         key=SessionKey(SessionKind.HELPER, req.helper_session_id),

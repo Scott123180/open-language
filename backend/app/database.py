@@ -7,6 +7,7 @@ from app.config import get_settings
 from app.conversation_levels import DEFAULT_CONVERSATION_LEVEL
 from app.services.llm.catalog import DEFAULT_PROVIDER_ID
 from app.services.llm.selection_types import DEFAULT_EFFORT
+from app.services.tts.voices import AVAILABLE_VOICES
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ def init_db() -> None:
         learning_tool_result,
         message,
         vocabulary_item,
+        voice_choice,
     )
 
     Base.metadata.create_all(bind=_engine)
@@ -86,6 +88,30 @@ def _migrate_db() -> None:
     with _engine.connect() as conn:
         for table, column_definition in _ADDITIVE_COLUMNS:
             _add_column_if_missing(conn, table, column_definition)
+        _seed_voice_choices(conn)
+
+
+def _seed_voice_choices(conn) -> None:
+    """Remember a pre-006 voice for the language it speaks (FR-024). Idempotent."""
+    from sqlalchemy import text
+
+    stored = conn.execute(
+        text("SELECT target_language, tts_voice FROM app_settings WHERE id = 1")
+    ).first()
+    if stored is None or not _voice_speaks(stored.tts_voice, stored.target_language):
+        return
+    conn.execute(
+        text(
+            "INSERT OR IGNORE INTO voice_choices (target_language, voice_key, updated_at) "
+            "VALUES (:language, :voice, CURRENT_TIMESTAMP)"
+        ),
+        {"language": stored.target_language, "voice": stored.tts_voice},
+    )
+    conn.commit()
+
+
+def _voice_speaks(voice_key: str, language_code: str) -> bool:
+    return any(v.key == voice_key and v.language == language_code for v in AVAILABLE_VOICES)
 
 
 def _add_column_if_missing(conn, table: str, column_definition: str) -> None:

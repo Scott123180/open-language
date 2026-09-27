@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
-from functools import lru_cache
+from functools import lru_cache, partial
 
 from fastapi import Depends
 from sqlalchemy.orm import Session
@@ -14,6 +14,7 @@ from app.corrections.services.strategies import CorrectionStrategy
 from app.database import get_db
 from app.flashcards.services.sqlite_storage import SQLiteFlashcardStorageProvider
 from app.flashcards.services.storage import FlashcardStorageProvider
+from app.practice_languages import voice_for, voice_unavailable_message
 from app.services.conversation import (
     ConversationEngine,
     ConversationSessionPool,
@@ -33,7 +34,8 @@ from app.services.scenario.static import StaticScenarioProvider
 from app.services.storage.base import AppSettingsRecord, StorageProvider
 from app.services.storage.sqlite import SQLiteStorageProvider
 from app.services.stt.base import STTProvider
-from app.services.tts.base import TTSProvider
+from app.services.tts.base import TTSProvider, VoiceInstallation
+from app.services.tts.selection import SpeechForLanguage
 
 
 @lru_cache
@@ -110,8 +112,33 @@ def get_availability_checkers() -> Mapping[str, ProviderAvailabilityChecker]:
 def get_tts(app_settings: AppSettingsRecord = Depends(get_app_settings)) -> TTSProvider:
     from app.services.tts.piper import PiperTTSProvider
 
-    settings = get_settings()
-    return PiperTTSProvider(voice_name=app_settings.tts_voice, voice_dir=settings.voice_dir)
+    voice = voice_for(app_settings.target_language, app_settings.voice_choices)
+    return PiperTTSProvider(voice_name=voice, voice_dir=get_settings().voice_dir)
+
+
+def get_voice_installation() -> VoiceInstallation:
+    from app.services.tts.piper import PiperVoiceInstallation
+
+    return PiperVoiceInstallation(get_settings().voice_dir)
+
+
+def get_speech_for_language(
+    app_settings: AppSettingsRecord = Depends(get_app_settings),
+    installation: VoiceInstallation = Depends(get_voice_installation),
+) -> SpeechForLanguage:
+    """The only place a TTS voice becomes a Piper provider (Principle VI)."""
+    return SpeechForLanguage(
+        resolve_voice=partial(voice_for, voice_choices=app_settings.voice_choices),
+        installation=installation,
+        build=_build_piper_voice,
+        unavailable_message=voice_unavailable_message,
+    )
+
+
+def _build_piper_voice(voice_key: str) -> TTSProvider:
+    from app.services.tts.piper import PiperTTSProvider
+
+    return PiperTTSProvider(voice_name=voice_key, voice_dir=get_settings().voice_dir)
 
 
 _stt_providers: dict[str, "STTProvider"] = {}

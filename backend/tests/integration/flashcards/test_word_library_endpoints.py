@@ -22,7 +22,7 @@ def word(db_session):
     item = VocabularyItem(
         word="bonjour",
         translation="hello",
-        target_language="fr",
+        target_language="es",
         native_language="en",
         saved_at=datetime.now(UTC),
         classification="not_practiced",
@@ -40,7 +40,7 @@ def three_words(db_session):
         VocabularyItem(
             word="bonjour",
             translation="hello",
-            target_language="fr",
+            target_language="es",
             native_language="en",
             saved_at=datetime.now(UTC),
             classification="not_practiced",
@@ -49,7 +49,7 @@ def three_words(db_session):
         VocabularyItem(
             word="merci",
             translation="thank you",
-            target_language="fr",
+            target_language="es",
             native_language="en",
             saved_at=datetime.now(UTC),
             classification="difficult",
@@ -58,7 +58,7 @@ def three_words(db_session):
         VocabularyItem(
             word="oui",
             translation="yes",
-            target_language="fr",
+            target_language="es",
             native_language="en",
             saved_at=datetime.now(UTC),
             classification="learned",
@@ -193,7 +193,7 @@ class TestWordInfoEndpoint:
             vocabulary_item_id=word.id,
             cache_type="meanings",
             content="Bonjour: a greeting in French.",
-            language="fr",
+            language="es",
             generated_at=datetime.now(UTC),
         )
         db_session.add(cached)
@@ -232,7 +232,7 @@ class TestWordInfoEndpoint:
             vocabulary_item_id=word.id,
             cache_type="usage",
             content="Je dis bonjour chaque matin.",
-            language="fr",
+            language="es",
             generated_at=datetime.now(UTC),
         )
         db_session.add(usage_cache)

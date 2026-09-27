@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
+from app.practice_languages import ConversationLanguages
 from app.prompts.templates import build_custom_title_prompt
 from app.services.conversation import ConversationEngine, SessionKey, SessionKind
 from app.services.factory import (
@@ -35,6 +36,8 @@ class ConversationResponse(BaseModel):
     scenario_title: str
     target_language: str
     native_language: str
+    target_language_name: str
+    native_language_name: str
     status: str
     started_at: datetime
     ended_at: datetime | None
@@ -67,12 +70,15 @@ def _generate_custom_scenario_title(llm: LLMProvider, custom_prompt: str) -> str
 
 
 def _conv_response(r: ConversationRecord) -> ConversationResponse:
+    languages = ConversationLanguages.of(r.target_language, r.native_language)
     return ConversationResponse(
         id=r.id,
         scenario_id=r.scenario_id,
         scenario_title=r.scenario_title,
         target_language=r.target_language,
         native_language=r.native_language,
+        target_language_name=languages.target_name,
+        native_language_name=languages.native_name,
         status=r.status,
         started_at=r.started_at,
         ended_at=r.ended_at,

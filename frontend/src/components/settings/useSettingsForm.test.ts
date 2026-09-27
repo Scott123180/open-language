@@ -27,6 +27,8 @@ const voices: api.VoiceOption[] = [
     locale: 'es_ES',
     quality: 'medium',
     speaking_rate: 'natural',
+    language: 'es',
+    is_installed: true,
   },
 ]
 
@@ -36,10 +38,104 @@ async function renderLoadedForm() {
   return hook
 }
 
+const voice = (key: string, language: string): api.VoiceOption => ({
+  key,
+  display_name: key,
+  gender: 'female',
+  locale: `${language}_XX`,
+  quality: 'medium',
+  speaking_rate: 'natural',
+  language,
+  is_installed: true,
+})
+
+const practiceLanguages: api.PracticeLanguageOption[] = [
+  {
+    language_id: 'es',
+    display_name: 'Spanish',
+    is_default: true,
+    default_voice: 'es_ES-davefx-medium',
+    selected_voice: 'es_ES-mls-medium',
+    is_voice_installed: true,
+    voice_unavailable_message: null,
+  },
+  {
+    language_id: 'de',
+    display_name: 'German',
+    is_default: false,
+    default_voice: 'de_DE-thorsten-medium',
+    selected_voice: 'de_DE-kerstin-low',
+    is_voice_installed: true,
+    voice_unavailable_message: null,
+  },
+]
+
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(api.getSettings).mockResolvedValue(storedSettings)
   vi.mocked(api.getVoices).mockResolvedValue(voices)
+  vi.mocked(api.getPracticeLanguages).mockResolvedValue(practiceLanguages)
+})
+
+async function renderWithLanguages() {
+  vi.mocked(api.getVoices).mockResolvedValue([
+    voice('es_ES-mls-medium', 'es'),
+    voice('de_DE-thorsten-medium', 'de'),
+    voice('de_DE-kerstin-low', 'de'),
+  ])
+  const hook = await renderLoadedForm()
+  await waitFor(() => expect(hook.result.current.voicesForLanguage).toHaveLength(1))
+  return hook
+}
+
+describe('useSettingsForm — practice language (006)', () => {
+  it('loads the practice language from the stored target language', async () => {
+    const { result } = await renderLoadedForm()
+
+    expect(result.current.practiceLanguage).toBe('es')
+  })
+
+  it('choosing German also selects German\'s remembered voice', async () => {
+    const { result } = await renderWithLanguages()
+
+    act(() => result.current.setPracticeLanguage('de'))
+
+    expect(result.current.practiceLanguage).toBe('de')
+    expect(result.current.ttsVoice).toBe('de_DE-kerstin-low')
+  })
+
+  it('lists only the voices for the form\'s language', async () => {
+    const { result } = await renderWithLanguages()
+
+    act(() => result.current.setPracticeLanguage('de'))
+
+    expect(result.current.voicesForLanguage.map((v) => v.key)).toEqual([
+      'de_DE-thorsten-medium',
+      'de_DE-kerstin-low',
+    ])
+  })
+
+  it('saves the language and its voice together', async () => {
+    vi.mocked(api.updateSettings).mockResolvedValue(storedSettings)
+    const { result } = await renderWithLanguages()
+    act(() => result.current.setPracticeLanguage('de'))
+
+    await act(() => result.current.save())
+
+    expect(api.updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ target_language: 'de', tts_voice: 'de_DE-kerstin-low' }),
+    )
+  })
+
+  it('never sends a practice language that did not load', async () => {
+    vi.mocked(api.getSettings).mockRejectedValue(new Error('offline'))
+    vi.mocked(api.updateSettings).mockResolvedValue(storedSettings)
+    const { result } = await renderLoadedForm()
+
+    await act(() => result.current.save())
+
+    expect(vi.mocked(api.updateSettings).mock.calls[0][0]).not.toHaveProperty('target_language')
+  })
 })
 
 describe('useSettingsForm — loading', () => {
@@ -122,6 +218,7 @@ describe('useSettingsForm — saving', () => {
       llm_provider: 'ollama',
       llm_model: 'llama3.1:8b',
       llm_effort: 'low',
+      target_language: 'es',
       whisper_model: 'small',
       tts_voice: 'es_ES-mls-medium',
       suggestion_count: 2,

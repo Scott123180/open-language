@@ -12,6 +12,8 @@ export interface Conversation {
   scenario_title: string
   target_language: string
   native_language: string
+  target_language_name: string
+  native_language_name: string
   status: string
   started_at: string
   ended_at: string | null
@@ -128,6 +130,19 @@ export interface VoiceOption {
   locale: string
   quality: string
   speaking_rate: string
+  language: string
+  is_installed: boolean
+}
+
+/** One practice language, the learner's voice for it, and whether that voice can speak. */
+export interface PracticeLanguageOption {
+  language_id: string
+  display_name: string
+  is_default: boolean
+  default_voice: string
+  selected_voice: string
+  is_voice_installed: boolean
+  voice_unavailable_message: string | null
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -300,31 +315,25 @@ export const checkGrammar = (messageId: number, content: string, precedingMessag
     body: JSON.stringify({ message_id: messageId, content, preceding_message: precedingMessage ?? null }),
   })
 
-export const translateMessage = (
-  messageId: number,
-  content: string,
-  nativeLanguage: string,
-): Promise<LearningToolResult> =>
+// The server takes each learning aid's languages from the message's conversation (FR-009).
+export const translateMessage = (messageId: number, content: string): Promise<LearningToolResult> =>
   apiFetch('/learning/translate', {
     method: 'POST',
-    body: JSON.stringify({ message_id: messageId, content, native_language: nativeLanguage }),
+    body: JSON.stringify({ message_id: messageId, content }),
   })
 
 export const getAlternativePhrasing = (
   messageId: number,
   content: string,
-  targetLanguage: string,
 ): Promise<LearningToolResult> =>
   apiFetch('/learning/phrasing', {
     method: 'POST',
-    body: JSON.stringify({ message_id: messageId, content, target_language: targetLanguage }),
+    body: JSON.stringify({ message_id: messageId, content }),
   })
 
 export const lookupWord = (
   messageId: number,
   selection: string,
-  targetLanguage: string,
-  nativeLanguage: string,
   sentenceContext?: string,
 ): Promise<LearningToolResult> =>
   apiFetch('/learning/word-lookup', {
@@ -332,8 +341,6 @@ export const lookupWord = (
     body: JSON.stringify({
       message_id: messageId,
       selection,
-      target_language: targetLanguage,
-      native_language: nativeLanguage,
       sentence_context: sentenceContext ?? null,
     }),
   })
@@ -357,8 +364,7 @@ export const getSuggestions = (conversationId: number): Promise<{ suggestions: s
 export const streamHelper = async (
   content: string,
   helperSessionId: string,
-  targetLanguage: string,
-  nativeLanguage: string,
+  conversationId: number,
   onToken: (t: string) => void,
   onDone: () => void,
   onError: (e: string) => void,
@@ -369,8 +375,7 @@ export const streamHelper = async (
     body: JSON.stringify({
       message: content,
       helper_session_id: helperSessionId,
-      target_language: targetLanguage,
-      native_language: nativeLanguage,
+      conversation_id: conversationId,
     }),
   })
   if (!res.ok) { onError(`HTTP ${res.status}`); return }
@@ -382,6 +387,9 @@ export const getSettings = (): Promise<AppSettings> =>
 
 export const getConversationLevels = (): Promise<ConversationLevelOption[]> =>
   apiFetch('/settings/conversation-levels')
+
+export const getPracticeLanguages = (): Promise<PracticeLanguageOption[]> =>
+  apiFetch('/settings/practice-languages')
 
 export const updateSettings = (updates: Partial<AppSettings>): Promise<AppSettings> =>
   apiFetch('/settings', { method: 'PUT', body: JSON.stringify(updates) })

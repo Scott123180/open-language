@@ -122,3 +122,16 @@ def test_update_settings_changes_field_and_persists(storage: StorageProvider) ->
     refetched = storage.get_settings()
     assert refetched.llm_model == "mistral"
     assert refetched.suggestion_count == 3
+
+
+# --- 006: per-language voice memory (T013) --------------------------------------------
+
+
+def test_storage_provider_declares_save_voice_choice() -> None:
+    assert "save_voice_choice" in StorageProvider.__abstractmethods__
+
+
+def test_sqlite_storage_implements_save_voice_choice(storage: StorageProvider) -> None:
+    storage.save_voice_choice("de", "de_DE-kerstin-low")
+
+    assert storage.get_settings().voice_choices == {"de": "de_DE-kerstin-low"}

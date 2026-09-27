@@ -16,7 +16,6 @@ _DEFAULT_SETTINGS = AppSettingsRecord(
     llm_model="llama3.1",
     target_language="Spanish",
     native_language="English",
-    tts_voice="es_ES-mls-medium",
     suggestion_count=3,
     whisper_model="base",
     updated_at=datetime.datetime.now(datetime.UTC),

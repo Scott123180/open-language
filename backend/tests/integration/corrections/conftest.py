@@ -2,7 +2,6 @@
 
 import datetime
 import json
-import struct
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -21,15 +20,14 @@ from app.services.factory import (
     get_llm,
     get_scenario_provider,
     get_storage,
-    get_tts,
 )
 from app.services.llm.base import ChatMessage, LLMProvider
 from app.services.scenario.static import StaticScenarioProvider
 from app.services.storage.base import AppSettingsRecord
 from app.services.storage.sqlite import SQLiteStorageProvider
-from app.services.tts.base import TTSProvider
 from tests.integration.conftest import make_test_session
 from tests.support.engine_overrides import override_conversation_engine
+from tests.support.fake_speech import override_speech
 
 
 def _enable_foreign_keys(dbapi_conn, _record):
@@ -45,9 +43,8 @@ REPLY_TOKENS = ["Buenos", " días"]
 def settings_with_mode(mode: str) -> AppSettingsRecord:
     return AppSettingsRecord(
         llm_model="llama3.1",
-        target_language="Spanish",
-        native_language="English",
-        tts_voice="es_ES-mls-medium",
+        target_language="es",
+        native_language="en",
         suggestion_count=3,
         whisper_model="base",
         updated_at=datetime.datetime.now(datetime.UTC),
@@ -72,27 +69,6 @@ class RecordingLLMProvider(LLMProvider):
 
     def chat(self, messages: list[ChatMessage]) -> str:
         return "".join(self._tokens)
-
-
-class StubTTSProvider(TTSProvider):
-    def __init__(self, tmp_path: Path) -> None:
-        self._tmp_path = tmp_path
-
-    @property
-    def voice_name(self) -> str:
-        return "stub-voice"
-
-    def synthesize(self, text: str, output_path: Path) -> None:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        header = (
-            b"RIFF"
-            + struct.pack("<I", 36)
-            + b"WAVEfmt "
-            + struct.pack("<IHHIIHH", 16, 1, 1, 16000, 32000, 2, 16)
-            + b"data"
-            + struct.pack("<I", 0)
-        )
-        output_path.write_bytes(header)
 
 
 def build_strict_harness(make_harness, findings, attempts: int = 0):
@@ -250,7 +226,7 @@ def _install_overrides(mode: str, requests: _RequestSessions, llm, tmp_path: Pat
     app.dependency_overrides[get_app_settings] = lambda: settings_with_mode(mode)
     app.dependency_overrides[get_llm] = lambda: llm
     override_conversation_engine(app, llm)
-    app.dependency_overrides[get_tts] = lambda: StubTTSProvider(tmp_path=tmp_path)
+    override_speech(app)
 
 
 class _HarnessFactory:

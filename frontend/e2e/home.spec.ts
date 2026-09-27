@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test'
-import { mockHomeApis, mockConversation, mockScenario, mockScenario2 } from './fixtures'
+import {
+  mockConversation,
+  mockHomeApis,
+  mockScenario,
+  mockScenario2,
+  mockSettings,
+} from './fixtures'
 
 test.describe('Home page', () => {
   test.beforeEach(async ({ page }) => {
@@ -45,15 +51,15 @@ test.describe('Home page', () => {
       route.fulfill({
         json: {
           llm_model: 'llama3.1',
-          target_language: 'Spanish',
-          native_language: 'English',
+          target_language: 'es',
+          native_language: 'en',
           tts_voice: 'en_US-ryan-high',
           suggestion_count: 3,
           updated_at: '2026-03-20T10:00:00Z',
         },
       }),
     )
-    await page.getByRole('link', { name: 'Settings' }).click()
+    await page.getByRole('link', { name: 'Settings', exact: true }).click()
     await expect(page).toHaveURL('/settings')
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
   })
@@ -86,7 +92,7 @@ test.describe('Home page', () => {
 
   test('start chat button navigates to chat page', async ({ page }) => {
     await page.route('/api/settings', (route) =>
-      route.fulfill({ json: { llm_model: 'llama3.1', target_language: 'Spanish', native_language: 'English', tts_voice: '', suggestion_count: 3, updated_at: '' } }),
+      route.fulfill({ json: { llm_model: 'llama3.1', target_language: 'es', native_language: 'en', tts_voice: '', suggestion_count: 3, updated_at: '' } }),
     )
     await page.route('/api/conversations/1', (route) =>
       route.fulfill({ json: mockConversation }),
@@ -141,7 +147,7 @@ test.describe('Home page', () => {
 
   test('custom chat start navigates to chat page', async ({ page }) => {
     await page.route('/api/settings', (route) =>
-      route.fulfill({ json: { llm_model: 'llama3.1', target_language: 'Spanish', native_language: 'English', tts_voice: '', suggestion_count: 3, updated_at: '' } }),
+      route.fulfill({ json: { llm_model: 'llama3.1', target_language: 'es', native_language: 'en', tts_voice: '', suggestion_count: 3, updated_at: '' } }),
     )
     await page.route('/api/conversations/1', (route) =>
       route.fulfill({ json: mockConversation }),
@@ -172,5 +178,22 @@ test.describe('Home page', () => {
     )
     await page.getByRole('button', { name: /refresh/i }).click()
     await expect(page.getByRole('alert')).toContainText('Failed to refresh')
+  })
+})
+
+test.describe('Home page — practice language (006)', () => {
+  test('names the practice language and links to Settings to change it', async ({ page }) => {
+    await mockHomeApis(page)
+    await page.route('/api/settings', (route) =>
+      route.fulfill({ json: { ...mockSettings, target_language: 'de' } }),
+    )
+    await page.goto('/')
+
+    const note = page.getByText('Practising German')
+    await expect(note).toBeVisible()
+    await expect(note.locator('strong')).toHaveText('German')
+
+    await page.getByRole('link', { name: 'Change in Settings' }).click()
+    await expect(page).toHaveURL(/\/settings$/)
   })
 })

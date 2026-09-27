@@ -18,8 +18,10 @@ export const mockConversation = {
   id: 1,
   scenario_id: 'scenario-1',
   scenario_title: 'Coffee Shop',
-  target_language: 'Spanish',
-  native_language: 'English',
+  target_language: 'es',
+  native_language: 'en',
+  target_language_name: 'Spanish',
+  native_language_name: 'English',
   status: 'active',
   started_at: '2026-03-20T10:00:00Z',
   ended_at: null,
@@ -39,8 +41,8 @@ export const mockSettings = {
   llm_provider: 'ollama',
   llm_model: 'llama3.1',
   llm_effort: 'low',
-  target_language: 'Spanish',
-  native_language: 'English',
+  target_language: 'es',
+  native_language: 'en',
   tts_voice: 'es_ES-davefx-medium',
   suggestion_count: 3,
   whisper_model: 'base',
@@ -76,6 +78,60 @@ export const mockConversationLevels = [
     description: 'Ordinary everyday native speech, with no limits.',
   },
 ]
+
+/** A German conversation, for checks that follow the conversation's language, not the setting. */
+export const mockGermanConversation = {
+  ...mockConversation,
+  id: 3,
+  scenario_title: 'Coffee Shop',
+  target_language: 'de',
+  target_language_name: 'German',
+}
+
+export const GERMAN_VOICE_UNAVAILABLE_MESSAGE =
+  "The German voice isn't installed, so German can't be read aloud. Run ./run.sh --setup to download it. You can keep practising in text."
+
+const SPANISH_LANGUAGE = {
+  language_id: 'es',
+  display_name: 'Spanish',
+  is_default: true,
+  default_voice: 'es_ES-davefx-medium',
+  selected_voice: 'es_ES-davefx-medium',
+  is_voice_installed: true,
+  voice_unavailable_message: null as string | null,
+}
+
+const GERMAN_LANGUAGE = {
+  language_id: 'de',
+  display_name: 'German',
+  is_default: false,
+  default_voice: 'de_DE-thorsten-medium',
+  selected_voice: 'de_DE-thorsten-medium',
+  is_voice_installed: true,
+  voice_unavailable_message: null as string | null,
+}
+
+/** The practice-language catalogue with both voices installed (006 contracts §1). */
+export const mockPracticeLanguages = [SPANISH_LANGUAGE, GERMAN_LANGUAGE]
+
+/** The catalogue when the German voice has not been downloaded. */
+export const mockPracticeLanguagesGermanVoiceMissing = [
+  SPANISH_LANGUAGE,
+  {
+    ...GERMAN_LANGUAGE,
+    is_voice_installed: false,
+    voice_unavailable_message: GERMAN_VOICE_UNAVAILABLE_MESSAGE as string | null,
+  },
+]
+
+export async function mockPracticeLanguagesApi(
+  page: Page,
+  languages: unknown[] = mockPracticeLanguages,
+) {
+  await page.route('/api/settings/practice-languages', (route) =>
+    route.fulfill({ json: languages }),
+  )
+}
 
 export async function mockConversationLevelsApi(page: Page) {
   await page.route('/api/settings/conversation-levels', (route) =>
@@ -191,8 +247,10 @@ export const emptyConversationFeedback = {
 }
 
 export const mockVoices = [
-  { key: 'es_ES-davefx-medium', display_name: 'David (Spain)', gender: 'male', locale: 'es_ES', quality: 'medium', speaking_rate: 'natural' },
-  { key: 'es_AR-daniela-high', display_name: 'Daniela (Argentina)', gender: 'female', locale: 'es_AR', quality: 'high', speaking_rate: 'fast' },
+  { key: 'es_ES-davefx-medium', display_name: 'David (Spain)', gender: 'male', locale: 'es_ES', quality: 'medium', speaking_rate: 'natural', language: 'es', is_installed: true },
+  { key: 'es_AR-daniela-high', display_name: 'Daniela (Argentina)', gender: 'female', locale: 'es_AR', quality: 'high', speaking_rate: 'fast', language: 'es', is_installed: true },
+  { key: 'de_DE-thorsten-medium', display_name: 'Thorsten (Germany)', gender: 'male', locale: 'de_DE', quality: 'medium', speaking_rate: 'natural', language: 'de', is_installed: true },
+  { key: 'de_DE-kerstin-low', display_name: 'Kerstin (Germany)', gender: 'female', locale: 'de_DE', quality: 'low', speaking_rate: 'natural', language: 'de', is_installed: true },
 ]
 
 export const mockMessages = [
@@ -320,6 +378,7 @@ export async function mockHomeApis(page: Page) {
     }
     return route.fulfill({ json: [mockConversation, mockConversationCompleted] })
   })
+  await mockPracticeLanguagesApi(page)
 }
 
 interface ChatApiOptions {
@@ -341,6 +400,7 @@ export async function mockChatApis(page: Page, options: ChatApiOptions = {}) {
   )
   await mockLlmProviders(page)
   await mockConversationLevelsApi(page)
+  await mockPracticeLanguagesApi(page)
   await mockConversationRoutes(page)
   await mockOpeningRoutes(page, makeOpenSseBody(openTokens, openMessageId, openFullContent))
   await mockWarmSession(page)
@@ -392,4 +452,66 @@ export async function mockWarmSession(
     return route.fulfill({ status, json: body })
   })
   return { calls }
+}
+
+/** Replace the browser microphone with a recorder that yields one small clip on stop. */
+export async function stubMicrophone(page: Page) {
+  await page.addInitScript(() => {
+    class FakeRecorder {
+      ondataavailable: ((e: { data: Blob }) => void) | null = null
+      onstop: (() => void) | null = null
+      state = 'inactive'
+      start() {
+        this.state = 'recording'
+      }
+      stop() {
+        this.state = 'inactive'
+        this.ondataavailable?.({ data: new Blob(['x'], { type: 'audio/webm' }) })
+        this.onstop?.()
+      }
+    }
+    // @ts-expect-error test double
+    window.MediaRecorder = FakeRecorder
+    // @ts-expect-error test double
+    window.MediaRecorder.isTypeSupported = () => true
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }),
+      },
+    })
+  })
+}
+
+/**
+ * The German conversation (`mockGermanConversation`, id 3) with no saved messages, its opening
+ * line, and every catalogue it loads. Returns the audio requests made, for voice checks.
+ */
+export async function mockGermanChatApis(page: Page, languages: unknown[] = mockPracticeLanguages) {
+  const id = mockGermanConversation.id
+  const ttsRequests: string[] = []
+  await page.route('/api/settings', (route) => route.fulfill({ json: mockSettings }))
+  await mockLlmProviders(page)
+  await mockConversationLevelsApi(page)
+  await mockPracticeLanguagesApi(page, languages)
+  await page.route(`/api/conversations/${id}`, (route) =>
+    route.fulfill({ json: mockGermanConversation }),
+  )
+  await page.route(`/api/conversations/${id}/messages`, (route) => route.fulfill({ json: [] }))
+  await page.route(`/api/corrections/conversations/${id}`, (route) =>
+    route.fulfill({ json: { ...emptyConversationFeedback, conversation_id: id } }),
+  )
+  await page.route(`/api/chat/${id}/open`, (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+      body: makeOpenSseBody(['Guten', ' Tag!'], 30, 'Guten Tag!'),
+    }),
+  )
+  await page.route('/api/audio/tts/**', (route) => {
+    ttsRequests.push(route.request().url())
+    return route.fulfill({ status: 200, body: '' })
+  })
+  await mockWarmSession(page, { conversationId: id })
+  return { ttsRequests }
 }

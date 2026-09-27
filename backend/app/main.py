@@ -17,8 +17,10 @@ from app.routers import settings as settings_router
 from app.services.conversation import SESSION_REAPER_INTERVAL_SECONDS, run_session_reaper
 from app.services.factory import get_conversation_engine
 from app.services.llm.base import LLMError
+from app.services.tts.base import VoiceUnavailable
 
 LLM_UNAVAILABLE_STATUS = 503
+VOICE_UNAVAILABLE_STATUS = 503
 STATIC_DIR = Path(__file__).parent.parent / "static"
 
 logger = logging.getLogger(__name__)
@@ -56,6 +58,13 @@ async def llm_error_handler(request: Request, exc: LLMError) -> JSONResponse:
     """Every provider failure reaches the learner as the provider's own next step (R-10)."""
     logger.warning("Language model request failed for %s: %s", request.url.path, exc)
     return JSONResponse(status_code=LLM_UNAVAILABLE_STATUS, content={"detail": exc.user_message})
+
+
+@app.exception_handler(VoiceUnavailable)
+async def voice_unavailable_handler(request: Request, exc: VoiceUnavailable) -> JSONResponse:
+    """A missing voice is reported plainly; no other voice speaks instead (FR-018)."""
+    logger.warning("No installed voice for %s: %s", request.url.path, exc.user_message)
+    return JSONResponse(status_code=VOICE_UNAVAILABLE_STATUS, content={"detail": exc.user_message})
 
 
 @app.exception_handler(Exception)

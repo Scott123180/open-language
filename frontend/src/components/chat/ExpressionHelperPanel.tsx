@@ -3,8 +3,10 @@ import * as api from '../../services/api'
 import { IconMessageCircle } from '../shared/icons'
 
 interface ExpressionHelperPanelProps {
-  targetLanguage: string
-  nativeLanguage: string
+  conversationId: number
+  // The conversation's language names; the server builds the prompt from the conversation.
+  targetName: string
+  nativeName: string
   onClose: () => void
 }
 
@@ -15,8 +17,9 @@ interface HelperMessage {
 }
 
 export default function ExpressionHelperPanel({
-  targetLanguage,
-  nativeLanguage,
+  conversationId,
+  targetName,
+  nativeName,
   onClose,
 }: ExpressionHelperPanelProps) {
   const [messages, setMessages] = useState<HelperMessage[]>([])
@@ -39,8 +42,7 @@ export default function ExpressionHelperPanel({
     await api.streamHelper(
       text,
       helperSessionId.current,
-      targetLanguage,
-      nativeLanguage,
+      conversationId,
       (token) => {
         setMessages((prev) => {
           const msgs = [...prev]
@@ -107,7 +109,7 @@ export default function ExpressionHelperPanel({
           <IconMessageCircle size={13} />
           Expression Helper
           <span style={{ fontSize: '0.72rem', fontWeight: 400, fontStyle: 'italic', marginLeft: '6px', color: 'var(--color-text-muted)' }}>
-            {nativeLanguage} → {targetLanguage}
+            {nativeName} → {targetName}
           </span>
         </span>
         <button
@@ -170,7 +172,7 @@ export default function ExpressionHelperPanel({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={isStreaming}
-          placeholder={`Ask in ${nativeLanguage}…`}
+          placeholder={`Ask in ${nativeName}…`}
           style={{
             flex: 1,
             padding: '7px 12px',

@@ -15,8 +15,6 @@ interface MessageBubbleProps {
   precedingMessage?: string
   children?: ReactNode
   showLearningTools?: boolean
-  targetLanguage?: string
-  nativeLanguage?: string
 }
 
 const cursorStyle: React.CSSProperties = {
@@ -41,8 +39,6 @@ export default function MessageBubble({
   precedingMessage,
   children,
   showLearningTools = false,
-  targetLanguage = '',
-  nativeLanguage = '',
 }: MessageBubbleProps) {
   const isUser = role === 'user'
 
@@ -72,8 +68,8 @@ export default function MessageBubble({
 
     try {
       const data = isPhrase
-        ? await api.translateMessage(messageId, word, nativeLanguage)
-        : await api.lookupWord(messageId, word, targetLanguage, nativeLanguage, content)
+        ? await api.translateMessage(messageId, word)
+        : await api.lookupWord(messageId, word, content)
       setLookupResult(data.result)
     } catch {
       setLookupResult(isPhrase ? 'Error loading translation.' : 'Error loading definition.')
@@ -132,8 +128,6 @@ export default function MessageBubble({
             messageId={messageId}
             content={content}
             role={role}
-            targetLanguage={targetLanguage}
-            nativeLanguage={nativeLanguage}
             onReplay={onReplay}
             onPlaySlower={onPlaySlower}
             isAudioPlaying={isAudioPlaying}

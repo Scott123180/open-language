@@ -4,6 +4,7 @@ import { IconArrowLeft } from '../components/shared/icons'
 import ConversationLevelSection from '../components/settings/ConversationLevelSection'
 import CorrectionModeFieldset from '../components/settings/CorrectionModeFieldset'
 import LlmProviderFields from '../components/settings/LlmProviderFields'
+import PracticeLanguageFieldset from '../components/settings/PracticeLanguageFieldset'
 import SettingsSaveBar from '../components/settings/SettingsSaveBar'
 import SuggestionCountField from '../components/settings/SuggestionCountField'
 import ThemeField from '../components/settings/ThemeField'
@@ -44,7 +45,18 @@ export default function Settings() {
         <form onSubmit={(e) => e.preventDefault()} style={formStyle}>
           <LlmProviderFields providers={llmProviders} value={form.llm} onChange={form.setLlm} />
           <WhisperModelField value={form.whisperModel} onChange={form.setWhisperModel} />
-          <TtsVoiceField value={form.ttsVoice} voices={form.voices} onChange={form.setTtsVoice} />
+          {form.practiceLanguages.length > 0 && (
+            <PracticeLanguageFieldset
+              languages={form.practiceLanguages}
+              value={form.practiceLanguage}
+              onChange={form.setPracticeLanguage}
+            />
+          )}
+          <TtsVoiceField
+            value={form.ttsVoice}
+            voices={form.voicesForLanguage}
+            onChange={form.setTtsVoice}
+          />
           <ConversationLevelSection
             value={form.conversationLevel}
             onChange={form.setConversationLevel}

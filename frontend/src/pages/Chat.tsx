@@ -5,6 +5,9 @@ import MessageBubble from '../components/chat/MessageBubble'
 import RecordButton from '../components/chat/RecordButton'
 import AudioPlayer from '../components/shared/AudioPlayer'
 import ConversationLevelControl from '../components/chat/ConversationLevelControl'
+import ConversationLanguageTag from '../components/chat/ConversationLanguageTag'
+import VoiceUnavailableNotice from '../components/chat/VoiceUnavailableNotice'
+import { useConversationLanguage } from '../components/chat/useConversationLanguage'
 import ErrorBanner from '../components/shared/ErrorBanner'
 import SuggestedResponsePanel from '../components/chat/SuggestedResponsePanel'
 import ExpressionHelperPanel from '../components/chat/ExpressionHelperPanel'
@@ -44,9 +47,8 @@ export default function Chat() {
   const [openingDone, setOpeningDone] = useState(false)
   const [helperExpanded, setHelperExpanded] = useState(false)
   const [isAudioPlaying, setIsAudioPlaying] = useState(false)
-  const [targetLanguage, setTargetLanguage] = useState('Spanish')
-  const [nativeLanguage, setNativeLanguage] = useState('English')
-  const [scenarioTitle, setScenarioTitle] = useState('')
+  const [conversation, setConversation] = useState<api.Conversation | null>(null)
+  const language = useConversationLanguage(conversation)
   const [notesByMessage, setNotesByMessage] = useState<NotesByMessage>({})
   const [awaitingRetry, setAwaitingRetry] = useState(false)
   const [correctionMode, setCorrectionMode] = useState<api.CorrectionMode>('off')
@@ -60,15 +62,12 @@ export default function Chat() {
   // Load settings and conversation metadata
   useEffect(() => {
     api.getSettings().then((settings) => {
-      setTargetLanguage(settings.target_language)
-      setNativeLanguage(settings.native_language)
       setCorrectionMode(settings.correction_mode)
     }).catch(() => {
       // keep defaults
     })
-    api.getConversation(convId).then((conv) => {
-      setScenarioTitle(conv.scenario_title)
-    }).catch(() => {
+    // The conversation's language, not the setting's, drives speech and labels (FR-009, FR-011).
+    api.getConversation(convId).then(setConversation).catch(() => {
       // keep empty
     })
   }, [convId])
@@ -257,7 +256,7 @@ export default function Chat() {
     setIsProcessingVoice(true)
     try {
       const blob = await stopRecording()
-      const { text, confidence } = await api.transcribeAudio(blob, targetLanguage || undefined)
+      const { text, confidence } = await api.transcribeAudio(blob, language.targetCode || undefined)
       if (text.trim()) {
         // 0.0 is a real confidence (hallucination-on-silence), so test for null.
         await sendMessage(text.trim(), 'voice', confidence ?? undefined)
@@ -344,9 +343,10 @@ export default function Chat() {
         </button>
         <div>
           <h1 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0, color: 'var(--color-text)' }}>Chat</h1>
-          {scenarioTitle && (
-            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', margin: 0, lineHeight: 1.2 }}>
-              {scenarioTitle}
+          {conversation && (
+            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', margin: 0, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <ConversationLanguageTag name={language.targetName} />
+              {conversation.scenario_title && ` · ${conversation.scenario_title}`}
             </p>
           )}
         </div>
@@ -372,6 +372,8 @@ export default function Chat() {
         </div>
       )}
 
+      <VoiceUnavailableNotice message={language.voiceUnavailableMessage} />
+
       <section
         aria-label='Chat messages'
         style={{ flex: 1, overflowY: 'auto', padding: '16px' }}
@@ -385,17 +387,15 @@ export default function Chat() {
             conversationId={convId}
             isStreaming={msg.isStreaming}
             showLearningTools={msg.id != null && !msg.isStreaming}
-            targetLanguage={targetLanguage}
-            nativeLanguage={nativeLanguage}
             isAudioPlaying={isAudioPlaying}
             precedingMessage={i > 0 ? messages[i - 1].content : undefined}
             onReplay={
-              msg.role === 'assistant' && msg.id != null
+              msg.role === 'assistant' && msg.id != null && language.isVoiceInstalled
                 ? () => playNormal(msg.id as number)
                 : undefined
             }
             onPlaySlower={
-              msg.role === 'assistant' && msg.id != null
+              msg.role === 'assistant' && msg.id != null && language.isVoiceInstalled
                 ? () => playSlower(msg.id as number)
                 : undefined
             }
@@ -418,8 +418,9 @@ export default function Chat() {
 
       {helperExpanded && (
         <ExpressionHelperPanel
-          targetLanguage={targetLanguage}
-          nativeLanguage={nativeLanguage}
+          conversationId={convId}
+          targetName={language.targetName}
+          nativeName={language.nativeName}
           onClose={() => setHelperExpanded(false)}
         />
       )}
@@ -510,7 +511,7 @@ export default function Chat() {
       )}
 
       <AudioPlayer
-        src={audioState?.src ?? null}
+        src={language.isVoiceInstalled ? audioState?.src ?? null : null}
         autoPlay={true}
         playbackRate={audioState?.rate ?? 1.0}
         onEnded={() => setIsAudioPlaying(false)}

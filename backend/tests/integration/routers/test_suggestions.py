@@ -16,9 +16,8 @@ from tests.integration.conftest import make_test_session
 
 _DEFAULT_SETTINGS = AppSettingsRecord(
     llm_model="llama3.1",
-    target_language="Spanish",
-    native_language="English",
-    tts_voice="es_ES-mls-medium",
+    target_language="es",
+    native_language="en",
     suggestion_count=1,
     whisper_model="base",
     updated_at=datetime.datetime.now(datetime.UTC),
@@ -72,8 +71,8 @@ def _create_conversation(storage: SQLiteStorageProvider) -> int:
     conv = storage.create_conversation(
         scenario_id="test-scenario",
         scenario_title="Test",
-        target_language="Spanish",
-        native_language="English",
+        target_language="es",
+        native_language="en",
         llm_model="llama3.1",
     )
     return conv.id
@@ -95,9 +94,8 @@ def test_suggestions_returns_list_with_suggestion_count(client_and_storage) -> N
 def test_suggestions_parses_numbered_lines(tmp_path: Path) -> None:
     settings = AppSettingsRecord(
         llm_model="llama3.1",
-        target_language="Spanish",
-        native_language="English",
-        tts_voice="es_ES-mls-medium",
+        target_language="es",
+        native_language="en",
         suggestion_count=2,
         whisper_model="base",
         updated_at=datetime.datetime.now(datetime.UTC),

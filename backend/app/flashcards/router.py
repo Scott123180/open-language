@@ -4,6 +4,7 @@ Prefix: /flashcards (mounted at /api in main.py → full path: /api/flashcards/*
 """
 
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -33,10 +34,10 @@ from app.flashcards.schemas import (
     WordListItem,
 )
 from app.flashcards.services.llm_cache import LlmCacheService
-from app.flashcards.services.storage import FlashcardStorageProvider
-from app.services.factory import get_flashcard_storage, get_llm, get_tts
+from app.flashcards.services.storage import FlashcardStorageProvider, WordRecord
+from app.services.factory import get_flashcard_storage, get_llm, get_speech_for_language
 from app.services.llm.base import LLMProvider
-from app.services.tts.base import TTSProvider
+from app.services.tts.selection import SpeechForLanguage
 
 router = APIRouter(prefix="/flashcards", tags=["flashcards"])
 
@@ -178,28 +179,37 @@ def _word_info_content(llm_cache: LlmCacheService, word, cache_type: LlmCacheTyp
 def get_vocab_tts(
     vocabulary_item_id: int,
     storage: FlashcardStorageProvider = Depends(_storage),
-    tts: TTSProvider = Depends(get_tts),
+    speech: SpeechForLanguage = Depends(get_speech_for_language),
 ):
-    """Return TTS audio for a vocabulary word. Generates and caches WAV on first request."""
-    from pathlib import Path
-
+    """Return TTS audio for a vocabulary word, in its own language's voice (FR-014, FR-018)."""
     word = storage.get_word(vocabulary_item_id)
     if word is None:
         raise HTTPException(status_code=404, detail="Word not found.")
-
-    if word.tts_cache_path:
-        cached = Path(word.tts_cache_path)
-        if cached.exists():
-            return FileResponse(str(cached), media_type="audio/wav")
-
-    cache_dir = Path.home() / ".open-language" / "tts_cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    audio_path = cache_dir / f"vocab_{vocabulary_item_id}.wav"
-
-    tts.synthesize(word.word, audio_path)
-    storage.update_word_tts_path(vocabulary_item_id, str(audio_path))
-
+    audio_path = _cached_word_audio(word) or _synthesize_word(speech, storage, word)
     return FileResponse(str(audio_path), media_type="audio/wav")
+
+
+def _tts_cache_dir() -> Path:
+    return Path.home() / ".open-language" / "tts_cache"
+
+
+def _cached_word_audio(word: WordRecord) -> Path | None:
+    if word.tts_cache_path and Path(word.tts_cache_path).exists():
+        return Path(word.tts_cache_path)
+    return None
+
+
+def _synthesize_word(
+    speech: SpeechForLanguage, storage: FlashcardStorageProvider, word: WordRecord
+) -> Path:
+    """`VoiceUnavailable` propagates to the 503 handler; no other voice is tried."""
+    provider = speech.provider_for(word.target_language)
+    cache_dir = _tts_cache_dir()
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    audio_path = cache_dir / f"vocab_{word.id}.wav"
+    provider.synthesize(word.word, audio_path)
+    storage.update_word_tts_path(word.id, str(audio_path))
+    return audio_path
 
 
 # ---------------------------------------------------------------------------

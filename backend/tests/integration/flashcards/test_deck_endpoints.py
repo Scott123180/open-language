@@ -35,7 +35,7 @@ def seeded_words(db_session):
         VocabularyItem(
             word="np1",
             translation="not practiced 1",
-            target_language="fr",
+            target_language="es",
             native_language="en",
             saved_at=datetime.now(UTC),
             classification="not_practiced",
@@ -44,7 +44,7 @@ def seeded_words(db_session):
         VocabularyItem(
             word="np2",
             translation="not practiced 2",
-            target_language="fr",
+            target_language="es",
             native_language="en",
             saved_at=datetime.now(UTC),
             classification="not_practiced",
@@ -53,7 +53,7 @@ def seeded_words(db_session):
         VocabularyItem(
             word="d1",
             translation="difficult 1",
-            target_language="fr",
+            target_language="es",
             native_language="en",
             saved_at=datetime.now(UTC),
             classification="difficult",
@@ -62,7 +62,7 @@ def seeded_words(db_session):
         VocabularyItem(
             word="d2",
             translation="difficult 2",
-            target_language="fr",
+            target_language="es",
             native_language="en",
             saved_at=datetime.now(UTC),
             classification="difficult",
@@ -71,7 +71,7 @@ def seeded_words(db_session):
         VocabularyItem(
             word="al1",
             translation="almost learned 1",
-            target_language="fr",
+            target_language="es",
             native_language="en",
             saved_at=datetime.now(UTC),
             classification="almost_learned",
@@ -80,7 +80,7 @@ def seeded_words(db_session):
         VocabularyItem(
             word="l1",
             translation="learned 1",
-            target_language="fr",
+            target_language="es",
             native_language="en",
             saved_at=datetime.now(UTC),
             classification="learned",
@@ -373,7 +373,7 @@ def test_learned_word_past_due_appears_in_deck(client, db_session):
     past_due = VocabularyItem(
         word="past_due_word",
         translation="past due",
-        target_language="fr",
+        target_language="es",
         native_language="en",
         saved_at=datetime.now(UTC),
         classification="learned",
@@ -416,7 +416,7 @@ def test_learned_word_not_yet_due_excluded_from_deck(client, db_session):
     not_due = VocabularyItem(
         word="not_due_word",
         translation="not due",
-        target_language="fr",
+        target_language="es",
         native_language="en",
         saved_at=datetime.now(UTC),
         classification="learned",

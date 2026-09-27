@@ -13,8 +13,6 @@ import * as api from '../../services/api'
 const baseProps = {
   messageId: 1,
   content: 'Hello world',
-  targetLanguage: 'Spanish',
-  nativeLanguage: 'English',
 }
 
 describe('LearningToolPanel', () => {
@@ -109,7 +107,7 @@ describe('LearningToolPanel — markdown results', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Alternative phrasing' }))
 
     await waitFor(() =>
-      expect(api.getAlternativePhrasing).toHaveBeenCalledWith(1, 'Hello world', 'Spanish')
+      expect(api.getAlternativePhrasing).toHaveBeenCalledWith(1, 'Hello world')
     )
     expect(await screen.findByText('Buenas')).toBeInTheDocument()
   })

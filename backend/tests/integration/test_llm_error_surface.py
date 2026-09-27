@@ -24,16 +24,16 @@ from app.config import Settings
 from app.database import Base, get_db
 from app.main import app as fastapi_app
 from app.models.vocabulary_item import VocabularyItem
-from app.services.factory import get_llm, get_tts
+from app.services.factory import get_llm
 from app.services.llm.base import ChatMessage, LLMError, LLMProvider
 from app.services.llm.claude_code import ClaudeCodeLLMProvider
 from app.services.llm.claude_code.failures import USER_MESSAGES, ClaudeCodeFailure, FailureKind
 from app.services.storage.sqlite import SQLiteStorageProvider
-from app.services.tts.base import TTSProvider
 from tests.support.claude_fixtures import load_fixture_lines
 from tests.support.engine_overrides import install_session_engine_only, install_session_provider
 from tests.support.fake_availability import FakeAvailability, unavailable
 from tests.support.fake_ollama_client import ScriptedOllamaClient
+from tests.support.fake_speech import override_speech
 from tests.support.recording_session_provider import RecordingSessionProvider
 from tests.support.scripted_claude_runner import ScriptedClaudeCodeRunner
 
@@ -94,6 +94,11 @@ def _conversation_id(db_session) -> int:
     return storage.create_conversation("buy-train-ticket", "Train", "es", "en", "llama3.1").id
 
 
+def _message_id(db_session) -> int:
+    storage = SQLiteStorageProvider(db_session)
+    return storage.save_message(_conversation_id(db_session), "user", "Yo es.").id
+
+
 def _word_id(db_session) -> int:
     item = VocabularyItem(
         word="hola",
@@ -111,7 +116,8 @@ def _word_id(db_session) -> int:
 
 def _call_json_endpoint(client: TestClient, endpoint: str, db_session):
     if endpoint == "grammar":
-        return client.post("/api/learning/grammar", json={"message_id": 1, "content": "Yo es."})
+        body = {"message_id": _message_id(db_session), "content": "Yo es."}
+        return client.post("/api/learning/grammar", json=body)
     if endpoint == "suggestions":
         return client.post(f"/api/chat/{_conversation_id(db_session)}/suggestions")
     return client.get(f"/api/flashcards/words/{_word_id(db_session)}/info/meanings")
@@ -149,15 +155,6 @@ def test_a_non_llm_failure_is_still_an_unexpected_error(failing_client, db_sessi
 # --- SSE (T037) -------------------------------------------------------------------------
 
 
-class SilentTTS(TTSProvider):
-    @property
-    def voice_name(self) -> str:
-        return "silent"
-
-    def synthesize(self, text: str, output_path) -> None:
-        """Never reached: every reply in this module fails."""
-
-
 @pytest.fixture()
 def failing_session_client(db_session):
     """Returns a function that builds a client whose every session turn raises `error`."""
@@ -170,7 +167,7 @@ def failing_session_client(db_session):
         provider.errors = [error, error]  # the original attempt and the pool's one retry
         install_session_provider(fastapi_app, provider)
         fastapi_app.dependency_overrides[get_db] = _override_get_db
-        fastapi_app.dependency_overrides[get_tts] = SilentTTS
+        override_speech(fastapi_app)
         return TestClient(fastapi_app, raise_server_exceptions=False)
 
     yield _build
@@ -192,8 +189,7 @@ def _call_sse_endpoint(client: TestClient, endpoint: str, db_session) -> list[di
         body = {
             "message": "How do I say hello?",
             "helper_session_id": "h-err",
-            "target_language": "Spanish",
-            "native_language": "English",
+            "conversation_id": _conversation_id(db_session),
         }
         return _sse_frames(client, "/api/chat/helper", body)
     conversation_id = _conversation_id(db_session)
@@ -271,7 +267,7 @@ def claude_failing_client(db_session):
         install_session_provider(fastapi_app, provider)
         fastapi_app.dependency_overrides[get_db] = _override_get_db
         fastapi_app.dependency_overrides[get_llm] = lambda: provider
-        fastapi_app.dependency_overrides[get_tts] = SilentTTS
+        override_speech(fastapi_app)
         return TestClient(fastapi_app, raise_server_exceptions=False), runner
 
     yield _build
@@ -320,7 +316,7 @@ def signed_out_claude_selected(db_session, monkeypatch) -> ScriptedOllamaClient:
         yield db_session
 
     fastapi_app.dependency_overrides[get_db] = _override_get_db
-    fastapi_app.dependency_overrides[get_tts] = SilentTTS
+    override_speech(fastapi_app)
     install_session_engine_only(fastapi_app)
     yield ollama_client
     fastapi_app.dependency_overrides.clear()

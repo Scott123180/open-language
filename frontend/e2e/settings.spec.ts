@@ -7,6 +7,7 @@ import {
   mockLlmProviders,
   mockLlmProvidersClaudeUnavailable,
   mockSettings,
+  mockPracticeLanguagesApi,
   mockVoices,
 } from './fixtures'
 
@@ -559,5 +560,20 @@ test.describe('Settings page — conversation level', () => {
 
     await expect(page.getByRole('alert')).toContainText(/could not be loaded.*reload/i)
     await expect(page.getByRole('group', { name: 'Conversation level' })).toHaveCount(0)
+  })
+})
+
+test.describe('Settings page — practice language (006)', () => {
+  test('the practice-language group comes before the Voice field', async ({ page }) => {
+    await mockPracticeLanguagesApi(page)
+    await setupSettingsRoutes(page)
+    await page.goto(SETTINGS_URL)
+
+    const group = page.getByRole('group', { name: 'Practice language' })
+    await expect(group).toBeVisible()
+    const groupBox = await group.boundingBox()
+    const voiceBox = await page.getByLabel('Voice').boundingBox()
+    expect(groupBox!.y).toBeLessThan(voiceBox!.y)
+    await expect(group.getByRole('radio', { name: 'Spanish' })).toBeChecked()
   })
 })

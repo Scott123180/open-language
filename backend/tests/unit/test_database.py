@@ -20,6 +20,40 @@ def _columns(conn, table: str) -> set[str]:
     return {row[1] for row in rows}
 
 
+LEGACY_APP_SETTINGS = (
+    "CREATE TABLE app_settings (id INTEGER PRIMARY KEY, llm_model VARCHAR(100) NOT NULL, "
+    "target_language VARCHAR(20) NOT NULL DEFAULT 'es', "
+    "tts_voice VARCHAR(200) NOT NULL DEFAULT 'es_ES-davefx-medium')"
+)
+LEGACY_TABLES = (
+    "CREATE TABLE conversations (id INTEGER PRIMARY KEY, scenario_id VARCHAR(100))",
+    "CREATE TABLE messages (id INTEGER PRIMARY KEY, content TEXT NOT NULL)",
+    "CREATE TABLE vocabulary_items (id INTEGER PRIMARY KEY)",
+    "CREATE TABLE decks (id INTEGER PRIMARY KEY)",
+    "CREATE TABLE practice_sessions (id INTEGER PRIMARY KEY)",
+)
+
+
+def _legacy_engine(db_file, monkeypatch):
+    """A database from before the additive columns, as `init_db()` finds it.
+
+    `create_all()` runs before `_migrate_db()`, so the tables new in 006 already exist.
+    """
+    import app.models.voice_choice  # noqa: F401
+    from app import database
+
+    engine = create_engine(f"sqlite:///{db_file}")
+    with engine.connect() as conn:
+        for statement in (LEGACY_APP_SETTINGS, *LEGACY_TABLES):
+            conn.execute(text(statement))
+        conn.commit()
+    database.Base.metadata.create_all(
+        bind=engine, tables=[database.Base.metadata.tables["voice_choices"]]
+    )
+    monkeypatch.setattr(database, "_engine", engine)
+    return engine
+
+
 class TestAddColumnIfMissing:
     def test_adds_a_column_that_does_not_exist(self, connection):
         _add_column_if_missing(connection, "widgets", "label VARCHAR(50)")
@@ -47,28 +81,7 @@ class TestMigrateDb:
     @pytest.fixture()
     def legacy_engine(self, tmp_path, monkeypatch):
         """An app_settings table created without any of the added columns."""
-        from app import database
-
-        engine = create_engine(f"sqlite:///{tmp_path / 'legacy.db'}")
-        with engine.connect() as conn:
-            conn.execute(
-                text(
-                    "CREATE TABLE app_settings ("
-                    "id INTEGER PRIMARY KEY, llm_model VARCHAR(100) NOT NULL)"
-                )
-            )
-            conn.execute(
-                text(
-                    "CREATE TABLE conversations (id INTEGER PRIMARY KEY, scenario_id VARCHAR(100))"
-                )
-            )
-            conn.execute(
-                text("CREATE TABLE messages (id INTEGER PRIMARY KEY, content TEXT NOT NULL)")
-            )
-            conn.execute(text("CREATE TABLE vocabulary_items (id INTEGER PRIMARY KEY)"))
-            conn.commit()
-        monkeypatch.setattr(database, "_engine", engine)
-        return engine
+        return _legacy_engine(tmp_path / "legacy.db", monkeypatch)
 
     def _table_columns(self, engine, table: str) -> set[str]:
         with engine.connect() as conn:
@@ -108,19 +121,7 @@ class TestMessageConfidenceMigration:
 
     @pytest.fixture()
     def legacy_engine(self, tmp_path, monkeypatch):
-        from app import database
-
-        engine = create_engine(f"sqlite:///{tmp_path / 'legacy-messages.db'}")
-        with engine.connect() as conn:
-            conn.execute(text("CREATE TABLE app_settings (id INTEGER PRIMARY KEY)"))
-            conn.execute(text("CREATE TABLE conversations (id INTEGER PRIMARY KEY)"))
-            conn.execute(
-                text("CREATE TABLE messages (id INTEGER PRIMARY KEY, content TEXT NOT NULL)")
-            )
-            conn.execute(text("CREATE TABLE vocabulary_items (id INTEGER PRIMARY KEY)"))
-            conn.commit()
-        monkeypatch.setattr(database, "_engine", engine)
-        return engine
+        return _legacy_engine(tmp_path / "legacy-messages.db", monkeypatch)
 
     def _message_columns(self, engine) -> set[str]:
         with engine.connect() as conn:
@@ -189,24 +190,7 @@ class TestLlmProviderMigration:
 
     @pytest.fixture()
     def legacy_engine(self, tmp_path, monkeypatch):
-        from app import database
-
-        engine = create_engine(f"sqlite:///{tmp_path / 'pre-004.db'}")
-        with engine.connect() as conn:
-            conn.execute(
-                text(
-                    "CREATE TABLE app_settings ("
-                    "id INTEGER PRIMARY KEY, llm_model VARCHAR(100) NOT NULL)"
-                )
-            )
-            conn.execute(text("CREATE TABLE conversations (id INTEGER PRIMARY KEY)"))
-            conn.execute(
-                text("CREATE TABLE messages (id INTEGER PRIMARY KEY, content TEXT NOT NULL)")
-            )
-            conn.execute(text("CREATE TABLE vocabulary_items (id INTEGER PRIMARY KEY)"))
-            conn.commit()
-        monkeypatch.setattr(database, "_engine", engine)
-        return engine
+        return _legacy_engine(tmp_path / "pre-004.db", monkeypatch)
 
     def test_pre_004_database_defaults_to_ollama_and_keeps_model(self, legacy_engine):
         from app.database import _migrate_db
@@ -268,24 +252,7 @@ class TestConversationLevelMigration:
 
     @pytest.fixture()
     def legacy_engine(self, tmp_path, monkeypatch):
-        from app import database
-
-        engine = create_engine(f"sqlite:///{tmp_path / 'pre-005.db'}")
-        with engine.connect() as conn:
-            conn.execute(
-                text(
-                    "CREATE TABLE app_settings ("
-                    "id INTEGER PRIMARY KEY, llm_model VARCHAR(100) NOT NULL)"
-                )
-            )
-            conn.execute(text("CREATE TABLE conversations (id INTEGER PRIMARY KEY)"))
-            conn.execute(
-                text("CREATE TABLE messages (id INTEGER PRIMARY KEY, content TEXT NOT NULL)")
-            )
-            conn.execute(text("CREATE TABLE vocabulary_items (id INTEGER PRIMARY KEY)"))
-            conn.commit()
-        monkeypatch.setattr(database, "_engine", engine)
-        return engine
+        return _legacy_engine(tmp_path / "pre-005.db", monkeypatch)
 
     def test_conversation_level_is_the_last_additive_column(self):
         from app.database import _ADDITIVE_COLUMNS
@@ -315,3 +282,99 @@ class TestConversationLevelMigration:
         with legacy_engine.connect() as conn:
             stored = conn.execute(text("SELECT conversation_level FROM app_settings")).scalar_one()
         assert stored == "natural"
+
+
+class TestVoiceChoicesTable:
+    """006 T011: one remembered voice per language (data-model §4)."""
+
+    def test_init_db_creates_voice_choices(self, tmp_path, monkeypatch):
+        from app import database
+
+        engine = create_engine(f"sqlite:///{tmp_path / 'fresh.db'}")
+        monkeypatch.setattr(database, "_engine", engine)
+
+        database.init_db()
+
+        with engine.connect() as conn:
+            rows = conn.execute(text("PRAGMA table_info(voice_choices)")).fetchall()
+        assert {row[1]: bool(row[5]) for row in rows} == {
+            "target_language": True,
+            "voice_key": False,
+            "updated_at": False,
+        }
+
+
+class TestVoiceChoiceSeed:
+    """006 T011: an upgraded install keeps its voice, remembered for its language."""
+
+    @pytest.fixture()
+    def legacy_engine(self, tmp_path, monkeypatch):
+        return _legacy_engine(tmp_path / "pre-006.db", monkeypatch)
+
+    def _store_settings(self, engine, target_language: str, tts_voice: str) -> None:
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO app_settings (id, llm_model, target_language, tts_voice) "
+                    "VALUES (1, 'llama3.1', :language, :voice)"
+                ),
+                {"language": target_language, "voice": tts_voice},
+            )
+            conn.commit()
+
+    def _choices(self, engine) -> list[tuple[str, str]]:
+        with engine.connect() as conn:
+            rows = conn.execute(text("SELECT target_language, voice_key FROM voice_choices"))
+            return [tuple(row) for row in rows]
+
+    def test_the_stored_voice_is_remembered_for_its_language(self, legacy_engine):
+        from app.database import _migrate_db
+
+        self._store_settings(legacy_engine, "es", "es_AR-daniela-high")
+
+        _migrate_db()
+
+        assert self._choices(legacy_engine) == [("es", "es_AR-daniela-high")]
+
+    def test_a_voice_in_another_language_is_not_seeded(self, legacy_engine):
+        from app.database import _migrate_db
+
+        self._store_settings(legacy_engine, "de", "es_ES-davefx-medium")
+
+        _migrate_db()
+
+        assert self._choices(legacy_engine) == []
+
+    def test_an_existing_choice_is_not_overwritten(self, legacy_engine):
+        from app.database import _migrate_db
+
+        self._store_settings(legacy_engine, "es", "es_AR-daniela-high")
+        with legacy_engine.connect() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO voice_choices (target_language, voice_key, updated_at) "
+                    "VALUES ('es', 'es_ES-davefx-medium', CURRENT_TIMESTAMP)"
+                )
+            )
+            conn.commit()
+
+        _migrate_db()
+
+        assert self._choices(legacy_engine) == [("es", "es_ES-davefx-medium")]
+
+    def test_without_a_settings_row_nothing_is_seeded(self, legacy_engine):
+        from app.database import _migrate_db
+
+        _migrate_db()
+
+        assert self._choices(legacy_engine) == []
+
+    def test_the_seed_is_idempotent(self, legacy_engine):
+        from app.database import _migrate_db
+
+        self._store_settings(legacy_engine, "es", "es_AR-daniela-high")
+
+        _migrate_db()
+        _migrate_db()
+
+        assert self._choices(legacy_engine) == [("es", "es_AR-daniela-high")]

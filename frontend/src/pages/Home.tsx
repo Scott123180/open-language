@@ -5,6 +5,7 @@ import type { Scenario } from '../services/api'
 import ScenarioCard from '../components/scenario/ScenarioCard'
 import ErrorBanner from '../components/shared/ErrorBanner'
 import { useTheme } from '../hooks/useTheme'
+import PracticeLanguageNote from '../components/home/PracticeLanguageNote'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -125,6 +126,7 @@ export default function Home() {
         <Link className="nav-pill" to="/flashcards">Flashcards</Link>
         <Link className="nav-pill" to="/settings">Settings</Link>
       </nav>
+      <PracticeLanguageNote />
 
       <main
         style={{

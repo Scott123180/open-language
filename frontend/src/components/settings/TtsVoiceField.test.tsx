@@ -11,6 +11,8 @@ const voices: VoiceOption[] = [
     locale: 'es_ES',
     quality: 'medium',
     speaking_rate: 'slow',
+    language: 'es',
+    is_installed: true,
   },
   {
     key: 'es_MX-claude-high',
@@ -19,6 +21,8 @@ const voices: VoiceOption[] = [
     locale: 'es_MX',
     quality: 'high',
     speaking_rate: 'fast',
+    language: 'es',
+    is_installed: true,
   },
 ]
 

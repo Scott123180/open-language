@@ -145,6 +145,8 @@ setup_ollama_model() {
 PIPER_VOICES=(
   "es_ES-davefx-medium"
   "es_AR-daniela-high"
+  "de_DE-thorsten-medium"
+  "de_DE-kerstin-low"
 )
 
 download_voice() {

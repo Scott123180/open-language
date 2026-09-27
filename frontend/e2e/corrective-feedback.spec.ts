@@ -11,6 +11,7 @@ import {
   mockConversationLevelsApi,
   mockConversationRoutes,
   mockOpeningRoutes,
+  stubMicrophone,
 } from './fixtures'
 
 const CHAT_URL = '/chat/1'
@@ -395,34 +396,6 @@ test.describe('Corrective feedback — Gentle mode (US2)', () => {
 async function sendByVoice(page: Page) {
   await page.getByRole('button', { name: /record|microphone|🎤/i }).click()
   await page.getByRole('button', { name: /stop|recording/i }).click()
-}
-
-async function stubMicrophone(page: Page) {
-  await page.addInitScript(() => {
-    class FakeRecorder {
-      ondataavailable: ((e: { data: Blob }) => void) | null = null
-      onstop: (() => void) | null = null
-      state = 'inactive'
-      start() {
-        this.state = 'recording'
-      }
-      stop() {
-        this.state = 'inactive'
-        this.ondataavailable?.({ data: new Blob(['x'], { type: 'audio/webm' }) })
-        this.onstop?.()
-      }
-    }
-    // @ts-expect-error test double
-    window.MediaRecorder = FakeRecorder
-    // @ts-expect-error test double
-    window.MediaRecorder.isTypeSupported = () => true
-    Object.defineProperty(navigator, 'mediaDevices', {
-      configurable: true,
-      value: {
-        getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }),
-      },
-    })
-  })
 }
 
 test.describe('Corrective feedback — low-confidence speech (US3)', () => {

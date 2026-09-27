@@ -29,8 +29,8 @@ const settings = (correction_mode: api.CorrectionMode): api.AppSettings => ({
   llm_provider: 'ollama',
   llm_model: 'llama3.1',
   llm_effort: 'low',
-  target_language: 'Spanish',
-  native_language: 'English',
+  target_language: 'es',
+  native_language: 'en',
   tts_voice: 'es_ES-sharvard-medium',
   suggestion_count: 3,
   whisper_model: 'small',
@@ -43,8 +43,10 @@ const conversation: api.Conversation = {
   id: CONV_ID,
   scenario_id: 'order-coffee',
   scenario_title: 'Ordering Coffee',
-  target_language: 'Spanish',
-  native_language: 'English',
+  target_language: 'es',
+  native_language: 'en',
+  target_language_name: 'Spanish',
+  native_language_name: 'English',
   status: 'active',
   started_at: '2026-08-27T00:00:00Z',
   ended_at: null,
@@ -163,6 +165,35 @@ const conversationLevels: api.ConversationLevelOption[] = [
   { level_id: 'natural', label: 'Natural', cefr_label: 'No limit', description: 'Native.' },
 ]
 
+const GERMAN_VOICE_MISSING = "The German voice isn't installed, so German can't be read aloud."
+
+const practiceLanguages = (isGermanInstalled: boolean): api.PracticeLanguageOption[] => [
+  {
+    language_id: 'es',
+    display_name: 'Spanish',
+    is_default: true,
+    default_voice: 'es_ES-davefx-medium',
+    selected_voice: 'es_ES-davefx-medium',
+    is_voice_installed: true,
+    voice_unavailable_message: null,
+  },
+  {
+    language_id: 'de',
+    display_name: 'German',
+    is_default: false,
+    default_voice: 'de_DE-thorsten-medium',
+    selected_voice: 'de_DE-thorsten-medium',
+    is_voice_installed: isGermanInstalled,
+    voice_unavailable_message: isGermanInstalled ? null : GERMAN_VOICE_MISSING,
+  },
+]
+
+const germanConversation: api.Conversation = {
+  ...conversation,
+  target_language: 'de',
+  target_language_name: 'German',
+}
+
 const renderChat = () =>
   render(
     <MemoryRouter initialEntries={[`/chat/${CONV_ID}`]}>
@@ -215,6 +246,7 @@ beforeEach(() => {
   vi.mocked(api.streamChatOpen).mockResolvedValue(undefined)
   vi.mocked(api.streamChatMessage).mockResolvedValue(undefined)
   vi.mocked(api.transcribeAudio).mockResolvedValue(transcription(0.9))
+  vi.mocked(api.getPracticeLanguages).mockResolvedValue(practiceLanguages(true))
   mockStopRecording.mockResolvedValue(new Blob(['audio']))
 })
 
@@ -639,5 +671,44 @@ describe('Chat — conversation level control (005 US2)', () => {
     expect(screen.getByLabelText('Send message').style.background).toBe('var(--color-primary)')
     expect(level.style.background).not.toBe('var(--color-primary)')
     expect(level.style.backgroundColor).not.toBe('var(--color-primary)')
+  })
+})
+
+describe('Chat — the conversation keeps its own language (006 US1)', () => {
+  beforeEach(() => {
+    vi.mocked(api.getConversation).mockResolvedValue(germanConversation)
+  })
+
+  it('transcribes a German conversation in German while Spanish is selected', async () => {
+    isRecording = true
+    await renderResumed()
+    await screen.findByText('German')
+
+    fireEvent.click(screen.getByLabelText('Stop recording'))
+
+    await waitFor(() => expect(api.transcribeAudio).toHaveBeenCalled())
+    expect(vi.mocked(api.transcribeAudio).mock.calls[0][1]).toBe('de')
+  })
+
+  it('shows the conversation language in the header', async () => {
+    await renderResumed()
+
+    const header = screen.getByRole('banner')
+    expect(await within(header).findByText('German')).toBeInTheDocument()
+  })
+
+  it('with the German voice missing, says so and plays nothing', async () => {
+    vi.mocked(api.getPracticeLanguages).mockResolvedValue(practiceLanguages(false))
+    const turn = captureTurn()
+    await renderResumed()
+
+    expect(await screen.findByRole('status')).toHaveTextContent(GERMAN_VOICE_MISSING)
+    sendText('Guten Tag')
+    turn.userSaved(11)
+    turn.token('Hallo!')
+    turn.done(12)
+    await screen.findByText('Hallo!')
+
+    expect(playedSources).toHaveLength(0)
   })
 })

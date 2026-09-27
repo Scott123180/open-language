@@ -189,3 +189,43 @@ def test_update_settings_persists_only_the_conversation_level(
     assert updated.conversation_level == "beginner"
     assert reread.conversation_level == "beginner"
     assert replace(reread, conversation_level="natural", updated_at=before.updated_at) == before
+
+
+# --- 006: per-language voice memory (T012) --------------------------------------------
+
+
+def test_fresh_settings_have_no_voice_choices(storage: SQLiteStorageProvider) -> None:
+    assert storage.get_settings().voice_choices == {}
+
+
+def test_a_saved_voice_choice_is_read_back(storage: SQLiteStorageProvider) -> None:
+    storage.save_voice_choice("de", "de_DE-kerstin-low")
+
+    assert storage.get_settings().voice_choices == {"de": "de_DE-kerstin-low"}
+
+
+def test_saving_again_updates_the_language_in_place(storage: SQLiteStorageProvider) -> None:
+    from app.models.voice_choice import VoiceChoice
+
+    storage.save_voice_choice("de", "de_DE-kerstin-low")
+    storage.save_voice_choice("de", "de_DE-thorsten-medium")
+
+    assert storage.get_settings().voice_choices == {"de": "de_DE-thorsten-medium"}
+    assert storage._db.query(VoiceChoice).count() == 1
+
+
+def test_saving_one_language_leaves_another_untouched(storage: SQLiteStorageProvider) -> None:
+    storage.save_voice_choice("es", "es_AR-daniela-high")
+
+    storage.save_voice_choice("de", "de_DE-kerstin-low")
+
+    assert storage.get_settings().voice_choices == {
+        "es": "es_AR-daniela-high",
+        "de": "de_DE-kerstin-low",
+    }
+
+
+def test_the_settings_record_no_longer_carries_a_single_voice(
+    storage: SQLiteStorageProvider,
+) -> None:
+    assert not hasattr(storage.get_settings(), "tts_voice")

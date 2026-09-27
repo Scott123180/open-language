@@ -7,8 +7,6 @@ interface LearningToolPanelProps {
   messageId: number
   content: string
   role: 'user' | 'assistant'
-  targetLanguage: string
-  nativeLanguage: string
   onReplay?: () => void
   onPlaySlower?: () => void
   isAudioPlaying?: boolean
@@ -30,8 +28,6 @@ const spinnerStyle: React.CSSProperties = {
 export default function LearningToolPanel({
   messageId,
   content,
-  targetLanguage,
-  nativeLanguage,
   role,
   onReplay,
   onPlaySlower,
@@ -73,9 +69,9 @@ export default function LearningToolPanel({
       if (tool === 'grammar') {
         data = await api.checkGrammar(messageId, content, precedingMessage)
       } else if (tool === 'translate') {
-        data = await api.translateMessage(messageId, content, nativeLanguage)
+        data = await api.translateMessage(messageId, content)
       } else {
-        data = await api.getAlternativePhrasing(messageId, content, targetLanguage)
+        data = await api.getAlternativePhrasing(messageId, content)
       }
       setCache((prev) => ({ ...prev, [tool]: data.result }))
       setActiveToolResult(data.result)

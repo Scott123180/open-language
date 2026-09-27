@@ -1,9 +1,10 @@
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from app.services.tts.base import TTSError, TTSProvider
+from app.services.tts.base import TTSError, TTSProvider, VoiceInstallation
 
 _executor = ThreadPoolExecutor(max_workers=2)
+_VOICE_FILE_SUFFIXES = (".onnx", ".onnx.json")
 
 
 class PiperTTSProvider(TTSProvider):
@@ -34,3 +35,17 @@ class PiperTTSProvider(TTSProvider):
                 voice.synthesize_wav(text, wav_file)
         except Exception as e:
             raise TTSError(str(e)) from e
+
+
+class PiperVoiceInstallation(VoiceInstallation):
+    """A Piper voice is installed when its model and its config are both in the voice folder."""
+
+    def __init__(self, voice_dir: Path) -> None:
+        self._voice_dir = Path(voice_dir).expanduser()
+
+    @property
+    def voice_dir(self) -> Path:
+        return self._voice_dir
+
+    def is_installed(self, voice_key: str) -> bool:
+        return all((self._voice_dir / f"{voice_key}{s}").is_file() for s in _VOICE_FILE_SUFFIXES)

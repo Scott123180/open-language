@@ -8,6 +8,7 @@ from app.models.conversation import Conversation, ConversationStatus
 from app.models.learning_tool_result import LearningToolResult, ToolType
 from app.models.message import InputSource, Message, MessageRole
 from app.models.vocabulary_item import VocabularyItem
+from app.models.voice_choice import VoiceChoice
 from app.services.storage.base import (
     AppSettingsRecord,
     ConversationRecord,
@@ -71,12 +72,11 @@ def _vocab_to_record(v: VocabularyItem, *, already_saved: bool = False) -> Vocab
     )
 
 
-def _settings_to_record(s: AppSettings) -> AppSettingsRecord:
+def _settings_to_record(s: AppSettings, voice_choices: dict[str, str]) -> AppSettingsRecord:
     return AppSettingsRecord(
         llm_model=s.llm_model,
         target_language=s.target_language,
         native_language=s.native_language,
-        tts_voice=s.tts_voice,
         suggestion_count=s.suggestion_count,
         whisper_model=s.whisper_model,
         updated_at=s.updated_at,
@@ -84,6 +84,7 @@ def _settings_to_record(s: AppSettings) -> AppSettingsRecord:
         llm_provider=s.llm_provider,
         llm_effort=s.llm_effort,
         conversation_level=s.conversation_level,
+        voice_choices=voice_choices,
     )
 
 
@@ -255,7 +256,7 @@ class SQLiteStorageProvider(StorageProvider):
             self._db.add(settings)
             self._db.commit()
             self._db.refresh(settings)
-        return _settings_to_record(settings)
+        return _settings_to_record(settings, self._voice_choices())
 
     def update_settings(self, **kwargs) -> AppSettingsRecord:
         settings = self._db.get(AppSettings, 1)
@@ -267,4 +268,15 @@ class SQLiteStorageProvider(StorageProvider):
         settings.updated_at = datetime.now(UTC)
         self._db.commit()
         self._db.refresh(settings)
-        return _settings_to_record(settings)
+        return _settings_to_record(settings, self._voice_choices())
+
+    def save_voice_choice(self, target_language: str, voice_key: str) -> None:
+        choice = self._db.get(VoiceChoice, target_language)
+        if choice is None:
+            choice = VoiceChoice(target_language=target_language)
+            self._db.add(choice)
+        choice.voice_key = voice_key
+        self._db.commit()
+
+    def _voice_choices(self) -> dict[str, str]:
+        return {c.target_language: c.voice_key for c in self._db.query(VoiceChoice).all()}

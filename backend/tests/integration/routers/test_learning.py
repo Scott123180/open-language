@@ -16,9 +16,8 @@ from tests.integration.conftest import make_test_session
 
 _DEFAULT_SETTINGS = AppSettingsRecord(
     llm_model="llama3.1",
-    target_language="Spanish",
-    native_language="English",
-    tts_voice="es_ES-mls-medium",
+    target_language="es",
+    native_language="en",
     suggestion_count=3,
     whisper_model="base",
     updated_at=datetime.datetime.now(datetime.UTC),
@@ -65,8 +64,8 @@ def _create_message(storage: SQLiteStorageProvider) -> int:
     conv = storage.create_conversation(
         scenario_id="test-scenario",
         scenario_title="Test",
-        target_language="Spanish",
-        native_language="English",
+        target_language="es",
+        native_language="en",
         llm_model="llama3.1",
     )
     msg = storage.save_message(conv.id, "user", "Tengo hambre")
@@ -214,3 +213,112 @@ def test_word_lookup_different_selections_are_separate(client_and_deps) -> None:
     assert response.status_code == 200
     assert response.json()["cached"] is False
     assert stub_llm.call_count == 2
+
+
+# ---- 006: languages come from the message's conversation (T042) ----
+
+REQUESTS = {
+    "grammar": lambda message_id: {
+        "message_id": message_id,
+        "content": "Ich habe Hunger",
+        "preceding_message": "Guten Tag",
+    },
+    "translate": lambda message_id: {"message_id": message_id, "content": "Ich habe Hunger"},
+    "phrasing": lambda message_id: {"message_id": message_id, "content": "Ich habe Hunger"},
+    "word-lookup": lambda message_id: {
+        "message_id": message_id,
+        "selection": "Hunger",
+        "sentence_context": "Ich habe Hunger",
+    },
+}
+NAMES_IN_PROMPT = {
+    "grammar": ("English",),
+    "translate": ("English",),
+    "phrasing": ("German",),
+    "word-lookup": ("German", "English"),
+}
+
+
+class PromptRecordingLLM(StubLLMProvider):
+    def __init__(self) -> None:
+        super().__init__(response="OK")
+        self.prompts: list[str] = []
+
+    def chat(self, messages: list[ChatMessage]) -> str:
+        self.prompts.append(messages[-1].content)
+        return super().chat(messages)
+
+
+@pytest.fixture
+def recording_llm():
+    llm = PromptRecordingLLM()
+    app.dependency_overrides[get_llm] = lambda: llm
+    return llm
+
+
+def _german_message(storage: SQLiteStorageProvider) -> int:
+    conv = storage.create_conversation("s", "S", "de", "en", "llama3.1")
+    return storage.save_message(conv.id, "assistant", "Ich habe Hunger").id
+
+
+@pytest.mark.parametrize("tool", list(REQUESTS))
+def test_the_trimmed_request_builds_its_prompt_from_the_conversation(
+    client_and_deps, recording_llm, tool
+) -> None:
+    client, storage, _ = client_and_deps
+    message_id = _german_message(storage)
+
+    response = client.post(f"/api/learning/{tool}", json=REQUESTS[tool](message_id))
+
+    assert response.status_code == 200, response.text
+    assert all(name in recording_llm.prompts[-1] for name in NAMES_IN_PROMPT[tool])
+
+
+@pytest.mark.parametrize("tool", list(REQUESTS))
+def test_an_unknown_message_is_404(client_and_deps, tool) -> None:
+    client, _storage, stub_llm = client_and_deps
+
+    response = client.post(f"/api/learning/{tool}", json=REQUESTS[tool](9999))
+
+    assert (response.status_code, response.json()) == (404, {"detail": "Message not found"})
+    assert stub_llm.call_count == 0
+
+
+@pytest.mark.parametrize("tool", list(REQUESTS))
+def test_client_sent_languages_are_ignored(client_and_deps, recording_llm, tool) -> None:
+    client, storage, _ = client_and_deps
+    body = {**REQUESTS[tool](_german_message(storage)), "target_language": "fr"}
+    body["native_language"] = "fr"
+
+    response = client.post(f"/api/learning/{tool}", json=body)
+
+    assert response.status_code == 200, response.text
+    assert "fr" not in recording_llm.prompts[-1].split()
+    assert all(name in recording_llm.prompts[-1] for name in NAMES_IN_PROMPT[tool])
+
+
+@pytest.mark.parametrize("tool", list(REQUESTS))
+def test_a_second_request_is_served_from_the_cache(client_and_deps, tool) -> None:
+    client, storage, stub_llm = client_and_deps
+    body = REQUESTS[tool](_german_message(storage))
+
+    first = client.post(f"/api/learning/{tool}", json=body).json()
+    second = client.post(f"/api/learning/{tool}", json=body).json()
+
+    assert (first["cached"], second["cached"], stub_llm.call_count) == (False, True, 1)
+
+
+def test_the_phrasing_cache_key_still_carries_the_level(client_and_deps) -> None:
+    from dataclasses import replace
+
+    client, storage, stub_llm = client_and_deps
+    app.dependency_overrides[get_app_settings] = lambda: replace(
+        _DEFAULT_SETTINGS, conversation_level="beginner"
+    )
+    body = REQUESTS["phrasing"](_german_message(storage))
+
+    client.post("/api/learning/phrasing", json=body)
+    app.dependency_overrides[get_app_settings] = lambda: _DEFAULT_SETTINGS
+    natural = client.post("/api/learning/phrasing", json=body).json()
+
+    assert (natural["cached"], stub_llm.call_count) == (False, 2)

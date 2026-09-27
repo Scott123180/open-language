@@ -358,13 +358,12 @@ describe('streamHelper', () => {
     const onToken = vi.fn()
     const onDone = vi.fn()
 
-    await api.streamHelper('how do I say hi', 'sess-1', 'Spanish', 'English', onToken, onDone, vi.fn())
+    await api.streamHelper('how do I say hi', 'sess-1', 7, onToken, onDone, vi.fn())
 
     expect(call(mock).body).toEqual({
       message: 'how do I say hi',
       helper_session_id: 'sess-1',
-      target_language: 'Spanish',
-      native_language: 'English',
+      conversation_id: 7,
     })
     expect(onToken).toHaveBeenCalledOnce()
     expect(onToken).toHaveBeenCalledWith('try this')
@@ -375,7 +374,7 @@ describe('streamHelper', () => {
     stubSse([], false)
     const onError = vi.fn()
 
-    await api.streamHelper('x', 's', 'Spanish', 'English', vi.fn(), vi.fn(), onError)
+    await api.streamHelper('x', 's', 7, vi.fn(), vi.fn(), onError)
 
     expect(onError).toHaveBeenCalledWith('HTTP 500')
   })
@@ -402,34 +401,34 @@ describe('learning tool endpoints', () => {
   it('translates a message', async () => {
     const mock = stubJson({ result: 'hello', cached: false })
 
-    await api.translateMessage(1, 'hola', 'English')
+    await api.translateMessage(1, 'hola')
 
     expect(call(mock).url).toBe(`${BASE}/learning/translate`)
-    expect(call(mock).body).toEqual({ message_id: 1, content: 'hola', native_language: 'English' })
+    expect(call(mock).body).toEqual({ message_id: 1, content: 'hola' })
   })
 
   it('requests alternative phrasing', async () => {
     const mock = stubJson({ result: 'buenas', cached: false })
 
-    await api.getAlternativePhrasing(1, 'hola', 'Spanish')
+    await api.getAlternativePhrasing(1, 'hola')
 
     expect(call(mock).url).toBe(`${BASE}/learning/phrasing`)
-    expect(call(mock).body).toMatchObject({ target_language: 'Spanish' })
+    expect(call(mock).body).toEqual({ message_id: 1, content: 'hola' })
   })
 
   it('looks up a word, nulling the sentence context when absent', async () => {
     const mock = stubJson({ result: 'a greeting', cached: false })
 
-    await api.lookupWord(1, 'hola', 'Spanish', 'English')
+    await api.lookupWord(1, 'hola')
 
     expect(call(mock).url).toBe(`${BASE}/learning/word-lookup`)
-    expect(call(mock).body).toMatchObject({ selection: 'hola', sentence_context: null })
+    expect(call(mock).body).toEqual({ message_id: 1, selection: 'hola', sentence_context: null })
   })
 
   it('passes the sentence context when supplied', async () => {
     const mock = stubJson({ result: 'a greeting', cached: false })
 
-    await api.lookupWord(1, 'hola', 'Spanish', 'English', 'Hola, ¿qué tal?')
+    await api.lookupWord(1, 'hola', 'Hola, ¿qué tal?')
 
     expect(call(mock).body).toMatchObject({ sentence_context: 'Hola, ¿qué tal?' })
   })
@@ -605,5 +604,45 @@ describe('conversation levels (005)', () => {
     await expect(api.getConversationLevels()).resolves.toEqual(levels)
     expect(call(mock).url).toBe(`${BASE}/settings/conversation-levels`)
     expect(call(mock).init?.method).toBeUndefined()
+  })
+})
+
+describe('practice languages (006)', () => {
+  const languages: api.PracticeLanguageOption[] = [
+    {
+      language_id: 'es',
+      display_name: 'Spanish',
+      is_default: true,
+      default_voice: 'es_ES-davefx-medium',
+      selected_voice: 'es_AR-daniela-high',
+      is_voice_installed: true,
+      voice_unavailable_message: null,
+    },
+    {
+      language_id: 'de',
+      display_name: 'German',
+      is_default: false,
+      default_voice: 'de_DE-thorsten-medium',
+      selected_voice: 'de_DE-thorsten-medium',
+      is_voice_installed: false,
+      voice_unavailable_message: "The German voice isn't installed.",
+    },
+  ]
+
+  it('getPracticeLanguages reads the language catalogue', async () => {
+    const mock = stubJson(languages)
+
+    await expect(api.getPracticeLanguages()).resolves.toEqual(languages)
+    expect(call(mock).url).toBe(`${BASE}/settings/practice-languages`)
+    expect(call(mock).init?.method).toBeUndefined()
+  })
+
+  it('a conversation exposes its language names', async () => {
+    stubJson({ id: 3, target_language: 'de', target_language_name: 'German', native_language_name: 'English' })
+
+    const conversation: api.Conversation = await api.getConversation(3)
+
+    expect(conversation.target_language_name).toBe('German')
+    expect(conversation.native_language_name).toBe('English')
   })
 })

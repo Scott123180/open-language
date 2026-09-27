@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from app.conversation_levels import DEFAULT_CONVERSATION_LEVEL
@@ -62,7 +62,6 @@ class AppSettingsRecord:
     llm_model: str
     target_language: str
     native_language: str
-    tts_voice: str
     suggestion_count: int
     whisper_model: str
     updated_at: datetime
@@ -70,6 +69,8 @@ class AppSettingsRecord:
     llm_provider: str = DEFAULT_PROVIDER_ID
     llm_effort: str = DEFAULT_EFFORT
     conversation_level: str = DEFAULT_CONVERSATION_LEVEL.value
+    voice_choices: Mapping[str, str] = field(default_factory=dict)
+    """The learner's explicit voice per practice-language code. No entry means the default."""
 
 
 class StorageProvider(ABC):
@@ -165,4 +166,9 @@ class StorageProvider(ABC):
     @abstractmethod
     def update_settings(self, **kwargs) -> AppSettingsRecord:
         """Update specified fields and return updated record."""
+        ...
+
+    @abstractmethod
+    def save_voice_choice(self, target_language: str, voice_key: str) -> None:
+        """Remember the learner's voice for one language (upsert)."""
         ...

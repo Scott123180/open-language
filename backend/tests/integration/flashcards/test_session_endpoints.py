@@ -26,7 +26,7 @@ def two_words(db_session):
         VocabularyItem(
             word="bonjour",
             translation="hello",
-            target_language="fr",
+            target_language="es",
             native_language="en",
             saved_at=datetime.now(UTC),
             classification="not_practiced",
@@ -35,7 +35,7 @@ def two_words(db_session):
         VocabularyItem(
             word="merci",
             translation="thank you",
-            target_language="fr",
+            target_language="es",
             native_language="en",
             saved_at=datetime.now(UTC),
             classification="difficult",

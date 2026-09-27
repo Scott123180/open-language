@@ -19,9 +19,9 @@ import app.models.message  # noqa: F401
 import app.models.vocabulary_item  # noqa: F401
 from app.database import Base, get_db
 from app.main import app as fastapi_app
-from app.services.factory import get_llm, get_tts
+from app.services.factory import get_llm
 from app.services.llm.base import ChatMessage, LLMError, LLMProvider
-from app.services.tts.base import TTSProvider
+from tests.support.fake_speech import override_speech
 
 STUB_LLM_RESPONSE = "Stubbed model output."
 
@@ -52,23 +52,6 @@ class UnavailableLLMProvider(LLMProvider):
 
     def chat_stream(self, messages: list[ChatMessage]):
         raise LLMError("Ollama is not reachable")
-
-
-class StubTTSProvider(TTSProvider):
-    """Writes a minimal valid WAV so tests never need a Piper voice file."""
-
-    _EMPTY_WAV = (
-        b"RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00"
-        b"\x80>\x00\x00\x00}\x00\x00\x02\x00\x10\x00data\x00\x00\x00\x00"
-    )
-
-    @property
-    def voice_name(self) -> str:
-        return "stub-voice"
-
-    def synthesize(self, text: str, output_path) -> None:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(self._EMPTY_WAV)
 
 
 def _configure_sqlite(dbapi_conn, _):
@@ -118,7 +101,7 @@ def client(db_session):
 
     fastapi_app.dependency_overrides[get_db] = _override_get_db
     fastapi_app.dependency_overrides[get_llm] = StubLLMProvider
-    fastapi_app.dependency_overrides[get_tts] = StubTTSProvider
+    override_speech(fastapi_app)
     with TestClient(fastapi_app) as test_client:
         yield test_client
     fastapi_app.dependency_overrides.clear()

@@ -207,3 +207,62 @@ class TestTranscribeReportsConfidence:
 
         assert body["text"] == "hola mundo"
         assert body["detected_language"] == "es"
+
+
+# --- 006: the transcription language is a catalogue code (T044) ------------------------
+
+
+class HintRecordingSTT(STTProvider):
+    def __init__(self) -> None:
+        self.hints: list[str | None] = []
+
+    def transcribe(self, audio_path: Path, language_hint: str | None = None) -> TranscriptionResult:
+        self.hints.append(language_hint)
+        return TranscriptionResult(text="Guten Tag", detected_language="de")
+
+
+@pytest.fixture
+def recording_stt(tmp_path: Path):
+    stt = HintRecordingSTT()
+    wav_path = tmp_path / "upload.wav"
+    app.dependency_overrides[get_stt] = lambda: stt
+    with (
+        patch("app.routers.audio.convert_webm_to_wav", side_effect=lambda _bytes: _wav(wav_path)),
+        TestClient(app) as client,
+    ):
+        yield client, stt
+    app.dependency_overrides.clear()
+
+
+def _wav(path: Path) -> Path:
+    path.write_bytes(_minimal_wav_bytes())
+    return path
+
+
+def _transcribe(client: TestClient, language: str | None):
+    data = {} if language is None else {"language": language}
+    files = {"file": ("audio.webm", b"webm-bytes", "audio/webm")}
+    return client.post("/api/audio/transcribe", files=files, data=data)
+
+
+def test_a_german_hint_reaches_the_transcriber(recording_stt) -> None:
+    client, stt = recording_stt
+
+    assert _transcribe(client, "de").status_code == 200
+    assert stt.hints == ["de"]
+
+
+def test_an_unsupported_language_is_422_and_nothing_is_transcribed(recording_stt) -> None:
+    client, stt = recording_stt
+
+    response = _transcribe(client, "fr")
+
+    assert (response.status_code, response.json()) == (422, {"detail": "Unsupported language"})
+    assert stt.hints == []
+
+
+def test_no_language_still_auto_detects(recording_stt) -> None:
+    client, stt = recording_stt
+
+    assert _transcribe(client, None).status_code == 200
+    assert stt.hints == [None]
