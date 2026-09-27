@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Open-Language** is a locally-run language learning application built using **SpecKit** (v1.0.1, skills-based integration), a specification-driven development (SDD) framework. All feature work goes through the SDD workflow below.
 
-The application is implemented and running: a FastAPI backend in [backend/app/](backend/app/) and a Vite/React frontend in [frontend/src/](frontend/src/). Features shipped so far: roleplay chat (001), vocabulary flashcards (002), corrective feedback mode (003, experimental), LLM provider selection with conversation sessions (004), and conversation difficulty levels (005, experimental). Every AI capability sits behind a provider interface, and the app is local by default: Ollama for the LLM, Piper for TTS, faster-whisper for STT, SQLite for storage. Cloud providers are opt-in — today, Claude as the conversation partner through the learner's signed-in Claude Code. STT and TTS are always local.
+The application is implemented and running: a FastAPI backend in [backend/app/](backend/app/) and a Vite/React frontend in [frontend/src/](frontend/src/). Features shipped so far: roleplay chat (001), vocabulary flashcards (002), corrective feedback mode (003, experimental), LLM provider selection with conversation sessions (004), conversation difficulty levels (005, experimental), and German as a second practice language (006). Every AI capability sits behind a provider interface, and the app is local by default: Ollama for the LLM, Piper for TTS, faster-whisper for STT, SQLite for storage. Cloud providers are opt-in — today, Claude as the conversation partner through the learner's signed-in Claude Code. STT and TTS are always local.
 
 Speech-to-text is implemented in [backend/app/services/stt/whisper.py](backend/app/services/stt/whisper.py); see [reference/TRANSCRIPTION_INTEGRATION.md](reference/TRANSCRIPTION_INTEGRATION.md) for the underlying `faster-whisper` + CUDA integration patterns.
 
@@ -261,8 +261,18 @@ pool, with saved history as the source of truth.
 two pure renderers, `with_partner_speech_rules()` and `with_learner_text_rules()`, that append a level's
 rules to an existing prompt (at Natural they return it byte-for-byte). Routers import only its package
 root; `prompts/templates.py` is never edited to carry the level.
+`backend/app/practice_languages/` (006) owns no tables and no router either: it is the only place a
+language code becomes a name ("German") or a default voice. Nothing else hard-codes `"es"` or `"de"`
+(a unit test enforces it). TTS goes through `SpeechForLanguage`, built only in `services/factory.py`.
 
 ## Recent Changes
+- **006-german-language-support**: the practice language is Spanish (default) or German, chosen on
+  Settings. A conversation keeps its language, and every aid (prompts, suggestions, corrections,
+  helper, learning tools, saved words, speech) takes it from the conversation, not the setting;
+  prompts name languages instead of codes. Each language remembers its own voice (`voice_choices`
+  table); a missing voice is a plain 503, never another language's voice. Flashcards take a required
+  `?language=`, and `decks`/`practice_sessions` gained `target_language`. Benchmarks: SC-002 met
+  (50/50), SC-003 missed on every Whisper size (docs/architecture.md § "Open items")
 - **005-conversation-difficulty-level**: a learner-wide conversation level — Beginner (≈ A1),
   Elementary (≈ A2), Intermediate (≈ B1) or Natural (the default, unchanged behaviour) — chosen on
   Settings or from a compact Level control in the chat header. It caps the partner's replies and the
@@ -289,5 +299,5 @@ root; `prompts/templates.py` is never edited to carry the level.
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
-at specs/005-conversation-difficulty-level/plan.md
+at specs/006-german-language-support/plan.md
 <!-- SPECKIT END -->

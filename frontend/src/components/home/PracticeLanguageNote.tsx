@@ -11,7 +11,7 @@ const noteStyle: CSSProperties = {
 }
 const nameStyle: CSSProperties = { color: 'var(--color-text)' }
 // Muted like the sentence around it, so the underline is what marks it as a link.
-const linkStyle: CSSProperties = { textDecoration: 'underline' }
+const linkStyle: CSSProperties = { textDecoration: 'underline', minHeight: '44px' }
 
 /** Which language new conversations are in, and where to change it (FR-004). */
 export default function PracticeLanguageNote() {

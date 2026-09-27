@@ -27,19 +27,7 @@ async function loadLanguages(): Promise<LoadedLanguages> {
 
 /** The language catalogue and the practice language, shared by Settings, Home and Flashcards. */
 export function usePracticeLanguages(): PracticeLanguagesState {
-  const [state, setState] = useState<LoadedLanguages>({
-    languages: [],
-    practiceLanguageId: null,
-    isLoading: true,
-    error: null,
-  })
-
-  useEffect(() => {
-    loadLanguages()
-      .then(setState)
-      .catch(() => setState({ languages: [], practiceLanguageId: null, isLoading: false, error: LOAD_ERROR }))
-  }, [])
-
+  const state = useLoadedLanguages()
   const nameOf = useCallback(
     (languageId: string) =>
       state.languages.find((l) => l.language_id === languageId)?.display_name ?? languageId,
@@ -47,4 +35,17 @@ export function usePracticeLanguages(): PracticeLanguagesState {
   )
   const current = state.languages.find((l) => l.language_id === state.practiceLanguageId) ?? null
   return { languages: state.languages, current, nameOf, isLoading: state.isLoading, error: state.error }
+}
+
+const LOADING: LoadedLanguages = { languages: [], practiceLanguageId: null, isLoading: true, error: null }
+const FAILED: LoadedLanguages = { ...LOADING, isLoading: false, error: LOAD_ERROR }
+
+function useLoadedLanguages(): LoadedLanguages {
+  const [state, setState] = useState<LoadedLanguages>(LOADING)
+  useEffect(() => {
+    loadLanguages()
+      .then(setState)
+      .catch(() => setState(FAILED))
+  }, [])
+  return state
 }

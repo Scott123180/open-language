@@ -744,6 +744,36 @@ idioms, questions) is a named field of one `SpeechLimits` value in the catalogue
 - **Two controls, one setting.** Settings has a radio group; the chat header has a compact `<select>` that
   saves on change with a level-only `PUT /api/settings`, which skips the provider availability check.
 
+#### Practice languages (feature 006)
+
+The learner practises **Spanish** (the default) or **German**, one learner-wide setting stored in the
+existing `app_settings.target_language`. The catalogue lives in its own domain module,
+`app/practice_languages/`, which owns no tables and no router and is the only place a language code
+becomes a name or a default voice. It exports eight names: `PracticeLanguage`, `PRACTICE_LANGUAGES`,
+`DEFAULT_PRACTICE_LANGUAGE`, `UnknownLanguage`, `language_name`, `ConversationLanguages`, `voice_for` and
+`voice_unavailable_message`. Adding a language is a catalogue entry, its `VoiceInfo` entries and its
+`run.sh` keys; a unit test fails if a catalogue voice is missing from `run.sh`, and another fails if any
+other file hard-codes `"es"` or `"de"`.
+
+- **A conversation keeps its language.** `conversations.target_language` is stamped at creation and never
+  changes. Every aid resolves its language on the server from the conversation it belongs to (roleplay,
+  suggestions, corrections, the helper by `conversation_id`, and the four learning tools by `message_id`),
+  so the client sends no language and a switch never changes an existing conversation. A saved word takes
+  its source conversation's language.
+- **Codes are stored; names reach prompts.** `ConversationLanguages.of(code, native)` turns `de` into
+  "German". Before 006, prompts literally said "write EXCLUSIVELY in es"; `templates.py` is still untouched,
+  only its arguments changed.
+- **Speech follows the text, never the setting.** `SpeechForLanguage` (built only in
+  `services/factory.py`, the one place Piper is named) resolves the learner's voice for a language from
+  the `voice_choices` table (one row per language they chose for; none means the default), checks the
+  files through `VoiceInstallation`, and builds the provider. A missing voice raises `VoiceUnavailable`, a
+  plain 503 with what to do; another language's voice is never used instead (FR-018). Chat, message audio
+  and flashcard word audio all go through it.
+- **Flashcards take an explicit `language`.** `decks` and `practice_sessions` gained `target_language`
+  (existing rows read Spanish); card results and snapshots get theirs by join. Every flashcard collection
+  endpoint requires `?language=`, a session finishes in its own language, and the frontend keys each query
+  by the language, so a switch never shows the other language's cached data.
+
 ### 6.3 Corrective feedback: one seam, three modes
 
 Feature 003 adds grammar correction during practice. The learner picks a mode in Settings —
@@ -1250,6 +1280,7 @@ open-language/
 | `003-corrective-feedback-mode` | Off/Gentle/Strict grammar correction during practice, transcription-confidence gating, resume-aware chat screen | In progress |
 | `004-llm-provider-selection` | Provider catalogue and registry, Claude through Claude Code (opt-in), conversation sessions, actionable provider errors | In progress |
 | `005-conversation-difficulty-level` | Four conversation levels (Beginner–Natural) on Settings and in the chat header, applied to the partner's replies and the learner aids; experimental | In progress |
+| `006-german-language-support` | German as a second practice language: catalogue, per-language voices, conversations that keep their language, flashcards per language | In progress |
 
 `master` is the release branch; `develop` is the integration branch; feature branches are numbered and
 created by `.specify/scripts/bash/create-new-feature.sh`.
@@ -1306,6 +1337,23 @@ Collected from the sections above so they are findable in one place:
 | Background TTS writes through the request-scoped session after it is closed | `app/routers/chat.py` | Pre-dates 003; TTS cache paths can silently fail to persist |
 | **Conversation levels are not kept closely enough by an 8B model** — see below | `app/conversation_levels/` | Shipped with an in-app warning (005, T042); SC-001 missed, SC-003 partly missed |
 | **German transcription misses SC-003 on every Whisper size** — 13/20 on `base`, 16/20 on `small`, 17/20 on `medium` (target 18/20), measured on Piper-synthesised speech | `app/services/stt/` | 006; misses are single umlaut words. `small` is the practical recommendation for German today; figures in `specs/006-german-language-support/benchmark-results.md` |
+| Word-list search folds only ASCII case (`ILIKE`), so "über" does not find "Über" | `app/flashcards/services/sqlite_storage.py` | 006 research R12; Spanish has the same gap ("é"/"É"). Not a regression |
+| The integration suite runs the app lifespan's `init_db()` against the learner's real `~/.open-language/app.db` | `tests/integration/` | Found in 006. Additive migrations only, but a test run should never touch learner data; 006 redirected the TTS cache writes (`isolated_tts_cache`), the database is still shared |
+
+#### German on the default stack (006)
+
+Measured by hand (`specs/006-german-language-support/benchmark-results.md`):
+
+| Figure | Target | Measured |
+|---|---|---|
+| SC-002: German partner replies with no English or Spanish word (`llama3.1:8b`, 10 scenarios × 5 turns) | ≥ 95% | **50/50** |
+| SC-003: German dictation transcribed with meaning and umlauts intact (Whisper `base`) | ≥ 18/20 | **13/20** |
+| SC-003 on Whisper `small` / `medium` | ≥ 18/20 | **16/20** / **17/20** |
+
+The partner's German is solid. Transcription is not: almost every miss is one umlaut word, and the
+low-quality Kerstin voice used to generate the test audio is part of the gap (Thorsten scores one higher on
+each model). Learners practising German by voice should choose `small` in Settings; the default stays
+`base` because it is what runs acceptably on CPU. The benchmark has not been run on a real speaker.
 
 #### Roadmap: correction quality needs a larger model
 

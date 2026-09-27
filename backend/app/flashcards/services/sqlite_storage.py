@@ -244,14 +244,9 @@ class SQLiteFlashcardStorageProvider(FlashcardStorageProvider):
         *,
         language: str,
     ) -> tuple[DeckRecord, list[DeckCardRecord]]:
-        deck = Deck(
-            name=name,
-            practice_mode=practice_mode,
-            algorithm=algorithm,
-            requested_size=requested_size,
-            created_at=datetime.now(UTC),
-            target_language=language,
-        )
+        deck = Deck(name=name, practice_mode=practice_mode, algorithm=algorithm)
+        deck.requested_size, deck.target_language = requested_size, language
+        deck.created_at = datetime.now(UTC)
         self._db.add(deck)
         self._db.flush()  # get deck.id before inserting cards
         card_rows = self._insert_cards(deck.id, cards)

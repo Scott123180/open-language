@@ -72,22 +72,8 @@ def _speak(sentence: str, index: int, directory: Path) -> Path:
         sentence, spoken
     )
     resampled = directory / f"{index}-16k.wav"
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-loglevel",
-            "error",
-            "-y",
-            "-i",
-            str(spoken),
-            "-ar",
-            str(SAMPLE_RATE),
-            "-ac",
-            "1",
-            str(resampled),
-        ],
-        check=True,
-    )
+    resample = f"-loglevel error -y -i {spoken} -ar {SAMPLE_RATE} -ac 1 {resampled}"
+    subprocess.run(["ffmpeg", *resample.split()], check=True)
     return resampled
 
 

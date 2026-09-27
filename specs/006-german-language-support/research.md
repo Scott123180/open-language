@@ -273,6 +273,13 @@ SC-002 is measured by a hand-run `@benchmark` test modelled on 005's harness:
   (Hotel, Taxi, Ticket, OK);
 - flagged replies go to a review sheet for a human verdict, as in 005.
 
+**Refined during implementation (T067)**: the "rare in German (Zipf < 2.0)" test cannot flag the
+words SC-002 is about, because wordfreq's German list carries common English loans ("the" is 5.6,
+"quiero" 2.4). The benchmark instead flags a token when it is common in English or Spanish
+(Zipf ≥ 3.0) **and** at least 1.5 Zipf more frequent there than in German. On the top 5,000 German
+tokens, every word this flags is an English, Spanish or French function word. See
+`backend/tests/integration/practice_languages/text_purity.py`.
+
 **Rationale**: The same measure-then-decide path 003 and 005 used. If `llama3.1:8b` falls short, the
 spec's "Quality limits carry over" assumption applies, and the result is recorded in
 `docs/architecture.md` § "Open items". No new dependency is needed.

@@ -1,4 +1,4 @@
-"""How a language is named in prompt text: "German", never the code "de" (research R2)."""
+"""How a language is named in prompt text: "German", never its code (research R2)."""
 
 from dataclasses import dataclass
 

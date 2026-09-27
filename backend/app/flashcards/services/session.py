@@ -46,14 +46,9 @@ class SessionService:
 
     def build_summary(self, session_id: int) -> SessionSummary:
         session = self._storage.get_session(session_id)
-        duration = None
-        if session.ended_at and session.started_at:
-            duration = int((session.ended_at - session.started_at).total_seconds())
-
         results = self._storage.get_card_results_for_session(session_id)
         words_needing_work = self._build_words_needing_work(results)
         streak = self._calculate_streak(session.target_language)
-
         return SessionSummary(
             session_id=session_id,
             completed=session.completed,
@@ -62,7 +57,7 @@ class SessionService:
             knew_it_count=session.knew_it_count,
             guessed_count=session.guessed_count,
             didnt_know_count=session.didnt_know_count,
-            duration_seconds=duration,
+            duration_seconds=_duration_seconds(session),
             current_streak=streak,
             words_needing_work=words_needing_work,
         )
@@ -134,3 +129,9 @@ class SessionService:
             streak += 1
             check_date -= timedelta(days=1)
         return streak
+
+
+def _duration_seconds(session) -> int | None:
+    if not (session.ended_at and session.started_at):
+        return None
+    return int((session.ended_at - session.started_at).total_seconds())

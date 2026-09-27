@@ -69,7 +69,14 @@ def override_speech(
 ) -> RecordingTtsBuilder:
     """Route the app's speech through fakes. `voice_choices=None` reads the stored settings."""
     builder = RecordingTtsBuilder()
-    installation = FakeVoiceInstallation(installed)
+    fake_installation = FakeVoiceInstallation(installed)
+    app.dependency_overrides[get_voice_installation] = lambda: fake_installation
+    app.dependency_overrides[get_speech_for_language] = _speech_dependency(builder, voice_choices)
+    return builder
+
+
+def _speech_dependency(builder: RecordingTtsBuilder, voice_choices: Mapping[str, str] | None):
+    """A `get_speech_for_language` stand-in that resolves voices with the real `voice_for`."""
 
     def speech(
         app_settings: AppSettingsRecord = Depends(get_app_settings),
@@ -79,9 +86,7 @@ def override_speech(
         resolve = partial(voice_for, voice_choices=choices)
         return SpeechForLanguage(resolve, installation, builder, voice_unavailable_message)
 
-    app.dependency_overrides[get_voice_installation] = lambda: installation
-    app.dependency_overrides[get_speech_for_language] = speech
-    return builder
+    return speech
 
 
 def write_silent_wav(output_path: Path) -> None:

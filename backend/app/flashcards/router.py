@@ -218,18 +218,7 @@ def _synthesize_word(
 def _build_deck_detail(
     deck_record, card_records, word_lookup: dict, translation_lookup: dict | None = None
 ) -> DeckDetail:
-    cards = [
-        DeckCardItem(
-            position=c.position,
-            vocabulary_item_id=c.vocabulary_item_id,
-            word=word_lookup.get(c.vocabulary_item_id),
-            translation=(
-                translation_lookup.get(c.vocabulary_item_id) if translation_lookup else None
-            ),
-            fill_blank_sentence=c.fill_blank_sentence,
-        )
-        for c in card_records
-    ]
+    cards = [_deck_card_item(c, word_lookup, translation_lookup or {}) for c in card_records]
     return DeckDetail(
         id=deck_record.id,
         name=deck_record.name,
@@ -241,6 +230,16 @@ def _build_deck_detail(
         created_at=deck_record.created_at,
         target_language=deck_record.target_language,
         cards=cards,
+    )
+
+
+def _deck_card_item(card, word_lookup: dict, translation_lookup: dict) -> DeckCardItem:
+    return DeckCardItem(
+        position=card.position,
+        vocabulary_item_id=card.vocabulary_item_id,
+        word=word_lookup.get(card.vocabulary_item_id),
+        translation=translation_lookup.get(card.vocabulary_item_id),
+        fill_blank_sentence=card.fill_blank_sentence,
     )
 
 
@@ -263,9 +262,8 @@ def create_deck(
         cards=_build_cards_data(selected, body.practice_mode.value, storage),
         language=body.language,
     )
-    word_lookup = {w.id: w.word for w in selected}
-    translation_lookup = {w.id: w.translation for w in selected}
-    return _build_deck_detail(deck_record, card_records, word_lookup, translation_lookup)
+    lookups = ({w.id: w.word for w in selected}, {w.id: w.translation for w in selected})
+    return _build_deck_detail(deck_record, card_records, *lookups)
 
 
 def _deck_word_pool(body: DeckConfigRequest, storage: FlashcardStorageProvider) -> list:
@@ -568,7 +566,14 @@ def create_missed_deck(
             status_code=400,
             detail="No 'Didn't Know' words in this session to create a missed deck.",
         )
-    deck_record, card_records = storage.create_deck(
+    deck_record, card_records = _create_missed_deck(storage, session, missed_ids)
+    word_lookup = {vid: w.word for vid in missed_ids if (w := storage.get_word(vid))}
+    return _build_deck_detail(deck_record, card_records, word_lookup)
+
+
+def _create_missed_deck(storage: FlashcardStorageProvider, session, missed_ids: list[int]):
+    """A deck of the session's missed words, in the session's own language."""
+    return storage.create_deck(
         name=f"Missed Words \u2014 {datetime.now(UTC).strftime('%b %d, %Y')}",
         practice_mode=session.practice_mode,
         algorithm="not_practiced",
@@ -576,8 +581,6 @@ def create_missed_deck(
         cards=_missed_deck_cards(missed_ids),
         language=session.target_language,
     )
-    word_lookup = {vid: w.word for vid in missed_ids if (w := storage.get_word(vid))}
-    return _build_deck_detail(deck_record, card_records, word_lookup)
 
 
 def _missed_word_ids(results: list) -> list[int]:

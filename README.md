@@ -8,6 +8,7 @@ Cloud providers are opt-in. Today you can choose Claude as the conversation part
 
 ## Features
 
+- **Spanish or German** — pick the practice language in Settings; each conversation keeps the language it started in, and flashcards show one language at a time
 - **Role-play scenarios** — everyday situations (buying a train ticket, calling an estate agent, etc.)
 - **Voice or text input** — speak and get transcribed via Whisper, or type
 - **AI responses spoken aloud** — Piper TTS with slow-playback option
@@ -27,7 +28,7 @@ Cloud providers are opt-in. Today you can choose Claude as the conversation part
 ./run.sh --prod   # production build, single port 8000
 ```
 
-The script checks for prerequisites, creates the Python venv, installs deps, pulls the Ollama model, downloads the default Piper voice, and launches all services. Press `Ctrl+C` to stop.
+The script checks for prerequisites, creates the Python venv, installs deps, pulls the Ollama model, downloads the Spanish and German Piper voices, and launches all services. Press `Ctrl+C` to stop.
 
 ---
 
@@ -72,16 +73,33 @@ npm install
 ollama pull llama3.1
 ```
 
-### 5. Download a Piper voice
+### 5. Download the Piper voices
+
+`./run.sh --setup` downloads every voice below. To fetch one by hand, put its `.onnx` and `.onnx.json`
+files in `~/.local/share/piper-voices`:
 
 ```bash
 mkdir -p ~/.local/share/piper-voices
 cd ~/.local/share/piper-voices
 
-# Spanish (medium quality) — default
+# Spanish (medium quality) — the Spanish default
 wget https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx
 wget https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json
+
+# German (medium quality) — the German default
+wget https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx
+wget https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx.json
 ```
+
+| Voice | Language | Notes |
+|---|---|---|
+| `es_ES-davefx-medium` | Spanish | Default for Spanish |
+| `es_AR-daniela-high` | Spanish | Female, fast |
+| `de_DE-thorsten-medium` | German | Default for German |
+| `de_DE-kerstin-low` | German | Female, lower quality |
+
+Each language remembers its own voice, chosen in Settings. A language whose voice isn't installed still
+works in text; the chat says how to download the voice, and nothing is read aloud in another voice.
 
 Browse all available voices at [huggingface.co/rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices/tree/main).
 
@@ -96,7 +114,7 @@ cp .env.example backend/.env
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OPEN_LANGUAGE_DB_PATH` | `~/.open-language/app.db` | SQLite database file |
-| `OPEN_LANGUAGE_TTS_VOICE` | `es_ES-davefx-medium` | Piper voice model name (without extension) |
+| `OPEN_LANGUAGE_TTS_VOICE` | `es_ES-davefx-medium` | Not used: the voice is chosen per practice language in Settings |
 | `OPEN_LANGUAGE_VOICE_DIR` | `~/.local/share/piper-voices` | Directory containing `.onnx` voice files |
 | `OPEN_LANGUAGE_OLLAMA_URL` | `http://localhost:11434` | Ollama server URL |
 | `OPEN_LANGUAGE_OLLAMA_MODEL` | `llama3.1:8b` | Ollama model (must match `ollama list`) |
