@@ -82,8 +82,8 @@ No existing row is updated.
 - pytest: unit, contract and integration; ≥ 90% coverage; the existing `benchmark` marker for the
   two hand-run benchmarks (SC-002, SC-003).
 - Vitest for hooks and components.
-- Playwright E2E, mandatory for every frontend change (new `practice-language.spec.ts`, and seven
-  existing specs extended).
+- Playwright E2E, mandatory for every frontend change (new `practice-language.spec.ts`, which holds
+  the Chat language checks, and six existing specs extended).
 
 **Target Platform**: Linux desktop, local-first. Ollama, Piper and faster-whisper by default;
 Claude is opt-in (004). German must work fully offline after setup (SC-007).
@@ -137,13 +137,19 @@ reviewed.
    - custom-scenario titles are generated in English, because they are interface text (FR-011).
 
    Neither depends on the practice language, so there is no German-specific behaviour to add.
-4. **FR-018's plain message** appears in three places:
+4. **FR-018 is surfaced in three places**, and two of them say the same thing:
    - one persistent notice per German conversation, with no per-reply errors;
-   - a hint under the Settings voice field;
-   - the flashcard play button's failure text.
+   - the flashcard play button's failure text;
+   - a hint under the Settings voice field.
 
-   All three carry the same backend-generated sentence (`voice_unavailable_message`), so they
-   cannot drift apart.
+   The chat notice and the flashcard text carry the same backend-generated sentence
+   (`voice_unavailable_message`), so they cannot drift apart.
+
+   The Settings hint is different by necessity. It describes **one voice**, not a language. If
+   Kerstin is missing while Thorsten is installed, German as a whole is still speakable, so the
+   per-language sentence would be wrong there. The hint is therefore a short per-voice status
+   ("Not installed. Run ./run.sh --setup to download it."), driven by `VoiceResponse.is_installed`
+   (contracts §3, §10).
 5. **FR-020, "statistics count only German practice"**, includes the streak and "sessions this week".
    A day with only Spanish practice does not extend the German streak.
 6. **SC-002, "no English or Spanish words"**, does not count proper nouns (Berlin, Maria) or
@@ -181,12 +187,12 @@ bottom of this section.*
 | **IV. Accessibility** | ✅ | Native radio inputs in a `<fieldset>`/`<legend>`. The voice notice is `role="status"`. Tags use design-system tokens (`--color-text-muted`, `--radius-lg`) with no hardcoded colours. There is a manual check in quickstart §5. |
 | **V. Compartmentalization** | ✅ | `app.practice_languages` exposes an eight-name interface (contracts §9). Routers, flashcards and corrections import only its package root. It owns no tables. `voice_choices` belongs to settings storage, like `app_settings`. |
 | **V. Abstractions before implementations** | ✅ | `VoiceInstallation` and `SpeechForLanguage` are declared, and tested with fakes, before `PiperVoiceInstallation` is written. |
-| **V. No feature-flag / if-debug guards** | ✅ | No code branches on `"de"` or `"es"`. Every language difference is catalogue data. A test greps `backend/app` and `frontend/src` (excluding the catalogue and fixtures) for the literals `'de'`/`"de"`. |
+| **V. No feature-flag / if-debug guards** | ✅ | No code branches on `"de"` or `"es"`. Every language difference is catalogue data. A test greps `backend/app` and `frontend/src` (excluding the catalogue, the voice catalogue and test files) for the quoted literals `'es'`, `"es"`, `'de'` and `"de"`. The one existing hit, `AppSettings.target_language`'s `default="es"`, is changed to `DEFAULT_PRACTICE_LANGUAGE`. |
 | **VI. Provider independence** | ✅ | No LLM, STT or TTS provider class changes contract. TTS selection goes through a factory-built abstraction. A missing voice is reported, never replaced (**no silent fallback**). German works identically on Ollama and Claude, and selecting German never changes the provider (FR-026). Nothing new leaves the machine. |
-| **Playwright E2E for frontend changes** | ✅ | New `practice-language.spec.ts`; `settings`, `home`, `chat`, `history`, `flashcards`, `flashcard-practice` and `flashcard-analytics` specs extended; new fixtures (contracts §10). |
+| **Playwright E2E for frontend changes** | ✅ | New `practice-language.spec.ts` (Settings, Home, Chat and voice-missing journeys); `settings`, `home`, `history`, `flashcards`, `flashcard-practice` and `flashcard-analytics` specs extended; new fixtures (contracts §10). |
 | **Linting (ruff, black, ESLint, Prettier)** | ✅ | No tooling change. |
 
-**Initial gate: PASS**, with one recorded Complexity Tracking item (long React page components that
+**Initial gate: PASS**, with two recorded Complexity Tracking items (long React page components that
 gain a single hook call or element).
 
 ### Function-length plan (Boy Scout, quality gate)
@@ -311,6 +317,9 @@ backend/
         │   ├── test_german_benchmark.py          # @benchmark SC-002
         │   └── test_transcription_benchmark.py   # @benchmark SC-003
         └── routers/                              # existing settings/audio/learning/vocabulary tests extended
+    ├── support/fake_speech.py              # NEW: FakeVoiceInstallation, RecordingTtsBuilder, override_speech;
+    │                                       #   replaces every get_tts / PiperTTSProvider test double
+    └── fixtures/schema_005.sql             # NEW: frozen pre-006 schema for the SC-005 upgrade tests
 
 run.sh                                      # + de_DE-thorsten-medium, de_DE-kerstin-low in PIPER_VOICES
 
@@ -341,7 +350,7 @@ frontend/
 └── e2e/
     ├── practice-language.spec.ts           # NEW
     ├── fixtures.ts                         # + language fixtures; codes, not names
-    └── settings, home, chat, history, flashcards, flashcard-practice, flashcard-analytics specs  # extended
+    └── settings, home, history, flashcards, flashcard-practice, flashcard-analytics specs  # extended
 ```
 
 **Structure Decision**: the existing web-application layout (`backend/app`, `frontend/src`). The new
@@ -358,13 +367,18 @@ are omitted from the tree.
    - `VoiceInfo.language` and the German voices;
    - `run.sh`;
    - `voice_choices` with its seed and `AppSettingsRecord.voice_choices`;
-   - `VoiceInstallation`, `SpeechForLanguage` and the factory wiring (`get_tts` removed);
+   - `VoiceInstallation`, `SpeechForLanguage`, the factory wiring (`get_tts` kept until its callers
+     move), and the shared `tests/support/fake_speech.py` double;
    - the 503 handler;
    - settings validation and the practice-languages endpoint;
-   - `ConversationLanguages` at every prompt call site (names, not codes);
-   - the SC-005 preservation test.
+   - conversation `*_name` fields;
+   - the SC-005 preservation test, built from the frozen `schema_005.sql`.
 2. **US1 (P1): German conversation, the MVP**:
-   - TTS by conversation language in chat and the audio endpoint;
+   - `ConversationLanguages` at every prompt call site (names, not codes);
+   - learning aids resolved from the conversation (R9: `learning.py`, and the helper by
+     `conversation_id`), because German-aware tools are part of this story;
+   - TTS by text language in chat, the audio endpoint **and flashcard word audio**, so the MVP
+     never speaks a word in another language's voice (FR-018);
    - transcription language validation;
    - Settings `PracticeLanguageFieldset`, with the form's voice list following the language;
    - Home `PracticeLanguageNote`;
@@ -373,11 +387,10 @@ are omitted from the tree.
    - E2E.
 
    **Run both benchmarks here**, before anything else is built on the adherence and transcription
-   assumptions.
+   assumptions. A hand-run `claude_live` German turn checks the Claude provider (FR-026).
 3. **US2 (P1): switching without loss**:
-   - learning aids resolved from the conversation (R9: `learning.py`, helper `conversation_id`,
-     `vocabulary.py`);
-   - conversation `*_name` fields and Past Chats labels;
+   - the saved word's language from its source conversation (`vocabulary.py`);
+   - Past Chats labels;
    - the cross-switch integration tests (FR-006, FR-009, FR-013, FR-014, FR-019; US2-2–US2-5);
    - the remembered Spanish voice (US2-4).
 4. **US3 (P2): flashcards per language**:
@@ -386,7 +399,7 @@ are omitted from the tree.
    - `AnalyticsService(language)`, and `SessionService` on the session's language;
    - router `?language=` and the 422;
    - LLM-cache names;
-   - word TTS;
+   - deleting `get_tts` once all three callers have moved;
    - frontend flashcards hooks and `AudioControls`;
    - E2E.
 5. **US4 (P3): choosing a German voice**:
@@ -408,3 +421,4 @@ are omitted from the tree.
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |---|---|---|
 | Seven React components stay over 20 lines while this feature modifies them: `Chat` (~480), `Home` (~270), `History` (~170), `Flashcards` (~315), `FlashcardDecks` (~295), `FlashcardAnalytics` (~160), `DeckConfigPanel` (~305) | Each change is one hook call or one self-loading element, with no new state, effects or handlers in the page:<br>• `Chat` swaps two settings-derived `useState`s for `useConversationLanguage`, and adds a header tag and a notice;<br>• `Home` adds `<PracticeLanguageNote />`;<br>• `History` renders one field per row;<br>• the three Flashcards pages replace an inline `useQuery` with a language-keyed hook, a net *reduction* in length;<br>• `DeckConfigPanel` adds `language` to the create payload from `usePracticeLanguages`. | Splitting these pages is the large frontend refactor that 004 and 005 already recorded as a follow-up (`useChatStream`, `useRecorderFlow` and the flashcard page splits). Doing it here would put E2E risk unrelated to languages into this diff, across seven screens. `AudioControls` (52 lines) *is* brought under the limit here, because its logic changes (function-length plan). |
+| `Settings` page body in `frontend/src/pages/Settings.tsx` stays at ~33 lines while this feature adds `<PracticeLanguageFieldset>` to it | The page is declarative composition only: one `useSettingsForm()` call and an ordered list of section components, with no logic, state or handlers. The change adds one element and passes `form.voicesForLanguage` instead of `form.voices`. This is the same shape, and the same justification, as 005's Complexity Tracking row for this page. | Nesting the layout in wrapper components to reach 20 lines would add indirection without separating any responsibility. The function-length rule exists to split *logic*, and there is none in the page. |

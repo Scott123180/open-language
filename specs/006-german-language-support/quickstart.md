@@ -81,9 +81,22 @@ If SC-002 fails on `llama3.1:8b`, record it in `docs/architecture.md` § "Open i
 `OPEN_LANGUAGE_WHISPER_MODEL=small`. If that passes, document `small` as the recommended German
 setting.
 
+**Claude (FR-026)**: if you use Claude as the conversation partner, also run the hand-run German
+turn. It needs your signed-in Claude Code, and is deselected by default like the benchmarks:
+
+```bash
+backend/.venv/bin/pytest -m claude_live tests/live -k german
+```
+
+**Expected**: the reply is in German, with no flagged non-German word.
+
 ## 4. Manual walkthrough: the spec's stories
 
 Keep a stopwatch for step 1.
+
+**Steps 1–7 are the SC-004 feature checklist**: every conversation and flashcard feature that
+Spanish has, exercised once in German. Run them once with Ollama selected, and once with Claude
+if you use it (FR-026). SC-004 passes when every step's **Expected** holds.
 
 1. **US1, SC-001**: From Home, note the "Practising **Spanish**" line. Open Settings, choose
    **German**, and Save. Go back to Home: it now says "Practising **German**". Start *Order at a
@@ -158,7 +171,7 @@ done
      - one plain notice says the German voice isn't installed and to run `./run.sh --setup`;
      - there is no audio and no Spanish voice;
      - text chat still works;
-     - Settings shows the same hint under Voice;
+     - Settings shows the per-voice hint "Not installed. Run ./run.sh --setup to download it." under Voice;
      - a German flashcard's play button shows the same message.
   2. Restore the file.
 - **Accessibility (Constitution IV, manual)**, on Settings, Home, Chat and Past Chats:

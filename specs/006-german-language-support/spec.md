@@ -5,6 +5,18 @@
 **Status**: Draft
 **Input**: User description: "Now let's expand the program. On top of Spanish, I want the ability to choose German. This can be configured in the settings as well. So most everything stays the same about the program, except there's an option to choose another language to have a conversation in. That language, for now will be German"
 
+## Clarifications
+
+### Session 2026-09-26
+
+- Q: Does "a capitalised German noun is not treated … as a different word from its correct
+  capitalised form" mean that a lowercase "haus" should match a saved "Haus"? → A: No. It means the
+  capitalised form is preserved exactly, never lowercased, and never flagged. Words are identified by
+  their exact spelling, so "Haus" and "haus" stay separate (Edge Cases updated).
+- Q: What is the "Spanish feature checklist" in SC-004? → A: The feature walkthrough in the
+  validation guide, which uses every conversation tool and every flashcard screen once (SC-004
+  updated).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Learner practises a conversation in German (Priority: P1)
@@ -141,8 +153,10 @@ already selected, and the chosen voice is used for the next partner reply.
   Spanish.
 - **German typing**: the learner can type ä, ö, ü and ß (and their capitals), and word lookup, saving
   and flashcards keep them exactly as typed.
-- **German noun capitalisation**: a capitalised German noun is not treated as a mistake or as a
-  different word from its correct capitalised form.
+- **German noun capitalisation**: a capitalised German noun is kept exactly as written. It is
+  never lowercased when it is looked up, saved or shown, and corrections never flag capitalisation.
+  Only the exact spelling identifies a saved word, so "Haus" and a miscapitalised "haus" are two
+  separate entries; the app does not merge them.
 - **Regional German**: corrections do not flag words or constructions that are standard in Austria
   or Switzerland as errors, in the same way Spanish corrections accept regional variants.
 - **Learner speaks the other language**: in a German conversation, Spanish speech is transcribed as
@@ -243,7 +257,8 @@ already selected, and the chosen voice is used for the next partner reply.
 - **SC-003**: On a fixed set of 20 spoken German sentences, at least 90% are transcribed with their
   meaning intact and umlauts and ß spelled correctly.
 - **SC-004**: 100% of conversation and flashcard features on a Spanish feature checklist also work
-  in German (FR-008, FR-020, FR-022).
+  in German (FR-008, FR-020, FR-022). The checklist is the feature walkthrough in the validation
+  guide, which uses every conversation tool and every flashcard screen once.
 - **SC-005**: After updating, then switching to German and back to Spanish, 100% of pre-existing
   Spanish conversations, words, decks and practice records are present and unchanged.
 - **SC-006**: With German selected, no Spanish word, deck or practice record appears on any
