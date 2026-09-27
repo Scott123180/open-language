@@ -112,9 +112,11 @@ if you use it (FR-026). SC-004 passes when every step's **Expected** holds.
    **Expected**:
    - the German-side text is in German, and every explanation is in English;
    - the helper panel label reads **English → German**.
-4. **US1-5**: Turn on Gentle corrections and write "Ich habe gestern nach Berlin gefahren."
+4. **US1-5**: Turn on Strict corrections and write "Ich habe gestern nach Berlin gefahren."
    **Expected**: a correction to `bin … gefahren`, explained in English. "Grüß Gott" and "Servus"
-   are **not** flagged (regional German).
+   are **not** flagged (regional German). (Gentle shows no note by design: its correction is the
+   partner restating the sentence in the reply.) On `llama3.1:8b` the correction is unreliable, as
+   003 recorded for Spanish; see `validation.md`.
 5. **US1-6**: Set the level to Beginner in the chat header. Expected: short, simple German replies.
    The experimental warnings are still shown on Settings.
 6. **US1-7**: Write "Where is the bathroom?" in English. Expected: the partner asks you, in German,

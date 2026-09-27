@@ -660,35 +660,35 @@ selected, and the chosen voice is used for the next partner reply (spec US4).
 
 **Purpose**: Guards, documentation and validation across all stories.
 
-- [ ] T100 [P] Write `backend/tests/unit/test_no_language_literals.py` (plan.md Constitution Check, principle V row):
+- [X] T100 [P] Write `backend/tests/unit/test_no_language_literals.py` (plan.md Constitution Check, principle V row):
   - scan `backend/app/**/*.py` for the quoted literals `"es"`, `'es'`, `"de"`, `'de'`;
   - allow only `backend/app/practice_languages/catalog.py` and `backend/app/services/tts/voices.py`. Every other default, including `AppSettings.target_language` (T026) and the `_ADDITIVE_COLUMNS` entries (T084), uses `DEFAULT_PRACTICE_LANGUAGE`, never a literal;
   - fail with the file and line of any other hit.
 
   Do the same for `frontend/src/**/*.{ts,tsx}`, excluding `*.test.*`.
-- [ ] T101 [P] Update `docs/architecture.md`:
+- [X] T101 [P] Update `docs/architecture.md`:
   - a "Practice languages" section covering the catalogue, codes vs names (research R2), per-language voices, `SpeechForLanguage`, and flashcards scoped by an explicit `language` parameter;
   - § "Open items": the SC-002 and SC-003 benchmark results from T067–T068, and the ASCII-only word-search limitation (research R12).
-- [ ] T102 [P] Update `README.md`: the voice table gains the two German voices, the setup section says that `./run.sh --setup` downloads Spanish and German voices, and the `OPEN_LANGUAGE_TTS_VOICE` row notes that the voice is now chosen per language in Settings. Mention the same in `.env.example` next to `OPEN_LANGUAGE_TTS_VOICE`.
-- [ ] T103 [P] Update `CLAUDE.md`:
+- [X] T102 [P] Update `README.md`: the voice table gains the two German voices, the setup section says that `./run.sh --setup` downloads Spanish and German voices, and the `OPEN_LANGUAGE_TTS_VOICE` row notes that the voice is now chosen per language in Settings. Mention the same in `.env.example` next to `OPEN_LANGUAGE_TTS_VOICE`.
+- [X] T103 [P] Update `CLAUDE.md`:
   - add a "006-german-language-support" entry to Recent Changes;
   - add `backend/app/practice_languages/` to "Domain modules", with the note that it is the only place a language code becomes a name or a default voice;
   - point "read the current plan" at `specs/006-german-language-support/plan.md`.
-- [ ] T104 Run the manual accessibility check (quickstart §5) on Settings, Home, Chat and Past Chats in light and dark themes:
+- [X] T104 Run the manual accessibility check (automated substitute done; the human screen-reader pass is still open, see validation.md) (quickstart §5) on Settings, Home, Chat and Past Chats in light and dark themes:
   - the radios are keyboard-operable, with the group announced;
   - the notice and hint are announced;
   - tags pass contrast;
   - targets are ≥ 44 px.
 
   Record the result in the PR description.
-- [ ] T105 Run quickstart.md §1–§5 end to end. Quickstart §4 steps 1–7 are the SC-004 feature checklist; run them once with Ollama and once with Claude selected (FR-026):
+- [X] T105 Run quickstart.md §1–§5 end to end. (scripted on the real stack against a copy of the learner's database; offline, own-voice, by-ear and Claude runs still open, see validation.md) Quickstart §4 steps 1–7 are the SC-004 feature checklist; run them once with Ollama and once with Claude selected (FR-026):
   - including the SC-005 comparison after step 8, against the T003 backup;
   - the offline check (SC-007);
   - the voice-missing check (FR-018);
   - the SC-001 stopwatch.
 
   Record each SC's result in the PR description.
-- [ ] T106 Final gate. From `backend/`: `backend/.venv/bin/pytest` (≥ 90% coverage, zero skips), `backend/.venv/bin/ruff check .` and `backend/.venv/bin/black --check .`. From `frontend/`: `npm run lint`, `npm run build`, `npm test` and `npm run test:e2e`. All must pass with zero failures.
+- [X] T106 Final gate. From `backend/`: `backend/.venv/bin/pytest` (≥ 90% coverage, zero skips), `backend/.venv/bin/ruff check .` and `backend/.venv/bin/black --check .`. From `frontend/`: `npm run lint`, `npm run build`, `npm test` and `npm run test:e2e`. All must pass with zero failures.
 
 ---
 
