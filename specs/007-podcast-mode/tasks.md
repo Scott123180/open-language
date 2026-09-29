@@ -81,19 +81,19 @@ gives:
 
 **Purpose**: Package skeletons, a green baseline, and the frozen pre-007 schema.
 
-- [ ] T001 [P] Create empty package files:
+- [X] T001 [P] Create empty package files:
   - `backend/app/podcasts/__init__.py`, `backend/app/podcasts/services/__init__.py`;
   - `backend/app/conversation_summary/__init__.py`, `backend/app/conversation_summary/services/__init__.py`;
   - `backend/app/conversation_turns/__init__.py`;
   - `backend/tests/unit/podcasts/__init__.py`, `backend/tests/unit/conversation_summary/__init__.py`, `backend/tests/unit/conversation_turns/__init__.py`;
   - `backend/tests/integration/podcasts/__init__.py`, `backend/tests/integration/conversation_summary/__init__.py`.
-- [ ] T002 Record the green baseline before any change:
+- [X] T002 Record the green baseline before any change:
   - from `backend/`: `backend/.venv/bin/pytest`, `backend/.venv/bin/ruff check .` and `backend/.venv/bin/black --check .`;
   - from `frontend/`: `npm run lint`, `npm run build`, `npm test` and `npm run test:e2e`.
 
   All must pass. Note any pre-existing failure in the PR description rather than fixing it here.
-- [ ] T003 Back up the local database: `cp ~/.open-language/app.db ~/.open-language/app.db.pre-007`. Quickstart §5 (SC-011) compares against it, so take it before the app runs any 007 code.
-- [ ] T004 Freeze the pre-007 schema as `backend/tests/fixtures/schema_006.sql`, as 006 did with `schema_005.sql`:
+- [X] T003 Back up the local database: `cp ~/.open-language/app.db ~/.open-language/app.db.pre-007`. Quickstart §5 (SC-011) compares against it, so take it before the app runs any 007 code.
+- [X] T004 Freeze the pre-007 schema as `backend/tests/fixtures/schema_006.sql`, as 006 did with `schema_005.sql`:
   - `git worktree add "$SCRATCH/wt-006" 736cde7` (the last 006 commit on `master`).
   - In that worktree, run `init_db()` against an empty database with `OPEN_LANGUAGE_DB_PATH` set to a scratch file, using this repository's `backend/.venv/bin/python`.
   - `sqlite3 <file> .schema > backend/tests/fixtures/schema_006.sql`, then `git worktree remove "$SCRATCH/wt-006"`.
