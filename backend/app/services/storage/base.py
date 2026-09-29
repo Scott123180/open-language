@@ -7,6 +7,9 @@ from app.conversation_levels import DEFAULT_CONVERSATION_LEVEL
 from app.services.llm.catalog import DEFAULT_PROVIDER_ID
 from app.services.llm.selection_types import DEFAULT_EFFORT
 
+DEFAULT_SUMMARY_LANGUAGE = "conversation"
+"""A summary opens in the conversation's own language until the learner picks English."""
+
 
 @dataclass(frozen=True)
 class ConversationRecord:
@@ -69,6 +72,7 @@ class AppSettingsRecord:
     llm_provider: str = DEFAULT_PROVIDER_ID
     llm_effort: str = DEFAULT_EFFORT
     conversation_level: str = DEFAULT_CONVERSATION_LEVEL.value
+    summary_language: str = DEFAULT_SUMMARY_LANGUAGE
     voice_choices: Mapping[str, str] = field(default_factory=dict)
     """The learner's explicit voice per practice-language code. No entry means the default."""
 

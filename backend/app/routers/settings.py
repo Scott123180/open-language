@@ -58,6 +58,7 @@ LLM_PROVIDER_PATTERN = f"^({'|'.join(PROVIDER_CATALOG)})$"
 LLM_EFFORT_PATTERN = f"^({'|'.join(EFFORT_LEVELS)})$"
 CONVERSATION_LEVEL_PATTERN = f"^({'|'.join(ConversationLevel)})$"
 PRACTICE_LANGUAGE_PATTERN = f"^({'|'.join(PRACTICE_LANGUAGES)})$"
+SUMMARY_LANGUAGE_PATTERN = "^(conversation|native)$"
 _VOICES_BY_KEY: Mapping[str, VoiceInfo] = {voice.key: voice for voice in AVAILABLE_VOICES}
 
 
@@ -72,6 +73,7 @@ class SettingsResponse(BaseModel):
     whisper_model: str
     correction_mode: str
     conversation_level: str
+    summary_language: str
     updated_at: datetime
 
 
@@ -86,6 +88,7 @@ class UpdateSettingsRequest(BaseModel):
     whisper_model: str | None = Field(None, pattern="^(base|small|medium)$")
     correction_mode: str | None = Field(None, pattern="^(off|gentle|strict)$")
     conversation_level: str | None = Field(None, pattern=CONVERSATION_LEVEL_PATTERN)
+    summary_language: str | None = Field(None, pattern=SUMMARY_LANGUAGE_PATTERN)
 
 
 class ModelOptionResponse(BaseModel):
@@ -156,6 +159,7 @@ def _to_response(record: AppSettingsRecord) -> SettingsResponse:
         whisper_model=record.whisper_model,
         correction_mode=record.correction_mode,
         conversation_level=record.conversation_level,
+        summary_language=record.summary_language,
         updated_at=record.updated_at,
     )
 

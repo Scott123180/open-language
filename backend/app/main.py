@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import Settings, get_settings
+from app.conversation_summary import router as summary_router
 from app.corrections.router import router as corrections_router
 from app.database import init_db
 from app.flashcards.router import router as flashcards_router
@@ -53,6 +54,7 @@ app.include_router(settings_router.router, prefix="/api")
 app.include_router(flashcards_router, prefix="/api")
 app.include_router(corrections_router, prefix="/api")
 app.include_router(podcasts_router)
+app.include_router(summary_router)
 
 
 @app.exception_handler(LLMError)

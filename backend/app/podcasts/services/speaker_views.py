@@ -4,6 +4,8 @@ Both views are constructed only in `services/factory.py`, which wires them to th
 interfaces their callers declare.
 """
 
+from collections.abc import Mapping
+
 from app.podcasts.catalog import PODCAST_SCENARIO_ID
 from app.podcasts.services.storage import HostRecord, PodcastStorage
 from app.services.storage.base import StorageProvider
@@ -56,3 +58,27 @@ class PodcastMessageVoices(MessageVoiceLookup):
         if host is None:
             return super().unavailable_message(message_id)
         return host_voice_unavailable_message(host.name)
+
+
+class PodcastSpeakerNames:
+    """Who said each line of an episode, for its summary (FR-037).
+
+    Host lines are named by their host; learner lines by the name the hosts use, when there is
+    one. A conversation that is not an episode has no names (None). The factory adapts this to
+    the summary module's `SpeakerNames`; the two modules never import each other.
+    """
+
+    def __init__(self, podcasts: PodcastStorage, conversations: StorageProvider) -> None:
+        self._podcasts = podcasts
+        self._hosts = _EpisodeHosts(podcasts, conversations)
+
+    def names_for(self, conversation_id: int) -> Mapping[int, str] | None:
+        if not self._hosts.is_episode(conversation_id):
+            return None
+        episode = self._podcasts.get_episode(conversation_id)
+        hosts = {host.host_id: host.name for host in self._podcasts.get_hosts(conversation_id)}
+        return {
+            line.message_id: hosts[line.host.host_id] if line.host else episode.learner_name
+            for line in self._podcasts.get_lines(conversation_id)
+            if line.host or episode.learner_name
+        }

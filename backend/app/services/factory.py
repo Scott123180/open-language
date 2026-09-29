@@ -7,6 +7,9 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.conversation_summary import SpeakerNames
+from app.conversation_summary.services.sqlite_storage import SQLiteSummaryStorage
+from app.conversation_summary.services.storage import SummaryStorage
 from app.corrections import build_correction_strategy
 from app.corrections.services.evaluator import LlmCorrectionEvaluator
 from app.corrections.services.sqlite_storage import SQLiteCorrectionStorageProvider
@@ -17,7 +20,7 @@ from app.flashcards.services.sqlite_storage import SQLiteFlashcardStorageProvide
 from app.flashcards.services.storage import FlashcardStorageProvider
 from app.podcasts.services.casting import HostCaster
 from app.podcasts.services.episode_lock import EpisodeLocks
-from app.podcasts.services.speaker_views import PodcastMessageVoices
+from app.podcasts.services.speaker_views import PodcastMessageVoices, PodcastSpeakerNames
 from app.podcasts.services.sqlite_storage import SQLitePodcastStorage
 from app.podcasts.services.storage import PodcastStorage
 from app.practice_languages import voice_for, voice_unavailable_message
@@ -165,6 +168,27 @@ def get_message_voices(
 ) -> MessageVoiceLookup:
     """A host line is spoken in its host's voice; the audio router never imports podcasts."""
     return PodcastMessageVoices(podcasts, conversations)
+
+
+def get_summary_storage(db: Session = Depends(get_db)) -> SummaryStorage:
+    return SQLiteSummaryStorage(db)
+
+
+class _PodcastSpeakerNamesAdapter(SpeakerNames):
+    """The podcast names, as the summary module asks for them. Neither module imports the other."""
+
+    def __init__(self, names: PodcastSpeakerNames) -> None:
+        self._names = names
+
+    def names_for(self, conversation_id: int) -> Mapping[int, str] | None:
+        return self._names.names_for(conversation_id)
+
+
+def get_speaker_names(
+    podcasts: PodcastStorage = Depends(get_podcast_storage),
+    conversations: StorageProvider = Depends(get_storage),
+) -> SpeakerNames:
+    return _PodcastSpeakerNamesAdapter(PodcastSpeakerNames(podcasts, conversations))
 
 
 @lru_cache

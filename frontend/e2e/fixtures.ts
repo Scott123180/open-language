@@ -749,3 +749,40 @@ export async function mockLineStream(page: Page, action: string, bodies: string[
   })
   return { requests }
 }
+
+// ── Conversation summary (007 US6, contracts §9) ──────────────────────────────
+
+export function summaryFixture(conversationId = 1, points = [
+  { conversation_language: 'Pides un café con leche.', english: 'You order a white coffee.' },
+  { conversation_language: 'Ahora preguntas el precio.', english: 'Now you ask the price.' },
+]) {
+  return {
+    status: 'ready',
+    conversation_id: conversationId,
+    up_to_message_id: 9,
+    conversation_language: 'es',
+    conversation_language_name: 'Spanish',
+    native_language_name: 'English',
+    points,
+  }
+}
+
+export const TOO_EARLY_SUMMARY = {
+  status: 'too_early',
+  message: "There's nothing to summarise yet. Come back after the next line.",
+}
+
+/** Settings whose summary language follows the learner's PUTs, and the PUT bodies sent. */
+export async function mockSummarySettings(page: Page, initial: 'conversation' | 'native' = 'conversation') {
+  const puts: unknown[] = []
+  let summaryLanguage = initial
+  await page.route('/api/settings', (route) => {
+    if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON()
+      puts.push(body)
+      summaryLanguage = body.summary_language ?? summaryLanguage
+    }
+    return route.fulfill({ json: { ...mockSettings, summary_language: summaryLanguage } })
+  })
+  return { puts }
+}

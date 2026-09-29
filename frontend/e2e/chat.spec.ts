@@ -437,3 +437,15 @@ test.describe('Chat page — resuming a conversation', () => {
     await expect(page.getByLabel('Type a message')).toBeEnabled()
   })
 })
+
+test.describe('Chat — conversation summary (007 US6)', () => {
+  test('a Summary button appears under the header, which keeps everything else', async ({ page }) => {
+    await setupChatRoutes(page)
+    await page.goto(CHAT_URL)
+
+    await expect(page.getByRole('button', { name: 'Summary' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'End Chat' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Chat' })).toBeVisible()
+    await expect(page.getByLabel('Type a message')).toBeVisible()
+  })
+})

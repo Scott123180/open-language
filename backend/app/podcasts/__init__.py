@@ -6,9 +6,9 @@ factory and the router can depend on each other's modules without an import cycl
 """
 
 from app.podcasts.catalog import PODCAST_SCENARIO_ID
-from app.podcasts.services.speaker_views import PodcastMessageVoices
+from app.podcasts.services.speaker_views import PodcastMessageVoices, PodcastSpeakerNames
 
-__all__ = ["router", "PODCAST_SCENARIO_ID", "PodcastMessageVoices"]
+__all__ = ["router", "PODCAST_SCENARIO_ID", "PodcastMessageVoices", "PodcastSpeakerNames"]
 
 
 def __getattr__(name: str):

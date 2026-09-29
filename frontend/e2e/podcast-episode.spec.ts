@@ -151,3 +151,19 @@ test.describe('Podcast episode — Listen', () => {
     await expect(page.getByRole('button', { name: 'Continue' })).toHaveCount(0)
   })
 })
+
+test.describe('Podcast episode — small screens', () => {
+  test('the header and the summary bar fit a 360 px screen', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 740 })
+    await mockPodcastApis(page)
+    await mockLineStream(page, 'next', [makeLineSseBody(lineFrame(OPENING, 'learner'))])
+    await page.goto('/podcasts/episodes/57')
+    await expect(page.getByText(OPENING.content)).toBeVisible()
+
+    const overflow = await page.locator('header').evaluate((el) => el.scrollWidth - el.clientWidth)
+    const summary = await page.getByRole('button', { name: 'Summary' }).boundingBox()
+
+    expect(overflow).toBe(0)
+    expect(summary!.x + summary!.width).toBeLessThanOrEqual(360)
+  })
+})

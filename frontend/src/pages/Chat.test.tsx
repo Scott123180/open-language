@@ -712,3 +712,11 @@ describe('Chat — the conversation keeps its own language (006 US1)', () => {
     expect(playedSources).toHaveLength(0)
   })
 })
+
+describe('Chat — conversation summary (007 US6)', () => {
+  it('offers a Summary button at the top of the conversation', async () => {
+    await renderResumed()
+
+    expect(screen.getByRole('button', { name: 'Summary' })).toHaveAttribute('aria-expanded', 'false')
+  })
+})

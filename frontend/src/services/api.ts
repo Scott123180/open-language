@@ -57,8 +57,30 @@ export interface AppSettings {
   whisper_model: string
   correction_mode: CorrectionMode
   conversation_level: ConversationLevelId
+  summary_language?: SummaryLanguage
   updated_at: string
 }
+
+/** A summary opens in the conversation's language or in English, the learner's last choice. */
+export type SummaryLanguage = 'conversation' | 'native'
+
+export interface SummaryPoint {
+  conversation_language: string
+  english: string
+}
+
+/** GET /api/conversations/{id}/summary (007 contracts §9). */
+export type ConversationSummary =
+  | {
+      status: 'ready'
+      conversation_id: number
+      up_to_message_id: number
+      conversation_language: string
+      conversation_language_name: string
+      native_language_name: string
+      points: SummaryPoint[]
+    }
+  | { status: 'too_early'; message: string }
 
 export type CorrectionMode = 'off' | 'gentle' | 'strict'
 
@@ -178,6 +200,9 @@ export const getConversations = (): Promise<Conversation[]> =>
 
 export const getConversation = (conversationId: number): Promise<Conversation> =>
   apiFetch(`/conversations/${conversationId}`)
+
+export const getConversationSummary = (conversationId: number): Promise<ConversationSummary> =>
+  apiFetch(`/conversations/${conversationId}/summary`)
 
 export const getMessages = (conversationId: number): Promise<Message[]> =>
   apiFetch(`/conversations/${conversationId}/messages`)

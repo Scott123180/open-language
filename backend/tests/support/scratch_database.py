@@ -16,6 +16,7 @@ def _configure_sqlite(dbapi_conn, _record) -> None:
 
 
 def _register_models() -> None:
+    import app.conversation_summary.models  # noqa: F401
     import app.corrections.models  # noqa: F401
     import app.flashcards.models  # noqa: F401
     import app.podcasts.models  # noqa: F401

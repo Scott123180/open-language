@@ -84,6 +84,7 @@ def _settings_to_record(s: AppSettings, voice_choices: dict[str, str]) -> AppSet
         llm_provider=s.llm_provider,
         llm_effort=s.llm_effort,
         conversation_level=s.conversation_level,
+        summary_language=s.summary_language,
         voice_choices=voice_choices,
     )
 

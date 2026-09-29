@@ -5,6 +5,7 @@ import { useEpisodeAudio } from '../../hooks/podcasts/useEpisodeAudio'
 import { useContinueFocus } from '../../hooks/podcasts/useContinueFocus'
 import { useShowText } from '../../hooks/podcasts/useShowText'
 import ShowTextSwitch from './ShowTextSwitch'
+import SummaryBar from '../chat/SummaryBar'
 import EpisodeHeader from './EpisodeHeader'
 import HostVoiceNotices from './HostVoiceNotices'
 import TurnBanner from './TurnBanner'
@@ -24,10 +25,12 @@ export default function EpisodeView({ state, episode }: { state: PodcastEpisode;
   return (
     <main style={layoutStyle}>
       <EpisodeHeader episode={episode} />
+      <SummaryBar conversationId={episode.conversation_id} lastMessageId={state.lines[state.lines.length - 1]?.message_id}>
+        {state.isListening && <ShowTextSwitch isOn={showText.isOn} onChange={showText.change} />}
+      </SummaryBar>
       <HostVoiceNotices hosts={episode.hosts} />
       <PlainNotice message={episode.shared_voice_notice} />
       <TurnBanner turn={state.turn} speakerName={lastSpeakerName(state.lines, episode.hosts)} />
-      {state.isListening && <ShowTextSwitch isOn={showText.isOn} onChange={showText.change} />}
       <EpisodeTranscript conversationId={episode.conversation_id} lines={state.lines} hosts={episode.hosts} notes={state.notes} audio={audio} isHidden={showText.isHidden} onReveal={state.reveal} />
       <EpisodeError message={state.error} onRetry={state.retry} />
       <EpisodeFooter state={state} continueRef={continueRef} />

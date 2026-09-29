@@ -120,3 +120,21 @@ def test_the_podcast_tables_exist_after_the_upgrade(upgraded):
     db_file, _before = upgraded
 
     assert _tables(db_file) >= PODCAST_TABLES
+
+
+# --- US6: the summary table and the summary language (T083) ---------------------------
+
+
+def test_the_summaries_table_exists_after_the_upgrade(upgraded):
+    db_file, _before = upgraded
+
+    assert "conversation_summaries" in _tables(db_file)
+
+
+def test_the_existing_settings_summarise_in_the_conversations_language(upgraded):
+    db_file, _before = upgraded
+
+    with sqlite3.connect(db_file) as conn:
+        stored = conn.execute("SELECT summary_language FROM app_settings WHERE id = 1").fetchone()
+
+    assert stored == ("conversation",)

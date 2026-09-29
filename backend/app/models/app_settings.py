@@ -9,6 +9,7 @@ from app.database import Base
 from app.practice_languages import DEFAULT_PRACTICE_LANGUAGE
 from app.services.llm.catalog import DEFAULT_PROVIDER_ID
 from app.services.llm.selection_types import DEFAULT_EFFORT
+from app.services.storage.base import DEFAULT_SUMMARY_LANGUAGE
 
 
 class AppSettings(Base):
@@ -35,6 +36,9 @@ class AppSettings(Base):
     correction_mode: Mapped[str] = mapped_column(String(10), nullable=False, default="off")
     conversation_level: Mapped[str] = mapped_column(
         String(12), nullable=False, default=DEFAULT_CONVERSATION_LEVEL.value
+    )
+    summary_language: Mapped[str] = mapped_column(
+        String(12), nullable=False, default=DEFAULT_SUMMARY_LANGUAGE
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

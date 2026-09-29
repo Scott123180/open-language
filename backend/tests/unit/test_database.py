@@ -387,10 +387,10 @@ class TestFlashcardLanguageColumns:
     def legacy_engine(self, tmp_path, monkeypatch):
         return _legacy_engine(tmp_path / "pre-006-flashcards.db", monkeypatch)
 
-    def test_the_two_language_columns_are_the_last_additive_columns(self):
+    def test_the_two_language_columns_follow_each_other_in_introduction_order(self):
         from app.database import _ADDITIVE_COLUMNS
 
-        assert _ADDITIVE_COLUMNS[-2:] == (
+        assert _ADDITIVE_COLUMNS[-3:-1] == (
             ("decks", "target_language VARCHAR(20) NOT NULL DEFAULT 'es'"),
             ("practice_sessions", "target_language VARCHAR(20) NOT NULL DEFAULT 'es'"),
         )
@@ -492,3 +492,35 @@ class TestPodcastTables:
         with fresh_engine.connect() as conn:
             tables = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master"))}
         assert set(self.EXPECTED) <= tables
+
+
+class TestSummaryStorage:
+    """007 T083: the summary language column and the summaries table (data-model §2.5, §2.6)."""
+
+    def test_the_summary_language_is_an_additive_column(self):
+        from app.database import _ADDITIVE_COLUMNS
+
+        assert (
+            "app_settings",
+            "summary_language VARCHAR(12) NOT NULL DEFAULT 'conversation'",
+        ) in _ADDITIVE_COLUMNS
+
+    def test_init_db_creates_the_summaries_table(self, tmp_path, monkeypatch):
+        from app import database
+
+        engine = create_engine(f"sqlite:///{tmp_path / 'summaries.db'}")
+        monkeypatch.setattr(database, "_engine", engine)
+
+        database.init_db()
+
+        with engine.connect() as conn:
+            rows = conn.execute(text("PRAGMA table_info(conversation_summaries)")).fetchall()
+            settings = {row[1] for row in conn.execute(text("PRAGMA table_info(app_settings)"))}
+        assert {row[1] for row in rows} == {
+            "conversation_id",
+            "up_to_message_id",
+            "level",
+            "points",
+            "created_at",
+        }
+        assert "summary_language" in settings

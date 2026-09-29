@@ -50,6 +50,7 @@ def get_db() -> Session:
 
 
 def init_db() -> None:
+    import app.conversation_summary.models  # noqa: F401 — registers the summaries table
     import app.corrections.models  # noqa: F401 — registers correction tables with Base
     import app.flashcards.models  # noqa: F401 — registers flashcard tables with Base
     import app.podcasts.models  # noqa: F401 — registers podcast tables with Base
@@ -87,6 +88,7 @@ _ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
         "practice_sessions",
         f"target_language VARCHAR(20) NOT NULL DEFAULT '{DEFAULT_PRACTICE_LANGUAGE}'",
     ),
+    ("app_settings", "summary_language VARCHAR(12) NOT NULL DEFAULT 'conversation'"),
 )
 """(table, column definition) pairs, in the order they were introduced."""
 
