@@ -209,7 +209,7 @@ Name banks, guest labels and the voice-sample sentence are **language data**. Th
 the only place a language code may appear (006, and `test_no_language_literals.py`). A third
 language adds its names in its one catalogue entry.
 
-Shuffle (FR-010) calls `HostCaster.recast(slot, other_host, learner_name)`: a new name and
+Shuffle (FR-010) calls `HostCaster.recast(slot, hosts, learner_name)`, with both current hosts so the new one can differ from the other host and from the one it replaces: a new name and
 personality, keeping the voice when there is no third voice to move to. The voice sample speaks
 `sample_line.format(name=…)` in the host's voice.
 
@@ -321,7 +321,8 @@ reviewed in the SC-007 benchmark, is the check.
   `app_settings` (`summary_language`, `'conversation'` or `'native'`), written through the existing
   `PUT /api/settings`, as `conversation_level` was in 005.
 
-**Rationale**: "saved with the learner's settings" in the spec is about persistence, not a table.
+**Rationale**: the spec now says the last format, interests and Show text are "saved with the
+learner's podcast preferences". Only the summary language is "saved with the learner's settings".
 Podcast-only preferences in a podcast table keep the settings router and `AppSettingsRecord` free
 of a feature they do not serve (Principle V). The summary language is cross-feature, and the
 settings record is where cross-feature choices already live.

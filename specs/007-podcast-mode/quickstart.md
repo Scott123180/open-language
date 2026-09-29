@@ -79,7 +79,7 @@ backend/.venv/bin/pytest -m benchmark tests/integration/conversation_summary -s
 | `test_host_language_benchmark.py` | ≥ 95% of host lines have no flagged foreign word, in both languages (SC-005; the 006 `wordfreq` check) | printed table |
 | `test_host_level_benchmark.py` | Host lines meet level limits at least as often as roleplay replies, at each level below Natural (SC-006; the 005 measure) | printed table |
 | `test_generator_benchmark.py` | ≥ 18 of 20 ideas give an on-topic, playable show; 20 Surprise me presses give ≥ 15 distinct topics (SC-007, SC-008) | printed table |
-| `test_podcast_latency_benchmark.py` | p90 time from `/next` to the `line` frame ≤ 5 s over 50 presses; also records `prompt_eval_count` on a Long episode (SC-009, research R14) | printed table |
+| `test_podcast_latency_benchmark.py` | p90 time from `/next` until the line's audio is ready (`GET /api/audio/tts/{message_id}` returns the WAV) ≤ 5 s over 50 presses, with the time to the `line` frame and the synthesis time printed separately; also records `prompt_eval_count` on a Long episode (SC-009 "starts playing", research R14) | printed table |
 | `test_summary_benchmark.py` | p90 ≤ 10 s from request to `ready` over 20 summaries (SC-014) | printed table + `summary-review-sheet.md` rows |
 
 **Review sheets**, filled by hand:
@@ -176,7 +176,7 @@ Keep a stopwatch for step 1.
    - at Beginner, the next line is short and simple;
    - the episode stays in Spanish with the same hosts;
    - a new episode starts in German with German names and voices.
-10. **Voice edge cases**:
+10. **Voice edge cases** (walked with US2, where the notices ship):
     - Temporarily move `es_ES-davefx-medium.onnx` out of `~/.local/share/piper-voices`. Open the
       Panel setup, then resume the Panel episode.
     - Restore the file afterwards.

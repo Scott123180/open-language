@@ -99,8 +99,10 @@ Claude is opt-in (004). A Panel episode with speech must work fully offline (SC-
 **Project Type**: Web application (FastAPI backend + Vite/React frontend).
 
 **Performance Goals**:
-- ≤ 5 s from Continue to the next host line at p90 on the default local setup (SC-009). The warm
-  session (R3), a cue under ~40 tokens and eager TTS scheduling keep this within reach.
+- ≤ 5 s at p90 from Continue until the next host line's audio is ready to play, on the default
+  local setup (SC-009, "starts playing"). The warm session (R3), a cue under ~40 tokens and eager
+  TTS scheduling keep this within reach. The benchmark reports the time to the text and the
+  synthesis time separately.
 - Summary ≤ 10 s at p90 (SC-014). Switching the summary's language is instant, because both
   versions arrive together (R13).
 - A ready-made show starts in < 30 s from Home, and a Surprise me show in < 60 s (SC-001).
@@ -117,10 +119,16 @@ Claude is opt-in (004). A Panel episode with speech must work fully offline (SC-
 **Scale/Scope**:
 - one learner, 2 languages, 4 installed voices;
 - 3 formats, 3 lengths, 10 personalities, 8 ready-made shows;
-- about 14 new endpoints (12 podcast, 1 summary, 1 settings field);
+- 18 new endpoints (17 podcast, contracts §1–§8, and 1 summary), plus 1 new settings field;
 - 3 new pages and about 14 new components;
-- 5 existing backend files touched beyond wiring: `chat.py` (move out), `audio.py`,
-  `tts/selection.py`, `tts/base.py` and `practice_languages/catalog.py`.
+- 11 existing backend files touched beyond wiring (`factory.py`, `database.py` and `main.py`):
+  - `routers/chat.py` (move out);
+  - `routers/audio.py` and `routers/settings.py`;
+  - `tts/selection.py` and `tts/base.py`;
+  - `conversation/session.py`;
+  - `practice_languages/catalog.py` and `practice_languages/__init__.py`;
+  - `models/app_settings.py`;
+  - `storage/base.py` with `storage/sqlite.py`.
 
 *No NEEDS CLARIFICATION items remain. The spec's five clarifications are folded in, and the design
 questions are settled in [research.md](research.md) R1–R18.*
@@ -139,7 +147,7 @@ reviewed.
    - the addressed host always speaks first;
    - when that widens the gap between the two hosts to 2 lines, the other host speaks next, and
      that line does not invite, so the segment runs to at least 2 lines;
-   - the 25% guarantee is tested on episodes with ≥ 8 host lines. An episode the learner ends after
+   - the 25% guarantee is tested on episodes with ≥ 8 host lines, the threshold FR-015 now states. An episode the learner ends after
      three lines cannot meet a share rule, and SC-002 measures 10 learner turns.
 3. **FR-014's "fourth consecutive host line"** is counted since the learner last spoke **or
    passed**. A pass restarts the count ("invite them again later", US3-5).
@@ -195,7 +203,7 @@ bottom of this section.*
 | **IV. Immediate feedback** | ✅ | The turn banner announces who is speaking. Continue shows a pending state, and a second press is refused with a plain 409 message. The generator shows progress and the setup screen on success. |
 | **IV. Plain-language, what-to-do-next messages** | ✅ | Every 409 and 422 says what to do (contracts §3, §6, §7). The voice messages name the host and the fix. A summary that is too early says why. |
 | **IV. Accessibility** | ✅ | The turn banner is `role="status"`. Hidden lines are buttons named "Show Lucía's line". The radios use `fieldset`/`legend`. Design-system tokens only. Manual check in quickstart §6. |
-| **V. Compartmentalization** | ✅ | `app.podcasts` and `app.conversation_summary` each expose a package-root interface (contracts §12) and own their tables. Neither imports the other. The factory composes them through consumer interfaces. The conversations router does not learn about podcasts: Past Chats merges podcast labels client-side (R17). |
+| **V. Compartmentalization** | ✅ | `app.podcasts` and `app.conversation_summary` each expose a package-root interface (contracts §12) and own their tables. Neither imports the other. The factory composes them through consumer interfaces. As the composition root, `services/factory.py` is the one module allowed to import their storage, lock, caster and surprise implementations, as it already does for flashcards and corrections. A boundary test enforces that no other module does. The conversations router does not learn about podcasts: Past Chats merges podcast labels client-side (R17). |
 | **V. Abstractions before implementations** | ✅ | `MessageVoiceLookup`, `SpeakerNames`, `PodcastStorage` (ABC) and `SummaryStorage` (ABC) are declared and tested with fakes before the SQLite and podcast implementations. |
 | **V. No feature-flag / if-debug guards** | ✅ | Format behaviour is descriptor data, not `if format == "panel"` branches. The language-literal guard now also covers the new modules. |
 | **VI. Provider independence** | ✅ | Episodes and summaries work on every provider through the factory (FR-033), and no concrete provider is imported. Provider failures reach the learner as the provider's own message, with a retry. Nothing switches provider. Nothing new leaves the machine on the local stack. A host's voice is never replaced (FR-031). |
@@ -212,7 +220,8 @@ Measured on `007-podcast-mode` @ `5897b32`. This feature touches no existing fun
 
 | Function | Today | Change |
 |---|---|---|
-| `_relay_engine_reply` (15), `_save_learner_message` (12), `_turn_context` (16), `_plan_turn_failing_open` (9), `_persist_feedback` (7), `_feedback_frame` (8), `_schedule_tts` (10), `_start_warming` (9), `_warm_quietly` (6), `_is_low_confidence` (5), `_sse` (2), and the `_EngineTurn`, `_SavedReply`, `_Corrections` classes ([chat.py](../../backend/app/routers/chat.py)) | as listed | **Moved** to `app/conversation_turns/`, with no body changes (research R11) |
+| `_relay_engine_reply` (15), `_save_learner_message` (12), `_turn_context` (16), `_plan_turn_failing_open` (9), `_persist_feedback` (7), `_feedback_frame` (8), `_schedule_tts` (10), `_start_warming` (9), `_warm_quietly` (6), `_is_low_confidence` (5), `_sse` (2), `_last_character_line` (2), `_tts_cache_dir` (2), and the `_EngineTurn`, `_SavedReply`, `_Corrections` classes ([chat.py](../../backend/app/routers/chat.py)) | as listed | **Moved** to `app/conversation_turns/`, with no behaviour changes (research R11). Only call sites of renamed functions change inside the moved bodies |
+| `_languages_of` ([chat.py](../../backend/app/routers/chat.py)) | 3 | Stays in `chat.py`, which still uses it. `conversation_turns/corrections.py` gets a private copy of the same one-line wrapper |
 | `get_tts_audio` ([audio.py](../../backend/app/routers/audio.py)) | 16 | The voice choice moves into a new `_speech_provider(speech, voices, message, conversation)`. `_synthesize_and_cache` takes a provider instead of a language. Both stay ≤ 20 |
 | `_to_response` ([settings.py](../../backend/app/routers/settings.py)) | 14 | +1 field → 15 |
 | `_settings_to_record` ([sqlite.py](../../backend/app/services/storage/sqlite.py)) | 14 | +1 field → 15 |
@@ -383,6 +392,8 @@ frontend/
    - the two-host policy paths without the learner, and the sign-off finishing the episode;
    - reveal, Show text in preferences, and `HostLine`'s hidden state;
    - voiceless-host lines shown in full;
+   - the shared-voice and no-voice notices on the catalogue and setup screen (spec edge case
+     "fewer than two voices"). Listen is the first two-host format, so the notices ship here;
    - E2E, and the SC-003 benchmark on Listen.
 4. **US6 (P2): Summary**, which is independent of US2–US5:
    - the `conversation_summary` module, `summary_language`, `PodcastSpeakerNames`;
@@ -397,7 +408,7 @@ frontend/
    - `SurpriseTopics` with interests, and `InterestsEditor`;
    - E2E, and the SC-007 and SC-008 benchmark.
 7. **US5 (P3): Shaping hosts**:
-   - shuffle, the personality select, the voice sample, and the shared-voice notice;
+   - shuffle, the personality select, and the voice sample;
    - E2E, and the SC-004 review sheet.
 8. **Polish**:
    - `docs/architecture.md`: the podcast and summary modules, and "Open items" for any benchmark

@@ -2,7 +2,7 @@
 
 **Feature Branch**: `007-podcast-mode`
 **Created**: 2026-09-28
-**Status**: Draft
+**Status**: Ready for implementation (clarified, planned and tasked)
 **Input**: User description: "I want a feature for a podcast. A podcast is very similar to the original premise of roleplaying, especially if you're just with someone else. One case is the base where it's you and someone else. Another case is you're not actually talking and you're just listening and maybe clicking advance to continue the podcast. And then you might be in a podcast with multiple people. So there should be some configurability to this. Each person gets a persona when the podcast is picked. The learner can select from a few scenarios that you create, but we should also have a generator, and a random suggestion for a podcast. And a mix of personalities as well, because this is meant to be engaging, and topics relevant to whoever is using the program will be engaging. It should still adhere to the configured speech levels. The podcast is turn-based, because it's a conversation but not totally a conversation: it should get back to the learner's turn and the learner shouldn't be neglected, but it might not be exactly round-robin. With the speakers we'd want different voices, which might involve downloading more voices, and making names for people. We'll start with up to three people: two other speakers and the learner. In the future we might add more, but to keep things simple."
 
 ## Clarifications
@@ -347,7 +347,9 @@ in English. Add two more lines and open Summary again: it now includes them.
 - **FR-014**: In the One host and Panel formats, the learner MUST be invited to speak at the latest
   by the fourth consecutive host line, and every invitation MUST be clearly addressed to the learner.
 - **FR-015**: In the Panel and Listen formats, a host MUST NOT speak more than three lines in a row,
-  and over an episode each host MUST speak at least a quarter of the host lines.
+  and over an episode of at least 8 host lines each host MUST speak at least a quarter of the host
+  lines. (A shorter episode, ended early by the learner, is too short for a share rule to mean
+  anything.)
 - **FR-016**: Host lines MUST NOT advance on their own: after each host line, the next one begins only
   when the learner presses Continue, and at the learner's turn nothing advances until they reply,
   pass or end.
@@ -446,7 +448,7 @@ in English. Add two more lines and open Summary again: it now includes them.
   are not kept.
 - **Format**: One host, Panel or Listen. It fixes how many hosts there are and whether the learner
   speaks. It is chosen on the setup screen, and the last one used is saved with the learner's
-  settings.
+  podcast preferences.
 - **Personality**: an entry in a fixed catalogue (for example enthusiast, dry sceptic, storyteller),
   with a short description of how a host with it speaks and reacts.
 - **Host**: a persona in one episode: name, personality, voice and the show role it plays (host,
@@ -457,13 +459,13 @@ in English. Add two more lines and open Summary again: it now includes them.
 - **Episode line**: one turn, spoken by exactly one participant (a named host or the learner), in
   order.
 - **Learner interests**: a short, learner-entered list of topics, saved with the learner's
-  settings, that personalises Surprise me and the generator (FR-023).
+  podcast preferences, that personalises Surprise me and the generator (FR-023).
 - **Conversation summary**: a short account of one conversation or episode up to a given line, in
   the conversation's language and in English. It always reflects the lines at the time it is shown.
 - **Summary language choice**: the learner's last choice between the conversation's language and
   English, saved with the learner's settings (FR-040).
 - **Show text setting**: whether Listen episodes show host lines in full, saved with the learner's
-  settings (FR-043). Lines revealed one by one belong to their episode.
+  podcast preferences (FR-043). Lines revealed one by one belong to their episode.
 
 ## Success Criteria *(mandatory)*
 

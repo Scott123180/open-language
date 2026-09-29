@@ -272,7 +272,9 @@ data: {"done": true, "turn": "learner", "awaiting": null}
 }
 ```
 
-or `{"status": "too_early", "message": "There's nothing to summarise yet. Reply to the opening line first."}`
+or `{"status": "too_early", "message": "There's nothing to summarise yet. Come back after the next line."}`
+
+The message is the same in every format, because in Listen the learner cannot reply.
 
 - `404` for an unknown conversation. `503` (`LLMError`) with the provider's message, and a retry
   in the UI.
@@ -322,16 +324,25 @@ Internal, not importable from outside:
 - `services/`: `turn_policy`, `cues`, `sanitiser`, `casting`, `generator`, `surprise`, `storage`
   (ABC), `sqlite_storage` and `episode_lock`.
 
+**Composition-root exception**: `services/factory.py` may import `services/storage`,
+`services/sqlite_storage`, `services/episode_lock`, `services/casting` and `services/surprise`
+to build the dependencies below. It already does the same for `app.flashcards.services.*` and
+`app.corrections.services.*`. No other module outside the package may, and
+`tests/unit/test_module_boundaries.py` enforces it.
+
 ### `app.conversation_summary`
 
 `router` and `SpeakerNames` (ABC: `names_for(conversation_id) -> Mapping[int, str] | None`).
-Internal: `services/summariser` (fold, parse, cache), `services/storage` and `prompts`.
+Internal: `services/summariser` (fold, parse, cache), `services/storage` and `prompts`. The same
+composition-root exception applies: `services/factory.py` may import `services/storage`,
+`services/sqlite_storage` and `services/summariser`.
 
 ### `app.conversation_turns` (moved from `routers/chat.py`, research R11)
 
-`sse`, `EngineTurn`, `SavedReply`, `relay_engine_reply`, `LearnerMessageRequest` (formerly
-`ChatMessageRequest`, re-exported under its old name for the chat router), `save_learner_message`,
-`Corrections` and `schedule_speech`.
+`sse`, `EngineTurn`, `SavedReply`, `relay_engine_reply`, `start_warming`, `LearnerMessageRequest`
+(formerly `ChatMessageRequest`, re-exported under its old name for the chat router),
+`save_learner_message`, `Corrections`, `plan_learner_turn` and `schedule_speech`. This is exactly
+the package's `__all__`.
 
 ### Additions to existing modules
 
@@ -341,7 +352,7 @@ Internal: `services/summariser` (fold, parse, cache), `services/storage` and `pr
 | `services/tts/base.py` | `MessageVoiceLookup` ABC (one method) |
 | `services/tts/selection.py` | `SpeechForLanguage.provider_for_voice(language, voice_key, unavailable_message)` |
 | `practice_languages` | `PracticeLanguage.host_names`, `.guest_labels` and `.sample_line`. The package gains `host_names_for(code, gender)`, `guest_labels_for(code)` and `voice_sample_line(code, name)` |
-| `services/factory.py` | `get_podcast_storage`, `get_message_voices`, `get_speaker_names`, `get_episode_locks` and `get_recent_surprises` |
+| `services/factory.py` | `get_podcast_storage`, `get_message_voices`, `get_host_caster`, `get_episode_locks`, `get_recent_surprises`, `get_summary_storage` and `get_speaker_names` |
 | `database.py` | registers the new models; adds one `_ADDITIVE_COLUMNS` entry |
 | `main.py` | includes the podcasts and summary routers |
 
