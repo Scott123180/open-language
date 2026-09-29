@@ -13,7 +13,7 @@ __all__ = ["router", "PODCAST_SCENARIO_ID", "PodcastMessageVoices"]
 
 def __getattr__(name: str):
     if name == "router":
-        from app.podcasts.router import router
+        from app.podcasts.routes import router
 
         return router
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

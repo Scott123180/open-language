@@ -26,6 +26,7 @@ class ScriptedLineSession(ConversationSession):
         self._writer = writer
         self._standing_prompt = standing_prompt
         self._fingerprint = writer.session_fingerprint(standing_prompt)
+        self.history = tuple(history)
         self._synced = [turn.turn_id for turn in history]
         self._is_broken = False
         self._is_closed = False

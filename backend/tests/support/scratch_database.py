@@ -4,6 +4,7 @@ from pathlib import Path
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app.database import Base
 
@@ -32,10 +33,13 @@ def make_sessions(db_file: Path) -> sessionmaker:
     """A session factory on a new database at `db_file` holding the full current schema.
 
     Give each request its own session, as `get_db` does: speech is synthesised on a worker
-    thread, and one session shared across threads races.
+    thread, and one session shared across threads races. NullPool, so each session owns its
+    connection even while a worker thread outlives the request that opened it.
     """
     _register_models()
-    engine = create_engine(f"sqlite:///{db_file}", connect_args={"check_same_thread": False})
+    engine = create_engine(
+        f"sqlite:///{db_file}", connect_args={"check_same_thread": False}, poolclass=NullPool
+    )
     event.listen(engine, "connect", _configure_sqlite)
     Base.metadata.create_all(bind=engine)
     return sessionmaker(bind=engine)
