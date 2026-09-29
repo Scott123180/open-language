@@ -17,6 +17,18 @@
   (English)". Does it belong to this feature, and where does it apply? → A: In this feature,
   for both podcast episodes and roleplay conversations (User Story 6, FR-035–FR-042, SC-012–SC-014;
   FR-034 amended).
+- Q: How long should an episode run before the hosts offer to wrap up? → A: The learner picks
+  Short, Medium or Long on the setup screen (about 10, 20 or 40 host lines), with Medium as the
+  default (FR-005, FR-019, Key Entities updated).
+- Q: In the Listen format, should the hosts' words be shown on screen as each line plays? → A:
+  Hidden by default. The learner taps a line to reveal its text, or turns on a Show text switch for
+  the whole episode, and the switch setting is remembered (User Story 2, FR-043, Key Entities
+  updated).
+- Q: How does the learner choose the format (One host, Panel or Listen) for a show? → A: On the
+  setup screen, for any show. It starts on the last format used, or One host the first time. Every
+  show therefore has a lead host and a second host, and One host uses only the lead host. The
+  generator no longer asks for a format (User Story 4, FR-003, FR-005, FR-020, Key Entities
+  updated).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -38,7 +50,7 @@ delivers the podcast experience: a ready-made show, a host with a persona, a top
 and a spoken host. Every other story adds speakers, sources of shows, or a listening mode on top of
 it.
 
-**Independent Test**: Pick any ready-made show in the one-host format, exchange five turns (typed and
+**Independent Test**: Pick any ready-made show in the One host format, exchange five turns (typed and
 spoken), and use each learning tool once. The host stays in persona, keeps the episode on the show's
 topic, speaks in the practice language at the learner's level, and every line is played in the
 host's voice.
@@ -47,7 +59,7 @@ host's voice.
 
 1. **Given** the Podcasts screen, **When** the learner opens it, **Then** it lists at least six
    ready-made shows, each with a title, a one-line topic, its host(s) and the learner's role.
-2. **Given** the learner starts a one-host show, **When** the episode opens, **Then** the host
+2. **Given** the learner starts a show in the One host format, **When** the episode opens, **Then** the host
    introduces the show, themselves and the learner, and ends the opening with a question to the
    learner, all in the practice language.
 3. **Given** an episode in progress, **When** the learner replies, **Then** the host's next line
@@ -69,9 +81,11 @@ host's voice.
 
 Some days the learner does not want to speak; they want comprehensible listening. They choose a show
 and the **Listen** format. Two hosts, **Lucía** and **Marco**, talk to each other about the topic,
-each with a different personality and a clearly different voice. After each line the episode pauses,
-and the learner presses **Continue** when they are ready for the next one. They can replay a line,
-translate it, look up or save a word, and then continue. The episode runs through an introduction, a
+each with a different personality and a clearly different voice. Each line appears with its
+speaker's name but without its words, so the learner listens rather than reads. After each line the
+episode pauses, and the learner presses **Continue** when they are ready for the next one. If a line
+went past them, they can replay it or tap it to reveal its text, then translate it, look up or save
+a word, and continue. On a tired day they turn on **Show text** and every line appears in full. The episode runs through an introduction, a
 discussion with a few turns of back-and-forth, and a sign-off.
 
 **Why this priority**: Listen-only episodes are the other half of what the learner described, and the
@@ -86,19 +100,23 @@ learner other than Continue.
 
 **Acceptance Scenarios**:
 
-1. **Given** a Listen episode, **When** a host line is shown, **Then** it is labelled with the
-   speaker's name, played in that speaker's voice, and the next line does not begin until the learner
-   presses Continue.
+1. **Given** a Listen episode with Show text off, **When** a host line plays, **Then** it appears
+   with the speaker's name but its words are hidden, it is played in that speaker's voice, and the
+   next line does not begin until the learner presses Continue.
 2. **Given** a Listen episode, **When** the learner presses Continue, **Then** the next line is spoken
    by whichever host would naturally speak next. A host may speak twice in a row, but neither host
    speaks more than three lines in a row.
 3. **Given** a Listen episode, **When** the hosts talk, **Then** they respond to each other (agree,
    disagree, ask, joke) in line with their personalities, rather than taking turns delivering
    unconnected statements.
-4. **Given** a Listen episode, **When** the learner selects a host line, **Then** they can replay it,
-   translate it, look up and save its words, just as with a partner message in a roleplay.
-5. **Given** a Listen episode, **When** the episode reaches its planned length, **Then** the hosts
-   wrap up with a sign-off and the episode is marked finished. The learner can also end it at any
+4. **Given** a Listen episode, **When** the learner taps a hidden host line, **Then** its text is
+   revealed and stays revealed, and they can replay it, translate it, look up and save its words, just
+   as with a partner message in a roleplay.
+5. **Given** a Listen episode, **When** the learner turns on Show text, **Then** every line, past and
+   future, is shown in full, and the next Listen episode starts with Show text on until they turn it
+   off.
+6. **Given** a Listen episode, **When** the episode reaches the length chosen at setup, **Then** the
+   hosts wrap up with a sign-off and the episode is marked finished. The learner can also end it at any
    time.
 
 ---
@@ -142,9 +160,10 @@ host.
 ### User Story 4 - Learner creates a podcast from an idea or asks for a surprise (Priority: P2)
 
 None of the ready-made shows appeals today. The learner types an idea, such as *"football
-tactics"* or *"living abroad as a nurse"*, into the podcast generator and picks a format. The app
-creates a show: a title, a one-line premise, the learner's role, and hosts with names, personalities
-and voices. The learner can start it, or ask for another version. On another day the learner presses
+tactics"* or *"living abroad as a nurse"*, into the podcast generator. The app creates a show: a
+title, a one-line premise, the learner's role, and two hosts with names, personalities and voices.
+It opens on the setup screen like any other show, where the learner can pick the format and length
+and start it, or ask for another version. On another day the learner presses
 **Surprise me** and gets a random show suggestion they would not have thought of, leaning towards
 topics they care about. Either way they see the show before it starts.
 
@@ -158,9 +177,9 @@ distinct hosts whose names suit the practice language.
 
 **Acceptance Scenarios**:
 
-1. **Given** the learner enters an idea and a format, **When** they generate, **Then** they get a
-   show with a title, a one-line premise, the learner's role, and the right number of hosts for the
-   format, each with a name, a personality and a voice.
+1. **Given** the learner enters an idea, **When** they generate, **Then** they get a show with a
+   title, a one-line premise, the learner's role, and a lead host and a second host, each with a
+   name, a personality and a voice, on the setup screen.
 2. **Given** a generated show, **When** the learner asks for another version, **Then** a new show on
    the same idea is produced, and the previous one is discarded unless they started it.
 3. **Given** the learner presses Surprise me, **When** the suggestion appears, **Then** it is a
@@ -182,7 +201,7 @@ varied: two hosts on the same show never share a name, a voice or a personality.
 **Why this priority**: The generated and ready-made personas are enough for Stories 1–4. Letting the
 learner tune the mix is a refinement that makes favourite combinations possible.
 
-**Independent Test**: On the setup of a two-host show, shuffle each host three times and change one
+**Independent Test**: On the setup of a show in the Panel format, shuffle each host three times and change one
 host's personality. The two hosts always differ in name, voice and personality, and the episode uses
 the final choices.
 
@@ -190,7 +209,7 @@ the final choices.
 
 1. **Given** the setup of any show, **When** the learner views the hosts, **Then** each host shows a
    name, a personality and a voice sample.
-2. **Given** a two-host show, **When** the learner shuffles or changes a host, **Then** the two hosts
+2. **Given** the Panel or Listen format on the setup screen, **When** the learner shuffles or changes a host, **Then** the two hosts
    still have different names, voices and personalities.
 3. **Given** the learner changes a host's personality, **When** the episode runs, **Then** that host
    speaks in line with the new personality.
@@ -242,9 +261,9 @@ in English. Add two more lines and open Summary again: it now includes them.
 
 ### Edge Cases
 
-- **Fewer than two voices for the practice language**: one-host shows work normally. For two-host
-  shows the learner is told, before starting, that both hosts will share one voice and how to add
-  another; the episode can still run, with every line labelled by speaker. The app never uses a voice
+- **Fewer than two voices for the practice language**: the One host format works normally. For
+  Panel and Listen the learner is told, before starting, that both hosts will share one voice and how
+  to add another; the episode can still run, with every line labelled by speaker. The app never uses a voice
   for another language.
 - **A host's voice is missing when an episode is resumed**: the episode continues as text, with a
   plain message saying that voice is unavailable and what to do. It does not switch that host to a
@@ -260,11 +279,11 @@ in English. Add two more lines and open Summary again: it now includes them.
   conversations do.
 - **Provider fails mid-episode**: the learner sees a plain message with what to do and can retry the
   same line. The episode history is kept, and the app does not switch provider.
-- **Learner stays silent at their turn in One-host or Panel**: nothing happens until they reply, Pass
+- **Learner stays silent at their turn in One host or Panel**: nothing happens until they reply, Pass
   (Panel) or end the episode. The hosts never talk over a pending learner turn.
 - **Learner jumps in during the Listen format**: Listen has no Jump in. The learner can end the
   episode and start the same show in a speaking format.
-- **Very long episode**: after the planned length the hosts wrap up. In speaking formats the learner
+- **Very long episode**: after the chosen length the hosts wrap up. In speaking formats the learner
   can keep talking after the wrap-up has been offered, and the episode ends when they choose End
   episode.
 - **Generator idea is unsuitable**: an idea that asks for hateful, sexual or dangerous content is
@@ -294,15 +313,17 @@ in English. Add two more lines and open Summary again: it now includes them.
   practice activity next to roleplay conversations.
 - **FR-002**: The system MUST include at least six ready-made shows covering varied everyday topics
   (for example food, travel, sport, technology, film and music, work life). Each show has a title, a
-  one-line premise, the learner's role and default hosts.
+  one-line premise, the learner's role, and two default hosts: a lead host and a second host.
 - **FR-003**: The system MUST offer three formats: **One host** (the learner and one host), **Panel**
   (the learner and two hosts) and **Listen** (two hosts; the learner only listens). Every show MUST be
-  playable in every format.
+  playable in every format. One host uses the show's lead host only.
 - **FR-004**: The number of people in an episode MUST NOT exceed three, the learner included. The set
   of formats MUST be defined in one place, so a larger panel can be added later without changing the
   features that use it.
-- **FR-005**: The learner MUST see the show, the format, the hosts and their own role before an
-  episode starts, and start it with a single primary action.
+- **FR-005**: The learner MUST see the show, the format, the hosts, their own role and the episode
+  length before an episode starts, and start it with a single primary action. The learner MUST be
+  able to change the format on this setup screen for any show, whether ready-made, generated or from
+  Surprise me. The format MUST start on the one the learner used last, or One host the first time.
 
 **Hosts and personas**
 
@@ -323,7 +344,7 @@ in English. Add two more lines and open Summary again: it now includes them.
 - **FR-012**: Each host line MUST contain the speech of exactly one host.
 - **FR-013**: The next speaker MUST be chosen by the flow of the conversation, not strict rotation.
   A host MAY speak twice in a row, and MAY respond to the other host rather than to the learner.
-- **FR-014**: In the One-host and Panel formats, the learner MUST be invited to speak at the latest
+- **FR-014**: In the One host and Panel formats, the learner MUST be invited to speak at the latest
   by the fourth consecutive host line, and every invitation MUST be clearly addressed to the learner.
 - **FR-015**: In the Panel and Listen formats, a host MUST NOT speak more than three lines in a row,
   and over an episode each host MUST speak at least a quarter of the host lines.
@@ -333,15 +354,17 @@ in English. Add two more lines and open Summary again: it now includes them.
 - **FR-017**: In the Panel format, the learner MUST be able to Jump in when it is not their turn and
   to Pass when it is.
 - **FR-018**: When the learner addresses a host by name, that host MUST speak next.
-- **FR-019**: Every episode MUST have an introduction, a discussion and a sign-off. The hosts MUST
-  offer to wrap up after a planned length, and MUST give a sign-off whenever the learner chooses End
-  episode.
+- **FR-019**: Every episode MUST have an introduction, a discussion and a sign-off. On the setup
+  screen the learner MUST be able to choose the episode length: **Short** (about 10 host lines),
+  **Medium** (about 20, the default) or **Long** (about 40). The hosts MUST begin their wrap-up
+  within two host lines of reaching the chosen length, and MUST give a sign-off whenever the learner
+  chooses End episode. In Listen, the sign-off ends the episode.
 
 **Topics, generation and suggestions**
 
-- **FR-020**: Learners MUST be able to generate a show from a short free-text idea and a chosen
-  format. The result MUST be a complete show (title, premise, learner's role, hosts) that the learner
-  sees before starting.
+- **FR-020**: Learners MUST be able to generate a show from a short free-text idea. The result MUST
+  be a complete show (title, premise, learner's role, lead host and second host) that opens on the
+  setup screen before starting.
 - **FR-021**: Learners MUST be able to ask for another version of a generated show.
 - **FR-022**: Learners MUST be able to request a random show suggestion (Surprise me). Repeated
   requests MUST give varied topics.
@@ -407,19 +430,30 @@ in English. Add two more lines and open Summary again: it now includes them.
 - **FR-042**: When lines have been added since the summary was last shown, opening it again MUST give
   a summary that includes them.
 
+**Listening display**
+
+- **FR-043**: In the Listen format, host lines MUST show the speaker's name with the words hidden by
+  default. Tapping a line MUST reveal its text for the rest of the episode. A **Show text** switch
+  MUST show every line in full, and its setting MUST be remembered across Listen episodes and
+  sessions. Replay works on hidden lines; translation, word lookup and saving words work once a line
+  is revealed. One host and Panel episodes always show host lines in full.
+
 ### Key Entities *(include if feature involves data)*
 
 - **Show**: a podcast concept: title, one-line premise, topic, the learner's role (guest, co-host or
-  caller) and default hosts. Either ready-made or generated. Generated shows that are never started
+  caller) and two default hosts (a lead host and a second host). It is not tied to a format. Either
+  ready-made or generated. Generated shows that are never started
   are not kept.
 - **Format**: One host, Panel or Listen. It fixes how many hosts there are and whether the learner
-  speaks.
+  speaks. It is chosen on the setup screen, and the last one used is saved with the learner's
+  settings.
 - **Personality**: an entry in a fixed catalogue (for example enthusiast, dry sceptic, storyteller),
   with a short description of how a host with it speaks and reacts.
 - **Host**: a persona in one episode: name, personality, voice and the show role it plays (host,
   co-host or guest expert).
-- **Episode**: one run of a show in one format. It is a kind of conversation: it has a language, a
-  status (in progress or finished), its hosts, and its lines. It appears in Past Chats.
+- **Episode**: one run of a show in one format and one length (Short, Medium or Long). It is a kind
+  of conversation: it has a language, a status (in progress or finished), its hosts, and its lines.
+  It appears in Past Chats.
 - **Episode line**: one turn, spoken by exactly one participant (a named host or the learner), in
   order.
 - **Learner interests**: a short, learner-entered list of topics, saved with the learner's
@@ -428,6 +462,8 @@ in English. Add two more lines and open Summary again: it now includes them.
   the conversation's language and in English. It always reflects the lines at the time it is shown.
 - **Summary language choice**: the learner's last choice between the conversation's language and
   English, saved with the learner's settings (FR-040).
+- **Show text setting**: whether Listen episodes show host lines in full, saved with the learner's
+  settings (FR-043). Lines revealed one by one belong to their episode.
 
 ## Success Criteria *(mandatory)*
 
@@ -440,7 +476,7 @@ in English. Add two more lines and open Summary again: it now includes them.
   every episode.
 - **SC-003**: Across 10 Listen and 10 Panel episodes, 0 host lines contain another speaker's speech or
   speak for the learner.
-- **SC-004**: In a blind review of 10 two-host episodes, a reviewer can tell which host said a given
+- **SC-004**: In a blind review of 10 Panel or Listen episodes, a reviewer can tell which host said a given
   line from its content and voice alone (without the name label) for at least 80% of lines.
 - **SC-005**: At least 95% of host lines are entirely in the episode's language, across both practice
   languages.
