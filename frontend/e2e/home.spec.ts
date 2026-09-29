@@ -197,3 +197,15 @@ test.describe('Home page — practice language (006)', () => {
     await expect(page).toHaveURL(/\/settings$/)
   })
 })
+
+test.describe('Home page — podcasts (007)', () => {
+  test('the Podcasts pill leads to the Podcasts screen', async ({ page }) => {
+    await mockHomeApis(page)
+    await page.route('/api/podcasts/catalog', (route) => route.fulfill({ json: { shows: [], personalities: [] } }))
+    await page.goto('/')
+
+    await page.getByRole('link', { name: 'Podcasts' }).click()
+
+    await expect(page).toHaveURL(/\/podcasts$/)
+  })
+})

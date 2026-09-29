@@ -142,3 +142,158 @@ export interface EpisodeSummaryRow {
   language_name: string
   status: 'active' | 'completed'
 }
+
+// ---------------------------------------------------------------------------
+// Requests
+// ---------------------------------------------------------------------------
+
+const BASE = '/api/podcasts'
+
+export interface StartEpisodeBody {
+  show: ShowDraft
+  format: PodcastFormatId
+  length: EpisodeLengthId
+  learner_name?: string
+}
+
+export type PreferencesUpdate = Partial<Pick<PodcastPreferences, 'is_show_text_on' | 'interests' | 'learner_name'>>
+
+async function readError(res: Response): Promise<string> {
+  const body = await res.json().catch(() => ({}))
+  return body.detail ?? `HTTP ${res.status}`
+}
+
+async function podcastFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    ...init,
+  })
+  if (!res.ok) throw new Error(await readError(res))
+  return res.json() as Promise<T>
+}
+
+const jsonBody = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) })
+
+export const getPodcastCatalog = (): Promise<PodcastCatalog> => podcastFetch('/catalog')
+
+export const getPodcastPreferences = (): Promise<PodcastPreferences> => podcastFetch('/preferences')
+
+export const updatePodcastPreferences = (updates: PreferencesUpdate): Promise<PodcastPreferences> =>
+  podcastFetch('/preferences', jsonBody('PUT', updates))
+
+export const startEpisode = (body: StartEpisodeBody): Promise<Episode> =>
+  podcastFetch('/episodes', jsonBody('POST', body))
+
+export const listEpisodes = (): Promise<EpisodeSummaryRow[]> => podcastFetch('/episodes')
+
+export const getEpisode = (conversationId: number): Promise<Episode> =>
+  podcastFetch(`/episodes/${conversationId}`)
+
+export const getEpisodeSuggestions = (conversationId: number): Promise<{ suggestions: string[] }> =>
+  podcastFetch(`/episodes/${conversationId}/suggestions`, { method: 'POST' })
+
+/** Get the episode's session ready before the next line. Invisible, so failures are ignored. */
+export const warmEpisodeSession = async (conversationId: number): Promise<void> => {
+  try {
+    await fetch(`${BASE}/episodes/${conversationId}/session`, { method: 'POST' })
+  } catch {
+    // Deliberately silent: the next line reports any problem with its normal message.
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Line streams (contracts §7)
+// ---------------------------------------------------------------------------
+
+export interface LineFrame {
+  event: 'line'
+  line: EpisodeLine
+  turn: Turn
+  awaiting: Awaiting
+}
+
+export interface DoneFrame {
+  done: true
+  turn: Turn
+  awaiting: Awaiting
+  can_jump_in?: boolean
+  can_pass?: boolean
+}
+
+export interface EpisodeStreamHandlers {
+  onLine: (frame: LineFrame) => void
+  onDone: (frame: DoneFrame) => void
+  onError: (message: string) => void
+  onUserSaved?: (messageId: number) => void
+  onFeedback?: (data: FeedbackFrame) => void
+}
+
+export interface FeedbackFrame {
+  message_id: number
+  awaiting_retry: boolean
+  notes: import('./api').FeedbackNoteData[]
+}
+
+export interface LearnerMessageBody {
+  content: string
+  input_source: 'voice' | 'keyboard'
+  transcription_confidence?: number
+}
+
+function dispatchFrame(frame: Record<string, unknown>, handlers: EpisodeStreamHandlers): void {
+  if (frame.error !== undefined) handlers.onError(frame.error as string)
+  else if (frame.done) handlers.onDone(frame as unknown as DoneFrame)
+  else if (frame.event === 'line') handlers.onLine(frame as unknown as LineFrame)
+  else if (frame.event === 'user_message_saved') handlers.onUserSaved?.(frame.message_id as number)
+  else if (frame.event === 'feedback') handlers.onFeedback?.(frame as unknown as FeedbackFrame)
+}
+
+function dispatchChunk(lines: string[], handlers: EpisodeStreamHandlers): void {
+  for (const line of lines) {
+    if (!line.startsWith('data: ')) continue
+    try {
+      dispatchFrame(JSON.parse(line.slice(6)), handlers)
+    } catch {
+      // A malformed frame is skipped; the done or error frame still arrives.
+    }
+  }
+}
+
+async function readEpisodeStream(res: Response, handlers: EpisodeStreamHandlers): Promise<void> {
+  const reader = res.body?.getReader()
+  if (!reader) return handlers.onError('No response body')
+  const decoder = new TextDecoder()
+  let buffer = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    dispatchChunk(lines, handlers)
+  }
+}
+
+async function streamEpisodeAction(
+  path: string,
+  handlers: EpisodeStreamHandlers,
+  body?: unknown,
+): Promise<void> {
+  const init: RequestInit = { method: 'POST' }
+  if (body !== undefined) Object.assign(init, jsonBody('POST', body), { headers: { 'Content-Type': 'application/json' } })
+  const res = await fetch(`${BASE}${path}`, init)
+  if (!res.ok) return handlers.onError(await readError(res))
+  await readEpisodeStream(res, handlers)
+}
+
+export const streamEpisodeNext = (conversationId: number, handlers: EpisodeStreamHandlers) =>
+  streamEpisodeAction(`/episodes/${conversationId}/next`, handlers)
+
+export const streamEpisodeEnd = (conversationId: number, handlers: EpisodeStreamHandlers) =>
+  streamEpisodeAction(`/episodes/${conversationId}/end`, handlers)
+
+export const streamEpisodeMessage = (
+  conversationId: number,
+  body: LearnerMessageBody,
+  handlers: EpisodeStreamHandlers,
+) => streamEpisodeAction(`/episodes/${conversationId}/message`, handlers, body)

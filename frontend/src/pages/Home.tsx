@@ -122,6 +122,7 @@ export default function Home() {
           flexWrap: 'wrap',
         }}
       >
+        <Link className="nav-pill" to="/podcasts">Podcasts</Link>
         <Link className="nav-pill" to="/history">Past Chats</Link>
         <Link className="nav-pill" to="/flashcards">Flashcards</Link>
         <Link className="nav-pill" to="/settings">Settings</Link>

@@ -714,3 +714,38 @@ export function lineFrame(line: LineFixture, turn: string, awaiting: string | nu
 export function makeLineSseBody(frames: unknown[]): string {
   return frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join('')
 }
+
+export interface PodcastRouteOptions {
+  episode?: ReturnType<typeof episodeFixture>
+  preferences?: typeof mockPodcastPreferences
+  catalog?: typeof mockPodcastCatalog
+}
+
+/** Mock the Podcasts, setup and episode screens' reads. Line streams are mocked per test. */
+export async function mockPodcastApis(page: Page, options: PodcastRouteOptions = {}) {
+  const episode = options.episode ?? episodeFixture('one_host')
+  await page.route('/api/podcasts/catalog', (route) => route.fulfill({ json: options.catalog ?? mockPodcastCatalog }))
+  await page.route('/api/podcasts/preferences', (route) => route.fulfill({ json: options.preferences ?? mockPodcastPreferences }))
+  await page.route('/api/podcasts/episodes', (route) =>
+    route.request().method() === 'POST' ? route.fulfill({ status: 201, json: episode }) : route.fulfill({ json: [] }),
+  )
+  await page.route(`/api/podcasts/episodes/${episode.conversation_id}`, (route) => route.fulfill({ json: episode }))
+  await page.route(`/api/podcasts/episodes/${episode.conversation_id}/session`, (route) =>
+    route.fulfill({ status: 202, json: { status: 'warming' } }),
+  )
+  await page.route('/api/audio/tts/**', (route) => route.fulfill({ status: 200, body: '' }))
+  await page.route('/api/settings', (route) => route.fulfill({ json: mockSettings }))
+  await mockConversationLevelsApi(page)
+  await mockPracticeLanguagesApi(page)
+}
+
+/** Serve `bodies` in order to successive POSTs of one episode action (e.g. `next`). */
+export async function mockLineStream(page: Page, action: string, bodies: string[], conversationId = 57) {
+  const requests: unknown[] = []
+  await page.route(`/api/podcasts/episodes/${conversationId}/${action}`, (route) => {
+    requests.push(route.request().postDataJSON?.() ?? null)
+    const body = bodies[Math.min(requests.length - 1, bodies.length - 1)]
+    return route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream' }, body })
+  })
+  return { requests }
+}

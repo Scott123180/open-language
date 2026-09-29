@@ -5,6 +5,8 @@ import { IconLightbulb } from '../shared/icons'
 interface SuggestedResponsePanelProps {
   conversationId: number
   isDisabled?: boolean
+  /** Where the suggestions come from: the chat endpoint unless a screen supplies its own. */
+  fetchSuggestions?: (conversationId: number) => Promise<{ suggestions: string[] }>
 }
 
 const spinnerStyle: React.CSSProperties = {
@@ -21,6 +23,7 @@ const spinnerStyle: React.CSSProperties = {
 export default function SuggestedResponsePanel({
   conversationId,
   isDisabled = false,
+  fetchSuggestions = api.getSuggestions,
 }: SuggestedResponsePanelProps) {
   const [expanded, setExpanded] = useState(false)
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -32,7 +35,7 @@ export default function SuggestedResponsePanel({
     if (fetched) return
     setIsLoading(true)
     try {
-      const data = await api.getSuggestions(conversationId)
+      const data = await fetchSuggestions(conversationId)
       setSuggestions(data.suggestions)
       setFetched(true)
     } catch {

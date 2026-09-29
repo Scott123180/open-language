@@ -162,3 +162,33 @@ test.describe('History page — conversation languages (006)', () => {
     await expect(page.getByRole('button', { name: /Coffee Shop.*German/ })).toBeVisible()
   })
 })
+
+test.describe('History page — podcast episodes (007)', () => {
+  test('a podcast row is labelled and links to its episode', async ({ page }) => {
+    await setupHistoryRoutes(page)
+    await page.route('/api/podcasts/episodes', (route) =>
+      route.fulfill({
+        json: [
+          {
+            conversation_id: mockConversation.id,
+            show_title: mockConversation.scenario_title,
+            format: 'one_host',
+            format_label: 'One host',
+            host_names: ['Lucía'],
+            language: 'es',
+            language_name: 'Spanish',
+            status: 'active',
+          },
+        ],
+      }),
+    )
+    await page.goto(HISTORY_URL)
+
+    await expect(page.getByText('Podcast · One host · Lucía')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Continue episode' })).toHaveAttribute(
+      'href',
+      `/podcasts/episodes/${mockConversation.id}`,
+    )
+    await expect(page.getByText(/Podcast ·/)).toHaveCount(1)
+  })
+})

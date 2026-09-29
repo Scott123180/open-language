@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import * as api from '../services/api'
 import type { Conversation, Message } from '../services/api'
 import { IconArrowLeft } from '../components/shared/icons'
+import EpisodeRowLink from '../components/podcasts/EpisodeRowLink'
+import { usePodcastEpisodeIndex } from '../hooks/podcasts/usePodcastEpisodeIndex'
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -30,6 +32,7 @@ export default function History() {
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [messages, setMessages] = useState<Record<number, Message[]>>({})
   const [loadingMessages, setLoadingMessages] = useState<number | null>(null)
+  const episodes = usePodcastEpisodeIndex()
 
   useEffect(() => {
     api
@@ -138,6 +141,7 @@ export default function History() {
                   {conv.status}
                 </span>
               </button>
+              <EpisodeRowLink row={episodes[conv.id]} />
 
               {expandedId === conv.id && (
                 <div
