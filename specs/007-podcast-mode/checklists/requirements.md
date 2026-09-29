@@ -37,6 +37,10 @@
 - Iteration 2 (2026-09-28): resolved with answer A. Interests are typed by the learner on the
   Podcasts screen and remembered, never inferred. FR-023 and Key Entities were updated, and the
   answer is recorded under Clarifications. All items pass.
+- Iteration 3 (2026-09-28): the learner added a conversation summary to this feature, for roleplay
+  conversations and podcast episodes. Added User Story 6 (P2), FR-035–FR-042, six edge cases, two
+  entities, SC-012–SC-014 and two assumptions, and amended FR-034 and SC-011 so they allow the one
+  roleplay change. No new clarification markers, and all items pass.
 - "Defined in one place" (FR-004) states an extensibility requirement from Principle V, in the same
   form as 006's FR-005, not an implementation choice.
 - Two wording fixes made in iteration 1: FR-015 ("no host MUST" → "a host MUST NOT") and FR-024

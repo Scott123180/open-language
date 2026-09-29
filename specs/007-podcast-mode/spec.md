@@ -12,6 +12,11 @@
 - Q: Where do the learner's interests, used to personalise suggestions and generated shows, come
   from? → A: The learner types a few interests on the Podcasts screen and the app remembers them.
   They are not inferred from conversations or saved words (FR-023, Key Entities updated).
+- Q: The learner also asked for "a current conversation summary for the learner, based on the
+  conversation, a simple summary toggleable to the conversation language or the learner's language
+  (English)". Does it belong to this feature, and where does it apply? → A: In this feature,
+  for both podcast episodes and roleplay conversations (User Story 6, FR-035–FR-042, SC-012–SC-014;
+  FR-034 amended).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -192,6 +197,49 @@ the final choices.
 
 ---
 
+### User Story 6 - Learner catches up with a summary of the conversation so far (Priority: P2)
+
+Ten minutes into a Panel episode, the learner has lost the thread: the hosts have moved from
+Barcelona's markets to a disagreement about tapas prices, and the learner isn't sure what they
+missed. They open **Summary** and read a few short lines: what the conversation has covered, what
+each speaker thinks, and where it stands now. The summary is in German, the episode's language, in
+simple sentences they can follow. One line still puzzles them, so they switch the summary to
+**English**, check it, and switch back. They close the summary and carry on. The same Summary is
+available in an ordinary roleplay conversation, for example to recall what was ordered so far in
+*Order at a Restaurant*.
+
+**Why this priority**: Long episodes, and above all Listen and Panel episodes with two fast hosts, are
+where learners lose the thread. A summary lets them recover without leaving the practice language
+for long. It is useful in roleplay too, and it relies on nothing but the conversation's own lines,
+so it can be built alongside Story 1.
+
+**Independent Test**: In a roleplay conversation and in a Panel episode, each with at least eight
+lines, open Summary. It covers the main points of the lines so far and nothing that was not said. It
+is short and simple in the conversation's language, and switching to English shows the same points
+in English. Add two more lines and open Summary again: it now includes them.
+
+**Acceptance Scenarios**:
+
+1. **Given** a roleplay conversation or a podcast episode with at least one learner or host reply
+   after the opening, **When** the learner opens Summary, **Then** they see a short summary of the
+   conversation so far, based only on what was said in it.
+2. **Given** the summary is shown, **When** the learner looks at it, **Then** it is in the
+   conversation's language by default, in short, simple sentences that follow the learner's
+   conversation level.
+3. **Given** the summary is shown, **When** the learner switches it to English, **Then** the same
+   points appear in English, and switching back shows the conversation-language version again.
+4. **Given** the learner switched the summary to English, **When** they next open Summary in any
+   conversation, **Then** it opens in English until they switch it back.
+5. **Given** a podcast episode with two hosts, **When** the learner reads the summary, **Then** it
+   says which host holds which view or told which story, by name.
+6. **Given** the learner opened Summary earlier, **When** new lines have been added since and they
+   open it again, **Then** the summary covers the new lines as well.
+7. **Given** the summary is open, **When** the learner closes it, **Then** the conversation is exactly
+   where they left it: no line was added, skipped or advanced, and it is still the same speaker's
+   turn.
+
+---
+
 ### Edge Cases
 
 - **Fewer than two voices for the practice language**: one-host shows work normally. For two-host
@@ -221,6 +269,18 @@ the final choices.
   episode.
 - **Generator idea is unsuitable**: an idea that asks for hateful, sexual or dangerous content is
   declined with a plain message and the offer of Surprise me.
+- **Summary too early**: before anyone has replied to the opening line, Summary says in plain
+  language that there is nothing to summarise yet.
+- **Summary of a very long conversation**: the summary stays short. It gives the main points and where
+  the conversation stands now, not a line-by-line account.
+- **Summary while a line is being produced**: the summary covers the lines finished so far. Opening it
+  does not interrupt or cancel the line in progress.
+- **Summary and the practice language setting**: the summary uses the conversation's own language, not
+  the practice language currently selected in Settings.
+- **Summary in a finished or resumed conversation**: Summary works on conversations opened from Past
+  Chats, finished or not, the same way.
+- **Summary fails**: the learner sees a plain message with what to do and can try again. The
+  conversation itself is unaffected, and the app does not switch provider.
 - **Host names**: names suit the episode's language (Spanish names for a Spanish episode, German names
   for a German one) and never match the learner's own name.
 
@@ -324,7 +384,28 @@ the final choices.
   and MUST follow the existing rules for provider errors: a plain message, a retry, and no silent
   fallback.
 - **FR-034**: Adding this feature MUST NOT change existing conversations, vocabulary, decks, settings
-  or the roleplay experience.
+  or the roleplay experience, apart from adding Summary to roleplay conversations (FR-035).
+
+**Conversation summary**
+
+- **FR-035**: Learners MUST be able to open a summary of the current conversation from the
+  conversation screen, in roleplay conversations and in podcast episodes of every format. Summary
+  MUST be a secondary action that does not compete with the screen's primary action.
+- **FR-036**: The summary MUST be based only on the conversation's lines up to the moment it is
+  opened. It MUST NOT state anything that was not said in the conversation.
+- **FR-037**: The summary MUST be short (at most five sentences or bullet points) and cover what has
+  been discussed, the speakers' main points, and where the conversation stands now. In a podcast
+  episode it MUST name the host behind each point.
+- **FR-038**: The summary MUST be available in the conversation's language and in English, with a
+  single control to switch between them. Both versions MUST describe the same points.
+- **FR-039**: The conversation-language version MUST use short, simple sentences that follow the
+  learner's conversation level. At Natural it is still plain and short.
+- **FR-040**: The summary MUST open in the conversation's language by default. The learner's last
+  choice of summary language MUST be remembered across conversations and sessions.
+- **FR-041**: Opening, switching or closing the summary MUST NOT add, skip or advance any line, or
+  change whose turn it is.
+- **FR-042**: When lines have been added since the summary was last shown, opening it again MUST give
+  a summary that includes them.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -343,6 +424,10 @@ the final choices.
   order.
 - **Learner interests**: a short, learner-entered list of topics, saved with the learner's
   settings, that personalises Surprise me and the generator (FR-023).
+- **Conversation summary**: a short account of one conversation or episode up to a given line, in
+  the conversation's language and in English. It always reflects the lines at the time it is shown.
+- **Summary language choice**: the learner's last choice between the conversation's language and
+  English, saved with the learner's settings (FR-040).
 
 ## Success Criteria *(mandatory)*
 
@@ -369,7 +454,15 @@ the final choices.
 - **SC-010**: With the network disconnected and the local defaults selected, a Panel episode with
   spoken input and two spoken hosts completes normally.
 - **SC-011**: After updating, 100% of existing conversations, words, decks and settings are present
-  and unchanged, and a roleplay conversation behaves as before.
+  and unchanged, and a roleplay conversation behaves as before apart from the new Summary.
+- **SC-012**: In a review of 20 summaries (10 roleplay conversations, 10 podcast episodes, both
+  practice languages), 0 summaries state something that was not said, and at least 90% cover every
+  main point a reviewer lists for the conversation.
+- **SC-013**: For the same 20 summaries, the English and conversation-language versions describe the
+  same points in 100% of cases, and at levels below Natural the conversation-language version meets
+  the level's limits at least as often as roleplay partner replies do.
+- **SC-014**: A summary appears within 10 seconds of opening Summary, and switching its language
+  takes under 10 seconds, in 90% of cases with the default local setup.
 
 ## Assumptions
 
@@ -389,5 +482,9 @@ the final choices.
 - **Quality limits carry over.** Levels and corrections are experimental on the default local model;
   their existing warnings apply to podcasts too. Multi-speaker turn-taking may also be harder for a
   small local model than for a larger one, which SC-002 and SC-003 are meant to measure.
+- **Summary is read, not heard.** The summary is shown as text only; reading it aloud, and word
+  lookup or saving words from it, are out of scope for this feature.
+- **English is the only native language.** "The learner's language" for the summary is English, as
+  everywhere else in the app.
 - **Larger panels** (more than two hosts) are out of scope, but FR-004 should make them a catalogue
   change.
