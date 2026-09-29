@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.main import app
 from app.services.factory import (
@@ -19,10 +20,10 @@ from app.services.llm.base import ChatMessage, LLMProvider
 from app.services.scenario.static import StaticScenarioProvider
 from app.services.storage.base import AppSettingsRecord
 from app.services.storage.sqlite import SQLiteStorageProvider
-from tests.integration.conftest import make_test_session
 from tests.integration.conversation_levels.level_harness import wait_until
 from tests.support.engine_overrides import override_conversation_engine
 from tests.support.fake_speech import override_speech
+from tests.support.scratch_database import make_sessions
 
 _DEFAULT_SETTINGS = AppSettingsRecord(
     llm_model="llama3.1",
@@ -51,26 +52,45 @@ class StubLLMProvider(LLMProvider):
         return "".join(self._tokens)
 
 
+class _SessionPerCall:
+    """Storage whose every call opens its own session, as each request's `get_db` does.
+
+    The reply is spoken on a worker thread that writes its audio path with the request's
+    storage after the response has gone, so one session shared with the test would race.
+    """
+
+    def __init__(self, sessions: sessionmaker, opened: list[Session]) -> None:
+        self._sessions = sessions
+        self._opened = opened
+
+    def __call__(self) -> SQLiteStorageProvider:
+        self._opened.append(self._sessions())
+        return SQLiteStorageProvider(self._opened[-1])
+
+    def __getattr__(self, name: str):
+        return getattr(self(), name)
+
+
 @pytest.fixture
 def client_and_storage(tmp_path: Path):
-    db_file = tmp_path / "test.db"
-    session, _engine = make_test_session(str(db_file))
-    storage_instance = SQLiteStorageProvider(session)
+    opened: list[Session] = []
+    storage = _SessionPerCall(make_sessions(tmp_path / "test.db"), opened)
 
     stub_llm = StubLLMProvider(tokens=["Buenos", " dias"])
 
     app.dependency_overrides[get_scenario_provider] = lambda: StaticScenarioProvider()
-    app.dependency_overrides[get_storage] = lambda: storage_instance
+    app.dependency_overrides[get_storage] = storage
     app.dependency_overrides[get_app_settings] = lambda: _DEFAULT_SETTINGS
     app.dependency_overrides[get_llm] = lambda: stub_llm
     override_conversation_engine(app, stub_llm)
     override_speech(app)
 
     with TestClient(app) as c:
-        yield c, storage_instance
+        yield c, storage
 
     app.dependency_overrides.clear()
-    session.close()
+    for session in opened:
+        session.close()
 
 
 def _create_conversation(client: TestClient) -> int:
@@ -224,10 +244,10 @@ def test_send_message_event_order(client_and_storage) -> None:
 @pytest.fixture
 def speaking_client(tmp_path: Path):
     """Returns a builder: `speaking_client(installed=…)` → (client, storage, tts builder)."""
-    session, _engine = make_test_session(str(tmp_path / "speaking.db"))
-    storage_instance = SQLiteStorageProvider(session)
+    opened: list[Session] = []
+    storage = _SessionPerCall(make_sessions(tmp_path / "speaking.db"), opened)
     stub_llm = StubLLMProvider(tokens=["Guten", " Tag"])
-    app.dependency_overrides[get_storage] = lambda: storage_instance
+    app.dependency_overrides[get_storage] = storage
     app.dependency_overrides[get_app_settings] = lambda: _DEFAULT_SETTINGS
     override_conversation_engine(app, stub_llm)
     clients: list[TestClient] = []
@@ -235,13 +255,14 @@ def speaking_client(tmp_path: Path):
     def build(installed=None):
         builder = override_speech(app, installed=installed)
         clients.append(TestClient(app))
-        return clients[-1].__enter__(), storage_instance, builder
+        return clients[-1].__enter__(), storage, builder
 
     yield build
     for client in clients:
         client.__exit__(None, None, None)
     app.dependency_overrides.clear()
-    session.close()
+    for session in opened:
+        session.close()
 
 
 def _send_in_german(client: TestClient, storage: SQLiteStorageProvider) -> int:

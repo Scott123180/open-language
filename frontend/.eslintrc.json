@@ -39,6 +39,7 @@
         "src/components/podcasts/**",
         "src/hooks/podcasts/**",
         "src/hooks/useConversationSummary.ts",
+        "src/hooks/useSummaryLanguage.ts",
         "src/components/chat/Summary*.tsx",
         "src/services/podcastsApi.ts"
       ],

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Open-Language** is a locally-run language learning application built using **SpecKit** (v1.0.1, skills-based integration), a specification-driven development (SDD) framework. All feature work goes through the SDD workflow below.
 
-The application is implemented and running: a FastAPI backend in [backend/app/](backend/app/) and a Vite/React frontend in [frontend/src/](frontend/src/). Features shipped so far: roleplay chat (001), vocabulary flashcards (002), corrective feedback mode (003, experimental), LLM provider selection with conversation sessions (004), conversation difficulty levels (005, experimental), and German as a second practice language (006). Every AI capability sits behind a provider interface, and the app is local by default: Ollama for the LLM, Piper for TTS, faster-whisper for STT, SQLite for storage. Cloud providers are opt-in — today, Claude as the conversation partner through the learner's signed-in Claude Code. STT and TTS are always local.
+The application is implemented and running: a FastAPI backend in [backend/app/](backend/app/) and a Vite/React frontend in [frontend/src/](frontend/src/). Features shipped so far: roleplay chat (001), vocabulary flashcards (002), corrective feedback mode (003, experimental), LLM provider selection with conversation sessions (004), conversation difficulty levels (005, experimental), German as a second practice language (006), and podcast mode with a two-language conversation Summary (007). Every AI capability sits behind a provider interface, and the app is local by default: Ollama for the LLM, Piper for TTS, faster-whisper for STT, SQLite for storage. Cloud providers are opt-in — today, Claude as the conversation partner through the learner's signed-in Claude Code. STT and TTS are always local.
 
 Speech-to-text is implemented in [backend/app/services/stt/whisper.py](backend/app/services/stt/whisper.py); see [reference/TRANSCRIPTION_INTEGRATION.md](reference/TRANSCRIPTION_INTEGRATION.md) for the underlying `faster-whisper` + CUDA integration patterns.
 
@@ -264,8 +264,27 @@ root; `prompts/templates.py` is never edited to carry the level.
 `backend/app/practice_languages/` (006) owns no tables and no router either: it is the only place a
 language code becomes a name ("German") or a default voice. Nothing else hard-codes `"es"` or `"de"`
 (a unit test enforces it). TTS goes through `SpeechForLanguage`, built only in `services/factory.py`.
+`backend/app/podcasts/` (007) is a compartmentalised domain like flashcards: four tables, its own
+catalogue, prompts and routes (`routes.py`, which includes `show_routes.py` and `host_routes.py`), and
+`services/`. An episode is a `conversations` row plus the podcast tables. `TurnPolicy` (pure, seeded)
+chooses who speaks and when the learner is invited; the model only writes the line, asked for with a
+producer cue sent as a user turn. Hosts are cast by code (`HostCaster`). Outside the package only its
+root is imported, except by `services/factory.py` and `database.py` (a unit test enforces it).
+`backend/app/conversation_summary/` (007) serves `GET /api/conversations/{id}/summary` for roleplay and
+podcasts: one structured call returns both languages, long transcripts are folded, the latest summary is
+cached. It gets speaker names through `SpeakerNames`, which the factory implements from the podcast
+module; the two modules never import each other. `backend/app/conversation_turns/` (007) holds the
+learner-turn and reply-relay mechanics moved out of `routers/chat.py` so chat and podcasts share them.
+Per-host voices reach the audio router through `MessageVoiceLookup` (`services/tts/base.py`).
 
 ## Recent Changes
+- **007-podcast-mode**: Podcasts from the home screen — One host, Panel (Jump in, Pass) or Listen (Continue,
+  Show text), Short/Medium/Long, over ready-made, generated (idea → structured call) or Surprise me shows,
+  with interests the learner types. Hosts are cast by code from per-language name banks and the installed
+  voices (no new download), can be shuffled or given another personality, and each speaks in their own
+  voice. Summary (roleplay and episodes) gives up to five points in the conversation's language or
+  English (`app_settings.summary_language`). Adds 5 tables and one `app_settings` column. The model-
+  dependent benchmarks and review sheets are written but not yet run (docs/architecture.md § "Open items")
 - **006-german-language-support**: the practice language is Spanish (default) or German, chosen on
   Settings. A conversation keeps its language, and every aid (prompts, suggestions, corrections,
   helper, learning tools, saved words, speech) takes it from the conversation, not the setting;
@@ -299,5 +318,5 @@ language code becomes a name ("German") or a default voice. Nothing else hard-co
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
-at specs/006-german-language-support/plan.md
+at specs/007-podcast-mode/plan.md
 <!-- SPECKIT END -->

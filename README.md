@@ -18,6 +18,32 @@ Cloud providers are opt-in. Today you can choose Claude as the conversation part
 - **Expression helper** — ask "how do I say X?" in a separate side panel
 - **Conversation history** — all chats saved locally in SQLite
 - **Choice of conversation partner** — a local Ollama model (the default) or Claude via Claude Code, switched on the Settings screen without a restart
+- **Podcasts** — talk with podcast hosts instead of a role-play partner, or just listen (see [Podcasts](#podcasts))
+- **Summary** — a short summary of any conversation or episode, in the conversation's language or English
+
+## Podcasts
+
+Open **Podcasts** from the home screen and pick a show. On the setup screen you choose:
+
+- **Format** — **One host** (you and one host), **Panel** (you and two hosts; jump in while they talk,
+  or pass when they ask you), or **Listen** (two hosts talk, you follow along and tap Continue).
+- **Length** — **Short**, **Medium** (the default) or **Long**: about 10, 20 or 40 host lines.
+- **The hosts** — each has a personality you can change, a ▶ button to hear their voice, and **Shuffle**
+  for a different host. Two hosts never share a name, a personality or (with two voices installed) a voice.
+- **Your name** — what the hosts call you; blank means "our guest".
+
+Besides the ready-made shows, type an idea into **Make your own show** and press **Generate**, or press
+**Surprise me** for a random show. **Your interests** (optional) steer Surprise me and the generator;
+the app only ever uses what you type there. A generated show offers **Another version** on the setup
+screen. Unsuitable ideas are declined with a plain message.
+
+Episodes follow your conversation level and practice language, and every host line has the same learning
+tools as a role-play reply. In Listen, **Show text** hides each line until you tap it. **Summary**, in
+episodes and in role-play chats, gives up to five points in the conversation's language or English.
+
+**No new voice download is needed.** Hosts use the two voices per language that `./run.sh --setup`
+already installs (the table below). With only one voice installed, both hosts share it and the setup
+screen says so; with none, the episode still works in text.
 
 ## Quick start
 
