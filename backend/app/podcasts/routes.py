@@ -49,6 +49,7 @@ from app.podcasts.services.turn_policy import (
     TurnPolicy,
 )
 from app.podcasts.services.voice_notices import catalogue_notices, episode_voice_notice
+from app.podcasts.show_routes import show_router
 from app.services.conversation import ConversationEngine, SessionCapableProvider
 from app.services.factory import (
     get_app_settings,
@@ -386,3 +387,6 @@ async def get_suggestions(
         None, llm.chat, [ChatMessage(role=USER_ROLE, content=prompt)]
     )
     return {"suggestions": parse_suggestions(reply, count)}
+
+
+router.include_router(show_router)

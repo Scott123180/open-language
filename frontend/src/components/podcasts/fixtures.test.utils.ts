@@ -41,3 +41,12 @@ export const hostLine: EpisodeLine = {
   is_revealed: false,
   created_at: '2026-09-28T10:00:00Z',
 }
+
+export const generatedShow: ShowDraft = {
+  ...show,
+  source: 'generated',
+  show_id: null,
+  title: 'Night Shift Abroad',
+  premise: 'Two nurses swap stories about working far from home.',
+  topic: 'living abroad as a nurse',
+}

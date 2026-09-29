@@ -17,16 +17,18 @@ from app.podcasts.catalog import (
     PODCAST_FORMATS,
     SHOW_ROLES,
     SHOW_SOURCES,
+    TITLE_MAX_LENGTH,
 )
 from app.practice_languages import language_name
 from app.services.tts.voices import AVAILABLE_VOICES
 
 LANGUAGE_CHANGED = "The practice language changed. Pick the show again."
+MAX_INTERESTS = 10
+INTEREST_MAX_LENGTH = 40
 FORMAT_PATTERN = f"^({'|'.join(PODCAST_FORMATS)})$"
 LENGTH_PATTERN = f"^({'|'.join(EPISODE_LENGTHS)})$"
 SLOT_PATTERN = f"^({'|'.join(HOST_SLOTS)})$"
 SOURCE_PATTERN = f"^({'|'.join(SHOW_SOURCES)})$"
-TITLE_MAX_LENGTH = 200
 _VOICE_LANGUAGES = {voice.key: voice.language for voice in AVAILABLE_VOICES}
 
 
@@ -38,6 +40,21 @@ def _trimmed_name(value: str | None) -> str | None:
     if len(trimmed) > HOST_NAME_MAX_LENGTH:
         raise ValueError(f"Your name can be at most {HOST_NAME_MAX_LENGTH} characters.")
     return trimmed
+
+
+def _clean_interests(values: list[str]) -> list[str]:
+    """Trimmed, blanks dropped, de-duplicated ignoring case (first spelling kept) (contracts §2)."""
+    cleaned: dict[str, str] = {}
+    for value in (value.strip() for value in values):
+        if len(value) > INTEREST_MAX_LENGTH:
+            raise ValueError(
+                f"“{value}” is too long: an interest can be at most {INTEREST_MAX_LENGTH} characters."
+            )
+        if value:
+            cleaned.setdefault(value.casefold(), value)
+    if len(cleaned) > MAX_INTERESTS:
+        raise ValueError(f"You can save at most {MAX_INTERESTS} interests.")
+    return list(cleaned.values())
 
 
 # --- catalogue ----------------------------------------------------------------------------
@@ -121,6 +138,26 @@ class UpdatePreferencesRequest(BaseModel):
     @classmethod
     def _trim_learner_name(cls, value: str | None) -> str | None:
         return _trimmed_name(value)
+
+    @field_validator("interests")
+    @classmethod
+    def _clean_interests(cls, value: list[str] | None) -> list[str] | None:
+        return None if value is None else _clean_interests(value)
+
+
+# --- shows (contracts §3) -----------------------------------------------------------------
+
+
+class GenerateShowRequest(BaseModel):
+    """The idea is checked in the router, so a blank or long one gets the plain message."""
+
+    idea: str
+    avoid_titles: list[str] = Field(default_factory=list)
+
+
+class ShowRefusal(BaseModel):
+    detail: str
+    can_surprise: bool
 
 
 # --- episodes -----------------------------------------------------------------------------

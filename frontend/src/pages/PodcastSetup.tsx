@@ -1,4 +1,5 @@
 import ErrorBanner from '../components/shared/ErrorBanner'
+import AnotherVersion from '../components/podcasts/AnotherVersion'
 import PageShell from '../components/podcasts/PageShell'
 import SetupForm from '../components/podcasts/SetupForm'
 import { usePodcastCatalog } from '../hooks/podcasts/usePodcastCatalog'
@@ -11,12 +12,13 @@ import { useStartEpisode } from '../hooks/podcasts/useStartEpisode'
 export default function PodcastSetup() {
   const { catalog, error } = usePodcastCatalog()
   const { preferences } = usePodcastPreferences()
-  const show = useSetupShow(catalog)
+  const { show, draft, replaceDraft } = useSetupShow(catalog)
   const form = useSetupForm(catalog, preferences)
   const starting = useStartEpisode()
   return (
     <PageShell title={show?.title ?? 'Set up your episode'} backTo="/podcasts" backLabel="Back to Podcasts">
       {error && <ErrorBanner message={error} />}
+      {draft?.draft.source === 'generated' && <AnotherVersion current={draft} onMade={replaceDraft} />}
       {show && catalog ? <SetupForm show={show} catalog={catalog} form={form} starting={starting} /> : !error && <p aria-live="polite">Loading…</p>}
     </PageShell>
   )

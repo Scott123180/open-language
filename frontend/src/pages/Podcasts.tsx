@@ -2,10 +2,12 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import ErrorBanner from '../components/shared/ErrorBanner'
 import PageShell from '../components/podcasts/PageShell'
 import PlainNotice from '../components/podcasts/PlainNotice'
+import NewShowSection from '../components/podcasts/NewShowSection'
 import ShowList from '../components/podcasts/ShowList'
 import { usePodcastCatalog } from '../hooks/podcasts/usePodcastCatalog'
 
-/** The Podcasts screen: choosing a show is its one primary action (FR-001, FR-002). */
+/** The Podcasts screen: choosing a show is its one primary action (FR-001, FR-002); making
+ * one's own show is secondary (FR-020, FR-022). */
 export default function Podcasts() {
   const navigate = useNavigate()
   const notice = (useLocation().state as { message?: string } | null)?.message
@@ -16,6 +18,7 @@ export default function Podcasts() {
       {error && <ErrorBanner message={error} />}
       {!catalog && !error && <p aria-live="polite">Loading shows…</p>}
       {catalog && <ShowList catalog={catalog} onChoose={(show) => navigate(`/podcasts/setup?show=${show.show_id}`)} />}
+      <NewShowSection />
     </PageShell>
   )
 }

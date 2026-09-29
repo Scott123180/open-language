@@ -23,6 +23,7 @@ from app.podcasts.services.episode_lock import EpisodeLocks
 from app.podcasts.services.speaker_views import PodcastMessageVoices, PodcastSpeakerNames
 from app.podcasts.services.sqlite_storage import SQLitePodcastStorage
 from app.podcasts.services.storage import PodcastStorage
+from app.podcasts.services.surprise import RecentSurprises
 from app.practice_languages import voice_for, voice_unavailable_message
 from app.services.conversation import (
     ConversationEngine,
@@ -195,6 +196,12 @@ def get_speaker_names(
 def get_episode_locks() -> EpisodeLocks:
     """One per process: a line in progress is guarded across every request (research R12)."""
     return EpisodeLocks()
+
+
+@lru_cache
+def get_recent_surprises() -> RecentSurprises:
+    """One per process: Surprise me never repeats one of its last ideas (research R9)."""
+    return RecentSurprises()
 
 
 def get_host_caster(

@@ -20,6 +20,7 @@ LEARNER_ROLES = ("guest", "co_host", "caller")
 SHOW_ROLES = ("host", "co_host", "guest_expert")
 SHOW_SOURCES = ("ready_made", "generated", "surprise")
 HOST_NAME_MAX_LENGTH = 40
+TITLE_MAX_LENGTH = 200
 
 
 @dataclass(frozen=True, slots=True)

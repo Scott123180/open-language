@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import PodcastSetup from './PodcastSetup'
 import * as podcasts from '../services/podcastsApi'
 import { catalog, episode, preferences } from './podcastPageFixtures.test.utils'
+import { generatedShow } from '../components/podcasts/fixtures.test.utils'
 
 vi.mock('../services/podcastsApi')
 
@@ -18,6 +19,15 @@ const renderSetup = (search = '?show=weekend-food-talk') =>
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={[`/podcasts/setup${search}`]}>
+        <PodcastSetup />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+const renderWithDraft = (state: unknown) =>
+  render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter initialEntries={[{ pathname: '/podcasts/setup', state }]}>
         <PodcastSetup />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -111,5 +121,68 @@ describe('PodcastSetup page — voice notices (spec edge case)', () => {
     renderSetup()
 
     expect(await screen.findByText('No Spanish voice is installed.')).toBeInTheDocument()
+  })
+})
+
+describe('PodcastSetup page — generated drafts (US4)', () => {
+  const generated = { draft: generatedShow, idea: 'nurses', previousTitles: [] }
+
+  it('sets up the draft passed in router state', async () => {
+    renderWithDraft(generated)
+
+    expect(await screen.findByRole('heading', { name: 'Night Shift Abroad' })).toBeInTheDocument()
+  })
+
+  it('starts the episode with the generated draft', async () => {
+    renderWithDraft(generated)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Start episode' }))
+
+    await waitFor(() => expect(podcasts.startEpisode).toHaveBeenCalledWith(expect.objectContaining({ show: generatedShow })))
+  })
+
+  it('offers another version of a generated show, avoiding the titles so far', async () => {
+    vi.mocked(podcasts.generateShow).mockResolvedValue({ ...generatedShow, title: 'Far From Home' })
+    renderWithDraft(generated)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Another version' }))
+
+    expect(await screen.findByRole('heading', { name: 'Far From Home' })).toBeInTheDocument()
+    expect(podcasts.generateShow).toHaveBeenCalledWith('nurses', ['Night Shift Abroad'])
+  })
+
+  it('shows why another version could not be made', async () => {
+    vi.mocked(podcasts.generateShow).mockRejectedValue(new Error('The show came back unreadable. Please try again.'))
+    renderWithDraft(generated)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Another version' }))
+
+    expect(await screen.findByText('The show came back unreadable. Please try again.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Night Shift Abroad' })).toBeInTheDocument()
+  })
+
+  it('offers no other version of a surprise or a ready-made show', async () => {
+    renderWithDraft({ draft: { ...generatedShow, source: 'surprise' }, idea: null, previousTitles: [] })
+    await screen.findByRole('heading', { name: 'Night Shift Abroad' })
+
+    expect(screen.queryByRole('button', { name: 'Another version' })).not.toBeInTheDocument()
+  })
+
+  it('offers no other version of a ready-made show', async () => {
+    renderSetup()
+    await screen.findByRole('heading', { name: 'Weekend Food Talk' })
+
+    expect(screen.queryByRole('button', { name: 'Another version' })).not.toBeInTheDocument()
+  })
+
+  it('returns to Podcasts with a plain message when the draft is gone', async () => {
+    renderSetup('')
+
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('/podcasts', {
+        replace: true,
+        state: { message: expect.stringMatching(/Generate it again/) },
+      }),
+    )
   })
 })

@@ -66,7 +66,14 @@ class RealPodcastHarness:
     def run_episode(
         self, format: str, show_index: int, learner_turns: int, length: str = "short"
     ) -> RunResult:
-        episode_id = self._start(format, show_index, length)
+        return self.play(self._start(format, show_index, length), learner_turns)
+
+    def start_draft(self, draft: dict, format: str, length: str = "short") -> int:
+        body = {"show": draft, "format": format, "length": length}
+        return self.client.post(EPISODES, json=body).json()["conversation_id"]
+
+    def play(self, episode_id: int, learner_turns: int) -> RunResult:
+        """Continue, reply and finally end the episode, timing each step."""
         timings: list[float] = []
         replies = iter(LEARNER_REPLIES[self.language] * learner_turns)
         for _step in range(MAX_STEPS):
@@ -86,8 +93,7 @@ class RealPodcastHarness:
         show_id = list(SHOW_TEMPLATES)[show_index % len(SHOW_TEMPLATES)]
         shows = self.client.get("/api/podcasts/catalog").json()["shows"]
         draft = next(show for show in shows if show["show_id"] == show_id)
-        body = {"show": draft, "format": format, "length": length}
-        return self.client.post(EPISODES, json=body).json()["conversation_id"]
+        return self.start_draft(draft, format, length)
 
     def _advance(self, episode_id: int, state: dict, replies: Iterator[str], left: int) -> float:
         started = time.perf_counter()

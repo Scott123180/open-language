@@ -106,6 +106,34 @@ describe('podcast JSON endpoints', () => {
     await expect(podcasts.getEpisode(1)).rejects.toThrow('Episode not found')
   })
 
+  it('reads a validation refusal as its plain sentences', async () => {
+    stubJson({ detail: [{ msg: 'Value error, You can save at most 10 interests.' }] }, { ok: false, status: 422 })
+
+    await expect(podcasts.updatePodcastPreferences({ interests: [] })).rejects.toThrow(/^You can save at most 10 interests\.$/)
+  })
+
+  it('generates a show from an idea, avoiding earlier titles', async () => {
+    const mock = stubJson({ title: 'Night Shift Abroad' })
+
+    await podcasts.generateShow('nurses', ['Ward Stories'])
+
+    expect(call(mock)).toMatchObject({ url: `${BASE}/shows/generate`, body: { idea: 'nurses', avoid_titles: ['Ward Stories'] } })
+  })
+
+  it('throws a declined idea in its plain words', async () => {
+    stubJson({ detail: "That idea can't become a show here.", can_surprise: true }, { ok: false, status: 422 })
+
+    await expect(podcasts.generateShow('x')).rejects.toThrow("That idea can't become a show here.")
+  })
+
+  it('asks for a surprise', async () => {
+    const mock = stubJson({ title: 'Chess Stories' })
+
+    await podcasts.surpriseShow()
+
+    expect(call(mock)).toMatchObject({ url: `${BASE}/shows/surprise`, body: {} })
+  })
+
   it('asks for suggestions for the episode', async () => {
     const mock = stubJson({ suggestions: ['Sí'] })
 

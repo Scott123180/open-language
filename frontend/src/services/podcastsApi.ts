@@ -158,9 +158,15 @@ export interface StartEpisodeBody {
 
 export type PreferencesUpdate = Partial<Pick<PodcastPreferences, 'is_show_text_on' | 'interests' | 'learner_name'>>
 
+const VALUE_ERROR_PREFIX = /^Value error, /
+
+/** A 422 from request validation carries a list; each entry's message is a plain sentence. */
+const detailText = (detail: unknown): string | undefined =>
+  Array.isArray(detail) ? detail.map((entry) => String(entry?.msg ?? '').replace(VALUE_ERROR_PREFIX, '')).join(' ') : (detail as string | undefined)
+
 async function readError(res: Response): Promise<string> {
   const body = await res.json().catch(() => ({}))
-  return body.detail ?? `HTTP ${res.status}`
+  return detailText(body.detail) ?? `HTTP ${res.status}`
 }
 
 async function podcastFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -183,6 +189,12 @@ export const updatePodcastPreferences = (updates: PreferencesUpdate): Promise<Po
 
 export const startEpisode = (body: StartEpisodeBody): Promise<Episode> =>
   podcastFetch('/episodes', jsonBody('POST', body))
+
+/** A show from the learner's idea; a refusal throws the server's plain words (contracts §3). */
+export const generateShow = (idea: string, avoidTitles: string[] = []): Promise<ShowDraft> =>
+  podcastFetch('/shows/generate', jsonBody('POST', { idea, avoid_titles: avoidTitles }))
+
+export const surpriseShow = (): Promise<ShowDraft> => podcastFetch('/shows/surprise', jsonBody('POST', {}))
 
 export const listEpisodes = (): Promise<EpisodeSummaryRow[]> => podcastFetch('/episodes')
 

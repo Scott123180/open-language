@@ -786,3 +786,26 @@ export async function mockSummarySettings(page: Page, initial: 'conversation' | 
   })
   return { puts }
 }
+
+export const generatedShowFixture = {
+  ...showDraftFixture,
+  source: 'generated',
+  show_id: null as string | null,
+  title: 'Night Shift Abroad',
+  premise: 'Two nurses swap stories about working far from home.',
+  topic: 'living abroad as a nurse',
+}
+export const IDEA_DECLINED = "That idea can't become a show here. Try a different topic, or press Surprise me."
+export const IDEA_NEEDED = "Type a few words about the show you'd like, or press Surprise me."
+
+/** Serve `drafts` in order to successive POSTs of `/shows/generate`, recording each body.
+ * An entry with a `detail` is served as the 422 refusal it describes. */
+export async function mockShowGeneration(page: Page, drafts: unknown[]) {
+  const requests: Record<string, unknown>[] = []
+  await page.route('/api/podcasts/shows/generate', (route) => {
+    requests.push(route.request().postDataJSON())
+    const draft = drafts[Math.min(requests.length, drafts.length) - 1] as { detail?: string }
+    return draft.detail ? route.fulfill({ status: 422, json: { detail: draft.detail, can_surprise: true } }) : route.fulfill({ json: draft })
+  })
+  return requests
+}

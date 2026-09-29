@@ -8,7 +8,7 @@ same renderer the roleplay partner uses, so a host line is held to the same limi
 from dataclasses import dataclass
 
 from app.conversation_levels import ConversationLevel, with_partner_speech_rules
-from app.podcasts.catalog import PERSONALITIES, PodcastFormat
+from app.podcasts.catalog import LEARNER_ROLES, PERSONALITIES, PodcastFormat
 from app.podcasts.services.casting import Cast, Host
 from app.podcasts.services.turn_policy import LineCue
 from app.practice_languages import ConversationLanguages
@@ -30,6 +30,17 @@ _INTENT_INSTRUCTIONS = {
     "wrap_up": "Start wrapping up the topic, in character.",
     "sign_off": "Close the show: thank {label} and say goodbye.",
 }
+
+
+@dataclass(frozen=True, slots=True)
+class ShowIdea:
+    """What the learner asked the generator for (research R9)."""
+
+    idea: str
+    languages: ConversationLanguages
+    interests: tuple[str, ...] = ()
+    avoid_titles: tuple[str, ...] = ()
+    learner_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,3 +135,79 @@ def _line_rules(learner_label: str, languages: ConversationLanguages) -> str:
         "- Producer notes are never read aloud or mentioned.",
     )
     return "\n".join(rules)
+
+
+# --- the show generator (research R9) -----------------------------------------------------
+
+_HOST_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "personality": {"type": "string", "enum": list(PERSONALITIES)},
+        "angle": {"type": "string"},
+    },
+    "required": ["personality", "angle"],
+}
+SHOW_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "is_suitable": {"type": "boolean"},
+        "decline_reason": {"type": "string"},
+        "title": {"type": "string"},
+        "premise": {"type": "string"},
+        "topic": {"type": "string"},
+        "learner_role": {"type": "string", "enum": list(LEARNER_ROLES)},
+        "hosts": {"type": "array", "minItems": 2, "maxItems": 2, "items": _HOST_SCHEMA},
+    },
+    "required": [
+        "is_suitable",
+        "decline_reason",
+        "title",
+        "premise",
+        "topic",
+        "learner_role",
+        "hosts",
+    ],
+}
+_SHOW_FIELDS = (
+    "If it is suitable, fill in:",
+    "- title: a short, catchy show title of at most eight words.",
+    "- premise: one sentence on what the show is about.",
+    "- topic: a few words naming the topic.",
+    "- learner_role: how the learner joins the show: guest, co_host or caller.",
+    "- hosts: exactly two hosts, each with a different personality from the list below and a "
+    "one-line angle: that host's own view of the idea.",
+)
+
+
+def build_generator_prompt(idea: ShowIdea) -> str:
+    """One structured request: judge the idea, then describe the show. Names are cast by code."""
+    target, native = idea.languages.target_name, idea.languages.native_name
+    sections = (
+        f"You create podcast shows for a learner practising {target}. The show is spoken in "
+        f"{target}, but write the title, premise, topic and angles in {native}.",
+        f"Idea: {idea.idea}",
+        *_personal_sections(idea),
+        "First decide whether the idea is suitable. An idea that asks for hateful, sexual or "
+        "dangerous content is not: set is_suitable to false, give a short decline_reason, and "
+        "leave the other text fields empty.",
+        "\n".join(_SHOW_FIELDS),
+        "Personalities:\n" + "\n".join(_personality_lines()),
+    )
+    return "\n\n".join(sections)
+
+
+def _personal_sections(idea: ShowIdea) -> tuple[str, ...]:
+    sections = []
+    if idea.interests:
+        sections.append(
+            f"The learner is interested in: {', '.join(idea.interests)}. Where it fits the "
+            "idea, let the hosts' angles draw on these."
+        )
+    if idea.avoid_titles:
+        titles = ", ".join(f'"{title}"' for title in idea.avoid_titles)
+        sections.append(f"Make a clearly different version: do not reuse these titles: {titles}.")
+    return tuple(sections)
+
+
+def _personality_lines() -> list[str]:
+    return [f"- {key}: {p.description}" for key, p in PERSONALITIES.items()]

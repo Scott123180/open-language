@@ -1,5 +1,14 @@
-import { test, expect } from '@playwright/test'
-import { mockHomeApis, mockPodcastApis, mockPodcastCatalog, mockPodcastPreferences } from './fixtures'
+import { test, expect, type Page } from '@playwright/test'
+import {
+  generatedShowFixture,
+  IDEA_DECLINED,
+  IDEA_NEEDED,
+  mockHomeApis,
+  mockPodcastApis,
+  mockPodcastCatalog,
+  mockPodcastPreferences,
+  mockShowGeneration,
+} from './fixtures'
 
 test.describe('Podcasts', () => {
   test.beforeEach(async ({ page }) => {
@@ -74,5 +83,88 @@ test.describe('Podcasts — fewer than two voices', () => {
     await page.getByRole('radio', { name: /Listen/ }).click()
 
     await expect(page.getByRole('status').filter({ hasText: notice })).toBeVisible()
+  })
+})
+
+test.describe('Podcasts — generator and Surprise me (US4)', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockHomeApis(page)
+    await mockPodcastApis(page)
+  })
+
+  const generate = async (page: Page, idea: string) => {
+    await page.goto('/podcasts')
+    await page.getByLabel('Your show idea').fill(idea)
+    await page.getByRole('button', { name: 'Generate' }).click()
+  }
+
+  test('generating an idea opens setup with the generated show', async ({ page }) => {
+    const requests = await mockShowGeneration(page, [generatedShowFixture])
+
+    await generate(page, 'living abroad as a nurse')
+
+    await expect(page).toHaveURL(/\/podcasts\/setup$/)
+    await expect(page.getByRole('heading', { name: 'Night Shift Abroad' })).toBeVisible()
+    expect(requests[0]).toEqual({ idea: 'living abroad as a nurse', avoid_titles: [] })
+  })
+
+  test('Another version brings a different title and avoids the first', async ({ page }) => {
+    const requests = await mockShowGeneration(page, [generatedShowFixture, { ...generatedShowFixture, title: 'Far From Home' }])
+    await generate(page, 'living abroad as a nurse')
+    await expect(page.getByRole('heading', { name: 'Night Shift Abroad' })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Another version' }).click()
+
+    await expect(page.getByRole('heading', { name: 'Far From Home' })).toBeVisible()
+    expect(requests[1]).toEqual({ idea: 'living abroad as a nurse', avoid_titles: ['Night Shift Abroad'] })
+  })
+
+  test('a blank idea is refused with the offer of Surprise me', async ({ page }) => {
+    await mockShowGeneration(page, [{ detail: IDEA_NEEDED }])
+
+    await generate(page, '   ')
+
+    await expect(page.getByRole('alert')).toHaveText(IDEA_NEEDED)
+    await expect(page.getByRole('button', { name: 'Surprise me' })).toBeEnabled()
+  })
+
+  test('a declined idea is refused with the offer of Surprise me', async ({ page }) => {
+    await mockShowGeneration(page, [{ detail: IDEA_DECLINED }])
+
+    await generate(page, 'something nasty')
+
+    await expect(page.getByRole('alert')).toHaveText(IDEA_DECLINED)
+    await expect(page).toHaveURL(/\/podcasts$/)
+    await expect(page.getByRole('button', { name: 'Surprise me' })).toBeEnabled()
+  })
+
+  test('saving interests sends them to the preferences', async ({ page }) => {
+    await page.goto('/podcasts')
+    await page.getByText('Your interests').click()
+    await page.getByLabel(/Interests/).fill('football, cooking')
+    const saved = page.waitForRequest((request) => request.url().endsWith('/api/podcasts/preferences') && request.method() === 'PUT')
+
+    await page.getByRole('button', { name: 'Save interests' }).click()
+
+    expect((await saved).postDataJSON()).toEqual({ interests: ['football', 'cooking'] })
+  })
+
+  test('Surprise me opens setup with the surprise show and no Another version', async ({ page }) => {
+    await page.route('/api/podcasts/shows/surprise', (route) =>
+      route.fulfill({ json: { ...generatedShowFixture, source: 'surprise', title: 'Chess by Candlelight' } }),
+    )
+    await page.goto('/podcasts')
+
+    await page.getByRole('button', { name: 'Surprise me' }).click()
+
+    await expect(page.getByRole('heading', { name: 'Chess by Candlelight' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Another version' })).toHaveCount(0)
+  })
+
+  test('setup without a show returns to Podcasts with a plain message', async ({ page }) => {
+    await page.goto('/podcasts/setup')
+
+    await expect(page).toHaveURL(/\/podcasts$/)
+    await expect(page.getByText("That show wasn't kept. Generate it again, or pick another one.")).toBeVisible()
   })
 })
