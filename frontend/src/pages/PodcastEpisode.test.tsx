@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import PodcastEpisode from './PodcastEpisode'
 import * as api from '../services/api'
 import * as podcasts from '../services/podcastsApi'
@@ -17,11 +18,13 @@ vi.mock('../hooks/useRecorder', () => ({
 
 const renderEpisode = () =>
   render(
-    <MemoryRouter initialEntries={['/podcasts/episodes/57']}>
-      <Routes>
-        <Route path="/podcasts/episodes/:conversationId" element={<PodcastEpisode />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter initialEntries={['/podcasts/episodes/57']}>
+        <Routes>
+          <Route path="/podcasts/episodes/:conversationId" element={<PodcastEpisode />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 
 beforeEach(() => {
@@ -33,6 +36,7 @@ beforeEach(() => {
   vi.mocked(api.getSettings).mockResolvedValue({ conversation_level: 'natural' } as api.AppSettings)
   vi.mocked(api.getConversationLevels).mockResolvedValue([])
   vi.mocked(podcasts.getEpisode).mockResolvedValue(episode())
+  vi.mocked(podcasts.getPodcastPreferences).mockResolvedValue({ last_format: 'one_host', is_show_text_on: false, interests: [], learner_name: null })
   vi.mocked(podcasts.warmEpisodeSession).mockResolvedValue(undefined)
   vi.mocked(podcasts.streamEpisodeMessage).mockResolvedValue(undefined)
   vi.mocked(api.transcribeAudio).mockResolvedValue({ text: 'Hallo', detected_language: 'de', confidence: 0.9, is_low_confidence: false })
@@ -122,5 +126,43 @@ describe('PodcastEpisode page — One host', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
 
     await waitFor(() => expect(podcasts.streamEpisodeNext).toHaveBeenCalledTimes(2))
+  })
+})
+
+describe('PodcastEpisode page — Listen', () => {
+  const listen = () =>
+    episode({ format: 'listen', format_label: 'Listen', turn: 'hosts', awaiting: 'continue', lines: [{ ...episode().lines[0], invites_learner: false }] })
+
+  it('has no input bar, a Show text switch, and Continue as the only primary action', async () => {
+    vi.mocked(podcasts.getEpisode).mockResolvedValue(listen())
+
+    renderEpisode()
+
+    expect(await screen.findByRole('button', { name: 'Continue' })).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Show text' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Type a message')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /start recording/i })).not.toBeInTheDocument()
+  })
+
+  it('hides the words of a line until it is tapped', async () => {
+    vi.mocked(podcasts.getEpisode).mockResolvedValue(listen())
+    vi.mocked(podcasts.revealLine).mockResolvedValue(undefined)
+    renderEpisode()
+
+    fireEvent.click(await screen.findByRole('button', { name: "Show Lucía's line" }))
+
+    expect(screen.getByText('¡Bienvenidos! ¿Qué cocinaste?')).toBeInTheDocument()
+    expect(podcasts.revealLine).toHaveBeenCalledWith(57, 901)
+  })
+
+  it('shows every line when Show text is on and saves the choice', async () => {
+    vi.mocked(podcasts.getEpisode).mockResolvedValue(listen())
+    vi.mocked(podcasts.updatePodcastPreferences).mockResolvedValue({ last_format: 'listen', is_show_text_on: true, interests: [], learner_name: null })
+    renderEpisode()
+
+    fireEvent.click(await screen.findByRole('switch', { name: 'Show text' }))
+
+    expect(await screen.findByText('¡Bienvenidos! ¿Qué cocinaste?')).toBeInTheDocument()
+    expect(podcasts.updatePodcastPreferences).toHaveBeenCalledWith({ is_show_text_on: true })
   })
 })

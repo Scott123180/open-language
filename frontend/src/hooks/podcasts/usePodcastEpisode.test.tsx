@@ -168,4 +168,25 @@ describe('usePodcastEpisode', () => {
     expect(result.current.notes[2]).toHaveLength(1)
     expect(result.current.isAwaitingRetry).toBe(true)
   })
+
+  it('reveals a hidden Listen line and tells the server', async () => {
+    vi.mocked(podcasts.getEpisode).mockResolvedValue(episode({ format: 'listen', awaiting: 'continue', lines: [hostLine(1, false)] }))
+    vi.mocked(podcasts.revealLine).mockResolvedValue(undefined)
+    const { result } = renderHook(() => usePodcastEpisode(57))
+    await waitFor(() => expect(result.current.episode).not.toBeNull())
+
+    act(() => result.current.reveal(1))
+
+    expect(result.current.lines[0].is_revealed).toBe(true)
+    expect(podcasts.revealLine).toHaveBeenCalledWith(57, 1)
+  })
+
+  it('never lets the learner speak in Listen', async () => {
+    vi.mocked(podcasts.getEpisode).mockResolvedValue(episode({ format: 'listen', awaiting: 'continue', lines: [hostLine(1, false)] }))
+
+    const { result } = renderHook(() => usePodcastEpisode(57))
+
+    await waitFor(() => expect(result.current.episode).not.toBeNull())
+    expect(result.current.isListening).toBe(true)
+  })
 })

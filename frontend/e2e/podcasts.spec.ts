@@ -60,3 +60,19 @@ test.describe('Podcasts', () => {
     await expect(page.getByText("That show isn't available any more. Pick another one.")).toBeVisible()
   })
 })
+
+test.describe('Podcasts — fewer than two voices', () => {
+  test('choosing Listen with one voice says the hosts will share it', async ({ page }) => {
+    const notice = 'Only one Spanish voice is installed, so both hosts will share it.'
+    await mockHomeApis(page)
+    await mockPodcastApis(page, {
+      catalog: { ...mockPodcastCatalog, voices: { installed_count: 1, shared_voice_notice: notice, unavailable_message: null } },
+    })
+    await page.goto('/podcasts/setup?show=weekend-food-talk')
+    await expect(page.getByText(notice)).toHaveCount(0)
+
+    await page.getByRole('radio', { name: /Listen/ }).click()
+
+    await expect(page.getByRole('status').filter({ hasText: notice })).toBeVisible()
+  })
+})

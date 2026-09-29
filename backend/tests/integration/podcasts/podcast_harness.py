@@ -12,10 +12,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.main import app
 from app.podcasts.catalog import SHOW_TEMPLATES
+from app.podcasts.services.sqlite_storage import SQLitePodcastStorage
 from tests.support.podcast_harness import EPISODES, parse_sse, serve_sessions
 from tests.support.scratch_database import make_sessions
 
@@ -55,6 +56,12 @@ class RunResult:
 @dataclass
 class RealPodcastHarness:
     client: TestClient
+    sessions: sessionmaker
+
+    def trimmed_count(self, run: RunResult) -> int:
+        """How many of the run's stored host lines the sanitiser cut (research R4)."""
+        lines = SQLitePodcastStorage(self.sessions()).get_lines(run.conversation_id)
+        return sum(1 for line in lines if line.host is not None and line.host.was_trimmed)
 
     def run_episode(
         self, format: str, show_index: int, learner_turns: int, length: str = "short"
@@ -128,7 +135,7 @@ def real_podcast_app(
             client.put(
                 "/api/settings", json={"target_language": language, "conversation_level": level}
             )
-            yield RealPodcastHarness(client)
+            yield RealPodcastHarness(client, sessions)
     finally:
         app.dependency_overrides.clear()
         for session in opened:

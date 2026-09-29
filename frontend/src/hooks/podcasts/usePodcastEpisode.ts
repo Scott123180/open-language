@@ -13,9 +13,12 @@ export interface EpisodeActions {
   retry: () => void
   end: () => void
   send: (text: string, source: 'voice' | 'keyboard', confidence?: number) => void
+  reveal: (messageId: number) => void
 }
 
-export type PodcastEpisode = EpisodeState & EpisodeActions
+export type PodcastEpisode = EpisodeState & EpisodeActions & { isListening: boolean }
+
+const LISTEN_FORMAT = 'listen'
 
 /**
  * One episode's turn state machine. The server decides whose turn it is; this hook only relays
@@ -27,9 +30,9 @@ export function usePodcastEpisode(conversationId: number): PodcastEpisode {
   const pendingRef = useRef(false)
   const run = useStreamRunner(dispatch, pendingRef)
   useLoadedEpisode(conversationId, dispatch)
-  const actions = useEpisodeActions(conversationId, run)
+  const actions = useEpisodeActions(conversationId, run, dispatch)
   useAutoNext(state, actions.next)
-  return { ...state, ...actions }
+  return { ...state, ...actions, isListening: state.episode?.format === LISTEN_FORMAT }
 }
 
 function streamHandlers(dispatch: Dispatch<EpisodeAction>, learnerText?: string): EpisodeStreamHandlers {
@@ -77,7 +80,11 @@ function useLoadedEpisode(conversationId: number, dispatch: Dispatch<EpisodeActi
   }, [conversationId, dispatch])
 }
 
-function useEpisodeActions(conversationId: number, run: RunStream): EpisodeActions {
+function useEpisodeActions(
+  conversationId: number,
+  run: RunStream,
+  dispatch: Dispatch<EpisodeAction>,
+): EpisodeActions {
   return useMemo(() => {
     const next = () => run((handlers) => podcasts.streamEpisodeNext(conversationId, handlers))
     return {
@@ -88,8 +95,15 @@ function useEpisodeActions(conversationId: number, run: RunStream): EpisodeActio
         const body = { content: text, input_source: source, transcription_confidence: confidence }
         run((handlers) => podcasts.streamEpisodeMessage(conversationId, body, handlers), text)
       },
+      reveal: (messageId) => revealLine(conversationId, messageId, dispatch),
     }
-  }, [conversationId, run])
+  }, [conversationId, run, dispatch])
+}
+
+/** Shown at once; stored in the background. A failed save only costs the reveal on reload. */
+function revealLine(conversationId: number, messageId: number, dispatch: Dispatch<EpisodeAction>) {
+  dispatch({ type: 'revealed', messageId })
+  void podcasts.revealLine(conversationId, messageId).catch(() => undefined)
 }
 
 /** The opening, and the reply to the learner, are asked for without a press (FR-016). */

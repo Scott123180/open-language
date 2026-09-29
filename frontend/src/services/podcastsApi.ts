@@ -192,6 +192,12 @@ export const getEpisode = (conversationId: number): Promise<Episode> =>
 export const getEpisodeSuggestions = (conversationId: number): Promise<{ suggestions: string[] }> =>
   podcastFetch(`/episodes/${conversationId}/suggestions`, { method: 'POST' })
 
+/** FR-043: a tapped Listen line stays revealed for the rest of the episode. */
+export const revealLine = async (conversationId: number, messageId: number): Promise<void> => {
+  const res = await fetch(`${BASE}/episodes/${conversationId}/lines/${messageId}/reveal`, { method: 'POST' })
+  if (!res.ok) throw new Error(await readError(res))
+}
+
 /** Get the episode's session ready before the next line. Invisible, so failures are ignored. */
 export const warmEpisodeSession = async (conversationId: number): Promise<void> => {
   try {

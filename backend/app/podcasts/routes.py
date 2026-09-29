@@ -10,7 +10,7 @@ import random
 from collections.abc import AsyncIterator, Callable
 from dataclasses import replace
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import StreamingResponse
 
 from app.conversation_levels import ConversationLevel
@@ -48,6 +48,7 @@ from app.podcasts.services.turn_policy import (
     LEARNER_TURN,
     TurnPolicy,
 )
+from app.podcasts.services.voice_notices import catalogue_notices, episode_voice_notice
 from app.services.conversation import ConversationEngine, SessionCapableProvider
 from app.services.factory import (
     get_app_settings,
@@ -73,6 +74,7 @@ router = APIRouter(prefix="/api/podcasts", tags=["podcasts"])
 
 SSE_MEDIA_TYPE = "text/event-stream"
 EPISODE_NOT_FOUND = "Episode not found"
+LINE_NOT_FOUND = "That line isn't a host line of this episode."
 LINE_IN_PROGRESS = "A line is already on its way."
 EPISODE_FINISHED = "This episode has finished."
 YOUR_TURN = "It's your turn. Reply, pass or end the episode."
@@ -142,7 +144,7 @@ def _installed_count(language: str, installation: VoiceInstallation) -> int:
 
 def _catalog_voices(language: str, installation: VoiceInstallation) -> CatalogVoices:
     count = _installed_count(language, installation)
-    return CatalogVoices(installed_count=count, shared_voice_notice=None, unavailable_message=None)
+    return CatalogVoices(installed_count=count, **catalogue_notices(language, count))
 
 
 # --- episodes (contracts §6) ------------------------------------------------------------
@@ -164,7 +166,8 @@ def start_episode(
     record = podcasts.create_episode(_new_episode(req, app_settings))
     _remember_start(podcasts, req)
     episode = load_episode(podcasts, record.conversation_id)
-    return episode_response(episode, policy.turn(episode.state), installation, None)
+    notice = episode_voice_notice(episode)
+    return episode_response(episode, policy.turn(episode.state), installation, notice)
 
 
 def _new_episode(req: StartEpisodeRequest, app_settings: AppSettingsRecord) -> NewEpisode:
@@ -243,7 +246,9 @@ def get_episode(
     installation: VoiceInstallation = Depends(get_voice_installation),
 ):
     episode = _require_episode(turns)
-    return episode_response(episode, turns.turn(episode), installation, None)
+    return episode_response(
+        episode, turns.turn(episode), installation, episode_voice_notice(episode)
+    )
 
 
 # --- line-producing actions (contracts §7) ----------------------------------------------
@@ -337,6 +342,16 @@ def end_episode(
 
 
 # --- other episode endpoints (contracts §8) ---------------------------------------------
+
+
+@router.post("/episodes/{conversation_id}/lines/{message_id}/reveal", status_code=204)
+def reveal_line(
+    conversation_id: int, message_id: int, podcasts: PodcastStorage = Depends(get_podcast_storage)
+):
+    """FR-043: a tapped Listen line stays revealed for the rest of the episode."""
+    if not podcasts.mark_revealed(conversation_id, message_id):
+        raise HTTPException(status_code=404, detail=LINE_NOT_FOUND)
+    return Response(status_code=204)
 
 
 @router.post("/episodes/{conversation_id}/session", status_code=202)

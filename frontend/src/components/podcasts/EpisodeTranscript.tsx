@@ -12,6 +12,8 @@ interface EpisodeTranscriptProps {
   hosts: EpisodeHost[]
   notes: Record<number, FeedbackNoteData[]>
   audio: EpisodeAudio
+  isHidden: (line: EpisodeLine) => boolean
+  onReveal: (messageId: number) => void
 }
 
 function Notes({ notes }: { notes: FeedbackNoteData[] | undefined }) {
@@ -30,7 +32,7 @@ function TranscriptLine({ line, props }: { line: EpisodeLine; props: EpisodeTran
   const voiced = audio.canSpeak(line)
   const host = hosts.find((candidate) => candidate.host_id === line.host_id)
   return (
-    <HostLine line={line} host={host} conversationId={conversationId} isAudioPlaying={audio.isPlaying} onReplay={voiced ? () => audio.play(line.message_id) : undefined} onPlaySlower={voiced ? () => audio.playSlower(line.message_id) : undefined} />
+    <HostLine line={line} host={host} conversationId={conversationId} isHidden={props.isHidden(line)} onReveal={props.onReveal} isAudioPlaying={audio.isPlaying} onReplay={voiced ? () => audio.play(line.message_id) : undefined} onPlaySlower={voiced ? () => audio.playSlower(line.message_id) : undefined} />
   )
 }
 

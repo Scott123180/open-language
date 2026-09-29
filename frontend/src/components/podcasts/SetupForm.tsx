@@ -6,6 +6,7 @@ import FormatFieldset from './FormatFieldset'
 import LengthFieldset from './LengthFieldset'
 import LearnerNameField from './LearnerNameField'
 import SetupHosts from './SetupHosts'
+import SetupVoiceNotice from './SetupVoiceNotice'
 import { primaryButtonStyle } from './styles'
 
 interface SetupFormProps {
@@ -24,6 +25,7 @@ export default function SetupForm({ show, catalog, form, starting }: SetupFormPr
       <p style={{ margin: 0, color: 'var(--color-text)' }}>{show.premise}</p>
       <SetupHosts show={show} personalities={catalog.personalities} hostCount={hostCount} />
       <FormatFieldset formats={catalog.formats} value={form.format} onChange={form.setFormat} />
+      <SetupVoiceNotice voices={catalog.voices} hostCount={hostCount} />
       <LengthFieldset lengths={catalog.lengths} value={form.length} onChange={form.setLength} />
       <LearnerNameField value={form.learnerName} onChange={form.setLearnerName} />
       {starting.error && <ErrorBanner message={starting.error} />}

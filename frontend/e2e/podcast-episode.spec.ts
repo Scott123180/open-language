@@ -69,3 +69,85 @@ test.describe('Podcast episode — One host', () => {
     await expect(page.getByText(OPENING.content)).toBeVisible()
   })
 })
+
+test.describe('Podcast episode — Listen', () => {
+  const listen = () => ({ ...episodeFixture('listen') })
+  const LUCIA_LINE = { message_id: 901, host_id: 11, content: '¡Bienvenidos a Weekend Food Talk!', intent: 'open' }
+  const MARCO_LINE = { message_id: 902, host_id: 12, content: 'Hola, soy Marco.', intent: 'greet' }
+  const LAST_LINE = { message_id: 903, host_id: 11, content: '¡Hasta la próxima!', intent: 'sign_off' }
+
+  async function listenTo(page: import('@playwright/test').Page, isShowTextOn = false) {
+    await mockPodcastApis(page, {
+      episode: listen(),
+      preferences: { last_format: 'listen', is_show_text_on: isShowTextOn, interests: [], learner_name: null },
+    })
+    const reveals: string[] = []
+    await page.route('/api/podcasts/episodes/57/lines/*/reveal', (route) => {
+      reveals.push(route.request().url())
+      return route.fulfill({ status: 204 })
+    })
+    await mockLineStream(page, 'next', [
+      makeLineSseBody(lineFrame(LUCIA_LINE, 'hosts', 'continue')),
+      makeLineSseBody(lineFrame(MARCO_LINE, 'hosts', 'continue')),
+      makeLineSseBody(lineFrame(LAST_LINE, 'finished')),
+    ])
+    await page.goto('/podcasts/episodes/57')
+    return { reveals }
+  }
+
+  test('a line shows its speaker with its words hidden, and a tap reveals them', async ({ page }) => {
+    const { reveals } = await listenTo(page)
+
+    const hidden = page.getByRole('button', { name: "Show Lucía's line" })
+    await expect(hidden).toBeVisible()
+    await expect(page.getByText(LUCIA_LINE.content)).toHaveCount(0)
+    await hidden.click()
+
+    await expect(page.getByText(LUCIA_LINE.content)).toBeVisible()
+    expect(reveals[0]).toContain('/lines/901/reveal')
+  })
+
+  test('Continue plays the next line and nothing asks the learner to speak', async ({ page }) => {
+    await listenTo(page)
+    await expect(page.getByRole('button', { name: "Show Lucía's line" })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Continue' }).click()
+
+    await expect(page.getByRole('button', { name: "Show Marco's line" })).toBeVisible()
+    await expect(page.getByLabel('Type a message')).toHaveCount(0)
+  })
+
+  test('Show text shows every line and is saved', async ({ page }) => {
+    await listenTo(page)
+    const saved = page.waitForRequest((r) => r.url().endsWith('/api/podcasts/preferences') && r.method() === 'PUT')
+    await page.unroute('/api/podcasts/preferences')
+    await page.route('/api/podcasts/preferences', (route) =>
+      route.fulfill({ json: { last_format: 'listen', is_show_text_on: route.request().method() === 'PUT', interests: [], learner_name: null } }),
+    )
+
+    await page.getByRole('switch', { name: 'Show text' }).click()
+
+    expect((await saved).postDataJSON()).toEqual({ is_show_text_on: true })
+    await expect(page.getByText(LUCIA_LINE.content)).toBeVisible()
+  })
+
+  test('with Show text remembered, a new Listen episode starts with its words shown', async ({ page }) => {
+    await listenTo(page, true)
+
+    await expect(page.getByText(LUCIA_LINE.content)).toBeVisible()
+    await expect(page.getByRole('switch', { name: 'Show text' })).toBeChecked()
+  })
+
+  test('Continue through to the sign-off finishes the episode', async ({ page }) => {
+    await listenTo(page, true)
+    await expect(page.getByText(LUCIA_LINE.content)).toBeVisible()
+
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await expect(page.getByText(MARCO_LINE.content)).toBeVisible()
+    await page.getByRole('button', { name: 'Continue' }).click()
+
+    await expect(page.getByText(LAST_LINE.content)).toBeVisible()
+    await expect(page.getByText('Episode finished')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Continue' })).toHaveCount(0)
+  })
+})

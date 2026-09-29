@@ -90,3 +90,26 @@ describe('PodcastSetup page', () => {
     )
   })
 })
+
+describe('PodcastSetup page — voice notices (spec edge case)', () => {
+  const withVoices = (voices: Partial<typeof catalog.voices>) => ({ ...catalog, voices: { ...catalog.voices, ...voices } })
+
+  it('says the hosts share one voice when a two-host format is chosen', async () => {
+    vi.mocked(podcasts.getPodcastCatalog).mockResolvedValue(withVoices({ installed_count: 1, shared_voice_notice: 'Both hosts will share one voice.' }))
+    renderSetup()
+
+    await waitFor(() => expect(screen.getByRole('radio', { name: /Panel/ })).toBeChecked())
+
+    expect(screen.getByRole('status')).toHaveTextContent('Both hosts will share one voice.')
+    fireEvent.click(screen.getByRole('radio', { name: /One host/ }))
+    expect(screen.queryByText('Both hosts will share one voice.')).not.toBeInTheDocument()
+  })
+
+  it('says when no voice is installed', async () => {
+    vi.mocked(podcasts.getPodcastCatalog).mockResolvedValue(withVoices({ installed_count: 0, unavailable_message: 'No Spanish voice is installed.' }))
+
+    renderSetup()
+
+    expect(await screen.findByText('No Spanish voice is installed.')).toBeInTheDocument()
+  })
+})
