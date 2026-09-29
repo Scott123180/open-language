@@ -22,6 +22,9 @@ PUBLIC_NAMES = {
     "ConversationLanguages",
     "voice_for",
     "voice_unavailable_message",
+    "host_names_for",
+    "guest_labels_for",
+    "voice_sample_line",
 }
 
 
@@ -101,3 +104,54 @@ def test_the_catalogue_cannot_be_modified():
 
 def test_the_package_exports_exactly_its_public_interface():
     assert set(practice_languages.__all__) == PUBLIC_NAMES
+
+
+# --- 007: host names, guest labels and the voice sample (data-model §1.5, P6–P7) --------
+
+
+def _genders(code: str) -> set[str]:
+    return {voice.gender for voice in AVAILABLE_VOICES if voice.language == code}
+
+
+@pytest.mark.parametrize("code", list(PRACTICE_LANGUAGES))
+def test_p6_every_voice_gender_has_at_least_eight_distinct_names(code):
+    for gender in _genders(code):
+        names = practice_languages.host_names_for(code, gender)
+
+        assert len(names) >= 8, (code, gender)
+        assert len(set(names)) == len(names), (code, gender)
+
+
+@pytest.mark.parametrize("code", list(PRACTICE_LANGUAGES))
+def test_every_language_has_guest_labels(code):
+    assert practice_languages.guest_labels_for(code)
+
+
+@pytest.mark.parametrize("code", list(PRACTICE_LANGUAGES))
+def test_fr030_every_language_has_at_least_two_different_voices(code):
+    keys = {voice.key for voice in AVAILABLE_VOICES if voice.language == code}
+
+    assert len(keys) >= 2
+
+
+@pytest.mark.parametrize("language", list(PRACTICE_LANGUAGES.values()), ids=lambda lang: lang.code)
+def test_p7_every_sample_line_has_exactly_one_name_placeholder(language):
+    assert language.sample_line.count("{name}") == 1
+
+
+@pytest.mark.parametrize("code", list(PRACTICE_LANGUAGES))
+def test_the_voice_sample_line_speaks_the_hosts_name(code):
+    assert "Lena" in practice_languages.voice_sample_line(code, "Lena")
+
+
+@pytest.mark.parametrize(
+    "lookup",
+    [
+        lambda: practice_languages.host_names_for("fr", "female"),
+        lambda: practice_languages.guest_labels_for("fr"),
+        lambda: practice_languages.voice_sample_line("fr", "Lena"),
+    ],
+)
+def test_an_unknown_language_has_no_host_data(lookup):
+    with pytest.raises(practice_languages.UnknownLanguage):
+        lookup()

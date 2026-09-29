@@ -411,3 +411,84 @@ class TestFlashcardLanguageColumns:
                 text("SELECT target_language FROM practice_sessions")
             ).scalar_one()
         assert (deck, session) == ("es", "es")
+
+
+class TestPodcastTables:
+    """007 T011: the four podcast tables (data-model §2.1–§2.4)."""
+
+    EXPECTED = {
+        "podcast_episodes": {
+            "conversation_id": ("INTEGER", 1),
+            "show_source": ("VARCHAR(12)", 1),
+            "show_id": ("VARCHAR(100)", 0),
+            "premise": ("TEXT", 1),
+            "topic": ("VARCHAR(200)", 1),
+            "learner_role": ("VARCHAR(12)", 1),
+            "format": ("VARCHAR(12)", 1),
+            "length": ("VARCHAR(8)", 1),
+            "learner_name": ("VARCHAR(40)", 0),
+            "created_at": ("DATETIME", 1),
+        },
+        "podcast_hosts": {
+            "id": ("INTEGER", 1),
+            "conversation_id": ("INTEGER", 1),
+            "slot": ("VARCHAR(8)", 1),
+            "name": ("VARCHAR(40)", 1),
+            "personality": ("VARCHAR(30)", 1),
+            "voice_key": ("VARCHAR(200)", 1),
+            "show_role": ("VARCHAR(20)", 1),
+            "angle": ("TEXT", 0),
+        },
+        "podcast_host_lines": {
+            "message_id": ("INTEGER", 1),
+            "conversation_id": ("INTEGER", 1),
+            "host_id": ("INTEGER", 1),
+            "intent": ("VARCHAR(10)", 1),
+            "invites_learner": ("BOOLEAN", 1),
+            "is_passed": ("BOOLEAN", 1),
+            "is_revealed": ("BOOLEAN", 1),
+            "was_trimmed": ("BOOLEAN", 1),
+        },
+        "podcast_preferences": {
+            "id": ("INTEGER", 1),
+            "last_format": ("VARCHAR(12)", 1),
+            "is_show_text_on": ("BOOLEAN", 1),
+            "interests": ("TEXT", 1),
+            "learner_name": ("VARCHAR(40)", 0),
+            "updated_at": ("DATETIME", 1),
+        },
+    }
+
+    @pytest.fixture()
+    def fresh_engine(self, tmp_path, monkeypatch):
+        from app import database
+
+        engine = create_engine(f"sqlite:///{tmp_path / 'fresh-007.db'}")
+        monkeypatch.setattr(database, "_engine", engine)
+        return engine
+
+    def _column_info(self, engine, table: str) -> dict[str, tuple]:
+        with engine.connect() as conn:
+            rows = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
+        return {row[1]: (row[2], row[3] or row[5] > 0) for row in rows}
+
+    @pytest.mark.parametrize("table", list(EXPECTED))
+    def test_init_db_creates_the_table_with_its_columns(self, fresh_engine, table):
+        from app import database
+
+        database.init_db()
+
+        info = self._column_info(fresh_engine, table)
+        assert {name: (kind, int(required)) for name, (kind, required) in info.items()} == (
+            self.EXPECTED[table]
+        )
+
+    def test_init_db_is_idempotent(self, fresh_engine):
+        from app import database
+
+        database.init_db()
+        database.init_db()
+
+        with fresh_engine.connect() as conn:
+            tables = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master"))}
+        assert set(self.EXPECTED) <= tables

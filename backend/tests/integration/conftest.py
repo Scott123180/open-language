@@ -17,10 +17,11 @@ def _configure_sqlite(dbapi_conn, _):
 @pytest.fixture(autouse=True)
 def isolated_tts_cache(tmp_path, monkeypatch):
     """Speech a test synthesises lands in its own tmp_path, never the learner's audio cache."""
+    from app.conversation_turns import speech
     from app.flashcards import router as flashcards_router
-    from app.routers import audio, chat
+    from app.routers import audio
 
-    for module in (audio, chat, flashcards_router):
+    for module in (audio, speech, flashcards_router):
         monkeypatch.setattr(module, "_tts_cache_dir", lambda: tmp_path / "tts_cache")
 
 

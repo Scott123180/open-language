@@ -52,6 +52,7 @@ def get_db() -> Session:
 def init_db() -> None:
     import app.corrections.models  # noqa: F401 — registers correction tables with Base
     import app.flashcards.models  # noqa: F401 — registers flashcard tables with Base
+    import app.podcasts.models  # noqa: F401 — registers podcast tables with Base
     from app.models import (  # noqa: F401
         app_settings,
         conversation,

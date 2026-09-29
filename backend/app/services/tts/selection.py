@@ -3,6 +3,9 @@
 from collections.abc import Callable
 
 from app.services.tts.base import TTSProvider, VoiceInstallation, VoiceUnavailable
+from app.services.tts.voices import AVAILABLE_VOICES
+
+_VOICE_LANGUAGES = {voice.key: voice.language for voice in AVAILABLE_VOICES}
 
 
 class SpeechForLanguage:
@@ -33,4 +36,13 @@ class SpeechForLanguage:
         voice_key = self.voice_key(language_code)
         if not self._installation.is_installed(voice_key):
             raise VoiceUnavailable(self._unavailable_message(language_code))
+        return self._build(voice_key)
+
+    def provider_for_voice(
+        self, language_code: str, voice_key: str, unavailable_message: str
+    ) -> TTSProvider:
+        """Speak with one given voice of the language, or raise. Never another voice (FR-031)."""
+        speaks_language = _VOICE_LANGUAGES.get(voice_key) == language_code
+        if not speaks_language or not self._installation.is_installed(voice_key):
+            raise VoiceUnavailable(unavailable_message)
         return self._build(voice_key)

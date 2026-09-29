@@ -74,3 +74,44 @@ def test_voice_installation_looks_in_the_configured_voice_directory():
 
     assert isinstance(installation, PiperVoiceInstallation)
     assert installation.voice_dir == factory.get_settings().voice_dir
+
+
+# --- 007: podcast wiring (T030, T036) --------------------------------------------------
+
+
+def test_podcast_storage_is_the_sqlite_storage(tmp_path):
+    from app.podcasts.services.storage import PodcastStorage
+    from tests.support.scratch_database import make_session
+
+    storage = factory.get_podcast_storage(make_session(tmp_path / "factory.db"))
+
+    assert isinstance(storage, PodcastStorage)
+
+
+def test_message_voices_are_the_podcast_host_voices(tmp_path):
+    from app.podcasts import PodcastMessageVoices
+    from app.services.storage.sqlite import SQLiteStorageProvider
+    from app.services.tts.base import MessageVoiceLookup
+    from tests.support.scratch_database import make_session
+
+    session = make_session(tmp_path / "voices.db")
+    storage = factory.get_podcast_storage(session)
+
+    voices = factory.get_message_voices(storage, SQLiteStorageProvider(session))
+
+    assert isinstance(voices, MessageVoiceLookup)
+    assert isinstance(voices, PodcastMessageVoices)
+
+
+def test_episode_locks_are_one_per_process():
+    from app.podcasts.services.episode_lock import EpisodeLocks
+
+    assert isinstance(factory.get_episode_locks(), EpisodeLocks)
+    assert factory.get_episode_locks() is factory.get_episode_locks()
+
+
+def test_the_host_caster_casts_from_the_installed_voices():
+    from app.podcasts.services.casting import HostCaster
+    from tests.support.fake_speech import FakeVoiceInstallation
+
+    assert isinstance(factory.get_host_caster(FakeVoiceInstallation()), HostCaster)

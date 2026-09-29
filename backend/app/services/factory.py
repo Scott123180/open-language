@@ -1,3 +1,4 @@
+import random
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache, partial
@@ -14,6 +15,11 @@ from app.corrections.services.strategies import CorrectionStrategy
 from app.database import get_db
 from app.flashcards.services.sqlite_storage import SQLiteFlashcardStorageProvider
 from app.flashcards.services.storage import FlashcardStorageProvider
+from app.podcasts.services.casting import HostCaster
+from app.podcasts.services.episode_lock import EpisodeLocks
+from app.podcasts.services.speaker_views import PodcastMessageVoices
+from app.podcasts.services.sqlite_storage import SQLitePodcastStorage
+from app.podcasts.services.storage import PodcastStorage
 from app.practice_languages import voice_for, voice_unavailable_message
 from app.services.conversation import (
     ConversationEngine,
@@ -34,7 +40,7 @@ from app.services.scenario.static import StaticScenarioProvider
 from app.services.storage.base import AppSettingsRecord, StorageProvider
 from app.services.storage.sqlite import SQLiteStorageProvider
 from app.services.stt.base import STTProvider
-from app.services.tts.base import TTSProvider, VoiceInstallation
+from app.services.tts.base import MessageVoiceLookup, TTSProvider, VoiceInstallation
 from app.services.tts.selection import SpeechForLanguage
 
 
@@ -147,6 +153,30 @@ def get_stt(app_settings: AppSettingsRecord = Depends(get_app_settings)) -> STTP
             model_size=model_size, device=settings.whisper_device
         )
     return _stt_providers[model_size]
+
+
+def get_podcast_storage(db: Session = Depends(get_db)) -> PodcastStorage:
+    return SQLitePodcastStorage(db)
+
+
+def get_message_voices(
+    podcasts: PodcastStorage = Depends(get_podcast_storage),
+    conversations: StorageProvider = Depends(get_storage),
+) -> MessageVoiceLookup:
+    """A host line is spoken in its host's voice; the audio router never imports podcasts."""
+    return PodcastMessageVoices(podcasts, conversations)
+
+
+@lru_cache
+def get_episode_locks() -> EpisodeLocks:
+    """One per process: a line in progress is guarded across every request (research R12)."""
+    return EpisodeLocks()
+
+
+def get_host_caster(
+    installation: VoiceInstallation = Depends(get_voice_installation),
+) -> HostCaster:
+    return HostCaster(installation, random.Random())
 
 
 def get_correction_strategy(

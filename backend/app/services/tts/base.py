@@ -32,3 +32,24 @@ class VoiceInstallation(ABC):
     def is_installed(self, voice_key: str) -> bool:
         """Whether the voice's files are present, so it can speak without a network."""
         ...
+
+
+class MessageVoiceLookup(ABC):
+    """The voice one message must be spoken in, when it is not its conversation's voice.
+
+    Declared by its consumer, the audio router, so that router never learns who speaks a
+    message (ISP, DIP). A podcast host's line answers with the host's voice.
+    """
+
+    DEFAULT_UNAVAILABLE_MESSAGE = (
+        "The voice for this line isn't installed, so it can't be read aloud. "
+        "Run ./run.sh --setup to download it. You can keep going in text."
+    )
+
+    @abstractmethod
+    def voice_for_message(self, message_id: int) -> str | None:
+        """The message's own voice key, or None to use its conversation's voice."""
+
+    def unavailable_message(self, message_id: int) -> str:
+        """What to tell the learner when the message's own voice is not installed."""
+        return self.DEFAULT_UNAVAILABLE_MESSAGE

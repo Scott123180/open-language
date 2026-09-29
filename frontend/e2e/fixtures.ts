@@ -567,3 +567,150 @@ export const mockGermanWords = [
     source_conversation_id: 3,
   },
 ]
+
+// ── Podcasts (007 contracts §1, §2, §6, §7) ───────────────────────────────────
+
+const LUCIA_HOST = {
+  slot: 'lead',
+  name: 'Lucía',
+  personality_id: 'enthusiast',
+  voice_key: 'es_AR-daniela-high',
+  show_role: 'host',
+  angle: null,
+}
+
+const MARCO_HOST = {
+  slot: 'second',
+  name: 'Marco',
+  personality_id: 'dry_sceptic',
+  voice_key: 'es_ES-davefx-medium',
+  show_role: 'co_host',
+  angle: null,
+}
+
+/** A ready-made show as `GET /api/podcasts/catalog` serves it. */
+export const showDraftFixture = {
+  source: 'ready_made',
+  show_id: 'weekend-food-talk',
+  title: 'Weekend Food Talk',
+  premise: 'Two food lovers swap weekend cooking wins and disasters.',
+  topic: 'food',
+  learner_role: 'guest',
+  language: 'es',
+  hosts: [LUCIA_HOST, MARCO_HOST],
+}
+
+const OTHER_SHOWS = [
+  ['tech-for-normal-people', 'Tech for Normal People', 'technology', 'caller'],
+  ['game-day', 'Game Day', 'sport', 'co_host'],
+  ['on-the-road', 'On the Road', 'travel', 'guest'],
+  ['screen-and-sound', 'Screen & Sound', 'film and music', 'co_host'],
+  ['nine-to-five', 'Nine to Five', 'work life', 'caller'],
+].map(([show_id, title, topic, learner_role]) => ({
+  ...showDraftFixture,
+  show_id,
+  title,
+  topic,
+  learner_role,
+  premise: `A show about ${topic}.`,
+}))
+
+export const mockPodcastCatalog = {
+  language: 'es',
+  language_name: 'Spanish',
+  formats: [
+    { format_id: 'one_host', label: 'One host', host_count: 1, is_learner_speaking: true, description: 'You and one host.' },
+    { format_id: 'panel', label: 'Panel', host_count: 2, is_learner_speaking: true, description: 'You and two hosts.' },
+    { format_id: 'listen', label: 'Listen', host_count: 2, is_learner_speaking: false, description: 'Two hosts talk; you listen.' },
+  ],
+  lengths: [
+    { length_id: 'short', label: 'Short', target_host_lines: 10, is_default: false },
+    { length_id: 'medium', label: 'Medium', target_host_lines: 20, is_default: true },
+    { length_id: 'long', label: 'Long', target_host_lines: 40, is_default: false },
+  ],
+  personalities: [
+    { personality_id: 'enthusiast', label: 'Enthusiast', description: 'Excited about everything and quick to share.' },
+    { personality_id: 'dry_sceptic', label: 'Dry sceptic', description: 'Unimpressed until convinced, with a dry sense of humour.' },
+    { personality_id: 'joker', label: 'Joker', description: 'Never misses a chance for a joke.' },
+  ],
+  shows: [showDraftFixture, ...OTHER_SHOWS],
+  voices: { installed_count: 2, shared_voice_notice: null as string | null, unavailable_message: null as string | null },
+}
+
+export const mockPodcastPreferences = {
+  last_format: 'one_host',
+  is_show_text_on: false,
+  interests: [] as string[],
+  learner_name: null as string | null,
+}
+
+const EPISODE_HOSTS = [
+  { host_id: 11, ...LUCIA_HOST, personality_label: 'Enthusiast', is_voice_available: true, voice_unavailable_message: null as string | null },
+  { host_id: 12, ...MARCO_HOST, personality_label: 'Dry sceptic', is_voice_available: true, voice_unavailable_message: null as string | null },
+]
+
+const FORMAT_LABELS: Record<string, string> = { one_host: 'One host', panel: 'Panel', listen: 'Listen' }
+
+/** A new episode of Weekend Food Talk with no lines yet, awaiting its opening. */
+export function episodeFixture(format: 'one_host' | 'panel' | 'listen') {
+  return {
+    conversation_id: 57,
+    status: 'active',
+    language: 'es',
+    language_name: 'Spanish',
+    native_language_name: 'English',
+    show: {
+      title: showDraftFixture.title,
+      premise: showDraftFixture.premise,
+      topic: showDraftFixture.topic,
+      learner_role: 'guest',
+      source: 'ready_made',
+      show_id: showDraftFixture.show_id,
+    },
+    format,
+    format_label: FORMAT_LABELS[format],
+    length: 'short',
+    target_host_lines: 10,
+    learner_name: null as string | null,
+    hosts: format === 'one_host' ? EPISODE_HOSTS.slice(0, 1) : EPISODE_HOSTS,
+    shared_voice_notice: null as string | null,
+    turn: 'hosts',
+    awaiting: 'opening' as string | null,
+    can_jump_in: false,
+    can_pass: false,
+    lines: [] as unknown[],
+  }
+}
+
+export interface LineFixture {
+  message_id: number
+  host_id: number | null
+  content: string
+  intent?: string | null
+  invites_learner?: boolean
+}
+
+/** A line object as `line` frames and `GET /api/podcasts/episodes/{id}` carry it. */
+export function lineFixture(line: LineFixture) {
+  return {
+    speaker: line.host_id === null ? 'learner' : 'host',
+    intent: null,
+    invites_learner: false,
+    is_revealed: false,
+    created_at: '2026-09-28T10:00:00Z',
+    ...line,
+  }
+}
+
+/** One `line` frame followed by its `done` frame, with the turn state after the line. */
+export function lineFrame(line: LineFixture, turn: string, awaiting: string | null = null) {
+  return [
+    { event: 'line', line: lineFixture(line), turn, awaiting },
+    { done: true, turn, awaiting, can_jump_in: false, can_pass: false },
+  ]
+}
+
+/** Build an SSE body from frames, e.g. `makeLineSseBody(lineFrame(...))`. */
+export function makeLineSseBody(frames: unknown[]): string {
+  return frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join('')
+}
