@@ -14,6 +14,8 @@ export interface EpisodeActions {
   end: () => void
   send: (text: string, source: 'voice' | 'keyboard', confidence?: number) => void
   reveal: (messageId: number) => void
+  jumpIn: () => void
+  pass: () => void
 }
 
 export type PodcastEpisode = EpisodeState & EpisodeActions & { isListening: boolean }
@@ -91,13 +93,22 @@ function useEpisodeActions(
       next,
       retry: next,
       end: () => run((handlers) => podcasts.streamEpisodeEnd(conversationId, handlers)),
+      pass: () => run((handlers) => podcasts.streamEpisodePass(conversationId, handlers)),
       send: (text, source, confidence) => {
         const body = { content: text, input_source: source, transcription_confidence: confidence }
         run((handlers) => podcasts.streamEpisodeMessage(conversationId, body, handlers), text)
       },
-      reveal: (messageId) => revealLine(conversationId, messageId, dispatch),
+      ...localActions(conversationId, dispatch),
     }
   }, [conversationId, run, dispatch])
+}
+
+/** Actions that change the screen at once, without waiting for a line. */
+function localActions(conversationId: number, dispatch: Dispatch<EpisodeAction>) {
+  return {
+    reveal: (messageId: number) => revealLine(conversationId, messageId, dispatch),
+    jumpIn: () => dispatch({ type: 'jumpedIn' }),
+  }
 }
 
 /** Shown at once; stored in the background. A failed save only costs the reveal on reload. */

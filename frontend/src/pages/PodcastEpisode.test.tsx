@@ -166,3 +166,16 @@ describe('PodcastEpisode page — Listen', () => {
     expect(podcasts.updatePodcastPreferences).toHaveBeenCalledWith({ is_show_text_on: true })
   })
 })
+
+describe('PodcastEpisode page — Panel', () => {
+  it('opens the input bar, suggestions and the helper after Jump in', async () => {
+    vi.mocked(podcasts.getEpisode).mockResolvedValue(episode({ format: 'panel', format_label: 'Panel', turn: 'hosts', awaiting: 'continue', can_jump_in: true }))
+    renderEpisode()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Jump in' }))
+
+    expect(screen.getByLabelText('Type a message')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /suggestions/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /expression helper/i })).toBeInTheDocument()
+  })
+})

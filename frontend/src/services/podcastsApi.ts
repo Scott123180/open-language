@@ -295,6 +295,9 @@ async function streamEpisodeAction(
 export const streamEpisodeNext = (conversationId: number, handlers: EpisodeStreamHandlers) =>
   streamEpisodeAction(`/episodes/${conversationId}/next`, handlers)
 
+export const streamEpisodePass = (conversationId: number, handlers: EpisodeStreamHandlers) =>
+  streamEpisodeAction(`/episodes/${conversationId}/pass`, handlers)
+
 export const streamEpisodeEnd = (conversationId: number, handlers: EpisodeStreamHandlers) =>
   streamEpisodeAction(`/episodes/${conversationId}/end`, handlers)
 

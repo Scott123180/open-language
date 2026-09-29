@@ -167,3 +167,77 @@ test.describe('Podcast episode — small screens', () => {
     expect(summary!.x + summary!.width).toBeLessThanOrEqual(360)
   })
 })
+
+test.describe('Podcast episode — Panel', () => {
+  const LUCIA = { message_id: 901, host_id: 11, content: '¡Bienvenidos!', intent: 'open' }
+  const MARCO_ASKS = { message_id: 902, host_id: 12, content: 'Y tú, ¿qué opinas?', intent: 'greet', invites_learner: true }
+  const LUCIA_AGAIN = { message_id: 904, host_id: 11, content: 'Pues yo creo que sí.', intent: 'discuss' }
+  const MARCO_ANSWERS = { message_id: 906, host_id: 12, content: 'Te respondo yo.', intent: 'discuss', invites_learner: true }
+  const panelFrame = (line: typeof LUCIA, turn: string, awaiting: string | null, flags = {}) => {
+    const [lineEvent, done] = lineFrame(line, turn, awaiting)
+    return makeLineSseBody([lineEvent, { ...done, ...flags }])
+  }
+
+  async function openPanel(page: import('@playwright/test').Page) {
+    await mockPodcastApis(page, { episode: { ...episodeFixture('panel'), format_label: 'Panel' } })
+    const next = await mockLineStream(page, 'next', [
+      panelFrame(LUCIA, 'hosts', 'continue', { can_jump_in: true }),
+      panelFrame(MARCO_ASKS, 'learner', null, { can_pass: true }),
+    ])
+    await page.goto('/podcasts/episodes/57')
+    await expect(page.getByText(LUCIA.content)).toBeVisible()
+    return { next }
+  }
+
+  test('Continue plays the next line and the banner follows the turn', async ({ page }) => {
+    await openPanel(page)
+    await expect(page.getByRole('status').filter({ hasText: 'Lucía is speaking' })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Continue' }).click()
+
+    await expect(page.getByText(MARCO_ASKS.content)).toBeVisible()
+    await expect(page.getByRole('status').filter({ hasText: 'Your turn' })).toBeVisible()
+  })
+
+  test('Pass lets the hosts carry on', async ({ page }) => {
+    await openPanel(page)
+    await page.getByRole('button', { name: 'Continue' }).click()
+    const passed = await mockLineStream(page, 'pass', [panelFrame(LUCIA_AGAIN, 'hosts', 'continue', { can_jump_in: true })])
+
+    await page.getByRole('button', { name: 'Pass' }).click()
+
+    await expect(page.getByText(LUCIA_AGAIN.content)).toBeVisible()
+    expect(passed.requests).toHaveLength(1)
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible()
+  })
+
+  test('Jump in opens the input while the hosts are talking', async ({ page }) => {
+    await openPanel(page)
+    const saved = { event: 'user_message_saved', message_id: 905 }
+    const message = await mockLineStream(page, 'message', [makeLineSseBody([saved, ...lineFrame(MARCO_ANSWERS, 'learner')])])
+
+    await page.getByRole('button', { name: 'Jump in' }).click()
+    await page.getByLabel('Type a message').fill('¡Una pregunta!')
+    await page.getByRole('button', { name: 'Send message' }).click()
+
+    await expect(page.getByText('¡Una pregunta!')).toBeVisible()
+    expect(message.requests[0]).toMatchObject({ content: '¡Una pregunta!' })
+  })
+
+  test('a message naming a host is answered by that host', async ({ page }) => {
+    await openPanel(page)
+    await page.getByRole('button', { name: 'Continue' }).click()
+    const saved = { event: 'user_message_saved', message_id: 905 }
+    await mockLineStream(page, 'message', [makeLineSseBody([saved, ...lineFrame(MARCO_ANSWERS, 'learner')])])
+
+    await page.getByLabel('Type a message').fill('Marco, ¿y tú?')
+    await page.getByRole('button', { name: 'Send message' }).click()
+
+    const transcript = page.getByRole('region', { name: 'Episode lines' })
+    await expect(transcript.getByText(MARCO_ANSWERS.content)).toBeVisible()
+    const speakerAbove = transcript.locator(
+      `xpath=//span[normalize-space()="Marco"]/following-sibling::*[1][contains(., "${MARCO_ANSWERS.content}")]`,
+    )
+    await expect(speakerAbove).toHaveCount(1)
+  })
+})

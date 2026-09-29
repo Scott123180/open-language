@@ -404,7 +404,7 @@ that host (spec US3).
 
 ### Tests for User Story 3 (write first, see them fail)
 
-- [ ] T095 [P] [US3] Write `backend/tests/integration/podcasts/test_panel_episode.py` (FR-013–FR-018, contracts §6–§7, data-model §4):
+- [X] T095 [P] [US3] Write `backend/tests/integration/podcasts/test_panel_episode.py` (FR-013–FR-018, contracts §6–§7, data-model §4):
   - the opening is the lead's `open`, then the second host's `greet`;
   - with a scripted learner replying at every invitation, the learner is invited within four host lines every time, and `can_jump_in`/`can_pass` follow the turn state;
   - `/message` at `hosts/continue` (Jump in) is accepted, the learner line is stored, and a host responds straight away;
@@ -412,15 +412,15 @@ that host (spec US3).
   - a learner line naming the second host ("Marco, ¿y tú?") is answered by the second host;
   - an invitation after two lines from different hosts is rendered as a settle invite in the cue the scripted writer received;
   - on a Short episode, after the `wrap_up`, the learner can still reply and Continue still produces host lines; the episode stays `active` until `/end` (plan interpretation 4).
-- [ ] T096 [P] [US3] Write Vitest tests: extend `frontend/src/components/podcasts/EpisodeControls.test.tsx` (Panel: Jump in at the hosts' turn, Pass at the learner's turn, both secondary; neither in One host or Listen); extend `frontend/src/hooks/podcasts/usePodcastEpisode.test.tsx` (`jumpIn()` switches the screen to the learner's turn without a request; `pass()` streams `/pass`); extend `frontend/src/pages/PodcastEpisode.test.tsx` (suggestions and the helper appear after Jump in, plan interpretation 9).
-- [ ] T097 [P] [US3] Extend `frontend/e2e/podcast-episode.spec.ts`, Panel: Continue plays the next host line and the banner names the speaker; an inviting line switches the banner to "Your turn"; Pass sends `/pass` and the hosts carry on; Jump in while the hosts are talking opens the input and sending posts `/message`; a message naming a host is followed by that host's mocked line.
+- [X] T096 [P] [US3] Write Vitest tests: extend `frontend/src/components/podcasts/EpisodeControls.test.tsx` (Panel: Jump in at the hosts' turn, Pass at the learner's turn, both secondary; neither in One host or Listen); extend `frontend/src/hooks/podcasts/usePodcastEpisode.test.tsx` (`jumpIn()` switches the screen to the learner's turn without a request; `pass()` streams `/pass`); extend `frontend/src/pages/PodcastEpisode.test.tsx` (suggestions and the helper appear after Jump in, plan interpretation 9).
+- [X] T097 [P] [US3] Extend `frontend/e2e/podcast-episode.spec.ts`, Panel: Continue plays the next host line and the banner names the speaker; an inviting line switches the banner to "Your turn"; Pass sends `/pass` and the hosts carry on; Jump in while the hosts are talking opens the input and sending posts `/message`; a message naming a host is followed by that host's mocked line.
 
 ### Implementation for User Story 3
 
-- [ ] T098 [US3] Add `POST /api/podcasts/episodes/{id}/pass` to `backend/app/podcasts/router.py` and `EpisodeTurns.pass_turn()`; accept `/message` at `hosts/continue` when the format `has_jump_in`; expose `can_jump_in` and `can_pass` in `EpisodeResponse` and the `done` frames (passes T095).
-- [ ] T099 [US3] Add `streamEpisodePass` to `frontend/src/services/podcastsApi.ts`, `jumpIn` and `pass` to `usePodcastEpisode.ts`, Jump in and Pass to `EpisodeControls.tsx`, and the Panel layout to `PodcastEpisode.tsx` (passes T096, T097).
-- [ ] T100 [P] [US3] Write `backend/tests/integration/podcasts/test_panel_turn_taking_benchmark.py` (SC-002: 10 Panel episodes × 10 learner turns; every `invites_learner` line addresses the learner, flagged lines printed for a human check; each host ≥ 25% of lines) and extend `test_single_speaker_benchmark.py` with the Panel half of SC-003 (10 Panel episodes), both `@pytest.mark.benchmark`.
-- [ ] T101 [P] [US3] Extend `backend/tests/live/test_claude_code_live.py` with a `claude_live` podcast check (FR-033): a Panel opening, one Continue and one learner reply succeed on Claude, and the second `/next` reuses the live session (one `claude` process for the episode).
+- [X] T098 [US3] Add `POST /api/podcasts/episodes/{id}/pass` to `backend/app/podcasts/router.py` and `EpisodeTurns.pass_turn()`; accept `/message` at `hosts/continue` when the format `has_jump_in`; expose `can_jump_in` and `can_pass` in `EpisodeResponse` and the `done` frames (passes T095).
+- [X] T099 [US3] Add `streamEpisodePass` to `frontend/src/services/podcastsApi.ts`, `jumpIn` and `pass` to `usePodcastEpisode.ts`, Jump in and Pass to `EpisodeControls.tsx`, and the Panel layout to `PodcastEpisode.tsx` (passes T096, T097).
+- [X] T100 [P] [US3] Write `backend/tests/integration/podcasts/test_panel_turn_taking_benchmark.py` (SC-002: 10 Panel episodes × 10 learner turns; every `invites_learner` line addresses the learner, flagged lines printed for a human check; each host ≥ 25% of lines) and extend `test_single_speaker_benchmark.py` with the Panel half of SC-003 (10 Panel episodes), both `@pytest.mark.benchmark`.
+- [X] T101 [P] [US3] Extend `backend/tests/live/test_claude_code_live.py` with a `claude_live` podcast check (FR-033): a Panel opening, one Continue and one learner reply succeed on Claude, and the second `/next` reuses the live session (one `claude` process for the episode).
 - [ ] T102 [US3] Run T100 against `llama3.1:8b` (and T101 if Claude is available) and record the results for T127. Run the full suites and walk quickstart §4 step 6 and step 9.
 
 **Checkpoint**: All three formats work. US1, US2, US3 and US6 are independently testable.

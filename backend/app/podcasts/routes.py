@@ -276,6 +276,13 @@ def _check_message(turns: EpisodeTurns, episode: LoadedEpisode) -> None:
         raise _conflict(WAIT_FOR_HOSTS)
 
 
+def _check_pass(turns: EpisodeTurns, episode: LoadedEpisode) -> None:
+    if episode.is_finished:
+        raise _conflict(EPISODE_FINISHED)
+    if not episode.format.has_jump_in or turns.turn(episode).turn != LEARNER_TURN:
+        raise _conflict(PASS_ONLY_IN_PANEL)
+
+
 def _check_end(turns: EpisodeTurns, episode: LoadedEpisode) -> None:
     if episode.is_finished:
         raise _conflict(EPISODE_FINISHED)
@@ -328,9 +335,11 @@ def send_message(
 
 
 @router.post("/episodes/{conversation_id}/pass")
-def pass_turn(turns: EpisodeTurns = Depends(_episode_turns)):
-    _require_episode(turns)
-    raise _conflict(PASS_ONLY_IN_PANEL)
+def pass_turn(
+    turns: EpisodeTurns = Depends(_episode_turns),
+    locks: EpisodeLocks = Depends(get_episode_locks),
+):
+    return _guarded_stream(turns, locks, _check_pass, turns.pass_events)
 
 
 @router.post("/episodes/{conversation_id}/end")

@@ -98,6 +98,13 @@ class EpisodeTurns:
         async for frame in self._line_events(self._deps.policy.next_cue, guidance=None):
             yield frame
 
+    async def pass_events(self) -> AsyncIterator[str]:
+        """FR-017: the learner passes on the invitation, and the hosts carry on without them."""
+        invitation = self.load().lines[-1]
+        self._deps.podcasts.mark_passed(invitation.message_id)
+        async for frame in self.next_line_events():
+            yield frame
+
     async def end_events(self) -> AsyncIterator[str]:
         async for frame in self._line_events(self._deps.policy.end_cue, guidance=None):
             yield frame

@@ -21,6 +21,8 @@ export interface EpisodeState {
   error: string | null
   notes: Record<number, FeedbackNoteData[]>
   isAwaitingRetry: boolean
+  /** Panel: the learner jumped in while the hosts had the floor, so the input bar is open. */
+  isJumpingIn: boolean
 }
 
 export type EpisodeAction =
@@ -32,6 +34,7 @@ export type EpisodeAction =
   | { type: 'learner'; messageId: number; content: string }
   | { type: 'feedback'; frame: FeedbackFrame }
   | { type: 'revealed'; messageId: number }
+  | { type: 'jumpedIn' }
   | { type: 'error'; message: string }
 
 export const initialEpisodeState: EpisodeState = {
@@ -45,6 +48,7 @@ export const initialEpisodeState: EpisodeState = {
   error: null,
   notes: {},
   isAwaitingRetry: false,
+  isJumpingIn: false,
 }
 
 const learnerLine = (messageId: number, content: string): EpisodeLine => ({
@@ -100,13 +104,14 @@ function feedback(state: EpisodeState, frame: FeedbackFrame): EpisodeState {
 export function episodeReducer(state: EpisodeState, action: EpisodeAction): EpisodeState {
   switch (action.type) {
     case 'loaded': return loaded(state, action.episode)
-    case 'pending': return { ...state, isPending: true, error: null, isAwaitingRetry: false }
+    case 'pending': return { ...state, isPending: true, error: null, isAwaitingRetry: false, isJumpingIn: false }
     case 'settled': return { ...state, isPending: false }
     case 'line': return withLine(state, action.frame)
     case 'done': return done(state, action.frame)
     case 'learner': return { ...state, lines: [...state.lines, learnerLine(action.messageId, action.content)] }
     case 'feedback': return feedback(state, action.frame)
     case 'revealed': return revealed(state, action.messageId)
+    case 'jumpedIn': return { ...state, isJumpingIn: true }
     case 'error': return { ...state, error: action.message, isPending: false }
   }
 }

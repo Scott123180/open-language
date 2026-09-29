@@ -189,4 +189,27 @@ describe('usePodcastEpisode', () => {
     await waitFor(() => expect(result.current.episode).not.toBeNull())
     expect(result.current.isListening).toBe(true)
   })
+
+  it('jumps in without asking the server', async () => {
+    vi.mocked(podcasts.getEpisode).mockResolvedValue(episode({ format: 'panel', awaiting: 'continue', can_jump_in: true, lines: [hostLine(1, false)] }))
+    const { result } = renderHook(() => usePodcastEpisode(57))
+    await waitFor(() => expect(result.current.canJumpIn).toBe(true))
+
+    act(() => result.current.jumpIn())
+
+    expect(result.current.isJumpingIn).toBe(true)
+    expect(podcasts.streamEpisodeNext).not.toHaveBeenCalled()
+  })
+
+  it('passes by asking the hosts to carry on', async () => {
+    vi.mocked(podcasts.getEpisode).mockResolvedValue(episode({ format: 'panel', turn: 'learner', awaiting: null, can_pass: true, lines: [hostLine(1)] }))
+    vi.mocked(podcasts.streamEpisodePass).mockImplementation(answersWith(hostLine(2, false), 'hosts', 'continue'))
+    const { result } = renderHook(() => usePodcastEpisode(57))
+    await waitFor(() => expect(result.current.canPass).toBe(true))
+
+    await act(async () => result.current.pass())
+
+    expect(podcasts.streamEpisodePass).toHaveBeenCalledWith(57, expect.anything())
+    expect(result.current.lines).toHaveLength(2)
+  })
 })

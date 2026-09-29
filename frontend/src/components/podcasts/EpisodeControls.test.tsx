@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import EpisodeControls from './EpisodeControls'
 
-const props = { onContinue: vi.fn(), onEnd: vi.fn(), isPending: false }
+const props = { onContinue: vi.fn(), onEnd: vi.fn(), onJumpIn: vi.fn(), onPass: vi.fn(), isPending: false, canJumpIn: false, canPass: false }
 
 describe('EpisodeControls', () => {
   it('offers Continue at the hosts continue', () => {
@@ -40,5 +40,34 @@ describe('EpisodeControls', () => {
     const { container } = render(<EpisodeControls {...props} turn="finished" awaiting={null} />)
 
     expect(container).toBeEmptyDOMElement()
+  })
+
+  describe('Panel (FR-017)', () => {
+    it('offers Jump in while the hosts talk', () => {
+      const onJumpIn = vi.fn()
+      render(<EpisodeControls {...props} onJumpIn={onJumpIn} canJumpIn turn="hosts" awaiting="continue" />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Jump in' }))
+
+      expect(onJumpIn).toHaveBeenCalled()
+      expect(screen.queryByRole('button', { name: 'Pass' })).not.toBeInTheDocument()
+    })
+
+    it('offers Pass at the learners turn', () => {
+      const onPass = vi.fn()
+      render(<EpisodeControls {...props} onPass={onPass} canPass turn="learner" awaiting={null} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Pass' }))
+
+      expect(onPass).toHaveBeenCalled()
+      expect(screen.queryByRole('button', { name: 'Jump in' })).not.toBeInTheDocument()
+    })
+
+    it('offers neither in One host or Listen', () => {
+      render(<EpisodeControls {...props} turn="hosts" awaiting="continue" />)
+
+      expect(screen.queryByRole('button', { name: 'Jump in' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Pass' })).not.toBeInTheDocument()
+    })
   })
 })

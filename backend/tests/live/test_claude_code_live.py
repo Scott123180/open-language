@@ -196,3 +196,39 @@ def test_a_german_conversation_replies_only_in_german(runner, settings):
 
     assert reply.strip()
     assert foreign_words(reply) == [], reply
+
+
+class _CountingSessions:
+    """The Claude provider, counting the `claude` sessions it opens."""
+
+    def __init__(self, provider) -> None:
+        self._provider = provider
+        self.opened = 0
+
+    def open_session(self, *args, **kwargs):
+        self.opened += 1
+        return self._provider.open_session(*args, **kwargs)
+
+    def __getattr__(self, name: str):
+        return getattr(self._provider, name)
+
+
+def test_a_panel_episode_runs_on_claude_in_one_session(runner, settings, tmp_path):
+    """007 FR-033: a Panel opening, one Continue and one learner reply, in one `claude` process."""
+    from app.main import app
+    from app.services.factory import get_session_provider
+    from tests.support.podcast_harness import podcast_harness
+
+    with podcast_harness(tmp_path) as harness:
+        counting = _CountingSessions(_provider(runner, settings, model="haiku"))
+        app.dependency_overrides[get_session_provider] = lambda: counting
+        episode_id = harness.start("panel")
+        opening = harness.stream(episode_id, "next")
+        second = harness.stream(episode_id, "next")
+        reply = harness.say(episode_id, "Me encanta cocinar paella los domingos.")
+
+    lines = [frame for frames in (opening, second, reply) for frame in frames]
+    assert [frame for frame in lines if frame.get("error")] == []
+    assert sum(frame.get("event") == "line" for frame in lines) >= 3
+    assert counting.opened == 1
+    assert list(settings.claude_workdir.iterdir()) == []
