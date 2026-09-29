@@ -196,6 +196,20 @@ export const generateShow = (idea: string, avoidTitles: string[] = []): Promise<
 
 export const surpriseShow = (): Promise<ShowDraft> => podcastFetch('/shows/surprise', jsonBody('POST', {}))
 
+export interface ShuffleHostBody {
+  language: string
+  slot: HostSlot
+  hosts: HostDraft[]
+  learner_name: string | null
+}
+
+/** A new host for the slot, cast by the server so no name, personality or voice clashes. */
+export const shuffleHost = (body: ShuffleHostBody): Promise<HostDraft> =>
+  podcastFetch('/hosts/shuffle', jsonBody('POST', body))
+
+export const voiceSampleUrl = (voiceKey: string, name: string): string =>
+  `${BASE}/voice-sample?${new URLSearchParams({ voice_key: voiceKey, name })}`
+
 export const listEpisodes = (): Promise<EpisodeSummaryRow[]> => podcastFetch('/episodes')
 
 export const getEpisode = (conversationId: number): Promise<Episode> =>

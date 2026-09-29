@@ -168,3 +168,43 @@ test.describe('Podcasts — generator and Surprise me (US4)', () => {
     await expect(page.getByText("That show wasn't kept. Generate it again, or pick another one.")).toBeVisible()
   })
 })
+
+test.describe('Podcasts — shaping the hosts (US5)', () => {
+  test('shuffling each host and changing a personality starts the episode with those hosts', async ({ page }) => {
+    await mockHomeApis(page)
+    await mockPodcastApis(page, { preferences: { ...mockPodcastPreferences, last_format: 'panel' } })
+    const shuffled = {
+      lead: { slot: 'lead', name: 'Elena', personality_id: 'joker', voice_key: 'es_AR-daniela-high', show_role: 'host', angle: null },
+      second: { slot: 'second', name: 'Hugo', personality_id: 'enthusiast', voice_key: 'es_ES-davefx-medium', show_role: 'co_host', angle: null },
+    }
+    await page.route('/api/podcasts/hosts/shuffle', (route) => {
+      const { slot } = route.request().postDataJSON() as { slot: 'lead' | 'second' }
+      return route.fulfill({ json: shuffled[slot] })
+    })
+    await page.goto('/podcasts/setup?show=weekend-food-talk')
+    await expect(page.getByRole('radio', { name: /Panel/ })).toBeChecked()
+
+    await page.getByRole('button', { name: 'Shuffle Lucía' }).click()
+    await expect(page.getByText('Elena', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Shuffle Marco' }).click()
+    await expect(page.getByText('Hugo', { exact: true })).toBeVisible()
+    await page.getByLabel("Hugo's personality").selectOption('dry_sceptic')
+    const started = page.waitForRequest((request) => request.url().endsWith('/api/podcasts/episodes') && request.method() === 'POST')
+    await page.getByRole('button', { name: 'Start episode' }).click()
+
+    const { show } = (await started).postDataJSON()
+    expect(show.hosts).toEqual([shuffled.lead, { ...shuffled.second, personality_id: 'dry_sceptic' }])
+  })
+
+  test('the play button asks for the hosts voice sample', async ({ page }) => {
+    await mockHomeApis(page)
+    await mockPodcastApis(page)
+    const sample = page.waitForRequest((request) => request.url().includes('/api/podcasts/voice-sample'))
+    await page.route('/api/podcasts/voice-sample**', (route) => route.fulfill({ status: 200, contentType: 'audio/wav', body: '' }))
+    await page.goto('/podcasts/setup?show=weekend-food-talk')
+
+    await page.getByRole('button', { name: "Play Lucía's voice" }).click()
+
+    expect(new URL((await sample).url()).searchParams.get('name')).toBe('Lucía')
+  })
+})

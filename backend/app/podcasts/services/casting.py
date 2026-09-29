@@ -20,9 +20,10 @@ from app.podcasts.catalog import (
 )
 from app.practice_languages import host_names_for
 from app.services.tts.base import VoiceInstallation
-from app.services.tts.voices import VoiceInfo, voices_for
+from app.services.tts.voices import AVAILABLE_VOICES, VoiceInfo, voices_for
 
 SHOW_ROLE_BY_SLOT = {LEAD_SLOT: "host", SECOND_SLOT: "co_host"}
+_VOICES = {voice.key: voice for voice in AVAILABLE_VOICES}
 
 
 class InvalidCast(ValueError):  # noqa: N818 — reads as the invariant it guards
@@ -111,6 +112,30 @@ class HostCaster:
             _host(LEAD_SLOT, lead_name, personalities[0], voices[0], angles[0]),
             _host(SECOND_SLOT, second_name, personalities[1], voices[1], angles[1]),
         )
+
+    def recast(self, slot: str, hosts: tuple[Host, Host], learner_name: str | None) -> Host:
+        """Shuffle: a new host for `slot`, unlike either host in name and personality.
+
+        The voice stays unless a third installed voice differs from the other host's, or the
+        two hosts share a voice and another is installed (plan interpretation 6)."""
+        replaced = next(host for host in hosts if host.slot == slot)
+        other = next(host for host in hosts if host.slot != slot)
+        voice = self._recast_voice(replaced, other)
+        taken = _names_taken(learner_name) | {replaced.name.casefold(), other.name.casefold()}
+        name = self._random_name(voice, voice.language, taken)
+        used = {replaced.personality_id, other.personality_id}
+        personality = self._rng.choice([key for key in PERSONALITIES if key not in used])
+        return _host(slot, name, personality, voice, None)
+
+    def _recast_voice(self, replaced: Host, other: Host) -> VoiceInfo:
+        catalogue = voices_for(_VOICES[replaced.voice_key].language)
+        fresh = [
+            voice
+            for voice in catalogue
+            if voice.key not in {replaced.voice_key, other.voice_key}
+            and self._installation.is_installed(voice.key)
+        ]
+        return self._rng.choice(fresh) if fresh else _VOICES[replaced.voice_key]
 
     def voices_for(self, language: str) -> tuple[VoiceInfo, VoiceInfo]:
         """The lead's voice and the second host's: installed voices first, never another

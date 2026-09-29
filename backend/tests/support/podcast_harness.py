@@ -73,6 +73,12 @@ def install_seeded_policy(seed: int = POLICY_SEED) -> None:
     app.dependency_overrides[get_turn_policy] = lambda: TurnPolicy(random.Random(seed))
 
 
+def install_sample_cache(directory: Path) -> None:
+    from app.podcasts.host_routes import get_sample_cache_dir
+
+    app.dependency_overrides[get_sample_cache_dir] = lambda: directory
+
+
 def serve_sessions(sessions: sessionmaker, opened: list[Session]) -> None:
     """One session per request, closed only when the harness closes.
 
@@ -97,6 +103,7 @@ def podcast_harness(tmp_path: Path, installed: set[str] | None = None) -> Iterat
     engine = install_session_provider(app, writer)
     speech = override_speech(app, installed=installed)
     install_seeded_policy()
+    install_sample_cache(tmp_path / "voice_samples")
     try:
         with TestClient(app) as client:
             yield PodcastHarness(client, writer, engine, speech, sessions)

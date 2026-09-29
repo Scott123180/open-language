@@ -476,17 +476,17 @@ The hosts always differ in name, voice and personality, and the episode uses the
 
 ### Tests for User Story 5 (write first, see them fail)
 
-- [ ] T115 [P] [US5] Extend `backend/tests/unit/podcasts/test_casting.py` with `HostCaster.recast(slot, hosts, learner_name)` (research R6, plan interpretation 6): the new host differs from the other host and from the replaced host in name and personality, never has the learner's name, keeps its voice when no third voice differs from the other host's, and three seeded shuffles in a row never clash.
-- [ ] T116 [P] [US5] Write `backend/tests/contract/test_podcast_hosts_api.py` (contracts §4, §5): `POST /hosts/shuffle` returns a `HostDraft` for the slot satisfying T115's rules; `GET /voice-sample?voice_key=…&name=…` returns `audio/wav` spoken in that voice (`RecordingTtsBuilder`), with the language's `sample_line`, cached by `(voice_key, name)` so a second call does not synthesise; an uninstalled voice → 503; an unknown voice → 422.
-- [ ] T117 [P] [US5] Extend `backend/tests/integration/podcasts/test_one_host_episode.py` (the voice notices are tested in US2's T067): an episode started with a changed personality stores it, and the standing prompt the scripted writer receives carries that personality's speaking style (US5-3).
-- [ ] T118 [P] [US5] Write Vitest tests: extend `frontend/src/components/podcasts/HostCard.test.tsx` (Shuffle, a labelled personality `<select>` excluding the other host's personality, a ▶ sample button with an accessible name "Play Lucía's voice"); extend `frontend/src/pages/PodcastSetup.test.tsx` (shuffling replaces only that host; Start posts the final hosts).
-- [ ] T119 [P] [US5] Extend `frontend/e2e/podcasts.spec.ts`: on a Panel setup, shuffle each host and change one personality, then Start posts those hosts.
+- [X] T115 [P] [US5] Extend `backend/tests/unit/podcasts/test_casting.py` with `HostCaster.recast(slot, hosts, learner_name)` (research R6, plan interpretation 6): the new host differs from the other host and from the replaced host in name and personality, never has the learner's name, keeps its voice when no third voice differs from the other host's, and three seeded shuffles in a row never clash.
+- [X] T116 [P] [US5] Write `backend/tests/contract/test_podcast_hosts_api.py` (contracts §4, §5): `POST /hosts/shuffle` returns a `HostDraft` for the slot satisfying T115's rules; `GET /voice-sample?voice_key=…&name=…` returns `audio/wav` spoken in that voice (`RecordingTtsBuilder`), with the language's `sample_line`, cached by `(voice_key, name)` so a second call does not synthesise; an uninstalled voice → 503; an unknown voice → 422.
+- [X] T117 [P] [US5] Extend `backend/tests/integration/podcasts/test_one_host_episode.py` (the voice notices are tested in US2's T067): an episode started with a changed personality stores it, and the standing prompt the scripted writer receives carries that personality's speaking style (US5-3).
+- [X] T118 [P] [US5] Write Vitest tests: extend `frontend/src/components/podcasts/HostCard.test.tsx` (Shuffle, a labelled personality `<select>` excluding the other host's personality, a ▶ sample button with an accessible name "Play Lucía's voice"); extend `frontend/src/pages/PodcastSetup.test.tsx` (shuffling replaces only that host; Start posts the final hosts).
+- [X] T119 [P] [US5] Extend `frontend/e2e/podcasts.spec.ts`: on a Panel setup, shuffle each host and change one personality, then Start posts those hosts.
 
 ### Implementation for User Story 5
 
-- [ ] T120 [US5] Add `HostCaster.recast` to `backend/app/podcasts/services/casting.py` (passes T115).
-- [ ] T121 [US5] Add `POST /api/podcasts/hosts/shuffle` and `GET /api/podcasts/voice-sample` (synthesis through `provider_for_voice` and `voice_sample_line`, cached under the TTS cache directory by `(voice_key, name)`) to `backend/app/podcasts/router.py` (passes T116, T117).
-- [ ] T122 [US5] Add `shuffleHost` and `voiceSampleUrl` to `frontend/src/services/podcastsApi.ts`, the controls to `frontend/src/components/podcasts/HostCard.tsx`, and the host state to `frontend/src/pages/PodcastSetup.tsx` (passes T118, T119).
+- [X] T120 [US5] Add `HostCaster.recast` to `backend/app/podcasts/services/casting.py` (passes T115).
+- [X] T121 [US5] Add `POST /api/podcasts/hosts/shuffle` and `GET /api/podcasts/voice-sample` (synthesis through `provider_for_voice` and `voice_sample_line`, cached under the TTS cache directory by `(voice_key, name)`) to `backend/app/podcasts/router.py` (passes T116, T117).
+- [X] T122 [US5] Add `shuffleHost` and `voiceSampleUrl` to `frontend/src/services/podcastsApi.ts`, the controls to `frontend/src/components/podcasts/HostCard.tsx`, and the host state to `frontend/src/pages/PodcastSetup.tsx` (passes T118, T119).
 - [ ] T123 [US5] Create `specs/007-podcast-mode/speaker-review-sheet.md` (SC-004: 10 Panel or Listen episodes with name labels stripped; a column per line for the reviewer's guess and the true speaker; the bar is ≥ 80% correct), fill it from a benchmark-harness run, and record the result for T127.
 - [ ] T124 [US5] Run the full suites and walk quickstart §4 step 8.
 

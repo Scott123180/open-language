@@ -160,6 +160,21 @@ class ShowRefusal(BaseModel):
     can_surprise: bool
 
 
+# --- hosts (contracts §4) -----------------------------------------------------------------
+
+
+class ShuffleHostRequest(BaseModel):
+    language: str
+    slot: str = Field(pattern=SLOT_PATTERN)
+    hosts: list[HostDraftModel] = Field(min_length=2, max_length=2)
+    learner_name: str | None = None
+
+    @field_validator("learner_name")
+    @classmethod
+    def _trim_learner_name(cls, value: str | None) -> str | None:
+        return _trimmed_name(value)
+
+
 # --- episodes -----------------------------------------------------------------------------
 
 

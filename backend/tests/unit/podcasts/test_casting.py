@@ -1,6 +1,7 @@
 """T019: hosts are cast by code, never by the model (research R6, data-model §3)."""
 
 import random
+from dataclasses import replace
 
 import pytest
 
@@ -166,3 +167,95 @@ def test_the_cast_lists_its_hosts_in_slot_order():
     assert cast.hosts == (LUCIA, MARCO)
     assert cast.host("second") is MARCO
     assert set(PERSONALITIES) >= {h.personality_id for h in cast.hosts}
+
+
+# --- recast: Shuffle on the setup screen (T115, plan interpretation 6) ------------------
+
+
+def _pair(seed: int = 0, learner_name: str | None = None) -> tuple[Host, Host]:
+    return _caster(seed=seed).cast_template(SHOW, "es", learner_name)
+
+
+@pytest.mark.parametrize("slot", ["lead", "second"])
+@pytest.mark.parametrize("seed", range(10))
+def test_a_shuffled_host_differs_from_both_hosts_in_name_and_personality(slot, seed):
+    hosts = _pair()
+    replaced = next(host for host in hosts if host.slot == slot)
+
+    new = _caster(seed=seed).recast(slot, hosts, None)
+
+    assert new.slot == slot
+    assert new.name.casefold() not in {host.name.casefold() for host in hosts}
+    assert new.personality_id not in {host.personality_id for host in hosts}
+    assert new.show_role == replaced.show_role
+
+
+@pytest.mark.parametrize("seed", range(10))
+def test_a_shuffled_host_never_takes_the_learners_name(seed):
+    hosts = _pair()
+    names = host_names_for("es", GENDER[hosts[1].voice_key])
+    learner = next(name for name in names if name not in {h.name for h in hosts})
+
+    new = _caster(seed=seed).recast("second", hosts, learner.lower())
+
+    assert new.name != learner
+
+
+def test_a_shuffled_hosts_name_suits_its_voice():
+    hosts = _pair()
+
+    new = _caster(seed=4).recast("lead", hosts, None)
+
+    assert new.name in host_names_for("es", GENDER[new.voice_key])
+
+
+def test_a_shuffled_host_keeps_its_voice_when_no_third_voice_is_installed():
+    hosts = _pair()
+
+    new = _caster(seed=2).recast("second", hosts, None)
+
+    assert new.voice_key == hosts[1].voice_key
+
+
+def test_a_host_sharing_the_only_voice_keeps_it():
+    only = _keys("es")[0]
+    hosts = _caster(installed={only}).cast_template(SHOW, "es", None)
+
+    new = _caster(installed={only}, seed=1).recast("second", hosts, None)
+
+    assert new.voice_key == only
+
+
+def test_a_host_sharing_a_voice_moves_to_another_installed_one():
+    lead, second = _pair()
+    shared = (lead, Host("second", second.name, second.personality_id, lead.voice_key, "co_host"))
+
+    new = _caster(seed=1).recast("second", shared, None)
+
+    assert new.voice_key != lead.voice_key
+
+
+def test_a_third_voice_that_differs_from_the_other_hosts_is_taken(monkeypatch):
+    from app.podcasts.services import casting
+
+    voices = voices_for("es")
+    third = replace(voices[1], key="es_MX-third-medium")
+    monkeypatch.setattr(casting, "voices_for", lambda _language: (*voices, third))
+    hosts = _pair()
+
+    new = _caster(seed=0).recast("second", hosts, None)
+
+    assert new.voice_key == third.key
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_three_shuffles_in_a_row_never_clash(seed):
+    caster = _caster(seed=seed)
+    hosts = _pair()
+    for slot in ("second", "lead", "second"):
+        new = caster.recast(slot, hosts, "Sam")
+        hosts = tuple(new if host.slot == slot else host for host in hosts)
+
+        Cast(*hosts)
+        assert hosts[0].voice_key != hosts[1].voice_key
+        assert "sam" not in {host.name.casefold() for host in hosts}

@@ -134,6 +134,19 @@ describe('podcast JSON endpoints', () => {
     expect(call(mock)).toMatchObject({ url: `${BASE}/shows/surprise`, body: {} })
   })
 
+  it('shuffles a host', async () => {
+    const mock = stubJson({ name: 'Pablo' })
+    const body = { language: 'es', slot: 'second' as const, hosts: [], learner_name: null }
+
+    await podcasts.shuffleHost(body)
+
+    expect(call(mock)).toMatchObject({ url: `${BASE}/hosts/shuffle`, body })
+  })
+
+  it('builds a voice sample address with the name encoded', () => {
+    expect(podcasts.voiceSampleUrl('es_AR-daniela-high', 'Lucía')).toBe(`${BASE}/voice-sample?voice_key=es_AR-daniela-high&name=Luc%C3%ADa`)
+  })
+
   it('asks for suggestions for the episode', async () => {
     const mock = stubJson({ suggestions: ['Sí'] })
 

@@ -67,3 +67,16 @@ export const secondaryButtonStyle: CSSProperties = {
   borderRadius: 'var(--radius-md)',
   cursor: 'pointer',
 }
+
+/** Read by screen readers, not shown: a label whose control already says what it is. */
+export const visuallyHiddenStyle: CSSProperties = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+}

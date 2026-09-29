@@ -19,7 +19,7 @@ export default function PodcastSetup() {
     <PageShell title={show?.title ?? 'Set up your episode'} backTo="/podcasts" backLabel="Back to Podcasts">
       {error && <ErrorBanner message={error} />}
       {draft?.draft.source === 'generated' && <AnotherVersion current={draft} onMade={replaceDraft} />}
-      {show && catalog ? <SetupForm show={show} catalog={catalog} form={form} starting={starting} /> : !error && <p aria-live="polite">Loading…</p>}
+      {show && catalog ? <SetupForm key={show.title} show={show} catalog={catalog} form={form} starting={starting} /> : !error && <p aria-live="polite">Loading…</p>}
     </PageShell>
   )
 }

@@ -198,3 +198,20 @@ def test_an_unknown_episode_is_not_found(podcast_client):
     response = podcast_client.client.post(f"{EPISODES}/999/next")
 
     assert (response.status_code, response.json()["detail"]) == (404, "Episode not found")
+
+
+# --- a host shaped on the setup screen (T117, US5-3) ----------------------------------------
+
+
+def test_a_changed_personality_is_stored_and_shapes_the_hosts_lines(podcast_client):
+    from app.podcasts.catalog import PERSONALITIES
+
+    client = podcast_client.client
+    draft = _with_host(ready_made_draft(client), 0, personality_id="joker")
+    episode = client.post(EPISODES, json={"show": draft, "format": "one_host", "length": "short"})
+
+    podcast_client.stream(episode.json()["conversation_id"], "next")
+
+    assert episode.json()["hosts"][0]["personality_id"] == "joker"
+    standing_prompt = podcast_client.writer.received[-1][0]
+    assert PERSONALITIES["joker"].speaking_style in standing_prompt

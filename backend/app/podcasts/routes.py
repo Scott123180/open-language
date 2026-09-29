@@ -18,6 +18,7 @@ from app.conversation_turns import Corrections, LearnerMessageRequest
 from app.corrections.services.storage import CorrectionStorageProvider
 from app.corrections.services.strategies import CorrectionStrategy
 from app.podcasts.catalog import LEAD_SLOT, PODCAST_FORMATS, SHOW_TEMPLATES
+from app.podcasts.host_routes import host_router
 from app.podcasts.responses import (
     READY_MADE_SOURCE,
     catalog_response,
@@ -390,3 +391,4 @@ async def get_suggestions(
 
 
 router.include_router(show_router)
+router.include_router(host_router)

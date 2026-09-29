@@ -186,3 +186,58 @@ describe('PodcastSetup page — generated drafts (US4)', () => {
     )
   })
 })
+
+describe('PodcastSetup page — shaping the hosts (US5)', () => {
+  const pablo = { slot: 'second' as const, name: 'Pablo', personality_id: 'joker', voice_key: 'es_ES-davefx-medium', show_role: 'co_host', angle: null }
+
+  const onPanel = async () => {
+    renderSetup()
+    await waitFor(() => expect(screen.getByRole('radio', { name: /Panel/ })).toBeChecked())
+  }
+
+  it('replaces only the shuffled host', async () => {
+    vi.mocked(podcasts.shuffleHost).mockResolvedValue(pablo)
+    await onPanel()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Shuffle Marco' }))
+
+    expect(await screen.findByText('Pablo')).toBeInTheDocument()
+    expect(screen.getByText('Lucía')).toBeInTheDocument()
+    expect(podcasts.shuffleHost).toHaveBeenCalledWith({ language: 'es', slot: 'second', hosts: catalog.shows[0].hosts, learner_name: 'Sam' })
+  })
+
+  it('starts the episode with the hosts as the learner left them', async () => {
+    vi.mocked(podcasts.shuffleHost).mockResolvedValue(pablo)
+    await onPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Shuffle Marco' }))
+    await screen.findByText('Pablo')
+    fireEvent.change(screen.getByLabelText("Lucía's personality"), { target: { value: 'dry_sceptic' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start episode' }))
+
+    await waitFor(() => expect(podcasts.startEpisode).toHaveBeenCalled())
+    const { show } = vi.mocked(podcasts.startEpisode).mock.calls[0][0]
+    expect(show.hosts).toEqual([{ ...catalog.shows[0].hosts[0], personality_id: 'dry_sceptic' }, pablo])
+  })
+
+  it('shows why a shuffle failed and keeps the host', async () => {
+    vi.mocked(podcasts.shuffleHost).mockRejectedValue(new Error('The practice language changed. Pick the show again.'))
+    await onPanel()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Shuffle Marco' }))
+
+    expect(await screen.findByText('The practice language changed. Pick the show again.')).toBeInTheDocument()
+    expect(screen.getByText('Marco')).toBeInTheDocument()
+  })
+
+  it('plays a hosts voice sample', async () => {
+    const play = vi.spyOn(window.HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    vi.mocked(podcasts.voiceSampleUrl).mockReturnValue('/api/podcasts/voice-sample?voice_key=v&name=Luc%C3%ADa')
+    await onPanel()
+
+    fireEvent.click(screen.getByRole('button', { name: "Play Lucía's voice" }))
+
+    expect(podcasts.voiceSampleUrl).toHaveBeenCalledWith(catalog.shows[0].hosts[0].voice_key, 'Lucía')
+    expect(play).toHaveBeenCalled()
+  })
+})
