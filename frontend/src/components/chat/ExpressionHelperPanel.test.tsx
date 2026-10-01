@@ -98,3 +98,46 @@ describe('ExpressionHelperPanel — conversation languages (006)', () => {
     expect(vi.mocked(api.streamHelper).mock.calls[0][2]).toBe(7)
   })
 })
+
+describe('ExpressionHelperPanel — formatted replies', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  const replyWith = (reply: string) =>
+    vi.mocked(api.streamHelper).mockImplementation(
+      async (_content, _sessionId, _conversationId, onToken, onDone, _onError) => {
+        onToken(reply)
+        onDone()
+      }
+    )
+
+  it('shows bold markdown in a reply as bold text, without the asterisks', async () => {
+    replyWith('**Quiero un café descafeinado.**')
+    render(<ExpressionHelperPanel {...baseProps} />)
+
+    send('How do I order decaf?')
+
+    const bold = await screen.findByText('Quiero un café descafeinado.')
+    expect(bold.tagName).toBe('STRONG')
+    expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument()
+  })
+
+  it('shows a markdown bullet list in a reply as a list', async () => {
+    replyWith('Notes:\n\n- **Quiero** = "I want."\n- **descafeinado** = decaf')
+    render(<ExpressionHelperPanel {...baseProps} />)
+
+    send('How do I order decaf?')
+
+    expect(await screen.findAllByRole('listitem')).toHaveLength(2)
+  })
+
+  it('shows the learner question as typed, without reading it as markdown', async () => {
+    resolveImmediately()
+    render(<ExpressionHelperPanel {...baseProps} />)
+
+    send('what does **hola** mean?')
+
+    expect(await screen.findByText('what does **hola** mean?')).toBeInTheDocument()
+  })
+})

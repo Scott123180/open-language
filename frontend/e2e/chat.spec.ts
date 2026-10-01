@@ -209,6 +209,23 @@ test.describe('Chat page', () => {
     ).toBeVisible()
   })
 
+  test('expression helper shows bold and bullet points in its reply as formatting', async ({ page }) => {
+    await page.route('/api/chat/helper', (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+        body: makeHelperSseBody(['**Quiero un café.**', '\n\n- **Quiero** = "I want."', '\n- **café** = coffee']),
+      }),
+    )
+    await page.getByRole('button', { name: /open expression helper/i }).click()
+    await page.getByRole('textbox', { name: 'Ask the expression helper' }).fill('How do I order a coffee?')
+    await page.getByRole('button', { name: 'Ask expression helper' }).click()
+
+    await expect(page.locator('strong', { hasText: 'Quiero un café.' })).toBeVisible()
+    await expect(page.getByRole('listitem')).toHaveCount(2)
+    await expect(page.getByText(/\*\*/)).toHaveCount(0)
+  })
+
   test('expression helper closes via close button', async ({ page }) => {
     await page.getByRole('button', { name: /open expression helper/i }).click()
     await expect(
