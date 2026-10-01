@@ -44,6 +44,22 @@ test.describe('Podcast episode — One host', () => {
     await expect(transcript.getByText(OPENING.content)).toBeVisible()
   })
 
+  test('the episode stays on screen in browsers whose smooth scroll returns a promise', async ({ page }) => {
+    await page.addInitScript(() => {
+      const scroll = Element.prototype.scrollIntoView
+      Element.prototype.scrollIntoView = function (options) {
+        scroll.call(this, options)
+        return Promise.resolve() as unknown as undefined
+      }
+    })
+    await mockPodcastApis(page)
+    await mockLineStream(page, 'next', [makeLineSseBody(lineFrame(OPENING, 'learner'))])
+    await page.goto('/podcasts/episodes/57')
+
+    await expect(page.getByText(OPENING.content)).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Weekend Food Talk' })).toBeVisible()
+  })
+
   test('a provider failure shows its message and Retry produces the line', async ({ page }) => {
     await mockPodcastApis(page)
     await mockLineStream(page, 'next', [

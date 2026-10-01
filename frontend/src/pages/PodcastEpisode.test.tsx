@@ -77,6 +77,18 @@ describe('PodcastEpisode page — One host', () => {
     )
   })
 
+  it('keeps the episode on screen when a new line scrolls in and the browser returns a promise from the scroll', async () => {
+    Element.prototype.scrollIntoView = vi.fn(() => Promise.resolve()) as unknown as Element['scrollIntoView']
+    vi.mocked(podcasts.streamEpisodeMessage).mockImplementation(async (_id, _body, handlers) => handlers.onUserSaved(90))
+    renderEpisode()
+    fireEvent.change(await screen.findByLabelText('Type a message'), { target: { value: 'Paella' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+
+    expect(await screen.findByText('Paella')).toBeInTheDocument()
+    expect(screen.getByText('¡Bienvenidos! ¿Qué cocinaste?')).toBeInTheDocument()
+  })
+
   it('transcribes a recording in the episodes language, not the setting', async () => {
     isRecording = true
     renderEpisode()
