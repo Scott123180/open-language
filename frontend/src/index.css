@@ -13,6 +13,9 @@
    Light Mode (default)
    ----------------------------------------------------------------------------- */
 :root {
+  /* Native controls (select popups, scrollbars) follow the theme */
+  color-scheme: light;
+
   /* Typeface */
   --font-sans: 'Plus Jakarta Sans', 'DM Sans', system-ui, -apple-system, sans-serif;
 
@@ -107,6 +110,7 @@
    Warm hue preservation: bg is hsl(28, 10%, 9%) not hsl(222, 47%, 11%) (cold slate)
    ----------------------------------------------------------------------------- */
 [data-theme='dark'] {
+  color-scheme: dark;
   --color-bg: #1a1714;
   --color-bg-alt: #211e1a;
   --color-surface: #242019;
@@ -137,6 +141,7 @@
 }
 
 [data-theme='light'] {
+  color-scheme: light;
   --color-bg: #faf9f7;
   --color-bg-alt: #f5f3ef;
   --color-surface: #ffffff;
@@ -164,6 +169,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
+    color-scheme: dark;
     --color-bg: #1a1714;
     --color-bg-alt: #211e1a;
     --color-surface: #242019;
@@ -213,6 +219,13 @@ button {
   border: none;
   min-height: 44px;
   min-width: 44px;
+}
+
+/* A select's popup takes its colours from the options, not the select: without this, options
+   inherit the light text of a dark theme and draw it on the browser's white default */
+option {
+  background-color: var(--color-surface);
+  color: var(--color-text);
 }
 
 /* Keyboard focus ring — never hidden for non-mouse interactions */

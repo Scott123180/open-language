@@ -1,5 +1,6 @@
 import type { PodcastFormatId, PodcastFormatOption } from '../../services/podcastsApi'
-import { fieldsetStyle, legendStyle, mutedTextStyle, radioLabelStyle } from './styles'
+import ChoiceTile from './ChoiceTile'
+import { choiceGroupStyle, choiceLegendStyle } from './styles'
 
 interface FormatFieldsetProps {
   formats: PodcastFormatOption[]
@@ -7,18 +8,15 @@ interface FormatFieldsetProps {
   onChange: (format: PodcastFormatId) => void
 }
 
-/** The format radios: One host, Panel or Listen (FR-003, FR-005). */
+/** The format tiles: One host, Panel or Listen (FR-003, FR-005). */
 export default function FormatFieldset({ formats, value, onChange }: FormatFieldsetProps) {
   return (
-    <fieldset style={fieldsetStyle}>
-      <legend style={legendStyle}>Format</legend>
+    <fieldset style={choiceGroupStyle}>
+      <legend style={choiceLegendStyle}>Format</legend>
       {formats.map((format) => (
-        <label key={format.format_id} style={radioLabelStyle}>
-          <input type="radio" name="podcast-format" value={format.format_id} checked={value === format.format_id} onChange={() => onChange(format.format_id)} />
-          <span>
-            {format.label} <span style={mutedTextStyle}>— {format.description}</span>
-          </span>
-        </label>
+        <ChoiceTile key={format.format_id} group="podcast-format" isChecked={value === format.format_id}
+          option={{ value: format.format_id, label: format.label, detail: format.description }}
+          onChoose={() => onChange(format.format_id)} />
       ))}
     </fieldset>
   )

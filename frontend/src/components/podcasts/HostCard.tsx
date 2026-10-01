@@ -23,7 +23,7 @@ const hostCardStyle = {
   borderRadius: 'var(--radius-lg)',
 }
 
-const selectStyle = { ...secondaryButtonStyle, padding: '0 var(--space-2)', font: 'inherit' }
+const selectStyle = { ...secondaryButtonStyle, padding: '0 var(--space-2)', font: 'inherit', background: 'var(--color-surface)' }
 
 /** A host on the setup screen: name, personality, a voice sample and Shuffle (US5). */
 export default function HostCard({ host, personalities, otherPersonalityId, isShuffling, onShuffle, onPersonalityChange, onPlaySample }: HostCardProps) {

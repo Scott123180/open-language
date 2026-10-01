@@ -208,3 +208,41 @@ test.describe('Podcasts — shaping the hosts (US5)', () => {
     expect(new URL((await sample).url()).searchParams.get('name')).toBe('Lucía')
   })
 })
+
+test.describe('Podcasts — setup in dark mode', () => {
+  const darkSurface = 'rgb(36, 32, 25)'
+  const darkPrimarySubtle = 'rgb(26, 58, 56)'
+  const darkPrimary = 'rgb(45, 212, 191)'
+
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await mockHomeApis(page)
+    await mockPodcastApis(page, { preferences: { ...mockPodcastPreferences, last_format: 'panel' } })
+    await page.goto('/podcasts/setup?show=weekend-food-talk')
+  })
+
+  test('the personality drop-down and its options are drawn on the dark surface', async ({ page }) => {
+    const select = page.getByLabel("Marco's personality")
+
+    const colours = await select.evaluate((element) => {
+      const option = element.querySelector('option') as HTMLOptionElement
+      return {
+        scheme: getComputedStyle(element).colorScheme,
+        selectBackground: getComputedStyle(element).backgroundColor,
+        optionBackground: getComputedStyle(option).backgroundColor,
+      }
+    })
+
+    expect(colours).toEqual({ scheme: 'dark', selectBackground: darkSurface, optionBackground: darkSurface })
+  })
+
+  test('the chosen format and length are highlighted as selected tiles', async ({ page }) => {
+    for (const name of [/Panel/, /Medium/]) {
+      const tile = page.locator('label').filter({ has: page.getByRole('radio', { name }) })
+      await expect(tile).toHaveCSS('background-color', darkPrimarySubtle)
+      await expect(tile).toHaveCSS('border-top-color', darkPrimary)
+    }
+    const unchosen = page.locator('label').filter({ has: page.getByRole('radio', { name: /One host/ }) })
+    await expect(unchosen).toHaveCSS('background-color', darkSurface)
+  })
+})

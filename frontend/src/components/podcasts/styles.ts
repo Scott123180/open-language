@@ -80,3 +80,38 @@ export const visuallyHiddenStyle: CSSProperties = {
   whiteSpace: 'nowrap',
   border: 0,
 }
+
+/** A group of selection tiles: a legend over a vertical stack (design-system Selection Tile Cards). */
+export const choiceGroupStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '10px',
+  margin: 0,
+  padding: 0,
+  border: 'none',
+}
+
+export const choiceLegendStyle: CSSProperties = { ...legendStyle, padding: 0, marginBottom: 'var(--space-2)' }
+
+export const choiceTileStyle = (isChecked: boolean): CSSProperties => ({
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: 'var(--space-3)',
+  padding: 'var(--space-3) var(--space-4)',
+  border: `2px solid ${isChecked ? 'var(--color-primary)' : 'var(--color-border)'}`,
+  borderRadius: 'var(--radius-lg)',
+  background: isChecked ? 'var(--color-primary-subtle)' : 'var(--color-surface)',
+  cursor: 'pointer',
+  transition: 'border-color var(--transition-fast), background var(--transition-fast)',
+})
+
+export const choiceLabelStyle = (isChecked: boolean): CSSProperties => ({
+  fontWeight: 'var(--weight-semibold)' as CSSProperties['fontWeight'],
+  color: isChecked ? 'var(--color-primary-text)' : 'var(--color-text)',
+})
+
+export const choiceDetailStyle = (isChecked: boolean): CSSProperties => ({
+  fontSize: 'var(--text-sm)',
+  lineHeight: 'var(--leading-normal)',
+  color: isChecked ? 'var(--color-primary-text)' : 'var(--color-text-muted)',
+})
