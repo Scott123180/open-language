@@ -229,3 +229,13 @@ def test_the_settings_record_no_longer_carries_a_single_voice(
     storage: SQLiteStorageProvider,
 ) -> None:
     assert not hasattr(storage.get_settings(), "tts_voice")
+
+
+def test_fresh_settings_summarise_in_the_conversations_language(storage) -> None:
+    assert storage.get_settings().summary_language == "conversation"
+
+
+def test_the_summary_language_round_trips(storage) -> None:
+    storage.update_settings(summary_language="native")
+
+    assert storage.get_settings().summary_language == "native"

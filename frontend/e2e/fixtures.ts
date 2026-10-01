@@ -567,3 +567,245 @@ export const mockGermanWords = [
     source_conversation_id: 3,
   },
 ]
+
+// ── Podcasts (007 contracts §1, §2, §6, §7) ───────────────────────────────────
+
+const LUCIA_HOST = {
+  slot: 'lead',
+  name: 'Lucía',
+  personality_id: 'enthusiast',
+  voice_key: 'es_AR-daniela-high',
+  show_role: 'host',
+  angle: null,
+}
+
+const MARCO_HOST = {
+  slot: 'second',
+  name: 'Marco',
+  personality_id: 'dry_sceptic',
+  voice_key: 'es_ES-davefx-medium',
+  show_role: 'co_host',
+  angle: null,
+}
+
+/** A ready-made show as `GET /api/podcasts/catalog` serves it. */
+export const showDraftFixture = {
+  source: 'ready_made',
+  show_id: 'weekend-food-talk',
+  title: 'Weekend Food Talk',
+  premise: 'Two food lovers swap weekend cooking wins and disasters.',
+  topic: 'food',
+  learner_role: 'guest',
+  language: 'es',
+  hosts: [LUCIA_HOST, MARCO_HOST],
+}
+
+const OTHER_SHOWS = [
+  ['tech-for-normal-people', 'Tech for Normal People', 'technology', 'caller'],
+  ['game-day', 'Game Day', 'sport', 'co_host'],
+  ['on-the-road', 'On the Road', 'travel', 'guest'],
+  ['screen-and-sound', 'Screen & Sound', 'film and music', 'co_host'],
+  ['nine-to-five', 'Nine to Five', 'work life', 'caller'],
+].map(([show_id, title, topic, learner_role]) => ({
+  ...showDraftFixture,
+  show_id,
+  title,
+  topic,
+  learner_role,
+  premise: `A show about ${topic}.`,
+}))
+
+export const mockPodcastCatalog = {
+  language: 'es',
+  language_name: 'Spanish',
+  formats: [
+    { format_id: 'one_host', label: 'One host', host_count: 1, is_learner_speaking: true, description: 'You and one host.' },
+    { format_id: 'panel', label: 'Panel', host_count: 2, is_learner_speaking: true, description: 'You and two hosts.' },
+    { format_id: 'listen', label: 'Listen', host_count: 2, is_learner_speaking: false, description: 'Two hosts talk; you listen.' },
+  ],
+  lengths: [
+    { length_id: 'short', label: 'Short', target_host_lines: 10, is_default: false },
+    { length_id: 'medium', label: 'Medium', target_host_lines: 20, is_default: true },
+    { length_id: 'long', label: 'Long', target_host_lines: 40, is_default: false },
+  ],
+  personalities: [
+    { personality_id: 'enthusiast', label: 'Enthusiast', description: 'Excited about everything and quick to share.' },
+    { personality_id: 'dry_sceptic', label: 'Dry sceptic', description: 'Unimpressed until convinced, with a dry sense of humour.' },
+    { personality_id: 'joker', label: 'Joker', description: 'Never misses a chance for a joke.' },
+  ],
+  shows: [showDraftFixture, ...OTHER_SHOWS],
+  voices: { installed_count: 2, shared_voice_notice: null as string | null, unavailable_message: null as string | null },
+}
+
+export const mockPodcastPreferences = {
+  last_format: 'one_host',
+  is_show_text_on: false,
+  interests: [] as string[],
+  learner_name: null as string | null,
+}
+
+const EPISODE_HOSTS = [
+  { host_id: 11, ...LUCIA_HOST, personality_label: 'Enthusiast', is_voice_available: true, voice_unavailable_message: null as string | null },
+  { host_id: 12, ...MARCO_HOST, personality_label: 'Dry sceptic', is_voice_available: true, voice_unavailable_message: null as string | null },
+]
+
+const FORMAT_LABELS: Record<string, string> = { one_host: 'One host', panel: 'Panel', listen: 'Listen' }
+
+/** A new episode of Weekend Food Talk with no lines yet, awaiting its opening. */
+export function episodeFixture(format: 'one_host' | 'panel' | 'listen') {
+  return {
+    conversation_id: 57,
+    status: 'active',
+    language: 'es',
+    language_name: 'Spanish',
+    native_language_name: 'English',
+    show: {
+      title: showDraftFixture.title,
+      premise: showDraftFixture.premise,
+      topic: showDraftFixture.topic,
+      learner_role: 'guest',
+      source: 'ready_made',
+      show_id: showDraftFixture.show_id,
+    },
+    format,
+    format_label: FORMAT_LABELS[format],
+    length: 'short',
+    target_host_lines: 10,
+    learner_name: null as string | null,
+    hosts: format === 'one_host' ? EPISODE_HOSTS.slice(0, 1) : EPISODE_HOSTS,
+    shared_voice_notice: null as string | null,
+    turn: 'hosts',
+    awaiting: 'opening' as string | null,
+    can_jump_in: false,
+    can_pass: false,
+    lines: [] as unknown[],
+  }
+}
+
+export interface LineFixture {
+  message_id: number
+  host_id: number | null
+  content: string
+  intent?: string | null
+  invites_learner?: boolean
+}
+
+/** A line object as `line` frames and `GET /api/podcasts/episodes/{id}` carry it. */
+export function lineFixture(line: LineFixture) {
+  return {
+    speaker: line.host_id === null ? 'learner' : 'host',
+    intent: null,
+    invites_learner: false,
+    is_revealed: false,
+    created_at: '2026-09-28T10:00:00Z',
+    ...line,
+  }
+}
+
+/** One `line` frame followed by its `done` frame, with the turn state after the line. */
+export function lineFrame(line: LineFixture, turn: string, awaiting: string | null = null) {
+  return [
+    { event: 'line', line: lineFixture(line), turn, awaiting },
+    { done: true, turn, awaiting, can_jump_in: false, can_pass: false },
+  ]
+}
+
+/** Build an SSE body from frames, e.g. `makeLineSseBody(lineFrame(...))`. */
+export function makeLineSseBody(frames: unknown[]): string {
+  return frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join('')
+}
+
+export interface PodcastRouteOptions {
+  episode?: ReturnType<typeof episodeFixture>
+  preferences?: typeof mockPodcastPreferences
+  catalog?: typeof mockPodcastCatalog
+}
+
+/** Mock the Podcasts, setup and episode screens' reads. Line streams are mocked per test. */
+export async function mockPodcastApis(page: Page, options: PodcastRouteOptions = {}) {
+  const episode = options.episode ?? episodeFixture('one_host')
+  await page.route('/api/podcasts/catalog', (route) => route.fulfill({ json: options.catalog ?? mockPodcastCatalog }))
+  await page.route('/api/podcasts/preferences', (route) => route.fulfill({ json: options.preferences ?? mockPodcastPreferences }))
+  await page.route('/api/podcasts/episodes', (route) =>
+    route.request().method() === 'POST' ? route.fulfill({ status: 201, json: episode }) : route.fulfill({ json: [] }),
+  )
+  await page.route(`/api/podcasts/episodes/${episode.conversation_id}`, (route) => route.fulfill({ json: episode }))
+  await page.route(`/api/podcasts/episodes/${episode.conversation_id}/session`, (route) =>
+    route.fulfill({ status: 202, json: { status: 'warming' } }),
+  )
+  await page.route('/api/audio/tts/**', (route) => route.fulfill({ status: 200, body: '' }))
+  await page.route('/api/settings', (route) => route.fulfill({ json: mockSettings }))
+  await mockConversationLevelsApi(page)
+  await mockPracticeLanguagesApi(page)
+}
+
+/** Serve `bodies` in order to successive POSTs of one episode action (e.g. `next`). */
+export async function mockLineStream(page: Page, action: string, bodies: string[], conversationId = 57) {
+  const requests: unknown[] = []
+  await page.route(`/api/podcasts/episodes/${conversationId}/${action}`, (route) => {
+    requests.push(route.request().postDataJSON?.() ?? null)
+    const body = bodies[Math.min(requests.length - 1, bodies.length - 1)]
+    return route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream' }, body })
+  })
+  return { requests }
+}
+
+// ── Conversation summary (007 US6, contracts §9) ──────────────────────────────
+
+export function summaryFixture(conversationId = 1, points = [
+  { conversation_language: 'Pides un café con leche.', english: 'You order a white coffee.' },
+  { conversation_language: 'Ahora preguntas el precio.', english: 'Now you ask the price.' },
+]) {
+  return {
+    status: 'ready',
+    conversation_id: conversationId,
+    up_to_message_id: 9,
+    conversation_language: 'es',
+    conversation_language_name: 'Spanish',
+    native_language_name: 'English',
+    points,
+  }
+}
+
+export const TOO_EARLY_SUMMARY = {
+  status: 'too_early',
+  message: "There's nothing to summarise yet. Come back after the next line.",
+}
+
+/** Settings whose summary language follows the learner's PUTs, and the PUT bodies sent. */
+export async function mockSummarySettings(page: Page, initial: 'conversation' | 'native' = 'conversation') {
+  const puts: unknown[] = []
+  let summaryLanguage = initial
+  await page.route('/api/settings', (route) => {
+    if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON()
+      puts.push(body)
+      summaryLanguage = body.summary_language ?? summaryLanguage
+    }
+    return route.fulfill({ json: { ...mockSettings, summary_language: summaryLanguage } })
+  })
+  return { puts }
+}
+
+export const generatedShowFixture = {
+  ...showDraftFixture,
+  source: 'generated',
+  show_id: null as string | null,
+  title: 'Night Shift Abroad',
+  premise: 'Two nurses swap stories about working far from home.',
+  topic: 'living abroad as a nurse',
+}
+export const IDEA_DECLINED = "That idea can't become a show here. Try a different topic, or press Surprise me."
+export const IDEA_NEEDED = "Type a few words about the show you'd like, or press Surprise me."
+
+/** Serve `drafts` in order to successive POSTs of `/shows/generate`, recording each body.
+ * An entry with a `detail` is served as the 422 refusal it describes. */
+export async function mockShowGeneration(page: Page, drafts: unknown[]) {
+  const requests: Record<string, unknown>[] = []
+  await page.route('/api/podcasts/shows/generate', (route) => {
+    requests.push(route.request().postDataJSON())
+    const draft = drafts[Math.min(requests.length, drafts.length) - 1] as { detail?: string }
+    return draft.detail ? route.fulfill({ status: 422, json: { detail: draft.detail, can_surprise: true } }) : route.fulfill({ json: draft })
+  })
+  return requests
+}

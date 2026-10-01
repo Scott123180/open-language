@@ -387,10 +387,10 @@ class TestFlashcardLanguageColumns:
     def legacy_engine(self, tmp_path, monkeypatch):
         return _legacy_engine(tmp_path / "pre-006-flashcards.db", monkeypatch)
 
-    def test_the_two_language_columns_are_the_last_additive_columns(self):
+    def test_the_two_language_columns_follow_each_other_in_introduction_order(self):
         from app.database import _ADDITIVE_COLUMNS
 
-        assert _ADDITIVE_COLUMNS[-2:] == (
+        assert _ADDITIVE_COLUMNS[-3:-1] == (
             ("decks", "target_language VARCHAR(20) NOT NULL DEFAULT 'es'"),
             ("practice_sessions", "target_language VARCHAR(20) NOT NULL DEFAULT 'es'"),
         )
@@ -411,3 +411,116 @@ class TestFlashcardLanguageColumns:
                 text("SELECT target_language FROM practice_sessions")
             ).scalar_one()
         assert (deck, session) == ("es", "es")
+
+
+class TestPodcastTables:
+    """007 T011: the four podcast tables (data-model §2.1–§2.4)."""
+
+    EXPECTED = {
+        "podcast_episodes": {
+            "conversation_id": ("INTEGER", 1),
+            "show_source": ("VARCHAR(12)", 1),
+            "show_id": ("VARCHAR(100)", 0),
+            "premise": ("TEXT", 1),
+            "topic": ("VARCHAR(200)", 1),
+            "learner_role": ("VARCHAR(12)", 1),
+            "format": ("VARCHAR(12)", 1),
+            "length": ("VARCHAR(8)", 1),
+            "learner_name": ("VARCHAR(40)", 0),
+            "created_at": ("DATETIME", 1),
+        },
+        "podcast_hosts": {
+            "id": ("INTEGER", 1),
+            "conversation_id": ("INTEGER", 1),
+            "slot": ("VARCHAR(8)", 1),
+            "name": ("VARCHAR(40)", 1),
+            "personality": ("VARCHAR(30)", 1),
+            "voice_key": ("VARCHAR(200)", 1),
+            "show_role": ("VARCHAR(20)", 1),
+            "angle": ("TEXT", 0),
+        },
+        "podcast_host_lines": {
+            "message_id": ("INTEGER", 1),
+            "conversation_id": ("INTEGER", 1),
+            "host_id": ("INTEGER", 1),
+            "intent": ("VARCHAR(10)", 1),
+            "invites_learner": ("BOOLEAN", 1),
+            "is_passed": ("BOOLEAN", 1),
+            "is_revealed": ("BOOLEAN", 1),
+            "was_trimmed": ("BOOLEAN", 1),
+        },
+        "podcast_preferences": {
+            "id": ("INTEGER", 1),
+            "last_format": ("VARCHAR(12)", 1),
+            "is_show_text_on": ("BOOLEAN", 1),
+            "interests": ("TEXT", 1),
+            "learner_name": ("VARCHAR(40)", 0),
+            "updated_at": ("DATETIME", 1),
+        },
+    }
+
+    @pytest.fixture()
+    def fresh_engine(self, tmp_path, monkeypatch):
+        from app import database
+
+        engine = create_engine(f"sqlite:///{tmp_path / 'fresh-007.db'}")
+        monkeypatch.setattr(database, "_engine", engine)
+        return engine
+
+    def _column_info(self, engine, table: str) -> dict[str, tuple]:
+        with engine.connect() as conn:
+            rows = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
+        return {row[1]: (row[2], row[3] or row[5] > 0) for row in rows}
+
+    @pytest.mark.parametrize("table", list(EXPECTED))
+    def test_init_db_creates_the_table_with_its_columns(self, fresh_engine, table):
+        from app import database
+
+        database.init_db()
+
+        info = self._column_info(fresh_engine, table)
+        assert {name: (kind, int(required)) for name, (kind, required) in info.items()} == (
+            self.EXPECTED[table]
+        )
+
+    def test_init_db_is_idempotent(self, fresh_engine):
+        from app import database
+
+        database.init_db()
+        database.init_db()
+
+        with fresh_engine.connect() as conn:
+            tables = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master"))}
+        assert set(self.EXPECTED) <= tables
+
+
+class TestSummaryStorage:
+    """007 T083: the summary language column and the summaries table (data-model §2.5, §2.6)."""
+
+    def test_the_summary_language_is_an_additive_column(self):
+        from app.database import _ADDITIVE_COLUMNS
+
+        assert (
+            "app_settings",
+            "summary_language VARCHAR(12) NOT NULL DEFAULT 'conversation'",
+        ) in _ADDITIVE_COLUMNS
+
+    def test_init_db_creates_the_summaries_table(self, tmp_path, monkeypatch):
+        from app import database
+
+        engine = create_engine(f"sqlite:///{tmp_path / 'summaries.db'}")
+        monkeypatch.setattr(database, "_engine", engine)
+
+        database.init_db()
+
+        with engine.connect() as conn:
+            rows = conn.execute(text("PRAGMA table_info(conversation_summaries)")).fetchall()
+            settings = {row[1] for row in conn.execute(text("PRAGMA table_info(app_settings)"))}
+        assert {row[1] for row in rows} == {
+            "conversation_id",
+            "up_to_message_id",
+            "level",
+            "points",
+            "created_at",
+        }
+        assert "summary_language" in settings

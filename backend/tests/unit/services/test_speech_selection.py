@@ -85,3 +85,54 @@ def test_provider_for_an_uninstalled_voice_never_builds_another_voice():
 
 def test_voice_unavailable_is_a_tts_error():
     assert issubclass(VoiceUnavailable, TTSError)
+
+
+# --- 007: speaking with one host's voice (T013, research R7) ---------------------------
+
+HOST_MESSAGE = "Marco's voice isn't installed."
+SPANISH_HOST_VOICE = "es_AR-daniela-high"
+
+
+def test_provider_for_voice_builds_an_installed_voice_of_the_language():
+    builder = RecordingBuilder()
+
+    provider = _speech({SPANISH_HOST_VOICE}, builder).provider_for_voice(
+        "es", SPANISH_HOST_VOICE, HOST_MESSAGE
+    )
+
+    assert builder.calls == [SPANISH_HOST_VOICE]
+    assert provider.voice_name == SPANISH_HOST_VOICE
+
+
+def test_provider_for_voice_refuses_an_uninstalled_voice_without_building():
+    builder = RecordingBuilder()
+
+    with pytest.raises(VoiceUnavailable) as raised:
+        _speech(set(), builder).provider_for_voice("es", SPANISH_HOST_VOICE, HOST_MESSAGE)
+
+    assert raised.value.user_message == HOST_MESSAGE
+    assert builder.calls == []
+
+
+def test_provider_for_voice_refuses_a_voice_of_another_language():
+    builder = RecordingBuilder()
+
+    with pytest.raises(VoiceUnavailable):
+        _speech({GERMAN_VOICE}, builder).provider_for_voice("es", GERMAN_VOICE, HOST_MESSAGE)
+
+    assert builder.calls == []
+
+
+def test_provider_for_voice_refuses_an_unknown_voice():
+    with pytest.raises(VoiceUnavailable):
+        _speech({"xx-unknown"}, RecordingBuilder()).provider_for_voice(
+            "es", "xx-unknown", HOST_MESSAGE
+        )
+
+
+def test_provider_for_is_unchanged_by_host_voices():
+    builder = RecordingBuilder()
+
+    _speech({GERMAN_VOICE}, builder).provider_for("de")
+
+    assert builder.calls == [GERMAN_VOICE]

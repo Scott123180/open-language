@@ -646,3 +646,20 @@ describe('practice languages (006)', () => {
     expect(conversation.native_language_name).toBe('English')
   })
 })
+
+describe('conversation summary (007 US6)', () => {
+  it('reads the summary of a conversation', async () => {
+    const mock = stubJson({ status: 'too_early', message: 'Nothing yet.' })
+
+    await expect(api.getConversationSummary(57)).resolves.toEqual({ status: 'too_early', message: 'Nothing yet.' })
+    expect(call(mock).url).toBe(`${BASE}/conversations/57/summary`)
+  })
+
+  it('saves the summary language with the settings', async () => {
+    const mock = stubJson({ summary_language: 'native' })
+
+    await api.updateSettings({ summary_language: 'native' })
+
+    expect(call(mock).body).toEqual({ summary_language: 'native' })
+  })
+})

@@ -237,3 +237,66 @@ def test_the_chosen_german_voice_speaks_the_next_message_and_words(stored_settin
     assert client.get(f"/api/audio/tts/{message_id}").status_code == 200
     assert client.get(f"/api/flashcards/tts/{word_id}").status_code == 200
     assert builder.voice_keys == ["de_DE-kerstin-low", "de_DE-kerstin-low"]
+
+
+# --- 007: a host line is spoken in its host's voice (T014, contracts §11) --------------
+
+HOST_VOICE = "es_AR-daniela-high"
+HOST_UNAVAILABLE = "Lucía's voice isn't installed."
+
+
+class FakeMessageVoices:
+    """A `MessageVoiceLookup` answering from a fixed {message_id: voice_key} map."""
+
+    def __init__(self, voices: dict[int, str]) -> None:
+        self._voices = voices
+
+    def voice_for_message(self, message_id: int) -> str | None:
+        return self._voices.get(message_id)
+
+    def unavailable_message(self, message_id: int) -> str:
+        return HOST_UNAVAILABLE
+
+
+@pytest.fixture
+def host_voice_setup(speech_setup):
+    """(client, storage, builder, voices): `voices` maps a message id to its host's voice."""
+    from app.services.factory import get_message_voices
+
+    def build(installed=None):
+        voices: dict[int, str] = {}
+        app.dependency_overrides[get_message_voices] = lambda: FakeMessageVoices(voices)
+        client, storage, builder = speech_setup(installed=installed)
+        return client, storage, builder, voices
+
+    return build
+
+
+def test_a_host_line_is_spoken_in_its_hosts_voice(host_voice_setup) -> None:
+    client, storage, builder, voices = host_voice_setup()
+    message_id = _message_in(storage, "es", "¡Bienvenidos al programa!")
+    voices[message_id] = HOST_VOICE
+
+    response = client.get(f"/api/audio/tts/{message_id}")
+
+    assert response.status_code == 200
+    assert builder.voice_keys == [HOST_VOICE]
+
+
+def test_a_message_without_a_host_keeps_the_conversations_voice(host_voice_setup) -> None:
+    client, storage, builder, _voices = host_voice_setup()
+    message_id = _message_in(storage, "es", "Hola")
+
+    assert client.get(f"/api/audio/tts/{message_id}").status_code == 200
+    assert builder.voice_keys == ["es_ES-davefx-medium"]
+
+
+def test_a_missing_host_voice_is_503_with_the_hosts_message(host_voice_setup) -> None:
+    client, storage, builder, voices = host_voice_setup(installed={"es_ES-davefx-medium"})
+    message_id = _message_in(storage, "es", "¡Hola!")
+    voices[message_id] = HOST_VOICE
+
+    response = client.get(f"/api/audio/tts/{message_id}")
+
+    assert (response.status_code, response.json()) == (503, {"detail": HOST_UNAVAILABLE})
+    assert builder.synthesized == []

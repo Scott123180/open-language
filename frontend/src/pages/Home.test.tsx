@@ -186,3 +186,13 @@ describe('Home page — theme toggle', () => {
     )
   })
 })
+
+describe('Home page — podcasts (007)', () => {
+  it('links to Podcasts from the navigation', async () => {
+    vi.mocked(api.getCurrentScenario).mockResolvedValue(mockScenario)
+
+    renderHome()
+
+    expect(await screen.findByRole('link', { name: 'Podcasts' })).toHaveAttribute('href', '/podcasts')
+  })
+})

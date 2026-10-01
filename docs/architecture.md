@@ -774,6 +774,79 @@ other file hard-codes `"es"` or `"de"`.
   endpoint requires `?language=`, a session finishes in its own language, and the frontend keys each query
   by the language, so a switch never shows the other language's cached data.
 
+#### Podcasts (feature 007)
+
+A podcast episode is **a conversation with a podcast extension**: a `conversations` row (scenario id
+`podcast`, the show's title as its title) whose messages are the transcript, plus four podcast-owned
+tables (`podcast_episodes`, `podcast_hosts`, `podcast_host_lines`, `podcast_preferences`). Everything
+roleplay already does for a message (audio, learning tools, saved words, corrections, Past Chats, the
+Summary) therefore works on an episode with no change. The package root, `app/podcasts/__init__.py`, is
+the only import surface outside the package besides `services/factory.py`; a unit test enforces it
+(`tests/unit/test_module_boundaries.py`).
+
+- **The code chooses the speaker; the model writes the line.** `TurnPolicy` (`services/turn_policy.py`) is
+  a pure function of the episode's stored facts and a seeded random source. It decides who speaks next,
+  the line's intent (`open`, `greet`, `discuss`, `wrap_up`, `sign_off`) and whether the line invites the
+  learner: a run cap per host, the addressed host answers, a balancing gap, a hand-over, then weighted
+  chance, with an invitation deadline for Panel and a wrap-up at the length's target. The model is never
+  asked who should talk, so turn-taking (SC-002) does not depend on how well a small model follows
+  instructions.
+- **One standing prompt, one cue per line.** `prompts.py` builds the show, the hosts (name, role,
+  personality, angle) and the line rules once per episode, and the level's rules through the same
+  `with_partner_speech_rules()` roleplay uses. Each line is asked for with a short cue — a **user turn**
+  marked `[Producer note, not part of the show]` naming the next host and the intent. Cues are
+  re-rendered from stored facts (`c{position}` turn ids), never stored as messages; lines are `p{message id}`.
+- **Lines go through the conversation engine** (`SessionKind.PODCAST`), so Ollama stays loaded and a
+  Claude process stays alive between lines, exactly as for roleplay. Saved lines are the source of truth:
+  a rebuilt session replays them with their cues.
+- **One speaker per line.** `LineSanitiser` cuts a line where it starts speaking for another host or the
+  learner (a name or role label, the language's guest labels) and records `was_trimmed`. A trimmed line
+  ends the session, so the next line is written from the stored, clean history.
+- **Hosts are cast by code** (`services/casting.py`). Names come from the practice language's name bank
+  for the gender of the host's voice (`practice_languages.host_names_for`), voices from the installed
+  voices of that language, personalities from the catalogue. A ready-made show's names are stable (a hash
+  of the show and slot); generated shows and Shuffle draw at random. Two hosts never share a name or a
+  personality, and share a voice only when the language has one installed voice, with a notice.
+- **Per-host voices through a seam.** The audio router asks a `MessageVoiceLookup` (`services/tts/base.py`)
+  which voice a message has; the factory's `PodcastMessageVoices` answers with the host's voice for host
+  lines and `None` otherwise. `SpeechForLanguage.provider_for_voice` speaks in that voice only; a missing
+  voice is the plain 503 naming the host, never another voice. The audio router imports nothing from
+  `app.podcasts`.
+- **Generated shows are drafts.** `ShowGenerator` makes one structured call (suitability, title, premise,
+  topic, learner role, each host's personality and angle) and casts the hosts itself. Surprise me builds
+  the idea in code (`services/surprise.py`): an interest two presses in three when the learner has some,
+  otherwise one of 40 topics, plus one of 12 angles, never one of the last ten pairs. Nothing is stored
+  until an episode starts.
+- **One line at a time.** Every line-producing action (`next`, `message`, `pass`, `end`) is SSE and takes
+  the episode's lock (`EpisodeLocks`, process-wide) before checking the turn state; a second action is a
+  plain 409.
+
+#### Conversation summary (feature 007)
+
+`app/conversation_summary/` serves `GET /api/conversations/{id}/summary` for roleplay and podcasts alike.
+
+- **Both languages in one call.** `chat_json` returns up to five points, each a pair
+  `{conversation_language, english}`, so the two versions describe the same points by construction and
+  switching language needs no second request. `app_settings.summary_language` remembers which one the
+  learner reads.
+- **Grounded in the transcript.** The prompt holds only the saved lines, labelled by speaker. Labels come
+  through `SpeakerNames.names_for(conversation_id)`, a consumer interface the factory implements with the
+  podcast host names; `None` means a roleplay ("Learner" and "Partner"). Neither module imports the other.
+- **Folding and caching.** Transcripts are folded in chunks of about 6,000 characters, each step carrying
+  the previous English points forward, so no call outgrows a small context. The latest summary is stored
+  (`conversation_summaries`) with the last message id and level it covers; with no new line and the same
+  level it is returned at once, and with new lines only those are folded in.
+- **Isolated from the conversation.** The summary uses the stateless `StructuredLLMProvider`, never the
+  conversation's session, and reads saved lines only; fewer than two lines is `too_early`, with no model
+  call.
+
+#### Shared turn mechanics: `conversation_turns` (feature 007)
+
+The learner-turn and reply-relay mechanics that `routers/chat.py` kept private moved to
+`app/conversation_turns/` (`relay.py`, `learner.py`, `corrections.py`, `speech.py`), so the chat router
+and the podcast episode turns share them instead of copying them. The chat router's behaviour is
+unchanged; it imports these names from the package root.
+
 ### 6.3 Corrective feedback: one seam, three modes
 
 Feature 003 adds grammar correction during practice. The learner picks a mode in Settings —
@@ -1211,7 +1284,9 @@ open-language/
 ├── specs/                       Per-feature artifacts (the "why" archive)
 │   ├── 001-speak-roleplay-chat/
 │   ├── 002-vocabulary-flashcards/
-│   └── 003-corrective-feedback-mode/
+│   ├── 003-corrective-feedback-mode/
+│   ├── …
+│   └── 007-podcast-mode/
 │
 ├── docs/
 │   ├── design-system.md         Tokens, components, dark mode, a11y
@@ -1240,6 +1315,11 @@ open-language/
 │       │   ├── scenario/        base.py ABC + static.py
 │       │   └── audio/           conversion.py — ffmpeg subprocess
 │       ├── conversation_levels/ Level catalogue + prompt-rule renderers (005), no tables
+│       ├── practice_languages/  Language catalogue, names, voices, host name banks (006, 007), no tables
+│       ├── conversation_turns/  Learner-turn and reply-relay mechanics shared by chat and podcasts (007)
+│       ├── conversation_summary/  Summary of any conversation, both languages, 1 table (007)
+│       ├── podcasts/            Self-contained domain (007): catalog, prompts, routes, 4 tables,
+│       │                        services/ (turn policy, casting, sanitiser, generator, surprise…)
        ├── flashcards/          Self-contained domain (Principle V)
 │       │   ├── router.py        ← the domain's public interface
 │       │   ├── models.py        7 tables
@@ -1281,6 +1361,7 @@ open-language/
 | `004-llm-provider-selection` | Provider catalogue and registry, Claude through Claude Code (opt-in), conversation sessions, actionable provider errors | In progress |
 | `005-conversation-difficulty-level` | Four conversation levels (Beginner–Natural) on Settings and in the chat header, applied to the partner's replies and the learner aids; experimental | In progress |
 | `006-german-language-support` | German as a second practice language: catalogue, per-language voices, conversations that keep their language, flashcards per language | In progress |
+| `007-podcast-mode` | Podcast episodes (One host, Panel, Listen) with code-chosen turns, cast hosts and per-host voices; ready-made, generated and Surprise me shows; a two-language Summary for every conversation | In progress |
 
 `master` is the release branch; `develop` is the integration branch; feature branches are numbered and
 created by `.specify/scripts/bash/create-new-feature.sh`.
@@ -1334,10 +1415,12 @@ Collected from the sections above so they are findable in one place:
 | Token streaming is batched, not incremental — the typing effect is cosmetic | `app/routers/chat.py` | Accepted trade-off; revisit if perceived latency matters |
 | `_add_column_if_missing()` cannot express renames, type changes, or backfills | `app/database.py` | Fine while changes stay additive; replace with Alembic otherwise |
 | **Correction accuracy is not good enough on an 8B model** — see below | `app/corrections/` | Shipped with an in-app warning; a larger local model is blocked by 8 GB VRAM (T098). Claude is now selectable as the larger model (004), but not yet benchmarked. German (006) shows the same pattern: corrections fire but often suggest wrong fixes |
-| Background TTS writes through the request-scoped session after it is closed | `app/routers/chat.py` | Pre-dates 003; TTS cache paths can silently fail to persist |
+| Background TTS writes through the request-scoped session after it is closed | `app/conversation_turns/speech.py` (moved from `app/routers/chat.py` in 007) | Pre-dates 003; TTS cache paths can silently fail to persist. In tests a shared session raced the TTS thread; 007 gave the chat and podcast test fixtures a session per request, which fixed the intermittent `test_send_message_user_message_persisted` failure |
 | **Conversation levels are not kept closely enough by an 8B model** — see below | `app/conversation_levels/` | Shipped with an in-app warning (005, T042); SC-001 missed, SC-003 partly missed |
 | **German transcription misses SC-003 on every Whisper size** — 13/20 on `base`, 16/20 on `small`, 17/20 on `medium` (target 18/20), measured on Piper-synthesised speech | `app/services/stt/` | 006; misses are single umlaut words. `small` is the practical recommendation for German today; figures in `specs/006-german-language-support/benchmark-results.md` |
 | Word-list search folds only ASCII case (`ILIKE`), so "über" does not find "Über" | `app/flashcards/services/sqlite_storage.py` | 006 research R12; Spanish has the same gap ("é"/"É"). Not a regression |
+| **Podcast benchmarks not yet run** — SC-002 turn-taking, SC-003 single speaker, SC-004 speaker review, SC-005/SC-006 host language and level, SC-007/SC-008 generator, SC-009 latency, SC-012/SC-013 summary review | `backend/tests/integration/podcasts/`, `specs/007-podcast-mode/*-review-sheet.md` | 007 (T064, T074, T094, T102, T114, T123). The session that built 007 had no Ollama, Piper voices or Claude; every benchmark is written and deselected by default, and the review sheets are empty. Run them before calling 007 done |
+| **Long podcast episodes may outgrow Ollama's default context** | `app/podcasts/prompts.py` | 007 research R14. The standing prompt (≤ 700 tokens) and cues (≤ 40) are bounded by unit tests; the drift on Long episodes is unmeasured (the latency benchmark records `prompt_eval_count`). If the hosts forget the start of a Long episode, a configurable `num_ctx` is the option |
 | The integration suite runs the app lifespan's `init_db()` against the learner's real `~/.open-language/app.db` | `tests/integration/` | Found in 006. Additive migrations only, but a test run should never touch learner data; 006 redirected the TTS cache writes (`isolated_tts_cache`), the database is still shared |
 
 #### German on the default stack (006)

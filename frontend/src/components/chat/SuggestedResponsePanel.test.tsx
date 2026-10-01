@@ -75,4 +75,15 @@ describe('SuggestedResponsePanel', () => {
     expect(await screen.findByRole('status')).toBeInTheDocument()
     resolve!({ suggestions: [] })
   })
+
+  it("asks a screen's own source when one is given (007 episodes)", async () => {
+    const fetchSuggestions = vi.fn().mockResolvedValue({ suggestions: ['¡Me encanta!'] })
+
+    render(<SuggestedResponsePanel conversationId={57} fetchSuggestions={fetchSuggestions} />)
+    fireEvent.click(screen.getByRole('button', { name: /suggestions/i }))
+
+    expect(await screen.findByText('¡Me encanta!')).toBeInTheDocument()
+    expect(fetchSuggestions).toHaveBeenCalledWith(57)
+    expect(api.getSuggestions).not.toHaveBeenCalled()
+  })
 })

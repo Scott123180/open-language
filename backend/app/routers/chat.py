@@ -1,30 +1,32 @@
 import asyncio
-import json
 import logging
 import re
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from functools import partial
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from app.config import get_settings
 from app.conversation_levels import (
     ConversationLevel,
     with_learner_text_rules,
     with_partner_speech_rules,
 )
-from app.corrections.schemas import rendered_notes, to_note_payload
-from app.corrections.services.storage import CorrectionStorageProvider
-from app.corrections.services.strategies import (
-    NULL_TURN_PLAN,
-    CorrectionStrategy,
-    TurnContext,
-    TurnPlan,
+from app.conversation_turns import (
+    Corrections,
+    EngineTurn,
+    LearnerMessageRequest,
+    SavedReply,
+    plan_learner_turn,
+    relay_engine_reply,
+    save_learner_message,
+    schedule_speech,
+    sse,
+    start_warming,
 )
+from app.corrections.services.storage import CorrectionStorageProvider
+from app.corrections.services.strategies import CorrectionStrategy
 from app.practice_languages import ConversationLanguages
 from app.prompts.templates import (
     build_helper_system_prompt,
@@ -53,7 +55,7 @@ from app.services.factory import (
     get_storage,
 )
 from app.services.helper_sessions import HelperSessionStore, HelperTurn
-from app.services.llm.base import ChatMessage, LLMError, LLMProvider
+from app.services.llm.base import ChatMessage, LLMProvider
 from app.services.scenario.base import ScenarioProvider
 from app.services.storage.base import (
     AppSettingsRecord,
@@ -61,7 +63,6 @@ from app.services.storage.base import (
     MessageRecord,
     StorageProvider,
 )
-from app.services.tts.base import TTSProvider
 from app.services.tts.selection import SpeechForLanguage
 
 logger = logging.getLogger(__name__)
@@ -96,9 +97,7 @@ ROLEPLAY_TURN_PREFIX = "m"
 HELPER_TURN_PREFIX = "h"
 _LIST_MARKER = re.compile(r"^[\d\.\-\s]+")
 
-
-def _sse(payload: dict) -> str:
-    return f"data: {json.dumps(payload)}\n\n"
+ChatMessageRequest = LearnerMessageRequest
 
 
 def _require_conversation(storage: StorageProvider, conversation_id: int) -> ConversationRecord:
@@ -143,42 +142,6 @@ def _saved_turns(messages: list[MessageRecord]) -> tuple[SavedTurn, ...]:
 
 
 @dataclass(frozen=True)
-class _SavedReply:
-    """Where a finished reply was stored, and the frame that tells the client."""
-
-    turn_id: str
-    done_frame: dict
-
-
-@dataclass(frozen=True)
-class _EngineTurn:
-    engine: ConversationEngine
-    provider: SessionCapableProvider
-    request: TurnRequest
-
-    def collect(self) -> list[str]:
-        # Delivery stays batched (spec Assumptions): the whole reply is collected first.
-        return list(self.engine.stream_turn(self.provider, self.request))
-
-
-async def _relay_engine_reply(
-    turn: _EngineTurn, persist: Callable[[str], _SavedReply]
-) -> AsyncIterator[str]:
-    """Run the turn, relay its tokens, store the reply, and tell the session its saved id."""
-    loop = asyncio.get_running_loop()
-    try:
-        tokens = await loop.run_in_executor(None, turn.collect)
-    except LLMError as exc:
-        yield _sse({"error": exc.user_message})
-        return
-    for token in tokens:
-        yield _sse({"token": token})
-    saved = persist("".join(tokens))
-    await loop.run_in_executor(None, turn.engine.acknowledge, turn.request.key, saved.turn_id)
-    yield _sse(saved.done_frame)
-
-
-@dataclass(frozen=True)
 class _RoleplayContext:
     """One roleplay conversation and everything a turn of it needs."""
 
@@ -191,17 +154,17 @@ class _RoleplayContext:
 
     def turn(
         self, history: tuple[SavedTurn, ...], guidance: str | None, opening: str | None
-    ) -> _EngineTurn:
+    ) -> EngineTurn:
         key = _roleplay_key(self.conversation.id)
         request = TurnRequest(key, self.standing_prompt, history, guidance, opening)
-        return _EngineTurn(self.engine, self.provider, request)
+        return EngineTurn(self.engine, self.provider, request)
 
-    def persist(self, content: str) -> _SavedReply:
+    def persist(self, content: str) -> SavedReply:
         message = self.storage.save_message(
             conversation_id=self.conversation.id, role=ASSISTANT_ROLE, content=content
         )
         self._speak(message)
-        return _SavedReply(
+        return SavedReply(
             f"{ROLEPLAY_TURN_PREFIX}{message.id}", {"done": True, "message_id": message.id}
         )
 
@@ -213,7 +176,7 @@ class _RoleplayContext:
             logger.warning("The %s voice isn't installed; the reply is not read aloud", name)
             return
         provider = self.speech.provider_for(language)
-        _schedule_tts(
+        schedule_speech(
             asyncio.get_running_loop(), self.storage, provider, message.id, message.content
         )
 
@@ -239,7 +202,7 @@ async def open_chat(context: _RoleplayContext = Depends(_roleplay_context)):
         raise HTTPException(status_code=409, detail=CONVERSATION_ALREADY_STARTED)
     instruction = build_open_chat_user_prompt(_languages_of(context.conversation).target_name)
     turn = context.turn(history, guidance=None, opening=instruction)
-    return StreamingResponse(_relay_engine_reply(turn, context.persist), media_type=SSE_MEDIA_TYPE)
+    return StreamingResponse(relay_engine_reply(turn, context.persist), media_type=SSE_MEDIA_TYPE)
 
 
 @router.post("/chat/{conversation_id}/session", status_code=202)
@@ -261,112 +224,8 @@ async def warm_session(
     # The same prompt a turn would build, so the warmed session's fingerprint matches (R8).
     standing_prompt = _standing_roleplay_prompt(conversation, scenarios, _level_of(app_settings))
     history = _saved_turns(storage.get_messages(conversation_id))
-    _start_warming(engine, provider, key, standing_prompt, history)
+    start_warming(engine, provider, key, standing_prompt, history)
     return {"status": SESSION_WARMING}
-
-
-def _start_warming(
-    engine: ConversationEngine,
-    provider: SessionCapableProvider,
-    key: SessionKey,
-    standing_prompt: str,
-    history: tuple[SavedTurn, ...],
-) -> None:
-    warm = partial(engine.warm, provider, key, standing_prompt, history)
-    asyncio.get_running_loop().run_in_executor(None, _warm_quietly, warm)
-
-
-def _warm_quietly(warm: Callable[[], None]) -> None:
-    """A failed warm-up is never shown: the first real turn reports the problem."""
-    try:
-        warm()
-    except LLMError as exc:
-        logger.warning("Session warm-up failed; the next turn will try again: %s", exc)
-
-
-async def _plan_turn_failing_open(
-    strategy: CorrectionStrategy, context: TurnContext, timeout: float
-) -> TurnPlan:
-    """FR-026: every evaluation failure ends the same way — an empty plan."""
-    try:
-        return await asyncio.wait_for(strategy.plan_turn(context), timeout=timeout)
-    except (TimeoutError, LLMError) as exc:
-        logger.warning("Correction evaluation failed (%r); continuing uncorrected", exc)
-        return NULL_TURN_PLAN
-
-
-def _persist_feedback(
-    correction_storage: CorrectionStorageProvider, message_id: int, plan: TurnPlan
-) -> list:
-    """Store the turn's notes and return only those a client renders."""
-    if not plan.feedback:
-        return []
-    return rendered_notes(correction_storage.save_feedback(message_id, plan.feedback))
-
-
-def _feedback_frame(message_id: int, notes: list, awaiting_retry: bool) -> str:
-    payload = {
-        "event": "feedback",
-        "message_id": message_id,
-        "awaiting_retry": awaiting_retry,
-        "notes": [to_note_payload(note) for note in notes],
-    }
-    return f"data: {json.dumps(payload)}\n\n"
-
-
-def _last_character_line(history: list) -> str | None:
-    return next((m.content for m in reversed(history) if m.role == "assistant"), None)
-
-
-def _turn_context(
-    conversation,
-    conversation_id: int,
-    content: str,
-    history: list,
-    is_low_confidence: bool = False,
-) -> TurnContext:
-    languages = _languages_of(conversation)
-    return TurnContext(
-        conversation_id=conversation_id,
-        learner_text=content,
-        target_language=languages.target_name,
-        native_language=languages.native_name,
-        preceding_character_line=_last_character_line(history),
-        is_low_confidence=is_low_confidence,
-    )
-
-
-class ChatMessageRequest(BaseModel):
-    content: str
-    input_source: str = "keyboard"
-    transcription_confidence: float | None = Field(None, ge=0.0, le=1.0)
-
-    @property
-    def spoken_confidence(self) -> float | None:
-        """The value is client-supplied, so it counts only for spoken input."""
-        if self.input_source != "voice":
-            return None
-        return self.transcription_confidence
-
-
-def _is_low_confidence(confidence: float | None) -> bool:
-    """None means "no information" and is never gated (FR-010a); 0.0 is."""
-    if confidence is None:
-        return False
-    return confidence < get_settings().low_confidence_threshold
-
-
-@dataclass(frozen=True)
-class _Corrections:
-    strategy: CorrectionStrategy
-    storage: CorrectionStorageProvider
-
-    def feedback_frame(self, conversation_id: int, message_id: int, plan: TurnPlan) -> str | None:
-        notes = _persist_feedback(self.storage, message_id, plan)
-        if not notes:
-            return None
-        awaiting_retry = self.storage.get_pause_state(conversation_id).awaiting_retry
-        return _feedback_frame(message_id, notes, awaiting_retry)
 
 
 @router.post("/chat/{conversation_id}/message")
@@ -376,72 +235,28 @@ async def send_message(
     strategy: CorrectionStrategy = Depends(get_correction_strategy),
     correction_storage: CorrectionStorageProvider = Depends(get_correction_storage),
 ):
-    corrections = _Corrections(strategy, correction_storage)
+    corrections = Corrections(strategy, correction_storage)
     return StreamingResponse(_message_events(context, req, corrections), media_type=SSE_MEDIA_TYPE)
 
 
 async def _message_events(
-    context: _RoleplayContext, req: ChatMessageRequest, corrections: _Corrections
+    context: _RoleplayContext, req: ChatMessageRequest, corrections: Corrections
 ) -> AsyncIterator[str]:
     conversation = context.conversation
-    learner_message = _save_learner_message(context.storage, conversation.id, req)
-    yield _sse({"event": "user_message_saved", "message_id": learner_message.id})
+    learner_message = save_learner_message(context.storage, conversation.id, req)
+    yield sse({"event": "user_message_saved", "message_id": learner_message.id})
     history = context.storage.get_messages(conversation.id)
-    plan = await _plan_learner_turn(corrections, conversation, learner_message, history[:-1])
+    plan = await plan_learner_turn(corrections, conversation, learner_message, history[:-1])
     feedback = corrections.feedback_frame(conversation.id, learner_message.id, plan)
     if feedback:
         yield feedback
     if not plan.generate_reply:
-        yield _sse({"done": True, "message_id": None})
+        yield sse({"done": True, "message_id": None})
         return
     # The full saved history, so a Strict-paused message and its retry are both pending.
     turn = context.turn(_saved_turns(history), guidance=plan.reply_prompt_suffix, opening=None)
-    async for frame in _relay_engine_reply(turn, context.persist):
+    async for frame in relay_engine_reply(turn, context.persist):
         yield frame
-
-
-def _save_learner_message(
-    storage: StorageProvider, conversation_id: int, req: ChatMessageRequest
-) -> MessageRecord:
-    confidence = req.spoken_confidence
-    return storage.save_message(
-        conversation_id=conversation_id,
-        role=USER_ROLE,
-        content=req.content,
-        input_source=req.input_source,
-        transcription_confidence=confidence,
-        is_low_confidence=_is_low_confidence(confidence) if confidence is not None else None,
-    )
-
-
-async def _plan_learner_turn(
-    corrections: _Corrections,
-    conversation: ConversationRecord,
-    learner_message: MessageRecord,
-    preceding: list[MessageRecord],
-) -> TurnPlan:
-    is_low_confidence = bool(learner_message.is_low_confidence)
-    context = _turn_context(
-        conversation, conversation.id, learner_message.content, preceding, is_low_confidence
-    )
-    timeout = get_settings().correction_timeout_seconds
-    return await _plan_turn_failing_open(corrections.strategy, context, timeout)
-
-
-def _tts_cache_dir() -> Path:
-    return Path.home() / ".open-language" / "tts_cache"
-
-
-def _schedule_tts(loop, storage: StorageProvider, tts: TTSProvider, message_id: int, text: str):
-    cache_dir = _tts_cache_dir()
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    audio_path = cache_dir / f"{message_id}.wav"
-
-    def _synthesize():
-        tts.synthesize(text, audio_path)
-        storage.set_tts_path(message_id, str(audio_path))
-
-    loop.run_in_executor(None, _synthesize)
 
 
 @router.post("/chat/{conversation_id}/suggestions")
@@ -500,8 +315,8 @@ async def chat_helper(
     stored = helper_sessions.get_history(req.helper_session_id)
     request = _helper_turn_request(req, stored, languages, _level_of(app_settings))
     answer = _HelperAnswer(helper_sessions, req, answer_index=len(stored) + 1)
-    turn = _EngineTurn(engine, provider, request)
-    return StreamingResponse(_relay_engine_reply(turn, answer.persist), media_type=SSE_MEDIA_TYPE)
+    turn = EngineTurn(engine, provider, request)
+    return StreamingResponse(relay_engine_reply(turn, answer.persist), media_type=SSE_MEDIA_TYPE)
 
 
 def _helper_turn_request(
@@ -538,10 +353,10 @@ class _HelperAnswer:
     req: HelperRequest
     answer_index: int
 
-    def persist(self, answer: str) -> _SavedReply:
+    def persist(self, answer: str) -> SavedReply:
         self.helper_sessions.append_exchange(
             session_id=self.req.helper_session_id,
             user_message=self.req.message,
             assistant_message=answer,
         )
-        return _SavedReply(f"{HELPER_TURN_PREFIX}{self.answer_index}", {"done": True})
+        return SavedReply(f"{HELPER_TURN_PREFIX}{self.answer_index}", {"done": True})

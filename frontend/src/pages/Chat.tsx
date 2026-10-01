@@ -5,6 +5,7 @@ import MessageBubble from '../components/chat/MessageBubble'
 import RecordButton from '../components/chat/RecordButton'
 import AudioPlayer from '../components/shared/AudioPlayer'
 import ConversationLevelControl from '../components/chat/ConversationLevelControl'
+import SummaryBar from '../components/chat/SummaryBar'
 import ConversationLanguageTag from '../components/chat/ConversationLanguageTag'
 import VoiceUnavailableNotice from '../components/chat/VoiceUnavailableNotice'
 import { useConversationLanguage } from '../components/chat/useConversationLanguage'
@@ -365,6 +366,7 @@ export default function Chat() {
           End Chat
         </button>
       </header>
+      <SummaryBar conversationId={convId} />
 
       {error && (
         <div style={{ padding: '8px 16px' }}>

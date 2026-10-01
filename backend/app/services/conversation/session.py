@@ -20,6 +20,7 @@ _TURN_ROLES = frozenset({USER_ROLE, ASSISTANT_ROLE})
 class SessionKind(StrEnum):
     ROLEPLAY = "roleplay"
     HELPER = "helper"
+    PODCAST = "podcast"
 
 
 @dataclass(frozen=True, slots=True)

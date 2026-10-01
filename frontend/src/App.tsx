@@ -8,6 +8,9 @@ import FlashcardDecks from './pages/FlashcardDecks'
 import FlashcardPractice from './pages/FlashcardPractice'
 import FlashcardSummary from './pages/FlashcardSummary'
 import FlashcardAnalytics from './pages/FlashcardAnalytics'
+import Podcasts from './pages/Podcasts'
+import PodcastSetup from './pages/PodcastSetup'
+import PodcastEpisode from './pages/PodcastEpisode'
 
 export default function App() {
   return (
@@ -21,6 +24,9 @@ export default function App() {
       <Route path="/flashcards/practice/:sessionId" element={<FlashcardPractice />} />
       <Route path="/flashcards/summary/:sessionId" element={<FlashcardSummary />} />
       <Route path="/flashcards/analytics" element={<FlashcardAnalytics />} />
+      <Route path="/podcasts" element={<Podcasts />} />
+      <Route path="/podcasts/setup" element={<PodcastSetup />} />
+      <Route path="/podcasts/episodes/:conversationId" element={<PodcastEpisode />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

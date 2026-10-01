@@ -34,8 +34,18 @@ class TestSessionKey:
     def test_is_hashable_and_equal_by_value(self):
         assert {_KEY: 1}[SessionKey(kind=SessionKind.ROLEPLAY, identifier="7")] == 1
 
-    def test_kind_has_exactly_roleplay_and_helper(self):
-        assert {kind.value for kind in SessionKind} == {"roleplay", "helper"}
+    def test_kind_has_exactly_roleplay_helper_and_podcast(self):
+        assert {kind.value for kind in SessionKind} == {"roleplay", "helper", "podcast"}
+
+    def test_podcast_is_a_kind_of_session(self):
+        assert SessionKind.PODCAST == "podcast"
+
+    def test_a_podcast_key_is_hashable_and_distinct_from_the_roleplay_key(self):
+        podcast = SessionKey(SessionKind.PODCAST, "57")
+        roleplay = SessionKey(SessionKind.ROLEPLAY, "57")
+
+        assert {podcast: 1, roleplay: 2}[podcast] == 1
+        assert podcast != roleplay
 
 
 class TestSavedTurn:

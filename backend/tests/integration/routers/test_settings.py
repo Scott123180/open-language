@@ -518,3 +518,27 @@ def test_voices_lists_all_four_with_language_and_installation(
         ("de_DE-thorsten-medium", "de", True),
         ("de_DE-kerstin-low", "de", False),
     ]
+
+
+# --- 007: the summary language (contracts §10, FR-040) ---------------------------------
+
+
+def test_get_settings_defaults_the_summary_language_to_the_conversations(client: TestClient):
+    assert client.get("/api/settings").json()["summary_language"] == "conversation"
+
+
+def test_put_settings_remembers_the_summary_language_alone(client: TestClient):
+    before = client.get("/api/settings").json()
+
+    response = client.put("/api/settings", json={"summary_language": "native"})
+
+    after = response.json()
+    assert (response.status_code, after["summary_language"]) == (200, "native")
+    unchanged = {key for key in before if key not in {"summary_language", "updated_at"}}
+    assert {key: after[key] for key in unchanged} == {key: before[key] for key in unchanged}
+    assert client.get("/api/settings").json()["summary_language"] == "native"
+
+
+@pytest.mark.parametrize("value", ["en", "x"])
+def test_put_settings_refuses_another_summary_language(client: TestClient, value):
+    assert client.put("/api/settings", json={"summary_language": value}).status_code == 422

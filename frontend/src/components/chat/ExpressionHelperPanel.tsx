@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import ReactMarkdown from 'react-markdown'
 import * as api from '../../services/api'
 import { IconMessageCircle } from '../shared/icons'
 
@@ -139,21 +140,7 @@ export default function ExpressionHelperPanel({
         }}
       >
         {messages.map((msg, i) => (
-          <div
-            key={i}
-            style={{
-              alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-              maxWidth: '85%',
-              padding: '6px 10px',
-              borderRadius: 'var(--radius)',
-              background: msg.role === 'user' ? 'var(--color-primary)' : 'var(--color-bg)',
-              color: msg.role === 'user' ? '#fff' : 'var(--color-text)',
-              border: msg.role === 'assistant' ? '1px solid var(--color-border)' : 'none',
-              fontSize: '0.85rem',
-            }}
-          >
-            {msg.content}
-          </div>
+          <HelperMessageBubble key={i} message={msg} />
         ))}
       </div>
 
@@ -202,6 +189,34 @@ export default function ExpressionHelperPanel({
           Ask →
         </button>
       </div>
+    </div>
+  )
+}
+
+const replyMarkdownComponents = {
+  p: ({ children }: { children?: React.ReactNode }) => <p style={{ margin: '0 0 4px' }}>{children}</p>,
+  ul: ({ children }: { children?: React.ReactNode }) => <ul style={{ margin: '4px 0', paddingLeft: '16px' }}>{children}</ul>,
+  ol: ({ children }: { children?: React.ReactNode }) => <ol style={{ margin: '4px 0', paddingLeft: '16px' }}>{children}</ol>,
+  li: ({ children }: { children?: React.ReactNode }) => <li style={{ marginBottom: '2px' }}>{children}</li>,
+}
+
+/** The helper's replies are markdown; the learner's own question is shown exactly as typed. */
+function HelperMessageBubble({ message }: { message: HelperMessage }) {
+  const isLearner = message.role === 'user'
+  return (
+    <div
+      style={{
+        alignSelf: isLearner ? 'flex-end' : 'flex-start',
+        maxWidth: '85%',
+        padding: '6px 10px',
+        borderRadius: 'var(--radius)',
+        background: isLearner ? 'var(--color-primary)' : 'var(--color-bg)',
+        color: isLearner ? 'var(--color-text-on-primary)' : 'var(--color-text)',
+        border: isLearner ? 'none' : '1px solid var(--color-border)',
+        fontSize: '0.85rem',
+      }}
+    >
+      {isLearner ? message.content : <ReactMarkdown components={replyMarkdownComponents}>{message.content}</ReactMarkdown>}
     </div>
   )
 }

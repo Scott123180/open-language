@@ -8,9 +8,15 @@ from fastapi.responses import FileResponse
 from app.config import get_settings
 from app.practice_languages import PRACTICE_LANGUAGES
 from app.services.audio.conversion import convert_webm_to_wav
-from app.services.factory import get_speech_for_language, get_storage, get_stt
-from app.services.storage.base import MessageRecord, StorageProvider
+from app.services.factory import (
+    get_message_voices,
+    get_speech_for_language,
+    get_storage,
+    get_stt,
+)
+from app.services.storage.base import ConversationRecord, MessageRecord, StorageProvider
 from app.services.stt.base import STTError, STTProvider, TranscriptionResult
+from app.services.tts.base import MessageVoiceLookup, TTSProvider
 from app.services.tts.selection import SpeechForLanguage
 
 logger = logging.getLogger(__name__)
@@ -26,6 +32,7 @@ def get_tts_audio(
     message_id: int,
     storage: StorageProvider = Depends(get_storage),
     speech: SpeechForLanguage = Depends(get_speech_for_language),
+    voices: MessageVoiceLookup = Depends(get_message_voices),
 ):
     message = storage.get_message(message_id)
     if message is None:
@@ -36,8 +43,23 @@ def get_tts_audio(
     conversation = storage.get_conversation(message.conversation_id)
     if conversation is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    audio_path = _synthesize_and_cache(speech, storage, message, conversation.target_language)
+    provider = _speech_provider(speech, voices, message, conversation)
+    audio_path = _synthesize_and_cache(provider, storage, message)
     return FileResponse(str(audio_path), media_type=WAV_MEDIA_TYPE)
+
+
+def _speech_provider(
+    speech: SpeechForLanguage,
+    voices: MessageVoiceLookup,
+    message: MessageRecord,
+    conversation: ConversationRecord,
+) -> TTSProvider:
+    """A message with its own voice (a podcast host's line) is spoken in it, and only in it."""
+    voice_key = voices.voice_for_message(message.id)
+    if voice_key is None:
+        return speech.provider_for(conversation.target_language)
+    unavailable = voices.unavailable_message(message.id)
+    return speech.provider_for_voice(conversation.target_language, voice_key, unavailable)
 
 
 def _tts_cache_dir() -> Path:
@@ -51,10 +73,9 @@ def _cached_wav(message: MessageRecord) -> Path | None:
 
 
 def _synthesize_and_cache(
-    speech: SpeechForLanguage, storage: StorageProvider, message: MessageRecord, language: str
+    provider: TTSProvider, storage: StorageProvider, message: MessageRecord
 ) -> Path:
-    """Speak the message in its conversation's language; `VoiceUnavailable` becomes a 503."""
-    provider = speech.provider_for(language)
+    """Speak the message with `provider` and remember where its audio is."""
     cache_dir = _tts_cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
     audio_path = cache_dir / f"{message.id}.wav"

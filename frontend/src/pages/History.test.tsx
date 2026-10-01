@@ -3,8 +3,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import History from './History'
 import * as api from '../services/api'
+import * as podcasts from '../services/podcastsApi'
 
 vi.mock('../services/api')
+vi.mock('../services/podcastsApi')
 
 const mockConversations: api.Conversation[] = [
   {
@@ -68,6 +70,7 @@ function renderHistory() {
 
 beforeEach(() => {
   vi.resetAllMocks()
+  vi.mocked(podcasts.listEpisodes).mockResolvedValue([])
 })
 
 describe('History page', () => {
@@ -149,5 +152,49 @@ describe('History page — conversation languages (006)', () => {
     renderHistory()
 
     expect(await screen.findByRole('button', { name: /Im Café.*German/ })).toBeInTheDocument()
+  })
+})
+
+describe('History page — podcast episodes (007)', () => {
+  const episodeRow: podcasts.EpisodeSummaryRow = {
+    conversation_id: 2,
+    show_title: 'Ordering Coffee',
+    format: 'one_host',
+    format_label: 'One host',
+    host_names: ['Lucía'],
+    language: 'es',
+    language_name: 'Spanish',
+    status: 'active',
+  }
+
+  it('labels a podcast row and links to the episode', async () => {
+    vi.mocked(api.getConversations).mockResolvedValue(mockConversations)
+    vi.mocked(podcasts.listEpisodes).mockResolvedValue([episodeRow])
+
+    renderHistory()
+
+    expect(await screen.findByText('Podcast · One host · Lucía')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /continue episode/i })).toHaveAttribute('href', '/podcasts/episodes/2')
+  })
+
+  it('leaves roleplay rows as they were', async () => {
+    vi.mocked(api.getConversations).mockResolvedValue(mockConversations)
+    vi.mocked(podcasts.listEpisodes).mockResolvedValue([episodeRow])
+
+    renderHistory()
+
+    await screen.findByText('Podcast · One host · Lucía')
+    expect(screen.getAllByText(/Podcast ·/)).toHaveLength(1)
+    expect(screen.getAllByRole('link', { name: /continue episode/i })).toHaveLength(1)
+  })
+
+  it('shows every row as a roleplay when the episode list is unavailable', async () => {
+    vi.mocked(api.getConversations).mockResolvedValue(mockConversations)
+    vi.mocked(podcasts.listEpisodes).mockRejectedValue(new Error('offline'))
+
+    renderHistory()
+
+    await screen.findByText('Buy a Train Ticket')
+    expect(screen.queryByText(/Podcast ·/)).not.toBeInTheDocument()
   })
 })

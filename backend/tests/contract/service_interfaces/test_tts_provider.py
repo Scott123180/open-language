@@ -60,3 +60,28 @@ def test_piper_voice_installation_implements_the_contract(tmp_path):
 
     assert isinstance(installation, VoiceInstallation)
     assert installation.is_installed("any-voice") is False
+
+
+# --- 007: the voice of one message (T013, contracts §11) -------------------------------
+
+
+def test_message_voice_lookup_is_an_abc_with_only_voice_for_message():
+    import inspect
+    from abc import ABC
+
+    from app.services.tts.base import MessageVoiceLookup
+
+    assert issubclass(MessageVoiceLookup, ABC)
+    assert MessageVoiceLookup.__abstractmethods__ == frozenset({"voice_for_message"})
+    parameters = inspect.signature(MessageVoiceLookup.voice_for_message).parameters
+    assert list(parameters) == ["self", "message_id"]
+
+
+def test_message_voice_lookup_names_what_to_say_when_a_voice_is_missing():
+    from app.services.tts.base import MessageVoiceLookup
+
+    class NoVoices(MessageVoiceLookup):
+        def voice_for_message(self, message_id: int) -> str | None:
+            return None
+
+    assert NoVoices().unavailable_message(7).strip()
