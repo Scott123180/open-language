@@ -1,8 +1,10 @@
-"""The languages a learner can practise. The one place a language code is defined."""
+"""The languages a learner can practise, built from the files in `app/language_data/languages/`."""
 
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
+
+from app.language_data import LanguageRecord, load_language_records
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,79 +20,19 @@ class PracticeLanguage:
     """What a host says in a voice sample. Holds exactly one `{name}`."""
 
 
+def _practice_language(record: LanguageRecord) -> PracticeLanguage:
+    return PracticeLanguage(
+        code=record.code,
+        name=record.name,
+        default_voice=record.default_voice,
+        host_names=MappingProxyType(dict(record.podcast.host_names)),
+        guest_labels=record.podcast.guest_labels,
+        sample_line=record.podcast.sample_line,
+    )
+
+
 PRACTICE_LANGUAGES: Mapping[str, PracticeLanguage] = MappingProxyType(
-    {
-        "es": PracticeLanguage(
-            code="es",
-            name="Spanish",
-            default_voice="es_ES-davefx-medium",
-            host_names=MappingProxyType(
-                {
-                    "female": (
-                        "Lucía",
-                        "Carmen",
-                        "Sofía",
-                        "Elena",
-                        "Isabel",
-                        "Marta",
-                        "Paula",
-                        "Inés",
-                        "Julia",
-                        "Rocío",
-                    ),
-                    "male": (
-                        "Marco",
-                        "Javier",
-                        "Diego",
-                        "Pablo",
-                        "Andrés",
-                        "Mateo",
-                        "Carlos",
-                        "Hugo",
-                        "Álvaro",
-                        "Luis",
-                    ),
-                }
-            ),
-            guest_labels=("Invitado", "Invitada", "Oyente", "Presentador", "Presentadora"),
-            sample_line="Hola, soy {name}. ¡Bienvenidos al programa!",
-        ),
-        "de": PracticeLanguage(
-            code="de",
-            name="German",
-            default_voice="de_DE-thorsten-medium",
-            host_names=MappingProxyType(
-                {
-                    "female": (
-                        "Lena",
-                        "Anna",
-                        "Sophie",
-                        "Hannah",
-                        "Clara",
-                        "Emma",
-                        "Marie",
-                        "Katrin",
-                        "Johanna",
-                        "Greta",
-                    ),
-                    "male": (
-                        "Jonas",
-                        "Felix",
-                        "Lukas",
-                        "Paul",
-                        "Leon",
-                        "Moritz",
-                        "Tobias",
-                        "Niklas",
-                        "Florian",
-                        "Jan",
-                    ),
-                }
-            ),
-            guest_labels=("Gast", "Zuhörer", "Zuhörerin", "Anrufer", "Anruferin", "Moderator"),
-            sample_line="Hallo, ich bin {name}. Willkommen zur Sendung!",
-        ),
-    }
+    {record.code: _practice_language(record) for record in load_language_records()}
 )
 """Every practice language, in display order."""
 

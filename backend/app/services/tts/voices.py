@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from app.language_data import VoiceRecord, load_language_records
+
 
 @dataclass(frozen=True)
 class VoiceInfo:
@@ -16,41 +18,22 @@ class VoiceInfo:
         return self.locale.split("_")[0]
 
 
-AVAILABLE_VOICES: tuple[VoiceInfo, ...] = (
-    VoiceInfo(
-        key="es_ES-davefx-medium",
-        display_name="David (Spain)",
-        gender="male",
-        locale="es_ES",
-        quality="medium",
-        speaking_rate="natural",
-    ),
-    VoiceInfo(
-        key="es_AR-daniela-high",
-        display_name="Daniela (Argentina)",
-        gender="female",
-        locale="es_AR",
-        quality="high",
-        speaking_rate="fast",
-    ),
-    VoiceInfo(
-        key="de_DE-thorsten-medium",
-        display_name="Thorsten (Germany)",
-        gender="male",
-        locale="de_DE",
-        quality="medium",
-        speaking_rate="natural",
-    ),
-    VoiceInfo(
-        key="de_DE-kerstin-low",
-        display_name="Kerstin (Germany)",
-        gender="female",
-        locale="de_DE",
-        quality="low",
-        speaking_rate="natural",
-    ),
+def _voice_info(record: VoiceRecord) -> VoiceInfo:
+    return VoiceInfo(
+        key=record.key,
+        display_name=record.display_name,
+        gender=record.gender,
+        locale=record.locale,
+        quality=record.quality,
+        speaking_rate=record.speaking_rate,
+    )
+
+
+AVAILABLE_VOICES: tuple[VoiceInfo, ...] = tuple(
+    _voice_info(voice) for language in load_language_records() for voice in language.voices
 )
-"""Every voice, grouped by language in practice-language order. Keys must match run.sh."""
+"""Every voice, grouped by language in practice-language order. The voices come from the
+language data files in `app/language_data/languages/`."""
 
 
 def voices_for(language_code: str) -> tuple[VoiceInfo, ...]:

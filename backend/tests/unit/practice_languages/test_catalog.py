@@ -28,12 +28,6 @@ PUBLIC_NAMES = {
 }
 
 
-def _run_script_voice_keys() -> set[str]:
-    array = re.search(r"PIPER_VOICES=\((.*?)\)", RUN_SCRIPT.read_text(), re.DOTALL)
-    assert array, "run.sh must declare a PIPER_VOICES=( … ) array"
-    return set(re.findall(r'"([^"]+)"', array.group(1)))
-
-
 def _voices_by_key():
     return {voice.key: voice for voice in AVAILABLE_VOICES}
 
@@ -71,10 +65,11 @@ def test_every_default_voice_exists_and_speaks_its_own_language(language):
     assert voice.language == language.code
 
 
-def test_every_catalogue_voice_is_downloaded_by_run_sh():
-    missing = {voice.key for voice in AVAILABLE_VOICES} - _run_script_voice_keys()
+def test_run_sh_downloads_the_voices_listed_by_the_language_data():
+    script = RUN_SCRIPT.read_text()
 
-    assert not missing, f"Add these voices to PIPER_VOICES in run.sh: {sorted(missing)}"
+    assert "-m app.language_data voice-keys" in script
+    assert not re.search(r"PIPER_VOICES=\(\s*\"", script), "run.sh must not hard-code voice keys"
 
 
 def test_no_code_is_both_a_practice_and_a_native_language():

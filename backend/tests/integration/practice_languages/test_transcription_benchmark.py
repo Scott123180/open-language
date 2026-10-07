@@ -18,7 +18,7 @@ import pytest
 from app.config import get_settings
 from app.services.stt.whisper import WhisperSTTProvider
 from app.services.tts.piper import PiperTTSProvider
-from tests.integration.practice_languages.german_evaluation_set import DICTATION_SENTENCES
+from tests.integration.practice_languages.evaluation_set import evaluation_set
 
 pytestmark = pytest.mark.benchmark
 
@@ -29,6 +29,7 @@ MAX_WORD_ERROR_RATE = 0.20
 SC_003_MIN_PASSING = 18
 _WORD = re.compile(r"[^\W_]+")
 _SPECIAL_LETTERS = re.compile("[äöüß]")
+DICTATION_SENTENCES = evaluation_set(LANGUAGE_HINT).dictation
 
 
 @dataclass(frozen=True, slots=True)

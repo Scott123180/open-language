@@ -1,7 +1,8 @@
 """T100: no code outside the catalogues names a language code (Constitution V, plan.md).
 
 Every language difference is catalogue data, so adding a language never means hunting for a
-hard-coded "es". Defaults come from `DEFAULT_PRACTICE_LANGUAGE`.
+hard-coded "es". Defaults come from `DEFAULT_PRACTICE_LANGUAGE`, the one literal `catalog.py` keeps;
+every other language value, voices included, lives in the data files of `app/language_data/`.
 """
 
 import re
@@ -13,7 +14,6 @@ REPOSITORY = Path(__file__).resolve().parents[3]
 LANGUAGE_LITERAL = re.compile(r"""(["'])(es|de)\1""")
 BACKEND_ALLOWED = {
     REPOSITORY / "backend/app/practice_languages/catalog.py",
-    REPOSITORY / "backend/app/services/tts/voices.py",
 }
 
 

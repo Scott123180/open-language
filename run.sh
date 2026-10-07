@@ -142,13 +142,8 @@ setup_ollama_model() {
 }
 
 # ── Piper voices ──────────────────────────────────────────────────────────────
-PIPER_VOICES=(
-  "es_ES-davefx-medium"
-  "es_AR-daniela-high"
-  "de_DE-thorsten-medium"
-  "de_DE-kerstin-low"
-)
-
+# The voice list comes from the language data files (backend/app/language_data/languages/),
+# so adding a practice language never edits this script.
 download_voice() {
   local voice="$1"
   local onnx="$VOICE_DIR/${voice}.onnx"
@@ -186,6 +181,11 @@ download_voice() {
 }
 
 setup_piper_voices() {
+  local keys PIPER_VOICES
+  keys="$(cd "$BACKEND_DIR" && "$VENV/bin/python" -m app.language_data voice-keys)" \
+    || die "Could not read the voice list from the language data files (python -m app.language_data voice-keys)."
+  [[ -n "$keys" ]] || die "The language data files list no voices."
+  mapfile -t PIPER_VOICES <<< "$keys"
   mkdir -p "$VOICE_DIR"
   for voice in "${PIPER_VOICES[@]}"; do
     download_voice "$voice"

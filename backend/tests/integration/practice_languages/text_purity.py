@@ -14,12 +14,13 @@ import re
 
 from wordfreq import zipf_frequency
 
-from tests.integration.practice_languages.german_evaluation_set import LOANWORD_ALLOWLIST
+from tests.integration.practice_languages.evaluation_set import evaluation_set
 
 GERMAN = "de"
 OTHER_LANGUAGES = ("en", "es")
 MIN_OTHER_ZIPF = 3.0
 MIN_ZIPF_MARGIN = 1.5
+LOANWORD_ALLOWLIST = evaluation_set(GERMAN).loanwords
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 _WORD = re.compile(r"[^\W\d_]+")
 

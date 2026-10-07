@@ -28,12 +28,19 @@ dev = [
     "black>=24.0.0",
     "mypy>=1.10.0",
     "wordfreq==3.1.1",
+    "tomli-w==1.2.0",
 ]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+"app.language_data" = ["languages/*.toml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "--cov=app --cov-report=term-missing --cov-fail-under=90 -m 'not benchmark and not claude_live'"
+addopts = "--cov=app --cov=language_kit --cov-report=term-missing --cov-fail-under=90 -m 'not benchmark and not claude_live'"
 markers = [
     "benchmark: measures detection quality against the real model; run by hand, not in CI",
     "claude_live: makes real `claude -p` calls against the learner's plan; run by hand",

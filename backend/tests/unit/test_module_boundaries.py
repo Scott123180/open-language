@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 APP_DIR = Path(__file__).resolve().parents[2] / "app"
+LANGUAGE_DATA_DIR = APP_DIR / "language_data"
 FACTORY = APP_DIR / "services" / "factory.py"
 DATABASE = APP_DIR / "database.py"
 GUARDED = ("app.podcasts", "app.conversation_summary")
@@ -96,3 +97,25 @@ def test_the_guard_sees_a_submodule_import():
     assert _is_submodule_of("app.podcasts.services.casting", "app.podcasts")
     assert not _is_submodule_of("app.podcasts", "app.podcasts")
     assert not _is_submodule_of("app.podcasts_extra", "app.podcasts")
+
+
+def test_language_data_imports_nothing_from_the_app():
+    offenders = [
+        f"{path.relative_to(APP_DIR)}: {module}"
+        for path in LANGUAGE_DATA_DIR.rglob("*.py")
+        for module in _imports(path)
+        if _is_submodule_of(module, "app") and not module.startswith("app.language_data")
+    ]
+
+    assert offenders == []
+
+
+def test_the_app_never_imports_the_language_kit():
+    offenders = [
+        f"{path.relative_to(APP_DIR)}: {module}"
+        for path in _python_files()
+        for module in _imports(path)
+        if module == "language_kit" or _is_submodule_of(module, "language_kit")
+    ]
+
+    assert offenders == []

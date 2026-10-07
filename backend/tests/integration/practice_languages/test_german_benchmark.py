@@ -33,7 +33,7 @@ from app.services.llm.registry import build_llm_provider
 from app.services.llm.selection_types import LLMSelection
 from app.services.scenario.static import StaticScenarioProvider
 from app.services.storage.base import ConversationRecord
-from tests.integration.practice_languages.german_evaluation_set import GERMAN_TURNS
+from tests.integration.practice_languages.evaluation_set import evaluation_set
 from tests.integration.practice_languages.text_purity import foreign_words
 from tests.support.engine_overrides import TEST_IDLE_TTL, TEST_MAX_LIVE
 
@@ -44,6 +44,7 @@ NATIVE_LANGUAGE = "en"
 SC_002_MIN_PURE_SHARE = 0.95
 REVIEW_SHEET = Path(__file__).resolve().parents[4] / "specs" / "006-german-language-support"
 REVIEW_SHEET_NAME = "german-review-sheet.md"
+GERMAN_TURNS = evaluation_set(TARGET_LANGUAGE).turns
 
 
 @dataclass(frozen=True, slots=True)
