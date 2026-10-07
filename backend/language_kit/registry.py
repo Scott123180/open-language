@@ -187,7 +187,9 @@ REQUIREMENTS: tuple[Requirement, ...] = (
         _R,
         _AGENT,
         "007",
-        "The language's own words for a show's guest or caller, cut from host lines like labels.",
+        "The language's own words for a show's guest, caller or presenter, cut from host lines like "
+        "speaker labels. One or two words each, written as the language writes them; leave out a role "
+        "the language has no short word for.",
         (Required(), MinCount(1), UniqueCasefold(), MatchesPattern(r"\S", "each non-empty")),
     ),
     Requirement(

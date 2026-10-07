@@ -210,7 +210,9 @@ def test_a_language_with_no_run_log_has_nothing_to_report(kit):
 
 def test_a_linter_without_counts_is_reported_as_passed(kit):
     ruff = PYTEST | {"name": "ruff", "passed": 0}
-    RunLog(kit.workspace).append("it", RunLogEntry(at="t", command="verify", outcome="ok", suites=[ruff]))
+    RunLog(kit.workspace).append(
+        "it", RunLogEntry(at="t", command="verify", outcome="ok", suites=[ruff])
+    )
 
     run_kit(kit, "report", "it")
 

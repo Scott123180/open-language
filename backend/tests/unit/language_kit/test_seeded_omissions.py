@@ -12,8 +12,9 @@ import tomli_w
 
 from language_kit.language_files import LanguageData, read_language
 from language_kit.registry import REQUIREMENTS
+from language_kit.workspace import Workspace
 from tests.integration.practice_languages.evaluation_set import evaluated_languages
-from tests.unit.language_kit.conftest import make_kit, run_kit
+from tests.unit.language_kit.conftest import copy_repository, make_kit, run_kit
 
 CHECKED = tuple(item for item in REQUIREMENTS if not item.onboarding_only)
 BROKEN_VALUES = {
@@ -84,7 +85,10 @@ def test_the_break_table_covers_every_checked_requirement():
 @pytest.mark.parametrize("code", evaluated_languages())
 @pytest.mark.parametrize("item", CHECKED, ids=lambda item: item.path)
 @pytest.mark.parametrize("change", [_remove, _break], ids=["removed", "broken"])
-def test_check_names_exactly_the_seeded_item(workspace, code, item, change):
+def test_check_names_exactly_the_seeded_item(tmp_path, code, item, change):
+    workspace = Workspace.discover(
+        copy_repository(tmp_path / "repo", evaluated_languages()), environ={}
+    )
     kit = make_kit(workspace)
     _write(workspace, change(read_language(code, workspace), item.path))
 

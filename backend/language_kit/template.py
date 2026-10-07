@@ -17,6 +17,8 @@ from language_kit.findings import shortened
 from language_kit.language_files import EACH, LanguageData
 from language_kit.pack import DERIVED_PATHS
 from language_kit.registry import REQUIREMENTS, Requirement
+from language_kit.render import DERIVED_VOICE_KEYS
+from language_kit.rules import Required
 from language_kit.voices import VoiceCandidate
 
 HEADER_WIDTH = 96
@@ -26,16 +28,17 @@ MEGABYTE = 1_000_000
 PLACEHOLDER = "TODO"
 FILLED_PATHS = ("code", "name")
 FULL_INTRO = (
-    "# Language pack for {name} ({code}), written by `kit.sh scaffold`. Fill every TODO and empty\n"
-    "# list, then run `kit.sh validate {code}` until it reports no errors. Comments are guidance\n"
-    "# and are ignored; never edit the generated data files by hand.\n"
+    "# Language pack for {name} ({code}), written by `kit.sh scaffold`. Replace every placeholder\n"
+    "# and fill every empty list, then run `kit.sh validate {code}` until it reports no errors.\n"
+    "# Comments are guidance and are ignored; never edit the generated data files by hand.\n"
 )
 PARTIAL_INTRO = (
     "# Backfill pack for {name} ({code}), written by `kit.sh backfill`: only the items that fail.\n"
     "# Fill them, run `kit.sh validate {code} --pack <this file>`, then `kit.sh finish {code} --pack`.\n"
 )
 VOICE_EXAMPLE = (
-    "# Add one [[voices]] table per chosen voice, for example:\n"
+    "# Add one [[voices]] table per chosen voice here, before [podcast] (in TOML a table header\n"
+    "# ends the tables above it), for example:\n"
     "# [[voices]]\n"
     '# key = "{key}"\n'
     '# gender = "female"\n'
@@ -193,7 +196,8 @@ class _PackWriter:
         if language is None:
             return None
         value = language.get(item.path)
-        return str(language.get("name")), _inline(value[0] if EACH in item.path else _first(value))
+        shown = value[0] if EACH in item.path else _first(value)
+        return str(language.get("name")), _inline(_without_derived(shown))
 
     def _example_value(self, item: Requirement) -> Any:
         language = self._example_language(item)
@@ -226,7 +230,14 @@ def _groups(items: Mapping[str, tuple[str, ...] | None]) -> list[str]:
 
 
 def _rules(item: Requirement) -> str:
-    return "; ".join(rule.describe() for rule in item.rules)
+    """The rules as one line; an item with a default is optional, so `Required` reads as such."""
+    rules = [rule.describe() for rule in item.rules]
+    if item.default is not None:
+        rules = [
+            f"optional (default {_inline(item.default)})" if r == Required().describe() else r
+            for r in rules
+        ]
+    return "; ".join(rules)
 
 
 def _order(language: LanguageData) -> int:
@@ -242,6 +253,13 @@ def _first(value: Any) -> Any:
     if isinstance(value, list) and value and isinstance(value[0], dict):
         return value[0]
     return value
+
+
+def _without_derived(value: Any) -> Any:
+    """A list item's example without the keys `apply` derives, since a pack never writes them."""
+    if not isinstance(value, dict):
+        return value
+    return {key: entry for key, entry in value.items() if key not in DERIVED_VOICE_KEYS}
 
 
 def _inline(value: Any) -> str:

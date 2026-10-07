@@ -94,3 +94,5 @@ come from the registry. This skill never lists requirements, so it needs no edit
 - Host names are common first names of the language; guest labels are the language's own words
   for a guest, caller or presenter.
 - Run commands one at a time and read their summary; do not pipe kit output through other tools.
+- If `finish` fails in a suite and the failing tests are not about your pack's values, stop and
+  report the `FAIL` lines and log paths to the maintainer. Do not change code to make it pass.

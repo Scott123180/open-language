@@ -24,10 +24,19 @@ SCENARIO_IDS = (
 )
 
 
-def copy_repository(target: Path) -> Path:
-    """A minimal repository: the two data directories and `.specify/feature.json`."""
+FIXTURE_LANGUAGES = ("es", "de")
+"""The languages a temporary repository holds: fixed, so a language added later by data alone
+never changes what these tests see (FR-019)."""
+
+
+def copy_repository(target: Path, codes: tuple[str, ...] = FIXTURE_LANGUAGES) -> Path:
+    """A minimal repository: the given languages' data files and `.specify/feature.json`."""
     for relative in (RUNTIME_DIR, EVALUATION_DIR):
-        shutil.copytree(REPOSITORY / relative, target / relative)
+        (target / relative).mkdir(parents=True)
+        for code in codes:
+            source = REPOSITORY / relative / f"{code}.toml"
+            if source.is_file():
+                shutil.copy2(source, target / relative / source.name)
     (target / "backend" / "pyproject.toml").write_text("", encoding="utf-8")
     specify = target / ".specify"
     specify.mkdir()

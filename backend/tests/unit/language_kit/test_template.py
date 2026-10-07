@@ -182,3 +182,28 @@ def test_a_new_requirement_appears_with_no_other_change(workspace):
     assert "# ── podcast.greeting " in after
     assert tomllib.loads(after)["podcast"]["greeting"] == "TODO"
     assert after.replace(_block(after, "podcast.greeting"), "") == before
+
+
+def test_an_item_with_a_default_is_described_as_optional(workspace):
+    block = _block(_italian(workspace), "voices[].speaking_rate")
+
+    assert '# Rules: optional (default "natural"); one of "natural", "fast", "slow".' in block
+
+
+def test_the_voice_example_says_where_the_tables_go(workspace):
+    assert "before [podcast]" in _block(_italian(workspace), "voices[].speaking_rate")
+
+
+def test_the_voices_example_shows_only_what_a_pack_writes(workspace):
+    example = next(
+        line for line in _block(_italian(workspace), "voices").splitlines() if "Example" in line
+    )
+
+    assert 'key = "de_DE-thorsten-medium", gender = "male"' in example
+    assert "locale" not in example and "quality" not in example
+
+
+def test_the_intro_holds_no_placeholder_word(workspace):
+    intro = _italian(workspace).split("\n\n", 1)[0]
+
+    assert "TODO" not in intro

@@ -507,12 +507,12 @@ def voice_installation():
     return installation
 
 
-def test_voices_lists_all_four_with_language_and_installation(
+def test_voices_list_spanish_then_german_first_with_language_and_installation(
     client: TestClient, voice_installation
 ) -> None:
     voices = client.get("/api/settings/voices").json()
 
-    assert [(v["key"], v["language"], v["is_installed"]) for v in voices] == [
+    assert [(v["key"], v["language"], v["is_installed"]) for v in voices][:4] == [
         ("es_ES-davefx-medium", "es", True),
         ("es_AR-daniela-high", "es", False),
         ("de_DE-thorsten-medium", "de", True),
