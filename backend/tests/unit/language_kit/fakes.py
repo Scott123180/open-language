@@ -3,7 +3,14 @@
 from datetime import UTC, datetime, timedelta
 
 from language_kit.clock import Clock
-from language_kit.voices import VoiceCandidate, VoiceCatalogue, VoiceFile
+from language_kit.errors import KitExternalError
+from language_kit.voices import (
+    VoiceCandidate,
+    VoiceCatalogue,
+    VoiceDownload,
+    VoiceDownloader,
+    VoiceFile,
+)
 
 COUNTRIES = {"it_IT": "Italy", "de_DE": "Germany", "es_ES": "Spain", "es_AR": "Argentina"}
 MEGABYTE = 1_000_000
@@ -46,3 +53,23 @@ class FixedClock(Clock):
 
     def advance(self, seconds: float) -> None:
         self._now += timedelta(seconds=seconds)
+
+
+class FakeVoiceDownloader(VoiceDownloader):
+    """Writes placeholder voice files; can be told to fail, and to check something first."""
+
+    def __init__(self, voice_dir, failing: set[str] | None = None, before=None) -> None:
+        self._voice_dir = voice_dir
+        self._failing = failing or set()
+        self._before = before
+        self.ensured: list[str] = []
+
+    def ensure(self, voice: VoiceCandidate) -> VoiceDownload:
+        if self._before is not None:
+            self._before(voice)
+        self.ensured.append(voice.key)
+        if voice.key in self._failing:
+            raise KitExternalError(f"{voice.key}: checksum mismatch")
+        for suffix in (".onnx", ".onnx.json"):
+            (self._voice_dir / f"{voice.key}{suffix}").write_bytes(b"voice")
+        return VoiceDownload(voice.key, downloaded=True, seconds=1.5)

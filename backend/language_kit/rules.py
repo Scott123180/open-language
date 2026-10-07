@@ -36,6 +36,10 @@ class Rule(ABC):
     def describe(self) -> str:
         """The rule as a short sentence, for packs, findings and `kit requirements`."""
 
+    def table_keys(self, context: RuleContext) -> tuple[str, ...] | None:
+        """For a rule on a table value: the keys the table needs. None for other rules."""
+        return None
+
     def _finding(self, context: RuleContext, detail: str, suffix: str = "") -> Finding:
         return Finding(context.code, context.path + suffix, self.severity, self.describe(), detail)
 
@@ -232,7 +236,7 @@ class DistinctLetters(Rule):
         return self._fail(context, f"Found {quoted(value)}.")
 
     def describe(self) -> str:
-        return "letters only, no duplicates; may be empty"
+        return "letters only, no duplicates"
 
 
 class EachWordCount(Rule):
@@ -266,7 +270,7 @@ class LowercaseWords(Rule):
         ]
 
     def describe(self) -> str:
-        return "lowercase single words; may be empty"
+        return "lowercase single words"
 
 
 # ── Rules about the language and its voices ──────────────────────────────────────────
@@ -371,6 +375,10 @@ class NamesForEveryVoiceGender(Rule):
     def describe(self) -> str:
         return f"a list for every voice gender, at least {self.minimum} unique names each"
 
+    def table_keys(self, context: RuleContext) -> tuple[str, ...]:
+        genders = _voice_genders(context.language)
+        return tuple(sorted(genders)) if genders else VOICE_GENDERS
+
     def _coverage(
         self, names: dict[str, list[str]], genders: frozenset[str] | None, context: RuleContext
     ) -> list[Finding]:
@@ -430,6 +438,9 @@ class CoversEveryScenario(Rule):
 
     def describe(self) -> str:
         return f"{self.turns} turns for every scenario"
+
+    def table_keys(self, context: RuleContext) -> tuple[str, ...]:
+        return context.scenario_ids
 
     def _turns(self, scenario: str, turns: Any, context: RuleContext) -> list[Finding]:
         suffix = f".{scenario}"

@@ -3,12 +3,6 @@
 
 code = "de"
 special_letters = "äöüß"
-loanwords = [
-    "hotel",
-    "ok",
-    "taxi",
-    "ticket",
-]
 dictation = [
     "Ich hätte gern einen Kaffee und ein Stück Kuchen, bitte.",
     "Die Straße ist heute sehr ruhig.",
@@ -30,6 +24,12 @@ dictation = [
     "Kannst du bitte das Fenster öffnen?",
     "Die Äpfel sind heute besonders süß.",
     "Um wie viel Uhr öffnet die Bäckerei?",
+]
+loanwords = [
+    "hotel",
+    "ok",
+    "taxi",
+    "ticket",
 ]
 
 [turns]

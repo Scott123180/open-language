@@ -46,6 +46,7 @@ DICTATION_SENTENCES = 20
 MIN_DICTATION_WORDS = 3
 MAX_DICTATION_WORDS = 15
 NAME_PLACEHOLDER = "{name}"
+DEFAULT_SPEAKING_RATE = "natural"
 
 
 class Destination(Enum):
@@ -68,6 +69,12 @@ class Requirement:
     description: str
     rules: tuple[Rule, ...]
     onboarding_only: bool = False
+    default: object = None
+    """For a `[]` path: the value a pack item gets when it leaves the field out."""
+
+    def table_keys(self, context: RuleContext) -> tuple[str, ...] | None:
+        """The keys a table-valued item needs (one per gender, per scenario), or None."""
+        return next((keys for rule in self.rules if (keys := rule.table_keys(context))), None)
 
     def findings(self, context: RuleContext, *, onboarding: bool = False) -> list[Finding]:
         """Every finding for this item of `context.language`; onboarding-only rules on request."""
@@ -132,7 +139,7 @@ REQUIREMENTS: tuple[Requirement, ...] = (
         _R,
         _CHOSEN,
         "006",
-        "The Piper voices that speak the language. Choose keys from the candidates listed above.",
+        "The Piper voices that speak the language. Choose keys from the candidates listed below.",
         (
             Required(),
             MinCount(1),
@@ -157,6 +164,7 @@ REQUIREMENTS: tuple[Requirement, ...] = (
         "006",
         "How fast the voice speaks; leave it out for natural.",
         (Required(), OneOf(SPEAKING_RATES)),
+        default=DEFAULT_SPEAKING_RATE,
     ),
     Requirement(
         "default_voice",

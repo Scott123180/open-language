@@ -1,10 +1,14 @@
 """Where the kit works: the repository, its two data directories, the voices and the output."""
 
+__all__ = ["EVALUATION_DIR", "RUNTIME_DIR", "KitUsageError", "Workspace"]
+
 import json
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
+
+from language_kit.errors import KitUsageError
 
 RUNTIME_DIR = Path("backend/app/language_data/languages")
 EVALUATION_DIR = Path("backend/tests/integration/practice_languages/evaluation")
@@ -13,10 +17,6 @@ FEATURE_FILE = Path(".specify/feature.json")
 LANGUAGES_FOLDER = "languages"
 VOICE_DIR_VARIABLE = "OPEN_LANGUAGE_VOICE_DIR"
 DEFAULT_VOICE_DIR = Path(".local/share/piper-voices")
-
-
-class KitUsageError(Exception):
-    """The kit cannot run as asked; the message says what to change. Exit code 2."""
 
 
 @dataclass(frozen=True, slots=True)

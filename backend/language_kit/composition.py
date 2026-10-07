@@ -8,6 +8,7 @@ from typing import TextIO
 from language_kit.clock import Clock, SystemClock
 from language_kit.context import RuleContext, gather_rule_context
 from language_kit.registry import REQUIREMENTS, Requirement
+from language_kit.voices import VoiceCatalogue, VoiceDownloader
 from language_kit.workspace import Workspace
 
 
@@ -19,6 +20,8 @@ class Kit:
     context: RuleContext | None = None
     """Gathered from the app on first use when not given."""
     requirements: tuple[Requirement, ...] = REQUIREMENTS
+    voice_catalogue: VoiceCatalogue | None = None
+    downloader: VoiceDownloader | None = None
 
     def rule_context(self) -> RuleContext:
         if self.context is None:

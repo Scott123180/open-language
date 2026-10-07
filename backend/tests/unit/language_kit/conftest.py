@@ -115,3 +115,82 @@ def snapshot(*directories: Path) -> dict[str, bytes]:
         for path in sorted(directory.rglob("*"))
         if path.is_file()
     }
+
+
+ITALIAN_FEMALE = [
+    "Giulia",
+    "Chiara",
+    "Francesca",
+    "Sara",
+    "Martina",
+    "Elena",
+    "Alessia",
+    "Valentina",
+    "Federica",
+    "Silvia",
+]
+ITALIAN_MALE = [
+    "Marco",
+    "Luca",
+    "Matteo",
+    "Andrea",
+    "Davide",
+    "Simone",
+    "Lorenzo",
+    "Paolo",
+    "Stefano",
+    "Giorgio",
+]
+ITALIAN_VOICES = ("it_IT-paola-medium", "it_IT-riccardo-x_low")
+
+
+def italian_pack_document() -> dict:
+    """A complete, valid Italian pack as a document (what an agent writes, minus the comments)."""
+    return {
+        "code": "it",
+        "name": "Italian",
+        "default_voice": "it_IT-paola-medium",
+        "voices": [
+            {"key": "it_IT-paola-medium", "gender": "female"},
+            {"key": "it_IT-riccardo-x_low", "gender": "male", "speaking_rate": "natural"},
+        ],
+        "podcast": {
+            "guest_labels": ["Ospite", "Ascoltatore", "Ascoltatrice"],
+            "sample_line": "Ciao, sono {name}. Benvenuti al programma!",
+            "host_names": {"female": ITALIAN_FEMALE, "male": ITALIAN_MALE},
+        },
+        "evaluation": {
+            "special_letters": "àèéìòù",
+            "loanwords": ["hotel", "taxi"],
+            "dictation": [f"Frase numero {n} è qui." for n in range(20)],
+            "turns": {scenario: [f"Turno {n}." for n in range(5)] for scenario in SCENARIO_IDS},
+        },
+    }
+
+
+def italian_pack_text(**changes) -> str:
+    import tomli_w
+
+    return tomli_w.dumps(italian_pack_document() | changes)
+
+
+def italian_catalogue():
+    from tests.unit.language_kit.fakes import FakeVoiceCatalogue, candidate
+
+    keys = (*ITALIAN_VOICES, "it_IT-serena-medium", "de_DE-thorsten-medium", "de_DE-kerstin-low")
+    keys += ("es_ES-davefx-medium", "es_AR-daniela-high")
+    return FakeVoiceCatalogue([candidate(key) for key in keys])
+
+
+def install_voices(workspace: Workspace, *keys: str) -> None:
+    for key in keys:
+        (workspace.voice_dir / f"{key}.onnx").write_bytes(b"onnx")
+        (workspace.voice_dir / f"{key}.onnx.json").write_bytes(b"{}")
+
+
+CATALOGUED_VOICES = (
+    "es_ES-davefx-medium",
+    "es_AR-daniela-high",
+    "de_DE-thorsten-medium",
+    "de_DE-kerstin-low",
+)

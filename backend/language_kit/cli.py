@@ -6,16 +6,26 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import NoReturn, TextIO
 
+from language_kit.commands.apply import ApplyCommand
+from language_kit.commands.backfill import BackfillCommand
 from language_kit.commands.base import Command
 from language_kit.commands.check import CheckCommand
+from language_kit.commands.requirements import RequirementsCommand
+from language_kit.commands.validate import ValidateCommand
 from language_kit.composition import Kit, build_kit
+from language_kit.errors import KitExternalError, KitUsageError
 from language_kit.output import EXIT_EXTERNAL, EXIT_FINDINGS, EXIT_OK, EXIT_USAGE, emit
-from language_kit.workspace import KitUsageError
 
 __all__ = ["COMMANDS", "EXIT_EXTERNAL", "EXIT_FINDINGS", "EXIT_OK", "EXIT_USAGE", "main"]
 
 PROGRAM = "kit.sh"
-COMMANDS: tuple[Command, ...] = (CheckCommand(),)
+COMMANDS: tuple[Command, ...] = (
+    ValidateCommand(),
+    ApplyCommand(),
+    CheckCommand(),
+    BackfillCommand(),
+    RequirementsCommand(),
+)
 
 
 class _Parser(argparse.ArgumentParser):
@@ -34,6 +44,9 @@ def main(argv: list[str] | None = None, kit_factory: Callable[[], Kit] = build_k
         return _run(_parser(), kit, sys.argv[1:] if argv is None else argv)
     except KitUsageError as error:
         return _usage_error(kit.out, error)
+    except KitExternalError as error:
+        kit.out.write(f"{PROGRAM}: {error}\n")
+        return EXIT_EXTERNAL
 
 
 def _run(parser: argparse.ArgumentParser, kit: Kit, argv: list[str]) -> int:

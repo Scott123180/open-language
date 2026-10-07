@@ -35,3 +35,17 @@ class VoiceCatalogue(ABC):
     @abstractmethod
     def voice(self, key: str) -> VoiceCandidate | None:
         """One single-speaker voice by key, or None when the catalogue has no such voice."""
+
+
+@dataclass(frozen=True, slots=True)
+class VoiceDownload:
+    key: str
+    downloaded: bool
+    """False when every file was already present with the right checksum."""
+    seconds: float
+
+
+class VoiceDownloader(ABC):
+    @abstractmethod
+    def ensure(self, voice: VoiceCandidate) -> VoiceDownload:
+        """Make sure the voice's files are in the voice directory, checksums verified."""

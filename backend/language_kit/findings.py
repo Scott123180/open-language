@@ -32,8 +32,8 @@ class Finding:
         return self.severity is Severity.ERROR
 
     def text(self) -> str:
-        label = _LABELS[self.severity]
-        return shortened(f"{label} {self.language} {self.path}: {self.rule}. {self.detail}")
+        line = f"{_LABELS[self.severity]} {self.language} {self.path}: {self.rule}"
+        return shortened(f"{line}. {self.detail}" if self.detail else line)
 
     def as_json(self) -> dict[str, str]:
         return {
