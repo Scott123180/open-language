@@ -8,7 +8,7 @@ Cloud providers are opt-in. Today you can choose Claude as the conversation part
 
 ## Features
 
-- **Spanish or German** — pick the practice language in Settings; each conversation keeps the language it started in, and flashcards show one language at a time
+- **Spanish, German or Italian** — pick the practice language in Settings; each conversation keeps the language it started in, and flashcards show one language at a time. More languages can be added with the language kit (see [Adding a practice language](#adding-a-practice-language))
 - **Role-play scenarios** — everyday situations (buying a train ticket, calling an estate agent, etc.)
 - **Voice or text input** — speak and get transcribed via Whisper, or type
 - **AI responses spoken aloud** — Piper TTS with slow-playback option
@@ -115,6 +115,10 @@ wget https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/me
 # German (medium quality) — the German default
 wget https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx
 wget https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx.json
+
+# Italian (medium quality) — the Italian default
+wget https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx
+wget https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx.json
 ```
 
 | Voice | Language | Notes |
@@ -123,6 +127,11 @@ wget https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/
 | `es_AR-daniela-high` | Spanish | Female, fast |
 | `de_DE-thorsten-medium` | German | Default for German |
 | `de_DE-kerstin-low` | German | Female, lower quality |
+| `it_IT-paola-medium` | Italian | Default for Italian, female |
+| `it_IT-riccardo-x_low` | Italian | Male, lowest quality |
+
+The list comes from the language data files: `backend/.venv/bin/python -m app.language_data voice-keys`
+(run from `backend/`) prints every voice `./run.sh --setup` downloads.
 
 Each language remembers its own voice, chosen in Settings. A language whose voice isn't installed still
 works in text; the chat says how to download the voice, and nothing is read aloud in another voice.
@@ -203,6 +212,26 @@ Each request runs Claude Code as a plain chat model: no tools, no access to your
 
 To go back, choose *Ollama (local)* on the Settings screen. The app never switches providers on its own: if Claude stops working, you'll see a message saying what to do.
 
+## Adding a practice language
+
+Languages are data, not code. Each one is a generated file in `backend/app/language_data/languages/`
+plus an evaluation set for the benchmarks, both written by the **language kit**. With Claude Code, ask
+it to add a language (for example "support French"): the `language-kit` skill in
+`.claude/skills/language-kit/` walks it through the kit. By hand, from the repository root:
+
+```bash
+.claude/skills/language-kit/kit.sh prereq fr                 # can it be onboarded? which voices exist?
+.claude/skills/language-kit/kit.sh scaffold fr --name French # writes a pack.toml to fill in
+.claude/skills/language-kit/kit.sh validate fr               # repeat until 0 errors
+.claude/skills/language-kit/kit.sh finish fr                 # apply, run every test suite, check, report
+.claude/skills/language-kit/kit.sh bench fr                  # adherence and transcription benchmarks
+```
+
+The pack is the only file you edit; its comments explain every value. `kit.sh check --all` tells you
+whether every language is complete, and `kit.sh --help` lists the other commands. A language must be
+written left to right with spaces between words, be supported by Whisper, and have a single-speaker
+Piper voice; `prereq` checks all three.
+
 ## Running tests
 
 ```bash
@@ -213,6 +242,9 @@ pytest --cov=app --cov-report=term-missing
 # Frontend (from frontend/)
 npm test
 ```
+
+`.claude/skills/language-kit/kit.sh verify` runs every backend and frontend suite and linter at once,
+printing one line per suite and keeping the full output in log files.
 
 The default backend suite needs neither Ollama nor Claude Code. Tests that make real `claude -p` calls against your plan are opt-in: `pytest -m claude_live --no-cov`.
 

@@ -378,6 +378,42 @@ schema quietly wrong.
 
 ---
 
+### Language data and the language kit (008)
+
+A practice language is data, never code. Each language has two generated TOML files:
+
+| File | Holds | Read by |
+|---|---|---|
+| `app/language_data/languages/<code>.toml` | code, English name, display order, voices (key, display name, gender, locale, quality, speaking rate), podcast host names per voice gender, guest labels, voice-sample line | the app, through `app.language_data` |
+| `tests/integration/practice_languages/evaluation/<code>.toml` | special letters, 5 scripted learner turns per scenario, 20 dictation sentences, loanwords | the benchmarks and their tests, through `evaluation_set.py` |
+
+`app/language_data/` is a leaf package with a strict loader: an unknown, missing or mistyped key, or a
+cross-file contradiction (duplicate code, order or voice key; a default voice that is not one of the
+language's voices; a voice whose locale is another language's), raises `LanguageDataError` at import, so
+the app refuses to start rather than run on bad data. `practice_languages/catalog.py` and
+`services/tts/voices.py` adapt the records to the unchanged `PracticeLanguage` and `VoiceInfo` types;
+`run.sh` downloads whatever `python -m app.language_data voice-keys` lists.
+
+The files are written only by the **language kit** (`backend/language_kit/`, run through
+`.claude/skills/language-kit/kit.sh`), developer tooling beside `app/` that the app never imports:
+
+- `registry.py` lists every per-language requirement (14 today) with its destination file, who supplies
+  it, the feature that needs it and its rules (one class each in `rules.py`). The pack template,
+  validation, `check`, `backfill` and the canonical file layout are all generated from it, so a new
+  per-language item is one `Requirement` plus one record field. A guard test fails while the two disagree.
+- An agent fills one `pack.toml`; `apply` derives the rest (display order, a voice's name, locale and
+  quality from the Piper catalogue), downloads and MD5-checks voices first, then swaps both files in
+  atomically, restoring the first if the second fails. Rendering is canonical (`tomli-w`, registry key
+  order), so `render(read(file)) == file` and every step can prove it changed nothing.
+- `finish` chains apply → `verify` (every suite and linter, one line each, logs on disk) → `check` →
+  `report`; every writing command appends to `run-log.jsonl`, and `report.md` is rendered from it.
+- `bench` runs the language-independent adherence and transcription benchmarks
+  (`OPEN_LANGUAGE_BENCH_LANGUAGE` / `OPEN_LANGUAGE_BENCH_OUT`); the foreign-word check counts words of
+  English and every other catalogued language, and transcription runs every voice of the language.
+
+Per-language working files (packs, run logs, reports, benchmark results and review sheets) live under
+`specs/008-language-onboarding-kit/languages/<code>/`.
+
 ## 5. Data model
 
 ```mermaid
@@ -1280,13 +1316,15 @@ open-language/
 │   └── scripts/bash/            branch setup, agent-context sync
 │
 ├── .claude/commands/            speckit.* slash commands for Claude Code
+├── .claude/skills/language-kit/ The language-kit skill (SKILL.md) and kit.sh, its entry point
 │
 ├── specs/                       Per-feature artifacts (the "why" archive)
 │   ├── 001-speak-roleplay-chat/
 │   ├── 002-vocabulary-flashcards/
 │   ├── 003-corrective-feedback-mode/
 │   ├── …
-│   └── 007-podcast-mode/
+│   ├── 007-podcast-mode/
+│   └── 008-language-onboarding-kit/   languages/<code>/: packs, run logs, reports, benchmark results
 │
 ├── docs/
 │   ├── design-system.md         Tokens, components, dark mode, a11y
@@ -1362,6 +1400,7 @@ open-language/
 | `005-conversation-difficulty-level` | Four conversation levels (Beginner–Natural) on Settings and in the chat header, applied to the partner's replies and the learner aids; experimental | In progress |
 | `006-german-language-support` | German as a second practice language: catalogue, per-language voices, conversations that keep their language, flashcards per language | In progress |
 | `007-podcast-mode` | Podcast episodes (One host, Panel, Listen) with code-chosen turns, cast hosts and per-host voices; ready-made, generated and Surprise me shows; a two-language Summary for every conversation | In progress |
+| `008-language-onboarding-kit` | Language data as generated TOML files, the language kit (registry, pack, apply, backfill, verify, bench, report) behind the `language-kit` skill, language-independent benchmarks, Spanish's evaluation set, Italian as a third practice language | In progress |
 
 `master` is the release branch; `develop` is the integration branch; feature branches are numbered and
 created by `.specify/scripts/bash/create-new-feature.sh`.
@@ -1421,6 +1460,8 @@ Collected from the sections above so they are findable in one place:
 | Word-list search folds only ASCII case (`ILIKE`), so "über" does not find "Über" | `app/flashcards/services/sqlite_storage.py` | 006 research R12; Spanish has the same gap ("é"/"É"). Not a regression |
 | **Podcast benchmarks not yet run** — SC-002 turn-taking, SC-003 single speaker, SC-004 speaker review, SC-005/SC-006 host language and level, SC-007/SC-008 generator, SC-009 latency, SC-012/SC-013 summary review | `backend/tests/integration/podcasts/`, `specs/007-podcast-mode/*-review-sheet.md` | 007 (T064, T074, T094, T102, T114, T123). The session that built 007 had no Ollama, Piper voices or Claude; every benchmark is written and deselected by default, and the review sheets are empty. Run them before calling 007 done |
 | **Long podcast episodes may outgrow Ollama's default context** | `app/podcasts/prompts.py` | 007 research R14. The standing prompt (≤ 700 tokens) and cues (≤ 40) are bounded by unit tests; the drift on Long episodes is unmeasured (the latency benchmark records `prompt_eval_count`). If the hosts forget the start of a Long episode, a configurable `num_ctx` is the option |
+| **Two lint backlogs outside the gates** — `mypy app` reports 232 errors in 53 files and `prettier --check src` flags 132 files (both checked 2026-10-06) | `backend/app`, `frontend/src` | Found while planning 008; none in files 008 touches. `kit verify` therefore type-checks only `language_kit` and `app/language_data` (mypy follows the rest silently) and uses ESLint as the frontend lint gate. Clearing them is its own piece of work |
+| German transcription re-measured through the kit (008): Whisper `base`, **17/20** with Thorsten and **12/20** with Kerstin (target 18/20); adherence **50/50** | `specs/008-language-onboarding-kit/languages/de/` | Same evaluation data and format as 006, now one table per voice. Confirms the 006 open item above |
 | The integration suite runs the app lifespan's `init_db()` against the learner's real `~/.open-language/app.db` | `tests/integration/` | Found in 006. Additive migrations only, but a test run should never touch learner data; 006 redirected the TTS cache writes (`isolated_tts_cache`), the database is still shared |
 
 #### German on the default stack (006)

@@ -33,6 +33,8 @@
 
 [Gates determined based on constitution file]
 
+- Does this feature add per-language data? Then it registers a requirement in the language kit (`.claude/skills/language-kit`) in the same change
+
 ## Project Structure
 
 ### Documentation (this feature)
