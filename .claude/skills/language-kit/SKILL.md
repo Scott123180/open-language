@@ -73,7 +73,10 @@ change as the feature:
    (`tests/unit/language_kit/test_registry_covers_language_data.py`) fails, naming the field.
 2. Add a `Requirement` for it in `backend/language_kit/registry.py`: its path, destination,
    producer, the feature that needs it, a one-sentence description and its rules (reuse a rule
-   from `rules.py` or add one class, test first). The guard passes again.
+   from `rules.py` or add one class, test first). The guard passes again. Add the new path to the
+   expected table in `tests/unit/language_kit/test_registry.py` and one invalid value for it to
+   `BROKEN_VALUES` in `tests/unit/language_kit/test_seeded_omissions.py`; both tests say so if you
+   forget.
 3. `kit.sh requirements` shows the new item; `kit.sh backfill --all` writes a pack asking for it.
 4. Fill each pack, then `kit.sh finish <code> --pack <path>` for each language.
 5. `kit.sh check --all` passes.

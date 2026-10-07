@@ -2,7 +2,9 @@
 
 import json
 
+from language_kit.checking import checked
 from language_kit.cli import EXIT_FINDINGS, EXIT_OK, EXIT_USAGE, main
+from language_kit.registry import REQUIREMENTS
 from tests.unit.language_kit.conftest import (
     make_kit,
     remove_evaluation,
@@ -10,6 +12,8 @@ from tests.unit.language_kit.conftest import (
     snapshot,
     write_valid_evaluation,
 )
+
+CHECKED_COUNT = len(checked(REQUIREMENTS))
 
 
 def _break_german_host_names(workspace) -> None:
@@ -25,7 +29,7 @@ def test_check_all_passes_complete_languages(kit):
 
     assert code == EXIT_OK
     assert output.splitlines()[0].startswith(
-        "check: 2 languages, 14 requirements, 0 failing (es ✓, de ✓)"
+        f"check: 2 languages, {CHECKED_COUNT} requirements, 0 failing (es ✓, de ✓)"
     )
 
 
@@ -33,7 +37,7 @@ def test_check_one_language_passes(kit):
     code, output = run_kit(kit, "check", "de")
 
     assert code == EXIT_OK
-    assert output.startswith("check: 1 language, 14 requirements, 0 failing (de ✓)")
+    assert output.startswith(f"check: 1 language, {CHECKED_COUNT} requirements, 0 failing (de ✓)")
 
 
 def test_a_failing_item_is_printed_and_marks_the_language(kit):
