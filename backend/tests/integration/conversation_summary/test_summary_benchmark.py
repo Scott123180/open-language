@@ -14,6 +14,7 @@ import time
 
 import pytest
 
+from app.practice_languages import PRACTICE_LANGUAGES
 from tests.integration.podcasts.podcast_harness import real_podcast_app
 
 pytestmark = pytest.mark.benchmark
@@ -50,7 +51,7 @@ def _roleplay(harness, scenario: str) -> int:
     return harness.client.get("/api/conversations").json()[0]["id"]
 
 
-@pytest.mark.parametrize("language", ["es", "de"])
+@pytest.mark.parametrize("language", list(PRACTICE_LANGUAGES))
 def test_summaries_arrive_within_ten_seconds(tmp_path, language):
     with real_podcast_app(tmp_path, language) as harness:
         timed = [(kind, *_timed_summary(harness, cid)) for kind, cid in _conversations(harness)]

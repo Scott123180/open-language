@@ -33,16 +33,21 @@ def _voices_by_key():
     return {voice.key: voice for voice in AVAILABLE_VOICES}
 
 
-def test_languages_are_spanish_then_german():
-    assert list(PRACTICE_LANGUAGES) == ["es", "de"]
+def _leading(count: int) -> list:
+    """Spanish then German lead the catalogue; languages added later by data follow them."""
+    return list(PRACTICE_LANGUAGES.values())[:count]
 
 
-def test_languages_are_named_spanish_and_german():
-    assert [language.name for language in PRACTICE_LANGUAGES.values()] == ["Spanish", "German"]
+def test_languages_start_with_spanish_then_german():
+    assert [language.code for language in _leading(2)] == ["es", "de"]
 
 
-def test_default_voices_are_davefx_and_thorsten():
-    assert [language.default_voice for language in PRACTICE_LANGUAGES.values()] == [
+def test_the_leading_languages_are_named_spanish_and_german():
+    assert [language.name for language in _leading(2)] == ["Spanish", "German"]
+
+
+def test_the_leading_default_voices_are_davefx_and_thorsten():
+    assert [language.default_voice for language in _leading(2)] == [
         "es_ES-davefx-medium",
         "de_DE-thorsten-medium",
     ]

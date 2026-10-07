@@ -7,7 +7,7 @@ import pytest
 
 from app.podcasts.catalog import PERSONALITIES, PODCAST_FORMATS, SHOW_TEMPLATES
 from app.podcasts.services.casting import Cast, Host, HostCaster, InvalidCast
-from app.practice_languages import host_names_for
+from app.practice_languages import PRACTICE_LANGUAGES, host_names_for
 from app.services.tts.voices import AVAILABLE_VOICES, voices_for
 from tests.support.fake_speech import FakeVoiceInstallation
 
@@ -23,7 +23,7 @@ def _keys(language: str) -> list[str]:
     return [voice.key for voice in voices_for(language)]
 
 
-@pytest.mark.parametrize("language", ["es", "de"])
+@pytest.mark.parametrize("language", list(PRACTICE_LANGUAGES))
 def test_the_lead_takes_the_first_installed_voice_and_the_second_another(language):
     lead, second = _caster().cast_template(SHOW, language, None)
 
@@ -39,7 +39,7 @@ def test_an_uninstalled_voice_is_skipped():
     assert lead.voice_key == other.voice_key == second
 
 
-@pytest.mark.parametrize("language", ["es", "de"])
+@pytest.mark.parametrize("language", list(PRACTICE_LANGUAGES))
 @pytest.mark.parametrize("show_id", list(SHOW_TEMPLATES))
 def test_names_suit_the_language_and_the_voice(language, show_id):
     for host in _caster().cast_template(SHOW_TEMPLATES[show_id], language, None):

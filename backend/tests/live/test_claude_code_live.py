@@ -26,7 +26,7 @@ from app.services.llm.claude_code import ClaudeCodeAvailability, ClaudeCodeLLMPr
 from app.services.llm.claude_code.runner import SubprocessClaudeCodeRunner
 from app.services.scenario.static import StaticScenarioProvider
 from app.services.storage.base import ConversationRecord
-from tests.integration.practice_languages.text_purity import foreign_words
+from tests.integration.practice_languages.text_purity import foreign_words, other_languages
 
 pytestmark = pytest.mark.claude_live
 
@@ -195,7 +195,8 @@ def test_a_german_conversation_replies_only_in_german(runner, settings):
     session.close()
 
     assert reply.strip()
-    assert foreign_words(reply) == [], reply
+    german = GERMAN_CONVERSATION.target_language
+    assert foreign_words(reply, german, other_languages(german)) == [], reply
 
 
 class _CountingSessions:

@@ -3,8 +3,8 @@
 from app.services.tts.voices import AVAILABLE_VOICES, VoiceInfo, voices_for
 
 
-def test_available_voices_lists_spanish_then_german() -> None:
-    assert [v.key for v in AVAILABLE_VOICES] == [
+def test_available_voices_start_with_spanish_then_german() -> None:
+    assert [v.key for v in AVAILABLE_VOICES][:4] == [
         "es_ES-davefx-medium",
         "es_AR-daniela-high",
         "de_DE-thorsten-medium",
