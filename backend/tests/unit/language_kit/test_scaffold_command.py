@@ -63,3 +63,14 @@ def test_a_dry_run_writes_nothing(kit):
     assert code == EXIT_OK
     assert output.startswith("scaffold it: would write")
     assert snapshot(kit.workspace.root) == before
+
+
+def test_rerunning_scaffold_after_onboarding_is_nothing_to_do(kit):
+    pack = kit.workspace.language_dir("de") / "pack.toml"
+    pack.parent.mkdir(parents=True)
+    pack.write_text("# filled\n", encoding="utf-8")
+
+    code, output = run_kit(kit, "scaffold", "de", "--name", "German")
+
+    assert code == EXIT_OK
+    assert output.startswith("scaffold de: nothing-to-do")

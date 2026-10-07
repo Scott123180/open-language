@@ -25,13 +25,13 @@ class ScaffoldCommand(Command):
         )
 
     def run(self, arguments: argparse.Namespace, kit: Kit) -> CommandResult:
-        code, found = arguments.code, prerequisites(kit, arguments.code)
+        code, path = arguments.code, pack_path(kit, arguments.code, None)
+        relative = kit.workspace.relative(path)
+        if path.exists():  # already scaffolded, maybe onboarded since: re-running changes nothing
+            return _existing(kit, code, relative, arguments.dry_run)
+        found = prerequisites(kit, code)
         if not found.ok:
             return prerequisites_result(found)
-        path = pack_path(kit, code, None)
-        relative = kit.workspace.relative(path)
-        if path.exists():
-            return _existing(kit, code, relative, arguments.dry_run)
         if arguments.dry_run:
             return CommandResult("scaffold", EXIT_OK, f"scaffold {code}: would write {relative}")
         _write_pack(kit, arguments.name, found, path)
