@@ -56,12 +56,15 @@ Do not use it to remove a language or to translate interface text; neither is in
 1. `kit.sh check --all`: lists, per language, every item that fails.
 2. `kit.sh backfill --all` (or `backfill <code>`): writes
    `specs/<feature>/languages/<code>/backfill-pack.toml` holding only the failing items, with
-   guidance and an example from a language that passes. An existing backfill pack is kept.
+   guidance and an example from a language that passes. A pack still being filled is kept; one
+   already applied is replaced.
 3. Fill each backfill pack as in *Onboard a language*, step 4.
 4. `kit.sh validate <code> --pack <path>` until it reports `0 errors`, for each pack.
-5. `kit.sh finish <code> --pack <path>` for each pack, so the backfill is tested and reported
+5. With several packs, `kit.sh apply <code> --pack <path>` for each first: the test suite checks
+   that every language is complete, so it fails until the last pack is in.
+6. `kit.sh finish <code> --pack <path>` for each pack, so every backfill is tested and reported
    like an onboarding.
-6. `kit.sh check --all`: every language passes.
+7. `kit.sh check --all`: every language passes.
 
 ## Adding a per-language requirement
 

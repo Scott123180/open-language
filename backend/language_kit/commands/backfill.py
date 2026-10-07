@@ -115,7 +115,7 @@ def _next(kit: Kit, written: list[Backfill]) -> str | None:
     if len(written) == 1:
         return f"kit.sh finish {written[0].code} --pack {kit.workspace.relative(written[0].path)}"
     if written:
-        return "fill each pack, kit.sh validate <code> --pack <path>, then kit.sh finish <code> --pack <path>"
+        return "fill and validate each pack, kit.sh apply each, then kit.sh finish <code> --pack <path> each"
     return None
 
 
