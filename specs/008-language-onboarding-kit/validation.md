@@ -102,3 +102,53 @@ Italian, through `kit.sh bench it` (T092), with no Italian-specific benchmark co
 this machine. The same path is covered by
 `test_bench_command.py::test_without_ollama_adherence_exits_three_names_it_and_writes_nothing`.
 `OllamaProbe` checks `/api/tags` and names Ollama when it is unreachable.
+
+## Read-only, idempotency and setup (T097; FR-005, FR-006, FR-015, SC-006)
+
+- **§4: read-only and dry-run commands.** `check --all`, `requirements`, `prereq it`,
+  `validate es --pack …`, `apply es --pack … --dry-run` and `scaffold fr --name French --dry-run` left
+  `git status` unchanged.
+- **§9: idempotency.** On the onboarded Italian, `scaffold it --name Italian`, `apply it` and
+  `backfill --all` each reported `nothing-to-do`. `finish it --backend-only` reported
+  `apply nothing-to-do, verify ok, check ok, report written`. Afterwards `git status` showed only
+  the kit's own run records, `languages/it/report.md` and `run-log.jsonl` (logs are git-ignored).
+  Nothing changed under `backend/` or in `run.sh`.
+  - The first attempt found a defect: `scaffold` checked prerequisites before looking for an existing
+    pack, so on a catalogued language it refused instead of reporting `nothing-to-do`. Fixed in
+    `218f385`.
+- **§11: setup downloads every catalogued voice.** `OPEN_LANGUAGE_VOICE_DIR=$(mktemp -d) ./run.sh
+  --setup` downloaded all six voices (es ×2, de ×2, it ×2) and completed. `run.sh` has no edit for
+  Italian, and `python -m app.language_data voice-keys` lists the same six keys.
+
+## A new per-language requirement is backfilled (T098; quickstart §8, FR-025, SC-005)
+
+The exercise ran on a scratch branch, which was discarded. It added `PodcastRecord.greeting`
+(optional in the loader, as §8 says) and a `Requirement("podcast.greeting", …)`.
+
+| Step | Result |
+|---|---|
+| Record field alone | the guard test fails: "`PodcastRecord.greeting` is per-language data with no entry in `language_kit/registry.py`. Add a Requirement for it (see the language-kit skill, 'Adding a per-language requirement')" |
+| `kit.sh check --all` | `3 languages, 15 requirements, 3 failing`: only `podcast.greeting`, for es, de and it |
+| `kit.sh backfill --all` | three packs, each holding only `code` and `[podcast] greeting = "TODO"` |
+| fill, `validate`, `apply`, `finish --pack … --backend-only` each | each runtime file's diff is one added `greeting = "…"` line |
+| `kit.sh check --all` | `0 failing (es ✓, de ✓, it ✓)` |
+| `SKILL.md` diff | empty |
+
+**Findings, now fixed on the feature branch:**
+1. **An applied backfill pack blocked every later backfill.** Spanish's committed, applied pack from
+   T078 meant `backfill es` reported `nothing-to-do` and wrote nothing. A pack that would no longer
+   change the language is now replaced; one still being filled is kept (`3ead801`).
+2. **The kit's own tests failed after a backfill.** Their Italian test pack was written out by hand,
+   so it lacked the new item, and two tests used `greeting` as an imaginary example. The test pack
+   now comes from the committed Italian data, and examples use a name no real field will take
+   (`8570382`).
+3. **Finishing the first of several backfills failed verify.** The real-repository `check --all` test
+   is red until every language has the item. The skill now says to `apply` every pack first, then
+   `finish` each (`7cc158c`).
+4. **One template test hard-coded the list of pack items.** It now checks the ordering rule instead.
+
+On the second run, after findings 1–3 were fixed, the only failure left was finding 4. Its test has
+since been rewritten, and it passes with an extra requirement registered. The full three-language
+run was not repeated after that last change. A feature author still extends two test tables by hand:
+the expected rows in `test_registry.py` and `BROKEN_VALUES` in `test_seeded_omissions.py`. Both fail
+with a clear message, and the skill names them.
