@@ -66,7 +66,9 @@ def test_a_backfill_pack_still_being_filled_is_never_overwritten(kit):
 def test_a_backfill_pack_already_applied_is_replaced_by_the_new_one(kit):
     pack = _backfill_pack(kit, "es")
     pack.parent.mkdir(parents=True)
-    applied = 'code = "es"\n[podcast]\nsample_line = "Hola, soy {name}. ¡Bienvenidos al programa!"\n'
+    applied = (
+        'code = "es"\n[podcast]\nsample_line = "Hola, soy {name}. ¡Bienvenidos al programa!"\n'
+    )
     pack.write_text(applied, encoding="utf-8")
 
     _, output = run_kit(kit, "backfill", "es")

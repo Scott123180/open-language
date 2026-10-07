@@ -168,7 +168,7 @@ def test_a_partial_voice_item_lists_every_voice_by_key(workspace):
 
 def test_a_new_requirement_appears_with_no_other_change(workspace):
     greeting = Requirement(
-        "podcast.greeting",
+        "podcast.example_only_field",
         Destination.RUNTIME,
         Producer.AGENT,
         "009",
@@ -179,9 +179,9 @@ def test_a_new_requirement_appears_with_no_other_change(workspace):
     before = _italian(workspace)
     after = _italian(workspace, (*REQUIREMENTS, greeting))
 
-    assert "# ── podcast.greeting " in after
-    assert tomllib.loads(after)["podcast"]["greeting"] == "TODO"
-    assert after.replace(_block(after, "podcast.greeting"), "") == before
+    assert "# ── podcast.example_only_field " in after
+    assert tomllib.loads(after)["podcast"]["example_only_field"] == "TODO"
+    assert after.replace(_block(after, "podcast.example_only_field"), "") == before
 
 
 def test_an_item_with_a_default_is_described_as_optional(workspace):

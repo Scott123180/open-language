@@ -22,11 +22,15 @@ def test_a_complete_pack_parses_without_problems():
     pack = _parse(italian_pack_text())
 
     assert pack.problems == ()
-    assert pack.data.get("podcast.sample_line") == "Ciao, sono {name}. Benvenuti al programma!"
+    assert pack.data.get("podcast.sample_line") == italian_pack_document()["podcast"]["sample_line"]
 
 
 def test_an_omitted_speaking_rate_defaults_to_natural():
-    pack = _parse(italian_pack_text())
+    voices = [
+        {"key": "it_IT-paola-medium", "gender": "female"},
+        {"key": "it_IT-riccardo-x_low", "gender": "male"},
+    ]
+    pack = _parse(italian_pack_text(voices=voices))
 
     assert pack.data.get("voices[].speaking_rate") == ["natural", "natural"]
 

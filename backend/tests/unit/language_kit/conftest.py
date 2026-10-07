@@ -131,55 +131,27 @@ def snapshot(*directories: Path) -> dict[str, bytes]:
     }
 
 
-ITALIAN_FEMALE = [
-    "Giulia",
-    "Chiara",
-    "Francesca",
-    "Sara",
-    "Martina",
-    "Elena",
-    "Alessia",
-    "Valentina",
-    "Federica",
-    "Silvia",
-]
-ITALIAN_MALE = [
-    "Marco",
-    "Luca",
-    "Matteo",
-    "Andrea",
-    "Davide",
-    "Simone",
-    "Lorenzo",
-    "Paolo",
-    "Stefano",
-    "Giorgio",
-]
 ITALIAN_VOICES = ("it_IT-paola-medium", "it_IT-riccardo-x_low")
+DERIVED_PACK_PATHS = ("order",)
+DERIVED_VOICE_FIELDS = ("display_name", "locale", "quality")
 
 
 def italian_pack_document() -> dict:
-    """A complete, valid Italian pack as a document (what an agent writes, minus the comments)."""
-    return {
-        "code": "it",
-        "name": "Italian",
-        "default_voice": "it_IT-paola-medium",
-        "voices": [
-            {"key": "it_IT-paola-medium", "gender": "female"},
-            {"key": "it_IT-riccardo-x_low", "gender": "male", "speaking_rate": "natural"},
-        ],
-        "podcast": {
-            "guest_labels": ["Ospite", "Ascoltatore", "Ascoltatrice"],
-            "sample_line": "Ciao, sono {name}. Benvenuti al programma!",
-            "host_names": {"female": ITALIAN_FEMALE, "male": ITALIAN_MALE},
-        },
-        "evaluation": {
-            "special_letters": "àèéìòù",
-            "loanwords": ["hotel", "taxi"],
-            "dictation": [f"Frase numero {n} è qui." for n in range(20)],
-            "turns": {scenario: [f"Turno {n}." for n in range(5)] for scenario in SCENARIO_IDS},
-        },
-    }
+    """Italian as a complete pack: the committed Italian data minus what `apply` derives.
+
+    Built from the data rather than written out, so a requirement backfilled into every language
+    reaches these tests with no edit to them.
+    """
+    from language_kit.language_files import read_language
+
+    document = read_language("it", Workspace(root=REPOSITORY, voice_dir=REPOSITORY)).document
+    for path in DERIVED_PACK_PATHS:
+        document.pop(path)
+    document["voices"] = [
+        {key: value for key, value in voice.items() if key not in DERIVED_VOICE_FIELDS}
+        for voice in document["voices"]
+    ]
+    return document
 
 
 def italian_pack_text(**changes) -> str:

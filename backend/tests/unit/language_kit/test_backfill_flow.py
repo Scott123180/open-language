@@ -15,7 +15,7 @@ from tests.unit.language_kit.conftest import (
 )
 
 GREETING = Requirement(
-    "podcast.greeting",
+    "podcast.example_only_field",
     Destination.RUNTIME,
     Producer.AGENT,
     "009",
@@ -40,15 +40,19 @@ def test_a_new_requirement_is_backfilled_line_by_line(workspace):
 
     code, output = run_kit(kit, "check", "--all")
     assert code == EXIT_FINDINGS
-    assert _failing_paths(output) == {("es", "podcast.greeting:"), ("de", "podcast.greeting:")}
+    assert _failing_paths(output) == {
+        ("es", "podcast.example_only_field:"),
+        ("de", "podcast.example_only_field:"),
+    }
 
     run_kit(kit, "backfill", "--all")
     for language, greeting in GREETINGS.items():
         pack = workspace.language_dir(language) / "backfill-pack.toml"
         text = pack.read_text(encoding="utf-8")
-        assert tomllib.loads(text) == {"code": language, "podcast": {"greeting": "TODO"}}
+        assert tomllib.loads(text) == {"code": language, "podcast": {"example_only_field": "TODO"}}
         pack.write_text(
-            text.replace('greeting = "TODO"', f'greeting = "{greeting}"'), encoding="utf-8"
+            text.replace('example_only_field = "TODO"', f'example_only_field = "{greeting}"'),
+            encoding="utf-8",
         )
         assert run_kit(kit, "apply", language, "--pack", str(pack))[0] == EXIT_OK
 
@@ -59,5 +63,5 @@ def test_a_new_requirement_is_backfilled_line_by_line(workspace):
             for line in difflib.ndiff(before[language].splitlines(), after.splitlines())
             if line[:1] in "+-"
         ]
-        assert diff == [f'+ greeting = "{greeting}"']
+        assert diff == [f'+ example_only_field = "{greeting}"']
     assert run_kit(kit, "check", "--all")[0] == EXIT_OK
