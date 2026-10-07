@@ -1,0 +1,128 @@
+# Backfill pack for Spanish (es), written by `kit.sh backfill`: only the items that fail.
+# Fill them, run `kit.sh validate es --pack <this file>`, then `kit.sh finish es --pack`.
+
+# ── code ────────────────────────────────────────────────────────────── derived · needed by 006
+# The language's ISO 639-1 code; also the data files' names.
+# Rules: required; ISO 639-1, two lowercase letters; not already a practice language; not the explanation language; written left to right with spaces between words; supported by the speech recogniser.
+# Example (German): "de"
+code = "es"
+
+[evaluation]
+# ── evaluation.special_letters ────────────────────────────────────────── agent · needed by 006
+# Letters a transcript must keep (accents, umlauts). Empty for a language without them.
+# Rules: required (may be empty); letters only, no duplicates.
+# Example (German): "äöüß"
+special_letters = "áéíóúüñ"
+
+# ── evaluation.dictation ──────────────────────────────────────────────── agent · needed by 006
+# Everyday sentences for the transcription benchmark, read aloud by every voice.
+# Rules: required; exactly 20 items; unique (case-insensitive); each has 3–15 words; each holds at least one of the special letters.
+# Example (German): ["Ich hätte gern einen Kaffee und ein Stück Kuchen, bitte.", "Die Straße ist heute sehr ruhig.", "Können Sie …
+dictation = [
+    "Quiero un café con leche, por favor.",
+    "La estación está muy cerca de aquí.",
+    "¿Podría ayudarme con la maleta?",
+    "Mi tren sale a las nueve de la mañana.",
+    "Tenemos que comprar pan y jamón.",
+    "El hotel está justo enfrente del río.",
+    "Quiero una habitación para dos noches.",
+    "La llave está encima de la mesa.",
+    "Mi hermana vive en Málaga.",
+    "Encantado de conocerle, señor López.",
+    "¿Cuánto cuesta el piso?",
+    "Por las mañanas bebo té con limón.",
+    "La farmacia está cerrada hoy.",
+    "Mi hermano juega al fútbol los sábados.",
+    "En verano vamos a la playa con los niños.",
+    "Olvidé mis gafas en la cocina.",
+    "El desayuno está incluido en el precio.",
+    "¿Podrías abrir la ventana, por favor?",
+    "Las manzanas están muy dulces este año.",
+    "¿A qué hora abre la panadería?",
+]
+
+# ── evaluation.loanwords ──────────────────────────────────────────────── agent · needed by 006
+# Standard words of the language that are also common in English; never counted as foreign.
+# Rules: required (may be empty); lowercase single words.
+# Example (German): ["hotel", "ok", "taxi", "ticket"]
+loanwords = [
+    "hotel",
+    "ok",
+    "taxi",
+]
+
+# ── evaluation.turns ──────────────────────────────────────────────────── agent · needed by 006
+# Correct, simple learner turns for the adherence benchmark, one list per scenario.
+# Rules: required; 5 turns for every scenario.
+# Example (German): buy-train-ticket = ["Guten Tag, ich brauche eine Fahrkarte nach Berlin.", "Ich möchte morgen früh fahren.", "…
+[evaluation.turns]
+buy-train-ticket = [
+    "Buenos días, necesito un billete para Madrid.",
+    "Quiero viajar mañana por la mañana.",
+    "Ida y vuelta, por favor.",
+    "¿Hay descuento para estudiantes?",
+    "¿De qué andén sale el tren?",
+]
+check-into-hotel = [
+    "Buenas noches, tengo una habitación reservada.",
+    "Me llamo Ana García.",
+    "Me quedo tres noches.",
+    "¿El desayuno está incluido en el precio?",
+    "¿A qué hora tengo que dejar la habitación?",
+]
+order-at-restaurant = [
+    "Buenas tardes, una mesa para dos personas, por favor.",
+    "¿Nos puede traer la carta, por favor?",
+    "Para mí, la sopa y después el pescado.",
+    "Para beber, un agua sin gas.",
+    "La cuenta, por favor.",
+]
+call-doctors-office = [
+    "Buenos días, quería pedir una cita.",
+    "Tengo dolor de cabeza desde hace dos días.",
+    "También tengo un poco de fiebre.",
+    "¿Puede ser esta tarde?",
+    "Muchas gracias, hasta luego.",
+]
+ask-for-directions = [
+    "Perdone, ¿dónde está la estación?",
+    "¿Está lejos de aquí?",
+    "¿Tengo que girar a la izquierda en el semáforo?",
+    "¿También puedo ir en autobús?",
+    "Muchas gracias, es usted muy amable.",
+]
+job-interview = [
+    "Buenos días, encantado de conocerle.",
+    "He trabajado tres años en una oficina.",
+    "Me gusta trabajar en equipo.",
+    "Hablo inglés y un poco de alemán.",
+    "¿Cuándo puedo esperar una respuesta?",
+]
+rent-a-car = [
+    "Buenos días, quiero alquilar un coche.",
+    "Lo necesito para una semana.",
+    "Un coche pequeño es suficiente.",
+    "¿El seguro está incluido?",
+    "¿Dónde puedo devolver el coche?",
+]
+visit-pharmacy = [
+    "Buenos días, me duele la garganta.",
+    "¿Tiene algo para la tos?",
+    "¿Cuántas veces al día tengo que tomar las pastillas?",
+    "¿Necesito receta para esto?",
+    "¿Cuánto es todo?",
+]
+report-lost-item = [
+    "Buenos días, he perdido mi bolso.",
+    "Es negro y bastante grande.",
+    "Esta mañana estuve en el parque.",
+    "En el bolso están mi móvil y mis llaves.",
+    "Por favor, llámeme si lo encuentran.",
+]
+board-airplane = [
+    "Buenos días, aquí está mi tarjeta de embarque.",
+    "¿Dónde está mi asiento?",
+    "¿Puedo dejar mi bolsa aquí arriba?",
+    "¿Me puede traer un vaso de agua, por favor?",
+    "¿A qué hora aterrizamos en Barcelona?",
+]

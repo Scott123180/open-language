@@ -3,7 +3,13 @@
 import json
 
 from language_kit.cli import EXIT_FINDINGS, EXIT_OK, EXIT_USAGE, main
-from tests.unit.language_kit.conftest import make_kit, run_kit, snapshot, write_valid_evaluation
+from tests.unit.language_kit.conftest import (
+    make_kit,
+    remove_evaluation,
+    run_kit,
+    snapshot,
+    write_valid_evaluation,
+)
 
 
 def _break_german_host_names(workspace) -> None:
@@ -41,6 +47,8 @@ def test_a_failing_item_is_printed_and_marks_the_language(kit):
 
 
 def test_a_language_without_an_evaluation_set_fails_on_the_evaluation_items(kit):
+    remove_evaluation(kit.workspace, "es")
+
     code, output = run_kit(kit, "check", "es")
 
     failing = [
@@ -65,6 +73,8 @@ def test_the_summary_reports_installed_voices(kit):
 
 
 def test_failing_items_end_with_the_next_step(kit):
+    remove_evaluation(kit.workspace, "es")
+
     _, output = run_kit(kit, "check", "es")
 
     assert output.splitlines()[-1] == "→ next: kit.sh backfill es"
@@ -109,3 +119,10 @@ def test_the_kit_can_be_built_over_another_output_directory(workspace, tmp_path)
     kit = make_kit(workspace).with_output(tmp_path)
 
     assert kit.workspace.output_root == tmp_path
+
+
+def test_every_catalogued_language_passes_in_the_real_repository(capsys):
+    """FR-021: Spanish and German, and every language added after them, are complete."""
+    code = main(["check", "--all"])
+
+    assert code == EXIT_OK, capsys.readouterr().out
