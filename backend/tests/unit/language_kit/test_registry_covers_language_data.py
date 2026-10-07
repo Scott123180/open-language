@@ -29,16 +29,16 @@ def test_every_requirement_has_a_language_data_field():
 
 
 def test_a_new_field_without_a_requirement_is_named_with_what_to_do():
-    records = RECORDS | {"PodcastRecord": (*RECORDS["PodcastRecord"], "greeting")}
+    records = RECORDS | {"PodcastRecord": (*RECORDS["PodcastRecord"], "example_only_field")}
 
     assert uncovered_fields(records, PATHS) == [
-        "`PodcastRecord.greeting` is per-language data with no entry in "
+        "`PodcastRecord.example_only_field` is per-language data with no entry in "
         "`language_kit/registry.py`. Add a Requirement for it (see the language-kit skill, "
         "'Adding a per-language requirement')"
     ]
 
 
 def test_a_requirement_without_a_field_is_named():
-    (orphan,) = orphan_requirements(RECORDS, (*PATHS, "podcast.greeting"))
+    (orphan,) = orphan_requirements(RECORDS, (*PATHS, "podcast.example_only_field"))
 
-    assert "`podcast.greeting`" in orphan
+    assert "`podcast.example_only_field`" in orphan

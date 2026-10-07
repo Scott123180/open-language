@@ -51,15 +51,33 @@ def test_all_lists_every_language(kit):
     assert output.splitlines()[0] == "backfill: 1 pack written (es), 1 nothing-to-do (de)"
 
 
-def test_an_existing_backfill_pack_is_never_overwritten(kit):
+def test_a_backfill_pack_still_being_filled_is_never_overwritten(kit):
     pack = _backfill_pack(kit, "es")
     pack.parent.mkdir(parents=True)
-    pack.write_text("# my edits\n", encoding="utf-8")
+    in_progress = 'code = "es"\n[evaluation]\nloanwords = ["ok"]\n'
+    pack.write_text(in_progress, encoding="utf-8")
 
     _, output = run_kit(kit, "backfill", "es")
 
-    assert pack.read_text(encoding="utf-8") == "# my edits\n"
+    assert pack.read_text(encoding="utf-8") == in_progress
     assert "es: nothing-to-do (backfill-pack.toml exists" in output
+
+
+def test_a_backfill_pack_already_applied_is_replaced_by_the_new_one(kit):
+    pack = _backfill_pack(kit, "es")
+    pack.parent.mkdir(parents=True)
+    applied = 'code = "es"\n[podcast]\nsample_line = "Hola, soy {name}. ¡Bienvenidos al programa!"\n'
+    pack.write_text(applied, encoding="utf-8")
+
+    _, output = run_kit(kit, "backfill", "es")
+
+    assert "es: 4 items → " in output
+    assert set(tomllib.loads(pack.read_text(encoding="utf-8"))["evaluation"]) == {
+        "special_letters",
+        "turns",
+        "dictation",
+        "loanwords",
+    }
 
 
 def test_a_dry_run_writes_nothing(kit):

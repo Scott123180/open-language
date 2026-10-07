@@ -126,4 +126,4 @@ def test_loanwords_may_be_empty_but_are_lowercase_single_words():
 
 def test_an_unknown_path_is_a_lookup_error():
     with pytest.raises(KeyError):
-        requirement("podcast.greeting")
+        requirement("podcast.example_only_field")

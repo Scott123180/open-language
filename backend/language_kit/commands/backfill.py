@@ -9,7 +9,9 @@ from language_kit.commands.base import Command, add_code_or_all
 from language_kit.commands.check import selected_codes
 from language_kit.composition import Kit
 from language_kit.findings import Finding
+from language_kit.language_files import LanguageData
 from language_kit.output import EXIT_OK, CommandResult
+from language_kit.pack import LanguagePack
 from language_kit.template import TemplateSources, partial_pack
 
 BACKFILL_FILE = "backfill-pack.toml"
@@ -22,6 +24,8 @@ class Backfill:
     """Failing requirement paths, with the table keys that fail (None: the whole item)."""
     path: Path
     written: bool
+    blocked: bool = False
+    """A backfill pack is still being filled, so none is written."""
 
 
 class BackfillCommand(Command):
@@ -53,12 +57,22 @@ def failing_requirements(
 def _backfill(kit: Kit, code: str, sources: TemplateSources, dry_run: bool) -> Backfill:
     items = failing_requirements(kit, code, sources)
     path = kit.workspace.language_dir(code) / BACKFILL_FILE
-    can_write = bool(items) and not path.exists() and not dry_run
+    language = sources.languages[code]
+    blocked = bool(items) and not _replaceable(path, language, kit)
+    can_write = bool(items) and not blocked and not dry_run
     if can_write:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(partial_pack(sources.languages[code], items, sources), encoding="utf-8")
+        path.write_text(partial_pack(language, items, sources), encoding="utf-8")
         kit.record(code, "backfill", "ok", files_written=[kit.workspace.relative(path)])
-    return Backfill(code, items, path, can_write)
+    return Backfill(code, items, path, can_write, blocked)
+
+
+def _replaceable(path: Path, language: LanguageData, kit: Kit) -> bool:
+    """No pack yet, or one already applied (it would change nothing); never one being filled."""
+    if not path.exists():
+        return True
+    pack = LanguagePack.parse(path.read_text(encoding="utf-8"), language.code, kit.requirements)
+    return not pack.problems and pack.merged_onto(language).document == language.document
 
 
 def _table_keys(path: str, findings: list[Finding]) -> tuple[str, ...] | None:
@@ -71,7 +85,7 @@ def _table_keys(path: str, findings: list[Finding]) -> tuple[str, ...] | None:
 
 def _result(kit: Kit, backfills: list[Backfill], dry_run: bool) -> CommandResult:
     lines = [_line(kit, backfill, dry_run) for backfill in backfills]
-    written = [b for b in backfills if b.items and (b.written or dry_run)]
+    written = [b for b in backfills if b.written or (dry_run and b.items and not b.blocked)]
     idle = [b for b in backfills if b not in written]
     verb = "would write" if dry_run else "written"
     parts = (
@@ -90,7 +104,7 @@ def _line(kit: Kit, backfill: Backfill, dry_run: bool) -> str:
     target = kit.workspace.relative(backfill.path)
     if not backfill.items:
         return f"{backfill.code}: nothing-to-do"
-    if dry_run:
+    if dry_run and not backfill.blocked:
         return f"{backfill.code}: would write {len(backfill.items)} items → {target}"
     if not backfill.written:
         return f"{backfill.code}: nothing-to-do ({BACKFILL_FILE} exists; fill it, then kit.sh finish --pack {target})"
