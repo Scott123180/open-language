@@ -17,7 +17,7 @@ venv is absent. It does nothing else.
 
 | Option | Meaning |
 |---|---|
-| `--dry-run` | Report what would change; change nothing. Accepted by every command that writes (`scaffold`, `apply`, `backfill`, `bench`, `finish`, `report`). |
+| `--dry-run` | Report what would change; change nothing. Accepted by every command that writes (`scaffold`, `apply`, `backfill`, `verify`, `bench`, `finish`, `report`). Read-only commands (`prereq`, `validate`, `check`, `requirements`) change nothing in any case. |
 | `--json` | One JSON document on stdout instead of text. |
 | `--out DIR` | The per-language output root. Default: `<feature_directory>/languages` from `.specify/feature.json`. |
 
@@ -52,7 +52,7 @@ Read-only, apart from the voice-catalogue cache. It checks research R7 in order 
 first failure (exit 2). On success it lists the candidate voices:
 
 ```text
-prereq it: Italian can be onboarded (5/5 checks, 1 warning)
+prereq it: Italian can be onboarded (6/6 checks, 1 warning)
 voice it_IT-paola-medium     Italy  medium  64 MB
 voice it_IT-riccardo-x_low   Italy  x_low   28 MB
 voice it_IT-serena-medium    Italy  medium  64 MB
@@ -83,13 +83,17 @@ With `--dry-run`, it prints `would write <path> (+A −R lines)` and `would down
 
 ### `verify [--backend-only]`
 
-Runs, from the repository root:
-- `backend/.venv/bin/pytest`;
-- `ruff check`;
-- `black --check`;
-- `mypy app language_kit`;
-- `npm run lint`, `npm test -- --run` and `npm run test:e2e`, in `frontend/` (skipped with
+Runs each suite in its own working directory:
+- in `backend/`, so `backend/pyproject.toml` supplies `testpaths`, the `benchmark` / `claude_live`
+  deselection and the coverage floor: `.venv/bin/pytest`, `.venv/bin/ruff check .`,
+  `.venv/bin/black --check .` and `.venv/bin/mypy language_kit app/language_data`;
+- in `frontend/`: `npm run lint` (ESLint), `npm test -- --run` and `npm run test:e2e` (skipped with
   `--backend-only`, and the report says so).
+
+`mypy` covers only the packages this feature adds, and ESLint is the frontend lint gate: `mypy app`
+and `prettier --check src` already fail on code the kit does not touch (plan.md § "Spec
+interpretations" 11). With `--dry-run`, it prints `would run <suite> (in <directory>)` for each suite
+and runs nothing.
 
 It prints one line per suite. Full output goes to `<out>/<code>/logs/<suite>.log` when a language
 is given with `--language <code>`, else `<out>/_logs/`.
@@ -107,7 +111,8 @@ check: 3 languages, 14 requirements, 0 failing (es ✓, de ✓, it ✓)
 
 For each language with failing items, it writes `<out>/<code>/backfill-pack.toml` holding only
 those items, each with its guidance and an example from a passing language. A language with nothing
-missing is listed as `nothing-to-do`. Apply the result with `apply <code> --pack <path>`.
+missing is listed as `nothing-to-do`. Apply the result with `finish <code> --pack <path>`, so the
+backfill run is tested and reported like an onboarding run.
 
 ### `bench <code> [--adherence | --transcription]`
 
@@ -122,11 +127,12 @@ still written), and exit 3 when Ollama, the model or a voice is unavailable (not
 Renders `<out>/<code>/report.md` from `run-log.jsonl` (data-model § OnboardingReport). It always
 regenerates the whole file.
 
-### `finish <code> [--backend-only]`
+### `finish <code> [--pack PATH] [--backend-only]`
 
-`apply`, then `verify`, then `check <code>`, then `report <code>`. It stops at the first step
-with exit ≥ 2 and still writes the report. This is the one command an agent runs after the pack
-validates.
+`apply` (with the same `--pack`, default `<out>/<code>/pack.toml`), then `verify`, then
+`check <code>`, then `report <code>`. It stops at the first step with exit ≥ 2 and still writes the
+report. This is the one command an agent runs after a pack validates, whether it is a full pack or
+a backfill pack.
 
 ### `requirements`
 
@@ -143,7 +149,8 @@ feature authors and for the skill's "Adding a per-language requirement" section.
   1. *When to use*.
   2. *Onboard a language*: `prereq` → choose voices → `scaffold` → fill the pack → `validate` until
      clean → `finish` → `bench` → `report`.
-  3. *Backfill after a new requirement*.
+  3. *Backfill after a new requirement*: `backfill` → fill each `backfill-pack.toml` → `validate
+     --pack` until clean → `finish <code> --pack <path>` for each.
   4. *Adding a per-language requirement* (research R12).
   5. *Rules*: no app source reading while onboarding, no hand edits to generated files, genders
      from the voice's name or model card, and Spanish and German examples in the pack are guidance,

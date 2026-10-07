@@ -17,7 +17,7 @@ Runnable checks that prove the feature end to end. `kit` below means
 ## 1. The default suite stays green and hermetic
 
 ```bash
-cd backend && .venv/bin/pytest && .venv/bin/ruff check . && .venv/bin/black --check . && .venv/bin/mypy app language_kit
+cd backend && .venv/bin/pytest && .venv/bin/ruff check . && .venv/bin/black --check . && .venv/bin/mypy language_kit app/language_data
 cd ../frontend && npm run lint && npm test -- --run && npm run test:e2e
 ```
 
@@ -36,8 +36,8 @@ kit check --all
 
 **Expect** `check: 2 languages, 14 requirements, 0 failing (es ✓, de ✓)` before Italian is
 onboarded (3 languages after), exit 0. Spanish passes because its evaluation set was written
-through backfill (research R2). Its `backfill-pack.toml` and `run-log.jsonl` are in
-`languages/es/`.
+through backfill and `finish --pack` (research R2). Its `backfill-pack.toml`, `run-log.jsonl` and
+`report.md` are in `languages/es/`.
 
 ## 3. Seeded omissions are caught (SC-004) and the guard fires (SC-005)
 
@@ -75,7 +75,7 @@ Do this in a fresh Claude Code session with only the `language-kit` skill invoke
 record can be checked for SC-003. Start a timer.
 
 ```bash
-kit prereq it                        # 5/5 checks; lists paola, riccardo, serena-medium, serena-high
+kit prereq it                        # 6/6 checks; lists paola, riccardo, serena-medium, serena-high
 kit scaffold it --name Italian       # writes languages/it/pack.toml
 # agent fills pack.toml (voices, genders, names, labels, sample line, evaluation set)
 kit validate it                      # repeat until "0 errors"
@@ -146,7 +146,7 @@ On a scratch branch (not merged):
 2. `kit check --all`: **expect** each language to fail on `podcast.greeting` only.
 3. `kit backfill --all`: **expect** three `backfill-pack.toml` files, each with only `code` and
    `[podcast] greeting`.
-4. Fill them, then `kit apply <code> --pack …` for each. **Expect** the diff of each runtime file to
+4. Fill them, then `kit finish <code> --pack … --backend-only` for each. **Expect** the diff of each runtime file to
    be the added `greeting` line only (FR-025 scenario 3).
 5. `kit check --all` passes. The `SKILL.md` diff on this branch is empty (US4 scenario 5).
 
@@ -162,7 +162,8 @@ git status --short
 **Expect**:
 - each command reports `nothing-to-do` (`finish` still runs the suites and rewrites `report.md`);
 - `git status` shows only `languages/it/report.md`, `run-log.jsonl` and logs, and no change under
-  `backend/` or `run.sh`.
+  `backend/` or `run.sh`. Those three are the kit's own run records, which SC-006 does not cover
+  (plan.md § "Spec interpretations" 8).
 
 ## 10. Learner data is untouched (FR-017; SC-009)
 

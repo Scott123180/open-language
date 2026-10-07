@@ -184,8 +184,8 @@ The candidate voices from the prerequisite step are listed in a comment, with ke
 and download size. The agent copies the keys it wants and sets each one's gender.
 
 `kit apply` reads the pack with `tomllib`, derives the rest and writes the two canonical data files
-with `tomli-w`. A voice's display name ("Paola (Italy)"), locale and quality come from the voice
-catalogue, and `order` is the next free number. The pack stays in the feature folder as the record
+with `tomli-w`. A voice's display name ("Paola (Italy)", unless the pack overrides it), locale and
+quality come from the voice catalogue, and `order` is the next free number. The pack stays in the feature folder as the record
 of what was written by hand.
 
 **Rationale**: the agent reads one file and edits one file (SC-001, SC-003). The guidance sits next
@@ -350,7 +350,8 @@ change:
 1. Add the field to the record and loader in `app/language_data/`, test first. The strict loader
    now fails on every data file that lacks it.
 2. Add a `Requirement` to the registry. The guard test passes again.
-3. Run `kit backfill --all`, fill each language's partial pack, then `kit apply` each.
+3. Run `kit backfill --all`, fill each language's partial pack, then `kit finish <code> --pack
+   <path>` for each, so every backfill run is tested and reported.
 4. Run `kit check --all`. It passes.
 
 Steps 1 and 2 are enforced by the guard and the loader.

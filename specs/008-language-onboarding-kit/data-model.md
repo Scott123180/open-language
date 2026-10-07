@@ -47,7 +47,7 @@ One practice language, as loaded from `app/language_data/languages/<code>.toml`.
 | `key` | str | chosen | in the voice catalogue, `language.family == code`, single speaker |
 | `gender` | `"female"` \| `"male"` | agent | as the voice's name / model card indicates |
 | `speaking_rate` | `"natural"` \| `"fast"` \| `"slow"` | agent (default `natural`) | |
-| `display_name` | str | derived | `"<Name> (<country_english>)"`, e.g. "Paola (Italy)" |
+| `display_name` | str | derived, or agent override | `"<Name> (<country_english>)"`, e.g. "Paola (Italy)"; a pack may set it (1–40 characters) |
 | `locale` | str | derived | `language.code`, e.g. `it_IT`; prefix equals `code` |
 | `quality` | str | derived | catalogue `quality` (`x_low`, `low`, `medium`, `high`) |
 
@@ -128,7 +128,7 @@ The initial registry has 14 requirements:
 | `evaluation.loanwords` | evaluation | agent | 006 |
 
 `voices[].display_name`, `locale` and `quality` are covered by the `voices` requirement. They are
-derived when it is applied, and the guard maps them to it.
+derived when it is applied (a pack may override `display_name`), and the guard maps them to it.
 
 ### Rule
 
@@ -184,6 +184,8 @@ A catalogue voice offered for a language:
 - `key` and `name`;
 - `region` and `country`;
 - `quality`;
+- no gender: the catalogue has none, so the agent sets it in the pack (plan.md § "Spec
+  interpretations" 9);
 - `size_bytes`, the total of `.onnx` and `.onnx.json`;
 - `files`, each with its `relative_path` and `md5`.
 
@@ -237,7 +239,7 @@ Nothing is appended by hand.
    │                                                             ▼
    │                                  (catalogued) ──verify/check/bench/report──► (onboarded)
    │                                                             │
-   └──────── a new requirement is registered ───► (incomplete) ──backfill → fill → apply──┘
+   └──────── a new requirement is registered ───► (incomplete) ──backfill → fill → finish --pack──┘
 ```
 
 `check` is read-only in every state. Every transition is idempotent: repeating it in its target

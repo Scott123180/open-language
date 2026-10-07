@@ -105,9 +105,14 @@ CLI package and an agent skill).
 - 1 new runtime package (`app/language_data`) and 1 tooling package (`language_kit`);
 - 1 skill;
 - existing files changed: `practice_languages/catalog.py`, `services/tts/voices.py`, `run.sh`,
-  `pyproject.toml`, `test_no_language_literals.py`, `text_purity.py`, the two benchmarks (one
-  renamed), `test_german_evaluation_set.py` (rewritten against `de.toml`), `CLAUDE.md`,
-  `docs/architecture.md`, `README.md` and `.specify/templates/plan-template.md`.
+  `pyproject.toml`, `text_purity.py`, the two 006 benchmarks (one renamed),
+  `test_german_evaluation_set.py` (rewritten against `de.toml`), `CLAUDE.md`, `docs/architecture.md`,
+  `README.md` and `.specify/templates/plan-template.md`;
+- existing tests changed: `test_no_language_literals.py`, `test_function_length.py`,
+  `test_module_boundaries.py`, `test_text_purity.py`, `practice_languages/test_catalog.py` and
+  `podcasts/test_casting.py` (catalogue-driven instead of exactly Spanish and German), and the two
+  007 benchmarks `test_host_language_benchmark.py` and `test_summary_benchmark.py` (parametrised over
+  the catalogue, so Italian is benchmarked too).
 
 *No NEEDS CLARIFICATION items remain. The one spec clarification (FR-024: ship Italian) is folded in.
 Design questions are settled in [research.md](research.md) R1–R14.*
@@ -130,12 +135,36 @@ Design questions are settled in [research.md](research.md) R1–R14.*
 4. **"Applying MUST be all or nothing" (FR-016)**: this covers the repository change (two files,
    atomic replace with restore). Downloaded voices live outside the repository, are verified and
    idempotent, and are not rolled back (R9).
-5. **"Runs the backend and frontend test suites" (FR-018)**: `finish` runs all of them. With
-   `--backend-only`, the frontend suites are skipped and the report says so; it is never silent.
+5. **"Runs the backend and frontend test suites" (FR-018)**: `finish` runs all of them, for an
+   onboarding pack and, with `--pack`, for a backfill pack, so both kinds of run end with tests and a
+   report (FR-027). `apply` alone is the low-level step that `finish` wraps; the skill never stops at
+   it. With `--backend-only`, the frontend suites are skipped and the report says so; it is never
+   silent.
 6. **"Within 30 minutes" (SC-002)**: this is working time, excluding voice downloads and benchmark
    runs, as the spec says. Downloads are timed in the run log so they can be subtracted.
 7. **German benchmark parity (SC-007)**: same evaluation data and same output format, not the same
    figures. The model is not deterministic, and Italian joins the foreign-word list (R8).
+8. **"Re-running every step … changes no file" (SC-006, FR-006)**: this covers the repository's data
+   files, `run.sh`, the packs and the installed voices. The kit's own run records (`run-log.jsonl`,
+   `report.md` and the suite logs under `languages/<code>/`) record each run, so a repeated run adds a
+   log line and regenerates the report. Every step still reports `nothing-to-do` and changes nothing
+   else (quickstart §9).
+9. **"List … voices with gender, region and quality" (FR-012)**: the Piper catalogue has no gender
+   field (R6). The prerequisite step lists key, region, country, quality and size from the catalogue,
+   and the agent sets each chosen voice's gender in the pack from the voice's name or model card (a
+   skill rule). The report always lists "voice genders asserted, not checked by listening" under *Not
+   checked*.
+10. **"The requirement appears in [the skill's instructions]" (FR-009, US4 scenario 5)**: the skill
+    holds no requirement list, so it can never go stale. It tells the agent to run `scaffold`,
+    `backfill` and `requirements`, whose output is generated from the registry. A new requirement
+    reaches the agent through those, with no edit to `SKILL.md` (checked by a test that no registry
+    path appears in it).
+11. **"Linting must pass" (Quality Gates) and FR-018's "the linters"**: `mypy app` already reports
+    232 errors in 53 files and `prettier --check src` flags 132 files (both checked 2026-10-06), none in
+    files this feature touches. `kit verify` and this feature's gates therefore type-check only the
+    packages it adds (`language_kit`, `app/language_data`) with `mypy --strict`, and use ESLint as the
+    frontend lint gate. Both backlogs are recorded under docs/architecture.md § "Open items"; clearing
+    them is out of scope.
 
 ---
 
@@ -160,7 +189,7 @@ bottom of this section.*
 | **V. No feature-flag / if-debug guards** | ✅ | Language behaviour is data. The literal guard stays in force. |
 | **VI. Provider independence** | ✅ | No provider changes. The app's TTS still never uses another language's voice, and the loader rejects a voice whose locale is not its language's. The voice-catalogue fetch is a developer-time action of the kit, like `run.sh`'s downloads, and sends no learner data. The app gains no network call. |
 | **Playwright E2E for frontend changes** | ✅ (n/a) | No frontend change. `kit verify` runs the full Playwright suite anyway (FR-018). |
-| **Linting (ruff, black, mypy, ESLint, Prettier)** | ✅ | `language_kit` is under the same `ruff`, `black` and `mypy --strict` settings. `kit verify` runs them. |
+| **Linting (ruff, black, mypy, ESLint, Prettier)** | ✅ | `language_kit` is under the same `ruff`, `black` and `mypy --strict` settings. `kit verify` runs `ruff` and `black` on the backend, `mypy` on `language_kit` and `app/language_data`, and ESLint on the frontend. `mypy app` (232 errors) and Prettier (132 files) already fail on code this feature does not touch; they are recorded as open items, not gates of this feature (interpretation 11). |
 
 **Initial gate: PASS.** There is one Complexity Tracking item: a new dev dependency.
 
@@ -281,10 +310,12 @@ with the other project skills in `.claude/skills/`.
    `voice-keys`. The suite passes unchanged.
 2. **US2 (check)**: the registry, rules, `RuleContext`, `check`, the guard test and the
    seeded-omission test. German passes, and Spanish fails only on `evaluation.*`, which is expected.
-3. **US4 core**: the pack, template, render, apply and backfill. Backfill Spanish's evaluation set
-   through the kit, and move German's set into `de.toml`. `check --all` passes (FR-021).
-4. **US1**: prereq, voice catalogue and downloader, scaffold, verify, finish, run log, report and
-   the skill. Then **onboard Italian through the skill** (FR-024, SC-001–SC-003).
+3. **US4 core**: the pack, template, render, apply and backfill, proven on temporary copies. German's
+   set moves into `de.toml` in the foundation step, so German passes `check` in US2.
+4. **US1**: prereq, voice catalogue and downloader, scaffold, verify, finish (with `--pack`), run log,
+   report and the skill. Then backfill Spanish's evaluation set through the kit with `finish --pack`,
+   so the run is logged and reported; `check --all` passes (FR-021). Then **onboard Italian through
+   the skill** (FR-024, SC-001–SC-003).
 5. **US3**: generalised benchmarks and `bench`. Run them for German and Italian, and record the
    results.
 6. **Polish**: FR-026 docs, `architecture.md` and README, quickstart §4, §8, §9 and §10, and the

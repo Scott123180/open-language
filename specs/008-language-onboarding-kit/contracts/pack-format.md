@@ -16,6 +16,7 @@ the pack is read.
 | `[[voices]]` `key` | string | chosen | none: candidates listed in a comment |
 | `[[voices]]` `gender` | `"female"` \| `"male"` | agent | |
 | `[[voices]]` `speaking_rate` | `"natural"` \| `"fast"` \| `"slow"` | agent | `"natural"` when omitted |
+| `[[voices]]` `display_name` | string, 1–40 characters | agent, optional | absent: derived as `"<Name> (<country_english>)"` |
 | `[podcast.host_names]` `<gender>` | array of strings | agent | `[]` per gender |
 | `[podcast]` `guest_labels` | array of strings | agent | `[]` |
 | `[podcast]` `sample_line` | string | agent | `"TODO"` |
@@ -24,9 +25,11 @@ the pack is read.
 | `[evaluation]` `dictation` | array of strings | agent | `[]` |
 | `[evaluation.turns]` `<scenario-id>` | array of strings | agent | `[]` for **every current scenario** |
 
-`order`, and each voice's `display_name`, `locale` and `quality`, are **never** in a pack. They are
-derived at `apply` (research R5). A pack that sets them gets an error: "derived by the kit; remove
-it". Any key not in the registry is an error naming it, which catches typos such as `guest_label`.
+`order`, and each voice's `locale` and `quality`, are **never** in a pack. They are derived at
+`apply` (research R5). A pack that sets them gets an error: "derived by the kit; remove it". A
+voice's `display_name` is derived too, from the catalogue's voice name and country ("Paola (Italy)"),
+but a pack may set it to override a name that reads badly: the catalogue calls Spanish's
+`es_ES-davefx-medium` voice `davefx`, and the app shows "David (Spain)". Any key not in the registry is an error naming it, which catches typos such as `guest_label`.
 `"TODO"` and empty arrays fail their rules, so an unfilled pack never validates.
 
 ## Guidance comments
