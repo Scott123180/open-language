@@ -17,6 +17,8 @@ FEATURE_FILE = Path(".specify/feature.json")
 LANGUAGES_FOLDER = "languages"
 VOICE_DIR_VARIABLE = "OPEN_LANGUAGE_VOICE_DIR"
 DEFAULT_VOICE_DIR = Path(".local/share/piper-voices")
+CALLER_DIR_VARIABLE = "LANGUAGE_KIT_CWD"
+"""Set by kit.sh: the directory it was run from, before it changes into backend/."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +26,7 @@ class Workspace:
     root: Path
     voice_dir: Path
     out: Path | None = None
+    caller_dir: Path | None = None
 
     @classmethod
     def discover(
@@ -31,7 +34,11 @@ class Workspace:
     ) -> "Workspace":
         voice_dir = environ.get(VOICE_DIR_VARIABLE)
         voices = Path(voice_dir) if voice_dir else Path.home() / DEFAULT_VOICE_DIR
-        return cls(root=_find_root(start.resolve()), voice_dir=voices, out=out)
+        caller = environ.get(CALLER_DIR_VARIABLE)
+        root = _find_root(start.resolve())
+        return cls(
+            root=root, voice_dir=voices, out=out, caller_dir=Path(caller) if caller else None
+        )
 
     @property
     def runtime_dir(self) -> Path:
@@ -50,6 +57,13 @@ class Workspace:
 
     def with_output(self, out: Path) -> "Workspace":
         return replace(self, out=out)
+
+    def resolve(self, path: Path) -> Path:
+        """A path given on the command line: from the caller's directory if it exists there, else the root."""
+        if path.is_absolute():
+            return path
+        from_caller = (self.caller_dir or Path.cwd()) / path
+        return from_caller if from_caller.exists() else self.root / path
 
     def relative(self, path: Path) -> str:
         """A path as shown in output and the run log: from the repository root when inside it."""

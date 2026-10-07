@@ -70,3 +70,13 @@ def test_out_moves_the_output_root(kit, tmp_path, monkeypatch):
     run_kit(kit, "check", "de", "--out", str(tmp_path))
 
     assert seen == [tmp_path]
+
+
+def test_a_pack_path_relative_to_the_root_is_found(kit):
+    pack = kit.workspace.root / "specs" / "it-pack.toml"
+    pack.parent.mkdir(parents=True, exist_ok=True)
+    pack.write_text('code = "it"\n', encoding="utf-8")
+
+    _, output = run_kit(kit, "validate", "it", "--pack", "specs/it-pack.toml")
+
+    assert output.startswith("validate it: ")

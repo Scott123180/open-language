@@ -41,7 +41,11 @@ class PackCheck:
 
 
 def pack_path(kit: Kit, code: str, given: Path | None) -> Path:
-    return given if given is not None else kit.workspace.language_dir(code) / PACK_FILE
+    return (
+        kit.workspace.resolve(given)
+        if given is not None
+        else kit.workspace.language_dir(code) / PACK_FILE
+    )
 
 
 def check_pack(kit: Kit, code: str, given: Path | None) -> PackCheck:

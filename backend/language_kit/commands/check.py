@@ -1,6 +1,7 @@
 """`check [<code> | --all]`: read-only; does each catalogued language meet every requirement?"""
 
 import argparse
+from collections.abc import Callable
 
 from language_kit.checking import (
     catalogued_languages,
@@ -27,16 +28,23 @@ class CheckCommand(Command):
         add_code_or_all(parser)
 
     def run(self, arguments: argparse.Namespace, kit: Kit) -> CommandResult:
-        languages = catalogued_languages(kit.workspace)
-        codes = selected_codes(arguments, tuple(languages))
-        requirements = checked(kit.requirements)
-        results = {
-            code: failing_items(
-                languages[code], others_than(code, languages), kit.rule_context(), requirements
-            )
-            for code in codes
-        }
-        return _result(kit, results, {code: languages[code] for code in codes}, len(requirements))
+        return check_languages(kit, lambda catalogued: selected_codes(arguments, catalogued))
+
+
+def check_languages(
+    kit: Kit, select: Callable[[tuple[str, ...]], tuple[str, ...]]
+) -> CommandResult:
+    """Check the languages `select` picks from the catalogued ones."""
+    languages = catalogued_languages(kit.workspace)
+    codes = select(tuple(languages))
+    requirements = checked(kit.requirements)
+    results = {
+        code: failing_items(
+            languages[code], others_than(code, languages), kit.rule_context(), requirements
+        )
+        for code in codes
+    }
+    return _result(kit, results, {code: languages[code] for code in codes}, len(requirements))
 
 
 def selected_codes(arguments: argparse.Namespace, catalogued: tuple[str, ...]) -> tuple[str, ...]:

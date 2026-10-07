@@ -48,6 +48,11 @@ def workspace(repo: Path, tmp_path: Path) -> Workspace:
     return Workspace.discover(repo, environ={"OPEN_LANGUAGE_VOICE_DIR": str(voice_dir)})
 
 
+def remove_evaluation(workspace: Workspace, code: str) -> None:
+    """Make a language incomplete again: as Spanish was before its backfill."""
+    (workspace.evaluation_dir / f"{code}.toml").unlink(missing_ok=True)
+
+
 def fake_context(**overrides) -> RuleContext:
     facts = {
         "scenario_ids": SCENARIO_IDS,

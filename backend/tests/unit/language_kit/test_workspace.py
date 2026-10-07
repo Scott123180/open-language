@@ -62,3 +62,20 @@ def test_relative_paths_are_shown_from_the_root(repo: Path):
         workspace.relative(workspace.runtime_dir / "it.toml")
         == "backend/app/language_data/languages/it.toml"
     )
+
+
+def test_a_relative_path_is_found_from_the_callers_directory(repo: Path):
+    (repo / "backend" / "pack.toml").write_text("", encoding="utf-8")
+    workspace = Workspace.discover(repo, environ={"LANGUAGE_KIT_CWD": str(repo / "backend")})
+
+    assert workspace.resolve(Path("pack.toml")) == repo / "backend" / "pack.toml"
+
+
+def test_a_relative_path_is_otherwise_taken_from_the_root(repo: Path):
+    workspace = Workspace.discover(repo, environ={"LANGUAGE_KIT_CWD": str(repo / "backend")})
+
+    assert workspace.resolve(Path("specs/x/pack.toml")) == repo / "specs/x/pack.toml"
+
+
+def test_an_absolute_path_is_kept(repo: Path, tmp_path: Path):
+    assert Workspace.discover(repo, environ={}).resolve(tmp_path) == tmp_path

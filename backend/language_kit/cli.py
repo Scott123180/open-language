@@ -9,9 +9,15 @@ from typing import NoReturn, TextIO
 from language_kit.commands.apply import ApplyCommand
 from language_kit.commands.backfill import BackfillCommand
 from language_kit.commands.base import Command
+from language_kit.commands.bench import BenchCommand
 from language_kit.commands.check import CheckCommand
+from language_kit.commands.finish import FinishCommand
+from language_kit.commands.prereq import PrereqCommand
+from language_kit.commands.report import ReportCommand
 from language_kit.commands.requirements import RequirementsCommand
+from language_kit.commands.scaffold import ScaffoldCommand
 from language_kit.commands.validate import ValidateCommand
+from language_kit.commands.verify import VerifyCommand
 from language_kit.composition import Kit, build_kit
 from language_kit.errors import KitExternalError, KitUsageError
 from language_kit.output import EXIT_EXTERNAL, EXIT_FINDINGS, EXIT_OK, EXIT_USAGE, emit
@@ -20,10 +26,16 @@ __all__ = ["COMMANDS", "EXIT_EXTERNAL", "EXIT_FINDINGS", "EXIT_OK", "EXIT_USAGE"
 
 PROGRAM = "kit.sh"
 COMMANDS: tuple[Command, ...] = (
+    PrereqCommand(),
+    ScaffoldCommand(),
     ValidateCommand(),
     ApplyCommand(),
+    VerifyCommand(),
     CheckCommand(),
     BackfillCommand(),
+    ReportCommand(),
+    FinishCommand(),
+    BenchCommand(),
     RequirementsCommand(),
 )
 
@@ -58,7 +70,7 @@ def _run(parser: argparse.ArgumentParser, kit: Kit, argv: list[str]) -> int:
         kit.out.write(parser.format_usage())
         return EXIT_USAGE
     if arguments.out is not None:
-        kit = kit.with_output(arguments.out)
+        kit = kit.with_output(kit.workspace.resolve(arguments.out))
     command: Command = arguments.handler
     result = command.run(arguments, kit)
     emit(result, kit.out, arguments.json)

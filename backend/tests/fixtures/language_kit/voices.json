@@ -1,0 +1,155 @@
+{
+  "de_DE-mls-medium": {
+    "key": "de_DE-mls-medium",
+    "name": "mls",
+    "language": {
+      "code": "de_DE",
+      "family": "de",
+      "region": "DE",
+      "name_native": "German",
+      "name_english": "German",
+      "country_english": "Germany"
+    },
+    "quality": "medium",
+    "num_speakers": 236,
+    "speaker_id_map": {
+      "0": 0,
+      "1": 1
+    },
+    "files": {
+      "de/de_DE/mls/medium/de_DE-mls-medium.onnx": {
+        "size_bytes": 76000000,
+        "md5_digest": "m1a"
+      },
+      "de/de_DE/mls/medium/de_DE-mls-medium.onnx.json": {
+        "size_bytes": 5000,
+        "md5_digest": "m1b"
+      },
+      "de/de_DE/mls/medium/MODEL_CARD": {
+        "size_bytes": 300,
+        "md5_digest": "m1c"
+      }
+    },
+    "aliases": []
+  },
+  "de_DE-thorsten-medium": {
+    "key": "de_DE-thorsten-medium",
+    "name": "thorsten",
+    "language": {
+      "code": "de_DE",
+      "family": "de",
+      "region": "DE",
+      "name_native": "German",
+      "name_english": "German",
+      "country_english": "Germany"
+    },
+    "quality": "medium",
+    "num_speakers": 1,
+    "speaker_id_map": {},
+    "files": {
+      "de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx": {
+        "size_bytes": 63000000,
+        "md5_digest": "t1a"
+      },
+      "de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx.json": {
+        "size_bytes": 5000,
+        "md5_digest": "t1b"
+      },
+      "de/de_DE/thorsten/medium/MODEL_CARD": {
+        "size_bytes": 300,
+        "md5_digest": "t1c"
+      }
+    },
+    "aliases": []
+  },
+  "es_ES-davefx-medium": {
+    "key": "es_ES-davefx-medium",
+    "name": "davefx",
+    "language": {
+      "code": "es_ES",
+      "family": "es",
+      "region": "ES",
+      "name_native": "Spanish",
+      "name_english": "Spanish",
+      "country_english": "Spain"
+    },
+    "quality": "medium",
+    "num_speakers": 1,
+    "speaker_id_map": {},
+    "files": {
+      "es/es_ES/davefx/medium/es_ES-davefx-medium.onnx": {
+        "size_bytes": 63000000,
+        "md5_digest": "d1a"
+      },
+      "es/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json": {
+        "size_bytes": 5000,
+        "md5_digest": "d1b"
+      },
+      "es/es_ES/davefx/medium/MODEL_CARD": {
+        "size_bytes": 300,
+        "md5_digest": "d1c"
+      }
+    },
+    "aliases": []
+  },
+  "it_IT-paola-medium": {
+    "key": "it_IT-paola-medium",
+    "name": "paola",
+    "language": {
+      "code": "it_IT",
+      "family": "it",
+      "region": "IT",
+      "name_native": "Italian",
+      "name_english": "Italian",
+      "country_english": "Italy"
+    },
+    "quality": "medium",
+    "num_speakers": 1,
+    "speaker_id_map": {},
+    "files": {
+      "it/it_IT/paola/medium/it_IT-paola-medium.onnx": {
+        "size_bytes": 63201294,
+        "md5_digest": "p1a"
+      },
+      "it/it_IT/paola/medium/it_IT-paola-medium.onnx.json": {
+        "size_bytes": 5000,
+        "md5_digest": "p1b"
+      },
+      "it/it_IT/paola/medium/MODEL_CARD": {
+        "size_bytes": 300,
+        "md5_digest": "p1c"
+      }
+    },
+    "aliases": []
+  },
+  "it_IT-riccardo-x_low": {
+    "key": "it_IT-riccardo-x_low",
+    "name": "riccardo",
+    "language": {
+      "code": "it_IT",
+      "family": "it",
+      "region": "IT",
+      "name_native": "Italian",
+      "name_english": "Italian",
+      "country_english": "Italy"
+    },
+    "quality": "x_low",
+    "num_speakers": 1,
+    "speaker_id_map": {},
+    "files": {
+      "it/it_IT/riccardo/x_low/it_IT-riccardo-x_low.onnx": {
+        "size_bytes": 28130791,
+        "md5_digest": "r1a"
+      },
+      "it/it_IT/riccardo/x_low/it_IT-riccardo-x_low.onnx.json": {
+        "size_bytes": 5000,
+        "md5_digest": "r1b"
+      },
+      "it/it_IT/riccardo/x_low/MODEL_CARD": {
+        "size_bytes": 300,
+        "md5_digest": "r1c"
+      }
+    },
+    "aliases": []
+  }
+}

@@ -31,7 +31,8 @@ def italian(workspace, tmp_path):
 
 
 def _repository(kit) -> dict[str, bytes]:
-    return snapshot(kit.workspace.root)
+    """The repository's data files: what `apply` may change (the kit's run log aside)."""
+    return snapshot(kit.workspace.runtime_dir, kit.workspace.evaluation_dir)
 
 
 def _spanish_pack(kit, tmp_path, body: str):

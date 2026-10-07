@@ -2,8 +2,10 @@
 
 from datetime import UTC, datetime, timedelta
 
+from language_kit.bench import BenchProbe
 from language_kit.clock import Clock
 from language_kit.errors import KitExternalError
+from language_kit.verify import CommandRunner, CompletedRun
 from language_kit.voices import (
     VoiceCandidate,
     VoiceCatalogue,
@@ -13,6 +15,7 @@ from language_kit.voices import (
 )
 
 COUNTRIES = {"it_IT": "Italy", "de_DE": "Germany", "es_ES": "Spain", "es_AR": "Argentina"}
+LANGUAGE_NAMES = {"it": "Italian", "de": "German", "es": "Spanish", "fr": "French"}
 MEGABYTE = 1_000_000
 
 
@@ -25,9 +28,9 @@ def candidate(key: str, quality: str | None = None, megabytes: int = 60) -> Voic
         VoiceFile(f"{folder}/{key}.onnx.json", f"md5-{key}-json", 5_000),
     )
     size = sum(file.size_bytes for file in files)
-    return VoiceCandidate(
-        key, name, region, COUNTRIES.get(region, region), quality or tier, size, files
-    )
+    country = COUNTRIES.get(region, region)
+    language_name = LANGUAGE_NAMES.get(code, code)
+    return VoiceCandidate(key, name, region, country, quality or tier, size, files, language_name)
 
 
 class FakeVoiceCatalogue(VoiceCatalogue):
@@ -73,3 +76,29 @@ class FakeVoiceDownloader(VoiceDownloader):
         for suffix in (".onnx", ".onnx.json"):
             (self._voice_dir / f"{voice.key}{suffix}").write_bytes(b"voice")
         return VoiceDownload(voice.key, downloaded=True, seconds=1.5)
+
+
+class FakeCommandRunner(CommandRunner):
+    """Returns scripted (exit code, output) per suite log name; passing output otherwise."""
+
+    def __init__(self, scripted: dict[str, tuple[int, str]] | None = None) -> None:
+        self._scripted = scripted or {}
+        self.calls: list[tuple[str, list[str], object, object]] = []
+        self.environments: list[dict[str, str]] = []
+
+    def run(self, argv, cwd, log, environment=None) -> CompletedRun:
+        name = log.stem
+        self.calls.append((name, list(argv), cwd, log))
+        self.environments.append(dict(environment or {}))
+        exit_code, output = self._scripted.get(name, (0, "All checks passed!"))
+        log.parent.mkdir(parents=True, exist_ok=True)
+        log.write_text(output, encoding="utf-8")
+        return CompletedRun(exit_code, output)
+
+
+class FakeBenchProbe(BenchProbe):
+    def __init__(self, ollama_problem: str | None = None) -> None:
+        self._ollama_problem = ollama_problem
+
+    def ollama_problem(self) -> str | None:
+        return self._ollama_problem

@@ -57,6 +57,7 @@ def _backfill(kit: Kit, code: str, sources: TemplateSources, dry_run: bool) -> B
     if can_write:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(partial_pack(sources.languages[code], items, sources), encoding="utf-8")
+        kit.record(code, "backfill", "ok", files_written=[kit.workspace.relative(path)])
     return Backfill(code, items, path, can_write)
 
 

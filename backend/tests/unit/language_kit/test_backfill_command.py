@@ -2,8 +2,15 @@
 
 import tomllib
 
+import pytest
+
 from language_kit.cli import EXIT_OK
-from tests.unit.language_kit.conftest import run_kit, snapshot
+from tests.unit.language_kit.conftest import remove_evaluation, run_kit, snapshot
+
+
+@pytest.fixture(autouse=True)
+def incomplete_spanish(workspace):
+    remove_evaluation(workspace, "es")
 
 
 def _backfill_pack(kit, code: str):
