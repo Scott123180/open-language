@@ -6,6 +6,7 @@ It owns no tables and no router.
 
 from app.practice_languages.catalog import (
     DEFAULT_PRACTICE_LANGUAGE,
+    NATIVE_LANGUAGE_NAMES,
     PRACTICE_LANGUAGES,
     PracticeLanguage,
 )
@@ -17,6 +18,7 @@ __all__ = [
     "PracticeLanguage",
     "PRACTICE_LANGUAGES",
     "DEFAULT_PRACTICE_LANGUAGE",
+    "NATIVE_LANGUAGE_NAMES",
     "UnknownLanguage",
     "language_name",
     "ConversationLanguages",

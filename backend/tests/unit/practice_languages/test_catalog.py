@@ -17,6 +17,7 @@ PUBLIC_NAMES = {
     "PracticeLanguage",
     "PRACTICE_LANGUAGES",
     "DEFAULT_PRACTICE_LANGUAGE",
+    "NATIVE_LANGUAGE_NAMES",
     "UnknownLanguage",
     "language_name",
     "ConversationLanguages",

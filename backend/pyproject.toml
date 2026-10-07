@@ -69,3 +69,9 @@ target-version = ["py311"]
 python_version = "3.11"
 strict = true
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# `mypy language_kit app/language_data` checks those packages in full; the rest of `app`, reached
+# through imports, has a known type backlog (docs/architecture.md § "Open items") and is not reported.
+module = ["app.*"]
+follow_imports = "silent"
