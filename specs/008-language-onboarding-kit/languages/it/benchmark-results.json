@@ -1,0 +1,93 @@
+{
+  "results": [
+    {
+      "kind": "adherence",
+      "language": "it",
+      "voice": null,
+      "model": "llama3.1:8b",
+      "passed": 46,
+      "total": 50,
+      "threshold": "≥ 95%",
+      "met": false,
+      "not_run_reason": null,
+      "results_file": "specs/008-language-onboarding-kit/languages/it/benchmark-results.md",
+      "review_sheet": "specs/008-language-onboarding-kit/languages/it/review-sheet.md"
+    },
+    {
+      "kind": "transcription",
+      "language": "it",
+      "voice": "it_IT-paola-medium",
+      "model": "base",
+      "passed": 6,
+      "total": 20,
+      "threshold": "≥ 18/20",
+      "met": false,
+      "not_run_reason": null,
+      "results_file": "specs/008-language-onboarding-kit/languages/it/benchmark-results.md",
+      "review_sheet": null
+    },
+    {
+      "kind": "transcription",
+      "language": "it",
+      "voice": "it_IT-riccardo-x_low",
+      "model": "base",
+      "passed": 5,
+      "total": 20,
+      "threshold": "≥ 18/20",
+      "met": false,
+      "not_run_reason": null,
+      "results_file": "specs/008-language-onboarding-kit/languages/it/benchmark-results.md",
+      "review_sheet": null
+    }
+  ],
+  "entries": [
+    {
+      "result": {
+        "kind": "adherence",
+        "language": "it",
+        "voice": null,
+        "model": "llama3.1:8b",
+        "passed": 46,
+        "total": 50,
+        "threshold": "≥ 95%",
+        "met": false,
+        "not_run_reason": null,
+        "results_file": "specs/008-language-onboarding-kit/languages/it/benchmark-results.md",
+        "review_sheet": "specs/008-language-onboarding-kit/languages/it/review-sheet.md"
+      },
+      "section": "## Adherence (006 SC-002)\n\nReplies with no flagged word: 46/50 (92%) against ≥ 95%: missed.\nModel: llama3.1:8b. 4 flagged replies await a verdict in the review sheet.\n"
+    },
+    {
+      "result": {
+        "kind": "transcription",
+        "language": "it",
+        "voice": "it_IT-paola-medium",
+        "model": "base",
+        "passed": 6,
+        "total": 20,
+        "threshold": "≥ 18/20",
+        "met": false,
+        "not_run_reason": null,
+        "results_file": "specs/008-language-onboarding-kit/languages/it/benchmark-results.md",
+        "review_sheet": null
+      },
+      "section": "## Transcription: it_IT-paola-medium (006 SC-003)\n\nWhisper model: base.\n\n| # | Sentence | Transcript | WER | Pass |\n|---|---|---|---|---|\n| 1 | Vorrei un caffè e un cornetto, per favore. | vorrei un caffè anche un netto per favore | 25% | False |\n| 2 | La città è molto bella di sera. | la città è molto bella di sera | 0% | True |\n| 3 | Perché non andiamo al mare domani? | perché non andiamo ad ammare il domani. | 50% | False |\n| 4 | Mia sorella studia all'università di Bologna. | Mi assore la studia all'Università di Bologna. | 43% | False |\n| 5 | Questo vestito costa più di cento euro. | questo ho vestito questa più di 100 euro | 43% | False |\n| 6 | Lunedì mattina ho un appuntamento dal dentista. | L'une di mattina ho un appuntamento dal dentista. | 43% | False |\n| 7 | Il treno per Milano è in ritardo. | Il treno per Milano e in Titardo. | 29% | False |\n| 8 | Ci vediamo venerdì sera davanti al cinema. | Vi vediamo bene, disera davanti al cinama. | 57% | False |\n| 9 | Non c'è più latte nel frigorifero. | non c'è più latte nel figo e il ferro | 57% | False |\n| 10 | Mio nonno ha novantatré anni. | Mio nonno, no, 90 anni. | 40% | False |\n| 11 | Posso pagare con la carta di credito? Sì, certo. | Posso pagare con la catta di credito? Sì, certo! | 11% | True |\n| 12 | Domani andrò a trovare i miei amici a Roma. | Domani hanno attoviare i miei amici a Roma. | 33% | False |\n| 13 | La settimana prossima farò un viaggio in Sicilia. | La settimana prossima farò un viaggio in Sicilia. | 0% | True |\n| 14 | Il tè verde mi piace molto. | Il steve di mi piace molto. | 33% | False |\n| 15 | Qual è la tua stagione preferita? | qual è la tua stagione preferita? | 0% | True |\n| 16 | Mercoledì pomeriggio c'è una riunione importante. | me con le ripo meridre c'è una riunione importante | 71% | False |\n| 17 | Gli studenti hanno finito l'esame già alle dieci. | gli studenti hanno finito le same già alle 10. | 33% | False |\n| 18 | Oggi non posso venire alla festa perché lavoro. | oggi non posso venire alla festa perché lavoro | 0% | True |\n| 19 | Questa è la mia prima volta in Italia. | questa è la mia prima volta in Italia | 0% | True |\n| 20 | Martedì vado in palestra con un'amica. | Mate di vado in palesta con una amica. | 57% | False |\n\nSentences passing: 6/20 against ≥ 18/20: missed.\n"
+    },
+    {
+      "result": {
+        "kind": "transcription",
+        "language": "it",
+        "voice": "it_IT-riccardo-x_low",
+        "model": "base",
+        "passed": 5,
+        "total": 20,
+        "threshold": "≥ 18/20",
+        "met": false,
+        "not_run_reason": null,
+        "results_file": "specs/008-language-onboarding-kit/languages/it/benchmark-results.md",
+        "review_sheet": null
+      },
+      "section": "## Transcription: it_IT-riccardo-x_low (006 SC-003)\n\nWhisper model: base.\n\n| # | Sentence | Transcript | WER | Pass |\n|---|---|---|---|---|\n| 1 | Vorrei un caffè e un cornetto, per favore. | vorrei un caffere, è un cornetto per favore | 25% | False |\n| 2 | La città è molto bella di sera. | la cittare molto dalla di sia | 57% | False |\n| 3 | Perché non andiamo al mare domani? | perché non andiamo al mardo manico. | 33% | False |\n| 4 | Mia sorella studia all'università di Bologna. | Mi assore alla studiare all'unità di Bologna. | 71% | False |\n| 5 | Questo vestito costa più di cento euro. | Questo vestito costa più di cento euro. | 0% | True |\n| 6 | Lunedì mattina ho un appuntamento dal dentista. | le umedi, mattina, un appuntamento dal dentista | 43% | False |\n| 7 | Il treno per Milano è in ritardo. | il treno per Milano è invitato | 29% | False |\n| 8 | Ci vediamo venerdì sera davanti al cinema. | ci vediamo venervi sera daranti al cinema | 29% | False |\n| 9 | Non c'è più latte nel frigorifero. | non ci ho più latte nel frigorifero | 29% | False |\n| 10 | Mio nonno ha novantatré anni. | Mio non, no, no, vanta teami. | 100% | False |\n| 11 | Posso pagare con la carta di credito? Sì, certo. | posso paivare con la cata di credito? sì certo | 22% | False |\n| 12 | Domani andrò a trovare i miei amici a Roma. | domaniando a trovare nia e amici pruma | 67% | False |\n| 13 | La settimana prossima farò un viaggio in Sicilia. | le settime alla prossima farò un viaggio in sicili | 50% | False |\n| 14 | Il tè verde mi piace molto. | il tè verde mi piace molto | 0% | True |\n| 15 | Qual è la tua stagione preferita? | qual è la tua stagione preferita? | 0% | True |\n| 16 | Mercoledì pomeriggio c'è una riunione importante. | Nel coi di pomeriggio c'è una viunione importante. | 57% | False |\n| 17 | Gli studenti hanno finito l'esame già alle dieci. | gli studenti hanno finito le zame già alle di acidi. | 44% | False |\n| 18 | Oggi non posso venire alla festa perché lavoro. | Poggi non posso venire alla festa perché lavoro. | 12% | True |\n| 19 | Questa è la mia prima volta in Italia. | questa è la mia prima volta in Italia | 0% | True |\n| 20 | Martedì vado in palestra con un'amica. | Non artivi, vado in palestra con una amica. | 43% | False |\n\nSentences passing: 5/20 against ≥ 18/20: missed.\n"
+    }
+  ]
+}
