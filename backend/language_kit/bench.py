@@ -23,7 +23,8 @@ BENCHMARK_FILES = {
 LANGUAGE_VARIABLE = "OPEN_LANGUAGE_BENCH_LANGUAGE"
 OUTPUT_VARIABLE = "OPEN_LANGUAGE_BENCH_OUT"
 RESULTS_JSON = "benchmark-results.json"
-PYTEST = (".venv/bin/pytest", "-m", "benchmark", "-s")
+PYTEST = (".venv/bin/pytest", "-m", "benchmark", "-s", "--no-cov")
+"""Benchmarks measure the model, not the code: the coverage floor does not apply to them."""
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
 DEFAULT_OLLAMA_MODEL = "llama3.1:8b"
 OLLAMA_TAGS = "/api/tags"

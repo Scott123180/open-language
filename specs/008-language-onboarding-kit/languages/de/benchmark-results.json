@@ -1,0 +1,93 @@
+{
+  "results": [
+    {
+      "kind": "adherence",
+      "language": "de",
+      "voice": null,
+      "model": "llama3.1:8b",
+      "passed": 50,
+      "total": 50,
+      "threshold": "≥ 95%",
+      "met": true,
+      "not_run_reason": null,
+      "results_file": "specs/008-language-onboarding-kit/languages/de/benchmark-results.md",
+      "review_sheet": "specs/008-language-onboarding-kit/languages/de/review-sheet.md"
+    },
+    {
+      "kind": "transcription",
+      "language": "de",
+      "voice": "de_DE-thorsten-medium",
+      "model": "base",
+      "passed": 17,
+      "total": 20,
+      "threshold": "≥ 18/20",
+      "met": false,
+      "not_run_reason": null,
+      "results_file": "specs/008-language-onboarding-kit/languages/de/benchmark-results.md",
+      "review_sheet": null
+    },
+    {
+      "kind": "transcription",
+      "language": "de",
+      "voice": "de_DE-kerstin-low",
+      "model": "base",
+      "passed": 12,
+      "total": 20,
+      "threshold": "≥ 18/20",
+      "met": false,
+      "not_run_reason": null,
+      "results_file": "specs/008-language-onboarding-kit/languages/de/benchmark-results.md",
+      "review_sheet": null
+    }
+  ],
+  "entries": [
+    {
+      "result": {
+        "kind": "adherence",
+        "language": "de",
+        "voice": null,
+        "model": "llama3.1:8b",
+        "passed": 50,
+        "total": 50,
+        "threshold": "≥ 95%",
+        "met": true,
+        "not_run_reason": null,
+        "results_file": "specs/008-language-onboarding-kit/languages/de/benchmark-results.md",
+        "review_sheet": "specs/008-language-onboarding-kit/languages/de/review-sheet.md"
+      },
+      "section": "## Adherence (006 SC-002)\n\nReplies with no flagged word: 50/50 (100%) against ≥ 95%: met.\nModel: llama3.1:8b. 0 flagged replies await a verdict in the review sheet.\n"
+    },
+    {
+      "result": {
+        "kind": "transcription",
+        "language": "de",
+        "voice": "de_DE-thorsten-medium",
+        "model": "base",
+        "passed": 17,
+        "total": 20,
+        "threshold": "≥ 18/20",
+        "met": false,
+        "not_run_reason": null,
+        "results_file": "specs/008-language-onboarding-kit/languages/de/benchmark-results.md",
+        "review_sheet": null
+      },
+      "section": "## Transcription: de_DE-thorsten-medium (006 SC-003)\n\nWhisper model: base.\n\n| # | Sentence | Transcript | WER | Pass |\n|---|---|---|---|---|\n| 1 | Ich hätte gern einen Kaffee und ein Stück Kuchen, bitte. | Ich hätte gern einen Kaffee und ein Stück Kuchen, bitte. | 0% | True |\n| 2 | Die Straße ist heute sehr ruhig. | Die Straße ist heute sehr ruhig. | 0% | True |\n| 3 | Können Sie mir bitte helfen? | Können Sie mir bitte helfen? | 0% | True |\n| 4 | Mein Zug fährt um neun Uhr. | Mein Zug fährt um 9 Uhr. | 17% | True |\n| 5 | Wir müssen noch Brot und Käse kaufen. | Wir müssen noch Brot und Käse kaufen. | 0% | True |\n| 6 | Das Hotel liegt direkt am Fluss, gegenüber dem Park. | Das Hote liegt direkt am Fluss, gegenüber dem Park. | 11% | True |\n| 7 | Ich möchte ein Zimmer für zwei Nächte. | Ich möchte ein Zimmer für zwei Nichte. | 14% | False |\n| 8 | Der Schlüssel liegt auf dem Tisch. | Der Schlüssel liegt auf dem Tisch. | 0% | True |\n| 9 | Meine Schwester wohnt in München. | Meine Schweste wohnt in München. | 20% | True |\n| 10 | Es ist schön, Sie kennenzulernen. | Es ist schön, sie kennen zu lernen. | 60% | False |\n| 11 | Wie groß ist die Wohnung? | Wie groß ist die Wohnung? | 0% | True |\n| 12 | Morgens trinke ich gern Tee, später ein großes Glas Saft. | Morgens trinke ich gerne Tee, später ein großes Glas saft. | 10% | True |\n| 13 | Die Tür ist leider geschlossen. | Die Tür ist leider geschlossen. | 0% | True |\n| 14 | Mein Bruder spielt jeden Samstag Fußball. | Mein Bruder spielt jeden Samstag Fußball. | 0% | True |\n| 15 | Wir fahren im Sommer an die Küste. | Wir fahren in Sommer an die Kiste. | 29% | False |\n| 16 | Ich habe meine Brille in der Küche vergessen. | Ich habe meine Brille in der Küche vergessen. | 0% | True |\n| 17 | Das Frühstück ist im Preis enthalten. | Das Frühstück ist im Preis enthalten. | 0% | True |\n| 18 | Kannst du bitte das Fenster öffnen? | Kannst du bitte das Fenster öffnen? | 0% | True |\n| 19 | Die Äpfel sind heute besonders süß. | Die Äpfel sind heute besonders süß. | 0% | True |\n| 20 | Um wie viel Uhr öffnet die Bäckerei? | Um wie viel wir öffnet die Bäckerei, | 14% | True |\n\nSentences passing: 17/20 against ≥ 18/20: missed.\n"
+    },
+    {
+      "result": {
+        "kind": "transcription",
+        "language": "de",
+        "voice": "de_DE-kerstin-low",
+        "model": "base",
+        "passed": 12,
+        "total": 20,
+        "threshold": "≥ 18/20",
+        "met": false,
+        "not_run_reason": null,
+        "results_file": "specs/008-language-onboarding-kit/languages/de/benchmark-results.md",
+        "review_sheet": null
+      },
+      "section": "## Transcription: de_DE-kerstin-low (006 SC-003)\n\nWhisper model: base.\n\n| # | Sentence | Transcript | WER | Pass |\n|---|---|---|---|---|\n| 1 | Ich hätte gern einen Kaffee und ein Stück Kuchen, bitte. | Ich hätte gerne eine Kaffe und ein Stück Kuchen bitte. | 30% | False |\n| 2 | Die Straße ist heute sehr ruhig. | Die Straße ist heute sehr ruhig. | 0% | True |\n| 3 | Können Sie mir bitte helfen? | Können Sie mir bitte helfen. | 0% | True |\n| 4 | Mein Zug fährt um neun Uhr. | Bein Zug fährt um 9 Uhr. | 33% | False |\n| 5 | Wir müssen noch Brot und Käse kaufen. | Wir müssen noch beruht um Käse kaufen. | 29% | False |\n| 6 | Das Hotel liegt direkt am Fluss, gegenüber dem Park. | Das Hote liegt direkt am Fluss gegenüber dem Park. | 11% | True |\n| 7 | Ich möchte ein Zimmer für zwei Nächte. | Ich möchte ein Zimmer für zwei Nächte. | 0% | True |\n| 8 | Der Schlüssel liegt auf dem Tisch. | Der Schlasse liegt auf dem Tisch. | 17% | False |\n| 9 | Meine Schwester wohnt in München. | Meine Schwester wohnt in Männchen. | 20% | False |\n| 10 | Es ist schön, Sie kennenzulernen. | Er ist schön, sie kennen zu lernen. | 80% | False |\n| 11 | Wie groß ist die Wohnung? | Wie groß ist die Vondung? | 20% | True |\n| 12 | Morgens trinke ich gern Tee, später ein großes Glas Saft. | Morgens trinke ich Gentil, später ein großes Glas Saft. | 20% | True |\n| 13 | Die Tür ist leider geschlossen. | Die Tür ist leider geschlossen. | 0% | True |\n| 14 | Mein Bruder spielt jeden Samstag Fußball. | Mein Bruder spielt jeden Samstag Fußball. | 0% | True |\n| 15 | Wir fahren im Sommer an die Küste. | Wir fahren im Sommer an die Kaste. | 14% | False |\n| 16 | Ich habe meine Brille in der Küche vergessen. | Ich habe meine Brille in der Küche vergessen. | 0% | True |\n| 17 | Das Frühstück ist im Preis enthalten. | Das Frühstück ist im Preis enthalten. | 0% | True |\n| 18 | Kannst du bitte das Fenster öffnen? | Kannst du bitte das Fenster öffnen. | 0% | True |\n| 19 | Die Äpfel sind heute besonders süß. | Die Appfills sind heute besonders süß. | 17% | False |\n| 20 | Um wie viel Uhr öffnet die Bäckerei? | Um wie viel Uhr öffnet die Bäckerei. | 0% | True |\n\nSentences passing: 12/20 against ≥ 18/20: missed.\n"
+    }
+  ]
+}

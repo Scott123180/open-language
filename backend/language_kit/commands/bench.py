@@ -6,6 +6,7 @@ from typing import Any
 from language_kit.bench import (
     ADHERENCE,
     BENCHMARK_FILES,
+    PYTEST,
     TRANSCRIPTION,
     BenchPlan,
     not_run_result,
@@ -36,7 +37,9 @@ class BenchCommand(Command):
     def run(self, arguments: argparse.Namespace, kit: Kit) -> CommandResult:
         plan = _plan(kit, arguments)
         if arguments.dry_run:
-            line = f"would run pytest -m benchmark {' '.join(plan.argv()[4:])} (in backend)"
+            line = (
+                f"would run pytest -m benchmark {' '.join(plan.argv()[len(PYTEST):])} (in backend)"
+            )
             return CommandResult("bench", EXIT_OK, f"bench {plan.code}: dry run", [line])
         results = [*plan.not_run, *(_run(kit, plan) if plan.kinds else [])]
         missed = any(result["met"] is False for result in results)

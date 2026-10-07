@@ -67,8 +67,8 @@ def test_bench_runs_both_benchmarks_with_the_language_and_output(workspace):
     run_kit(kit, "bench", "de")
 
     (_, argv, cwd, _), environment = kit.runner.calls[0], kit.runner.environments[0]
-    assert argv[:4] == [".venv/bin/pytest", "-m", "benchmark", "-s"]
-    assert [a.rsplit("/", 1)[-1] for a in argv[4:]] == [
+    assert argv[:5] == [".venv/bin/pytest", "-m", "benchmark", "-s", "--no-cov"]
+    assert [a.rsplit("/", 1)[-1] for a in argv[5:]] == [
         "test_adherence_benchmark.py",
         "test_transcription_benchmark.py",
     ]
@@ -85,7 +85,7 @@ def test_one_benchmark_can_be_chosen(workspace, option, file):
 
     run_kit(kit, "bench", "de", option)
 
-    assert [a.rsplit("/", 1)[-1] for a in kit.runner.calls[0][1][4:]] == [file]
+    assert [a.rsplit("/", 1)[-1] for a in kit.runner.calls[0][1][5:]] == [file]
 
 
 def test_each_figure_is_printed_against_its_threshold_with_the_files(workspace):
@@ -140,7 +140,7 @@ def test_a_language_wordfreq_lacks_gets_adherence_not_run(workspace):
 
     assert code == EXIT_OK
     assert "adherence: not run (wordfreq has no de" in output
-    assert [a.rsplit("/", 1)[-1] for a in kit.runner.calls[0][1][4:]] == [
+    assert [a.rsplit("/", 1)[-1] for a in kit.runner.calls[0][1][5:]] == [
         "test_transcription_benchmark.py"
     ]
 
