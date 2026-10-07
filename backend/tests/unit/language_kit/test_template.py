@@ -59,25 +59,27 @@ def test_every_item_but_the_derived_ones_has_guidance_once(workspace):
     assert sorted(headers) == sorted(item.path for item in REQUIREMENTS if item.path != "order")
 
 
+def _section_order(item) -> tuple[int, int, int]:
+    """TOML order: plain top-level keys, then the voice tables, then each table in registry order,
+    its plain keys before its sub-tables; registry order within each."""
+    paths = [entry.path for entry in REQUIREMENTS]
+    root = item.path.split(".")[0].split("[")[0]
+    tables = list(
+        dict.fromkeys(path.split(".")[0] for path in paths if "." in path and "[" not in path)
+    )
+    rank = 0 if "." not in item.path and "[" not in item.path and root != "voices" else 1
+    rank = 2 + tables.index(root) if root in tables else rank
+    is_sub_table = item.table_keys(fake_context()) is not None
+    return rank, is_sub_table, paths.index(item.path)
+
+
 def test_items_follow_registry_order_with_sub_tables_after_their_table_keys(workspace):
     """TOML puts a table's plain keys before its sub-tables, so `turns` follows the lists."""
     headers = [match.group(1) for match in GUIDANCE_HEADER.finditer(_italian(workspace))]
+    shown = [item for item in REQUIREMENTS if item.path != "order"]
 
-    assert headers == [
-        "code",
-        "name",
-        "default_voice",
-        "voices",
-        "voices[].gender",
-        "voices[].speaking_rate",
-        "podcast.guest_labels",
-        "podcast.sample_line",
-        "podcast.host_names",
-        "evaluation.special_letters",
-        "evaluation.dictation",
-        "evaluation.loanwords",
-        "evaluation.turns",
-    ]
+    assert headers == [item.path for item in sorted(shown, key=_section_order)]
+    assert headers.index("evaluation.turns") > headers.index("evaluation.loanwords")
 
 
 def test_a_guidance_block_holds_producer_description_rules_and_example(workspace):
