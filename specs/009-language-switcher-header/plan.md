@@ -21,8 +21,8 @@ Technically:
 - **The switch** is the existing `PUT /api/settings {target_language}` (R4). `usePracticeLanguages`
   moves onto TanStack Query so every screen sees the same language. After a switch every other query
   is invalidated, so per-language screens reload (R5).
-- **The header** is a layout route around the eight top-level routes. Task screens (chat, episode,
-  practice, summary) keep their own headers and never offer the switcher. Chat and episode headers
+- **The header** is a layout route around the seven top-level routes. Task screens (chat, episode
+  setup, episode, practice, summary) keep their own headers and never offer the switcher. Chat and episode headers
   show their language read-only with its flag (R6, R8).
 
 No database change, no new endpoint, no AI provider involved.
@@ -39,7 +39,7 @@ Query v5 (existing); **new**: `flag-icons@7.5.0` (MIT, frontend runtime, SVG fla
 **Performance Goals**: Header reflects a switch within 1 s on a local install (SC-005)
 **Constraints**: No network at run time for flags (R1); same flag rendering on every OS (FR-016);
 one `banner` landmark per screen; design-system tokens only
-**Scale/Scope**: 3 catalogued languages today, open-ended; 8 top-level screens, 2 task headers
+**Scale/Scope**: 3 catalogued languages today, open-ended; 7 top-level screens, 2 task headers
 
 ## Constitution Check
 
@@ -58,8 +58,8 @@ one `banner` landmark per screen; design-system tokens only
 | Manual accessibility check | **Planned.** quickstart.md § 4 |
 | Lint / format | **PASS.** ruff, black, eslint, prettier run in `kit.sh finish` and in the quickstart |
 
-**Initial gate: PASS**, with four Complexity Tracking items, each a long React page that loses or
-gains a single element.
+**Initial gate: PASS**, with three Complexity Tracking rows covering four long React pages, each
+of which loses or gains a single element.
 
 ### Function-length plan (Boy Scout, quality gate)
 
@@ -176,10 +176,13 @@ Done: [data-model.md](data-model.md), [contracts/api.md](contracts/api.md),
 
 Implementation order that `/speckit-tasks` should keep, each step test first:
 
-1. **Flag data (backend, kit)**. Test the loader and record, then add the `Requirement` and
-   `FlagShipped` rule. Run `kit.sh backfill --all`, fill the three packs, `apply` all three, then
-   `finish` each (the skill's backfill steps). Update the pinned-values test. Install `flag-icons`
-   first, so `FlagShipped` has its set.
+1. **Flag data (backend, kit)**. Install `flag-icons` first, so `FlagShipped` has its set. Add the
+   `Requirement` and `FlagShipped` rule, then the record field with the loader accepting `flag` as
+   optional for now. Run `kit.sh backfill --all`, fill the three packs and `apply` all three.
+   Then make `flag` required and `finish` each. The loader cannot require `flag` first: the kit
+   imports `app.practice_languages`, which loads every data file strictly when it is imported, so
+   a required field that no file has yet stops the kit itself (research R2). Pin `flag` in the
+   pinned-values test once `PracticeLanguage` carries it.
 2. **API**: `PractisedLanguages` protocol and factory implementation, then the two response fields
    (contract tests first).
 3. **Shared state (frontend)**: `usePracticeLanguages` on TanStack Query, then

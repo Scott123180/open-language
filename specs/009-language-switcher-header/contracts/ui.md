@@ -9,7 +9,8 @@ by; styles follow `docs/design-system.md`.
 
 | Route | Shared header with switcher | Language shown |
 |---|---|---|
-| `/`, `/podcasts`, `/podcasts/setup`, `/history`, `/flashcards`, `/flashcards/decks`, `/flashcards/analytics`, `/settings` | yes (`AppHeader`) | current practice language |
+| `/`, `/podcasts`, `/history`, `/flashcards`, `/flashcards/decks`, `/flashcards/analytics`, `/settings` | yes (`AppHeader`) | current practice language |
+| `/podcasts/setup` | no (own `PageShell`) | none (unchanged): the show being set up already has its language (research R6) |
 | `/chat/:id` | no (own header) | the conversation's language, read-only, with flag |
 | `/podcasts/episodes/:id` | no (own header) | the episode's language, read-only, with flag |
 | `/flashcards/practice/:id`, `/flashcards/summary/:id` | no (own layout) | none (unchanged) |

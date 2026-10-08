@@ -172,3 +172,18 @@ feature author, **Low** is polish.
   integration tests. In 008 the file was not written (its modified time predates the feature), but
   a test run should never touch learner data.
 - **Could do**: point the integration suite at a temporary database path for the whole session.
+
+---
+
+## Found by later features
+
+### 19. The skill's order for a new runtime requirement stops the kit (Medium, found in 009)
+
+- **Seen**: "Adding a per-language requirement" step 1 adds the field to the strict loader first.
+  For a runtime field this stops the kit itself: `kit.sh` imports `app.practice_languages` (cli →
+  composition → context), and that import loads every data file with the strict loader, so a
+  required field that no file has yet raises before `backfill` can write it. Evaluation fields are
+  not affected. 009's `flag` works around it (tasks T049–T053): the loader accepts the field as
+  optional, the packs are applied, then the loader requires it.
+- **Could do**: write that order into the skill for runtime fields, or have `context.py` read the
+  catalogue codes it needs without importing the app catalogue.

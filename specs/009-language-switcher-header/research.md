@@ -41,11 +41,18 @@ by one component, `LanguageFlag`, as `<span class="fi fi-{flag}" aria-hidden="tr
 lowercase ISO 3166-1 alpha-2 region (`es`, `de`, `it`) or a region-subdivision (`gb-wls`). It is
 added the way the language kit requires (CLAUDE.md, "Per-language data"):
 
-1. `LanguageRecord.flag: str` and the strict loader, test first;
-2. a `Requirement("flag", RUNTIME, AGENT, "009", …)` in `backend/language_kit/registry.py` with the
+1. a `Requirement("flag", RUNTIME, AGENT, "009", …)` in `backend/language_kit/registry.py` with the
    rules `Required()`, `MatchesPattern(r"^[a-z]{2}(-[a-z0-9]+)?$", …)` and a new `FlagShipped()`;
-3. `kit.sh backfill --all`, then one pack per language with `es`, `de`, `it`, finished with
-   `kit.sh finish`.
+2. `LanguageRecord.flag: str`, with the loader accepting `flag` as optional for now, test first;
+3. `kit.sh backfill --all`, then one pack per language with `es`, `de`, `it`, all three applied;
+4. the loader then requires `flag`, test first, and each pack is finished with `kit.sh finish`.
+
+**Why the loader is strict last**: the kit imports `app.practice_languages`, and that import loads
+every data file with the strict loader. If the loader required `flag` before any file had it, the
+kit could not start to write it; if the files had it before the loader knew it, the loader would
+refuse the unknown key. The language-kit skill's "Adding a per-language requirement" puts the
+strict loader first, which is right for an evaluation field but not for a runtime one; that is
+recorded in `specs/008-language-onboarding-kit/enhancements.md` (item 19).
 
 The values match each language's default-voice region (`es_ES`, `de_DE`, `it_IT`), per the spec's
 Assumptions. The requirement's description tells the agent "usually the region of the default
@@ -158,24 +165,31 @@ field is kept. Settings's own Save keeps working as today.
 ## R6 — One header for the top-level screens
 
 **Decision**: A layout route in `App.tsx`. `AppLayout` renders `AppHeader` and an `<Outlet />` for
-the top-level routes: `/`, `/podcasts`, `/podcasts/setup`, `/history`, `/flashcards`,
-`/flashcards/decks`, `/flashcards/analytics`, `/settings`. `AppHeader` holds the app name (a link
+the seven top-level routes: `/`, `/podcasts`, `/history`, `/flashcards`, `/flashcards/decks`,
+`/flashcards/analytics`, `/settings`. `AppHeader` holds the app name (a link
 home), the `LanguageSwitcher`, and the theme toggle that today sits only in Home's header. The task
-screens — `/chat/:id`, `/podcasts/episodes/:id`, `/flashcards/practice/:id`,
+screens — `/chat/:id`, `/podcasts/setup`, `/podcasts/episodes/:id`, `/flashcards/practice/:id`,
 `/flashcards/summary/:id` — stay outside the layout, keep their headers, and so never offer the
 switcher (FR-006).
+
+`/podcasts/setup` is a task screen, not a top-level one: a generated or surprise show reaches it in
+router state and its hosts live in local state (`useSetupShow`, `useSetupHosts`), all in the show's
+language. A switch there would leave that show in place, and Start would create an episode in the
+old language while the header showed the new one (FR-004). A ready-made show would instead vanish
+from the refetched catalogue and redirect with "show unavailable". Keeping setup outside the layout
+avoids both, and FR-001 does not list it.
 
 Home loses its own `<header>` (now `AppHeader`) and `PracticeLanguageNote` (FR-007, the component
 and its test are deleted). Flashcards and FlashcardDecks render their page bars as `<div>` instead of
 `<header>`, so the app keeps one `banner` landmark per screen.
 
-**Rationale**: FR-001 needs the same control on eight screens; one layout is one place to change. The
+**Rationale**: FR-001 needs the same control on seven screens; one layout is one place to change. The
 theme toggle moves into the shared header because Home's header is the only place it lives today, and
 removing Home's header must not remove it.
 
 **Alternatives considered**:
-- *Adding the switcher to each page's own header*: eight edits to long page components, and History,
-  Settings and the podcast pages have no header to add it to.
+- *Adding the switcher to each page's own header*: seven edits to long page components, and
+  History, Settings and Podcasts have no header to add it to.
 - *Wrapping every route, including task screens*: the switcher would need a "read-only" mode and
   each task screen would show two bars.
 

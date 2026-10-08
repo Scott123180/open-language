@@ -113,8 +113,8 @@ item by a screen reader.
 
 - **Switching while a conversation is open**: a conversation keeps the language it started in. In a
   conversation or podcast episode, the header shows that conversation's language read-only, and
-  neither those screens nor a flashcard practice session offer the switcher, so a switch cannot
-  appear to change an activity already under way.
+  neither those screens, the podcast setup screen nor a flashcard practice session offer the
+  switcher, so a switch cannot appear to change an activity already under way or being set up.
 - **Voice not installed for the chosen language**: the switch still happens (practising by text
   works); the learner sees the same plain "voice unavailable" message they already get elsewhere,
   and no other language's voice is used.
@@ -154,8 +154,8 @@ item by a screen reader.
 - **FR-005**: The switcher MUST close on a choice, on Escape and on selecting outside it, and the
   last two MUST leave the practice language unchanged.
 - **FR-006**: In a conversation or a podcast episode, the header MUST show that activity's language
-  with its flag, read-only. Those screens and a flashcard practice session MUST NOT offer the
-  switcher.
+  with its flag, read-only. Those screens, the podcast setup screen and a flashcard practice
+  session MUST NOT offer the switcher.
 - **FR-007**: The home-screen line "Practising … · Change in Settings" MUST be removed.
 - **FR-008**: If saving a switch fails, the app MUST keep showing the previous language and MUST
   tell the learner the language could not be changed and that they can try again.
@@ -229,12 +229,14 @@ item by a screen reader.
   Spanish, Germany for German, Italy for Italian. Regional variants (e.g. Mexican Spanish) are out of
   scope.
 - **The switcher is not offered inside a conversation, podcast episode or flashcard practice
-  session**, because those keep their own language; the learner switches from any top-level screen.
+  session, nor while setting up a podcast episode**, because those keep their own language (a show
+  being set up is already in one language); the learner switches from any top-level screen.
 - **Flags are images shipped with the app**, not relied on from the operating system, because some
   desktop platforms do not render flag characters; no network access is needed to show them.
 - **No new learner data is stored**: the practice language and per-language voice choice are the
   existing settings; the groups are computed from existing records.
 - **The shared header is introduced by this feature** for the top-level screens; screens that keep a
-  task-specific header (a conversation, a podcast episode, a flashcard practice session) keep it and
+  task-specific header (a conversation, a podcast episode and its setup, a flashcard practice
+  session) keep it and
   do not offer the switcher; a conversation and a podcast episode show their language read-only (FR-006).
 - The feature is a single-learner local app change; there are no accounts or permissions involved.
