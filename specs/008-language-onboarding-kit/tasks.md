@@ -391,3 +391,14 @@ Task: "kit.sh in .claude/skills/language-kit/kit.sh"
   arrive with US1. Phase 4 proves the backfill flow on `tmp_path` copies (T047).
 - German's evaluation set moves in Phase 2 rather than with US4 (plan delivery step 3), so that German
   passes `check` in US2 as the plan's US2 step expects.
+
+---
+
+## Phase 8: Convergence
+
+- [X] T100 Walk quickstart §6 in the browser (`./run.sh`) with Italian selected: Italian voices only, an Italian conversation with accented transcription, every learning tool, Beginner level and Strict corrections, flashcards, a Panel podcast with two Italian hosts in their own voices and the sample line, Summary in Italian and English, Past Chats labels; record the results in `specs/008-language-onboarding-kit/validation.md` § "Italian works for a learner" per SC-008, US1/AC5 (partial)
+- [X] T101 Do the manual keyboard and contrast check of the three practice-language cards on Settings (arrow-key movement, focus ring, light and dark mode), and add a Playwright spec in `frontend/e2e/` whose mocked `/api/settings/practice-languages` returns Spanish, German and Italian and asserts arrow-key movement across all three cards (shared mock data in `frontend/e2e/fixtures.ts`); `npm run test:e2e` passes; record the result in `validation.md` per Constitution IV (partial)
+- [X] T102 Redo quickstart §10: copy the learner database (`~/.open-language/app.db`) to the scratchpad as `pre-008.db`, use Italian in the app (select it, hold a conversation), then compare every table except `app_settings` and `voice_choices` against the copy with the helper in `backend/tests/integration/practice_languages/test_upgrade_preserves_data.py`; record the row-by-row result in `validation.md` § "SC-009" per SC-009 (partial)
+- [X] T103 Re-run `kit finish it` without `--backend-only` so the kept `specs/008-language-onboarding-kit/languages/it/report.md` records ESLint, Vitest and Playwright results instead of "skipped", and commit the regenerated report and run log per FR-027, FR-024 (partial)
+- [X] T104 Repeat quickstart §8 in full on a scratch branch (register `podcast.greeting`; `check --all` fails on it only for es, de and it; `backfill --all`; apply every pack, then `finish <code> --pack … --backend-only` each; each runtime diff is the `greeting` line only; `check --all` passes; `SKILL.md` diff empty), discard the branch, and update `validation.md` § "A new per-language requirement is backfilled" per T098 (partial)
+- [ ] T105 With Ollama stopped, run `kit bench it --adherence` by hand and confirm it exits 3, names Ollama and how to start it, and writes nothing under `specs/008-language-onboarding-kit/languages/it/`; record the result in `validation.md` § "Benchmarks" per US3/AC4 (partial)

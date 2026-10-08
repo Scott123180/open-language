@@ -114,6 +114,19 @@ const GERMAN_LANGUAGE = {
 /** The practice-language catalogue with both voices installed (006 contracts §1). */
 export const mockPracticeLanguages = [SPANISH_LANGUAGE, GERMAN_LANGUAGE]
 
+const ITALIAN_LANGUAGE = {
+  language_id: 'it',
+  display_name: 'Italian',
+  is_default: false,
+  default_voice: 'it_IT-paola-medium',
+  selected_voice: 'it_IT-paola-medium',
+  is_voice_installed: true,
+  voice_unavailable_message: null as string | null,
+}
+
+/** The catalogue after the language kit added Italian by data alone (008). */
+export const mockPracticeLanguagesWithItalian = [SPANISH_LANGUAGE, GERMAN_LANGUAGE, ITALIAN_LANGUAGE]
+
 /** The catalogue when the German voice has not been downloaded. */
 export const mockPracticeLanguagesGermanVoiceMissing = [
   SPANISH_LANGUAGE,
@@ -251,6 +264,13 @@ export const mockVoices = [
   { key: 'es_AR-daniela-high', display_name: 'Daniela (Argentina)', gender: 'female', locale: 'es_AR', quality: 'high', speaking_rate: 'fast', language: 'es', is_installed: true },
   { key: 'de_DE-thorsten-medium', display_name: 'Thorsten (Germany)', gender: 'male', locale: 'de_DE', quality: 'medium', speaking_rate: 'natural', language: 'de', is_installed: true },
   { key: 'de_DE-kerstin-low', display_name: 'Kerstin (Germany)', gender: 'female', locale: 'de_DE', quality: 'low', speaking_rate: 'natural', language: 'de', is_installed: true },
+]
+
+/** Every voice once Italian is catalogued (008). */
+export const mockVoicesWithItalian = [
+  ...mockVoices,
+  { key: 'it_IT-paola-medium', display_name: 'Paola (Italy)', gender: 'female', locale: 'it_IT', quality: 'medium', speaking_rate: 'natural', language: 'it', is_installed: true },
+  { key: 'it_IT-riccardo-x_low', display_name: 'Riccardo (Italy)', gender: 'male', locale: 'it_IT', quality: 'x_low', speaking_rate: 'natural', language: 'it', is_installed: true },
 ]
 
 export const mockMessages = [

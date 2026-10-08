@@ -2,7 +2,7 @@
 
 Written by `kit.sh report it` from run-log.jsonl; regenerated in full, never edited by hand.
 
-- Runs: 2026-10-07T22:43:27.648636+00:00 to 2026-10-07T23:01:17.440334+00:00
+- Runs: 2026-10-07T22:43:27.648636+00:00 to 2026-10-07T23:53:39.224010+00:00
 - Kit commands run: prereq, scaffold, apply, verify, check, bench
 
 ## Applied
@@ -12,13 +12,13 @@ Written by `kit.sh report it` from run-log.jsonl; regenerated in full, never edi
 
 ## Checks
 
-- pytest: passed (2846 passed, 0 failed)
+- pytest: passed (2847 passed, 0 failed)
 - ruff: passed
 - black: passed
 - mypy: passed
-- eslint: skipped (--backend-only)
-- vitest: skipped (--backend-only)
-- playwright: skipped (--backend-only)
+- eslint: passed
+- vitest: passed (754 passed, 0 failed)
+- playwright: passed (290 passed, 0 failed)
 - Completeness check: passed
 
 ## Benchmarks

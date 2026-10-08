@@ -10,8 +10,10 @@ import {
   mockPracticeLanguages,
   mockPracticeLanguagesApi,
   mockPracticeLanguagesGermanVoiceMissing,
+  mockPracticeLanguagesWithItalian,
   mockSettings,
   mockVoices,
+  mockVoicesWithItalian,
   stubMicrophone,
 } from './fixtures'
 
@@ -21,7 +23,11 @@ const GERMAN_CHAT_URL = `/chat/${mockGermanConversation.id}`
 type StoredSettings = typeof mockSettings
 
 /** A `/api/settings` route that keeps what is PUT, and records every PUT body. */
-async function statefulSettings(page: Page, initial: StoredSettings = mockSettings) {
+async function statefulSettings(
+  page: Page,
+  initial: StoredSettings = mockSettings,
+  voices: unknown[] = mockVoices,
+) {
   const state = { settings: { ...initial }, puts: [] as Record<string, unknown>[] }
   await page.route('/api/settings', (route) => {
     if (route.request().method() === 'PUT') {
@@ -31,7 +37,7 @@ async function statefulSettings(page: Page, initial: StoredSettings = mockSettin
     }
     return route.fulfill({ json: state.settings })
   })
-  await page.route('/api/settings/voices', (route) => route.fulfill({ json: mockVoices }))
+  await page.route('/api/settings/voices', (route) => route.fulfill({ json: voices }))
   return state
 }
 
@@ -82,6 +88,85 @@ test.describe('Practice language — Settings', () => {
     await expect(page.getByText('Corrections are experimental')).toBeVisible()
     await expect(page.getByRole('note', { name: 'Level accuracy' })).toBeVisible()
   })
+})
+
+/** Settings with Italian catalogued by data alone, as the language kit leaves it (008). */
+async function openSettingsWithItalian(page: Page) {
+  await mockLlmProviders(page)
+  await mockConversationLevelsApi(page)
+  await mockPracticeLanguagesApi(page, mockPracticeLanguagesWithItalian)
+  await statefulSettings(page, mockSettings, mockVoicesWithItalian)
+  await page.goto(SETTINGS_URL)
+  await expect(page.getByRole('group', { name: 'Practice language' })).toBeVisible()
+}
+
+const MINIMUM_TEXT_CONTRAST = 4.5
+
+/** WCAG contrast of an element's text against the first opaque background behind it. */
+async function textContrast(page: Page, elementId: string): Promise<number> {
+  return page.locator(`#${elementId}`).evaluate((element) => {
+    const channels = (color: string) => (color.match(/[\d.]+/g) ?? []).map(Number)
+    const isOpaque = (color: string) => channels(color).length === 3 || channels(color)[3] > 0
+    let node: Element | null = element
+    while (node && !isOpaque(getComputedStyle(node).backgroundColor)) node = node.parentElement
+    const background = node ? getComputedStyle(node).backgroundColor : 'rgb(255, 255, 255)'
+    const luminance = (color: string) => {
+      const [r, g, b] = channels(color).map((value) => {
+        const unit = value / 255
+        return unit <= 0.03928 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4
+      })
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    const [lighter, darker] = [luminance(getComputedStyle(element).color), luminance(background)]
+      .sort((a, b) => b - a)
+    return (lighter + 0.05) / (darker + 0.05)
+  })
+}
+
+test.describe('Practice language — a third language added by data alone', () => {
+  test('shows Spanish, German and Italian cards in catalogue order', async ({ page }) => {
+    await openSettingsWithItalian(page)
+
+    const group = page.getByRole('group', { name: 'Practice language' })
+
+    await expect(group.getByRole('radio')).toHaveCount(3)
+    await expect(group.getByRole('radio').nth(2)).toHaveAccessibleName('Italian')
+  })
+
+  test('arrow keys move Spanish → German → Italian', async ({ page }) => {
+    await openSettingsWithItalian(page)
+    await page.getByRole('radio', { name: 'Spanish' }).focus()
+
+    await page.keyboard.press('ArrowDown')
+    await expect(page.getByRole('radio', { name: 'German' })).toBeChecked()
+    await page.keyboard.press('ArrowDown')
+
+    await expect(page.getByRole('radio', { name: 'Italian' })).toBeChecked()
+    await expect(page.getByRole('radio', { name: 'Italian' })).toBeFocused()
+  })
+
+  test('choosing Italian lists only Italian voices, with Paola selected', async ({ page }) => {
+    await openSettingsWithItalian(page)
+
+    await page.getByRole('radio', { name: 'Italian' }).check()
+
+    await expect(voiceOptions(page)).toHaveText(['Paola (Italy)', 'Riccardo (Italy)'])
+    await expect(page.getByLabel('Voice')).toHaveValue('it_IT-paola-medium')
+  })
+
+  for (const theme of ['Light', 'Dark']) {
+    test(`every card label meets text contrast in ${theme.toLowerCase()} mode`, async ({ page }) => {
+      await openSettingsWithItalian(page)
+      await page.getByRole('button', { name: theme, exact: true }).click()
+      await page.getByRole('radio', { name: 'Italian' }).check()
+
+      for (const code of ['es', 'de', 'it']) {
+        expect(await textContrast(page, `practice-language-${code}-label`)).toBeGreaterThanOrEqual(
+          MINIMUM_TEXT_CONTRAST,
+        )
+      }
+    })
+  }
 })
 
 test.describe('Practice language — Home', () => {

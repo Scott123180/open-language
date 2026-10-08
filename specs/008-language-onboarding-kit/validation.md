@@ -43,19 +43,71 @@ with a throwaway database:
 | Podcast catalogue in Italian | a show casts Silvia (Paola's voice) and Lorenzo (Riccardo's voice) |
 | Speech in, accents kept | Paola saying "Perché la città è così bella?" transcribes as `perché la città è così bella` |
 
-**Not done here, for a person:** the browser walk-through of §6 (three cards with arrow-key movement,
-the learning tools, Beginner level and Strict corrections, flashcards, Panel playback, Summary, Past
-Chats) and the keyboard and contrast check of the three cards (Constitution IV). The frontend did not
-change, and its Vitest and Playwright suites passed in every `finish`.
+**Browser walk-through of §6 (T100, 2026-10-07).** Done in headless Chromium, driven step by step
+by an agent session, against the real stack (Claude Sonnet as the learner's selected partner, Piper,
+faster-whisper `medium` from the learner's settings). The app ran as a second instance on its own
+ports, against a copy of the learner database and with its own audio cache, so the learner's running
+app and data were not touched. Chromium's fake microphone played a Paola recording of "Perché la
+città è così bella?".
+
+| Step (quickstart §6) | Result |
+|---|---|
+| 1. Settings | Spanish, German, Italian cards. Arrow keys move Spanish → German → Italian. The voice list shows only Paola (Italy) and Riccardo (Italy), with Paola selected. Saved |
+| 2. Order at a Restaurant | The greeting is Italian ("Buongiorno! Benvenuto al nostro ristorante…") and is spoken in Paola's voice (22 kHz, median pitch 210 Hz; Paola 188 Hz, davefx 134 Hz). The spoken sentence is transcribed with its accents, "Perché la città è così bella?", and the partner answers in Italian |
+| 3. Learning tools | Translate, Grammar, Phrasing (three Italian alternatives), word lookup ("tavolo (noun, masculine). Definition: table…"), Suggestions (Italian) and the expression helper ("English → Italian", answering "Posso avere il conto, per favore?") all work; explanations are English. With Beginner level and Strict corrections, "Io volere un tavolo per due persona." gets two corrections, "voglio" (conjugation) and "persone" (agreement) |
+| 4. Flashcards | With Italian selected, *My Words* lists only the two saved words, "tavolo" and "ristorante". A Listen deck is generated (`?language=it`), and the word's audio plays in Paola's voice (200 Hz) |
+| 5. Podcasts | Every ready-made show casts Italian hosts. Weekend Food Talk, Panel, Short: Silvia (Paola) and Lorenzo (Riccardo). The voice previews say "Ciao, sono Silvia. Benvenuti alla trasmissione!" and the same with Lorenzo (checked by transcription). Each line is spoken in its host's own voice: Lorenzo's at 16 kHz, which only Riccardo x_low produces, and Silvia's at 22 kHz and female pitch. The learner's line gets an Italian reply. The Summary works in English and in Italian |
+| 6. Past Chats | The Italian chat and episode are labelled Italian. An older Spanish chat opened while Italian is selected stays Spanish, and so does its expression helper ("English → Spanish") |
+
+Past Chats has no *Continue* control for roleplay chats (only for episodes), so the older Spanish
+chat was opened from its URL.
+
+**Keyboard and contrast of the three cards (T101; Constitution IV).** In the running app, arrow keys
+move focus and selection across all three cards. Screenshots in light and dark mode show a visible
+teal focus ring and the selected card's highlight. A new Playwright group, *Practice language — a
+third language added by data alone* in `frontend/e2e/practice-language.spec.ts`, now covers this
+on every run:
+- three cards in catalogue order;
+- arrow-key movement to Italian;
+- only Italian voices, with Paola selected;
+- a WCAG text contrast of at least 4.5:1 on every card label, in light and in dark mode.
+
+This was an agent's check, not a person's. A screen-reader pass remains under *Not checked* in
+every report.
+
+**The kept Italian report records every suite (T103).** The committed `languages/it/report.md`
+came from the §9 `--backend-only` re-run, so it listed the frontend suites as skipped. `kit.sh finish
+it` was re-run without the flag: `apply nothing-to-do, verify ok, check ok, report written`. The
+report now lists pytest 2847, ESLint, Vitest 754 and Playwright 290, all passing, and the
+completeness check.
 
 **SC-008**: `git diff master...HEAD -- backend/app frontend/src`, outside `language_data/languages/`,
 contains no Italian-specific code (no `Italian`, `it_IT`, or `"it"` line added).
 
 **SC-009 / quickstart §10, learner data untouched**: the copy of the learner database made for the
-row-by-row comparison was lost when the session's scratch directory was cleared. A stronger check
-replaces it: `~/.open-language/app.db` was last written at 2026-10-06 20:46:39 (−04:00), before the
-first 008 commit (20:53:54), and has no WAL file, so nothing has written to it since. The practice
-language is still `es` and all 41 conversations are there.
+first row-by-row comparison was lost when that session's scratch directory was cleared. At the time,
+the file's timestamps stood in for it: `~/.open-language/app.db` was last written before the first
+008 commit.
+
+**Redone on 2026-10-07 (T102).** Steps:
+1. A consistent read-only snapshot was taken of `app.db` (SQLite backup API): practice language
+   `es`, 42 conversations.
+2. A copy of it served the second app instance.
+3. That app started with Italian catalogued. Settings was opened and Italian chosen, by arrow keys,
+   but not saved (§6 step 1).
+4. The copy was then compared with the snapshot, row by row and every column, over every table
+   except `app_settings` and `voice_choices`.
+
+**Result: 19 tables and 591 rows, no difference.** The practice language and voice were unchanged
+(`es`, `es_ES-davefx-medium`). The comparison covered every table and every column, which is stricter
+than the `test_upgrade_preserves_data.py` helper (its fixed table list and pre-006 columns).
+
+The redo had one side effect on the learner's machine, now undone. Until its restart with a
+separate home directory, the second instance wrote three audio files into the learner's
+`~/.open-language/tts_cache/`. The cache is keyed by message and word id, and those ids (messages
+366 and 368, word 30) were not yet used by the learner's database, which ends at message 365 and word
+28. The files were moved out, so no later message can pick them up. The voice-samples directory was
+not touched.
 
 ## Spanish backfilled through the kit (T078)
 
@@ -148,7 +200,27 @@ The exercise ran on a scratch branch, which was discarded. It added `PodcastReco
 4. **One template test hard-coded the list of pack items.** It now checks the ordering rule instead.
 
 On the second run, after findings 1–3 were fixed, the only failure left was finding 4. Its test has
-since been rewritten, and it passes with an extra requirement registered. The full three-language
-run was not repeated after that last change. A feature author still extends two test tables by hand:
+since been rewritten, and it passes with an extra requirement registered.
+
+**Third run, in full, on 2026-10-07 (T104).** It ran in a separate worktree on a scratch branch,
+which was then discarded, so the learner's running app (`uvicorn --reload`) never saw the change.
+
+| Step | Result |
+|---|---|
+| Loader test first | `PodcastRecord.greeting` (optional) fails its two new loader tests, then passes |
+| Record field alone | the guard fails with the message above, naming `PodcastRecord.greeting` |
+| `Requirement("podcast.greeting", …)` + the two test-table rows | `kit.sh requirements` lists it; `check --all`: `3 languages, 15 requirements, 3 failing`, only `podcast.greeting`, for es, de and it |
+| `backfill --all` | three packs, each only `code` and `[podcast] greeting = "TODO"`; Spanish's applied pack from T078 is replaced, as finding 1's fix intends |
+| fill, `validate` (0 errors each), `apply` each | each runtime file's diff is the one `greeting` line |
+| `finish <code> --pack … --backend-only` each | `apply nothing-to-do, verify ok, check ok, report written`, for es, de and it (pytest 2856 passed each) |
+| `check --all` | `3 languages, 15 requirements, 0 failing (es ✓, de ✓, it ✓)` |
+| `SKILL.md` diff | empty |
+
+The first attempt at the `finish` step failed three `test_template.py` tests in every language. The
+cause was the exercise, not the kit: it gave the requirement `needed_by="scratch"`. The template
+prints any value, but the tests' guidance-header pattern (`needed by (\d+)`) accepts only a numeric
+feature id, as every real requirement has. With `"009"`, as the next feature would give, every suite
+passed. A feature author who gives a non-numeric id gets the same three failures; the registry
+does not reject such an id itself. A feature author still extends two test tables by hand:
 the expected rows in `test_registry.py` and `BROKEN_VALUES` in `test_seeded_omissions.py`. Both fail
 with a clear message, and the skill names them.
