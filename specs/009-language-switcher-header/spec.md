@@ -112,8 +112,9 @@ item by a screen reader.
 ### Edge Cases
 
 - **Switching while a conversation is open**: a conversation keeps the language it started in. In a
-  conversation, podcast episode or flashcard practice session, the header shows that conversation's language and does not offer
-  the switcher there, so a switch cannot appear to change an open conversation.
+  conversation or podcast episode, the header shows that conversation's language read-only, and
+  neither those screens nor a flashcard practice session offer the switcher, so a switch cannot
+  appear to change an activity already under way.
 - **Voice not installed for the chosen language**: the switch still happens (practising by text
   works); the learner sees the same plain "voice unavailable" message they already get elsewhere,
   and no other language's voice is used.
@@ -152,8 +153,9 @@ item by a screen reader.
   conversations keep theirs, and each language keeps its own remembered voice.
 - **FR-005**: The switcher MUST close on a choice, on Escape and on selecting outside it, and the
   last two MUST leave the practice language unchanged.
-- **FR-006**: In a conversation, a podcast episode or a flashcard practice session, the header MUST
-  show that activity's language with its flag, read-only, and MUST NOT offer the switcher.
+- **FR-006**: In a conversation or a podcast episode, the header MUST show that activity's language
+  with its flag, read-only. Those screens and a flashcard practice session MUST NOT offer the
+  switcher.
 - **FR-007**: The home-screen line "Practising … · Change in Settings" MUST be removed.
 - **FR-008**: If saving a switch fails, the app MUST keep showing the previous language and MUST
   tell the learner the language could not be changed and that they can try again.
@@ -234,5 +236,5 @@ item by a screen reader.
   existing settings; the groups are computed from existing records.
 - **The shared header is introduced by this feature** for the top-level screens; screens that keep a
   task-specific header (a conversation, a podcast episode, a flashcard practice session) keep it and
-  gain only the read-only language display (FR-006).
+  do not offer the switcher; a conversation and a podcast episode show their language read-only (FR-006).
 - The feature is a single-learner local app change; there are no accounts or permissions involved.
