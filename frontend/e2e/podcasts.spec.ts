@@ -30,6 +30,25 @@ test.describe('Podcasts', () => {
     await expect(food).toContainText("You're the guest")
   })
 
+  test('show cards sit side by side on a wide screen and stack on a phone', async ({ page }) => {
+    const firstTwo = async () => {
+      const cards = page.getByRole('list').getByRole('button')
+      return Promise.all([cards.nth(0).boundingBox(), cards.nth(1).boundingBox()])
+    }
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/podcasts')
+    await expect(page.getByRole('button', { name: 'Weekend Food Talk' })).toBeVisible()
+
+    const [wideFirst, wideSecond] = await firstTwo()
+    expect(wideSecond!.y).toBe(wideFirst!.y)
+    expect(wideSecond!.x).toBeGreaterThan(wideFirst!.x + wideFirst!.width)
+
+    await page.setViewportSize({ width: 390, height: 900 })
+    const [phoneFirst, phoneSecond] = await firstTwo()
+    expect(phoneSecond!.y).toBeGreaterThan(phoneFirst!.y + phoneFirst!.height)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  })
+
   test('choosing a show opens its setup on One host and Medium', async ({ page }) => {
     await page.goto('/podcasts')
     await page.getByRole('button', { name: 'Weekend Food Talk' }).click()

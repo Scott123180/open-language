@@ -10,12 +10,35 @@ describe('ShowCard', () => {
     expect(screen.getByRole('button', { name: 'Weekend Food Talk' })).toBeInTheDocument()
   })
 
-  it('gives the topic, the hosts with their personalities and the learner role', () => {
+  it('shows the topic above the title', () => {
     render(<ShowCard show={show} personalities={personalities} onChoose={vi.fn()} />)
 
-    expect(screen.getByText(/food/)).toBeInTheDocument()
-    expect(screen.getByText('Lucía (Enthusiast) & Marco (Dry sceptic)')).toBeInTheDocument()
+    const topic = screen.getByText('food')
+    const title = screen.getByText('Weekend Food Talk')
+
+    expect(topic.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows each host by name with their personality', () => {
+    render(<ShowCard show={show} personalities={personalities} onChoose={vi.fn()} />)
+
+    for (const text of ['Lucía', 'Enthusiast', 'Marco', 'Dry sceptic']) {
+      expect(screen.getByText(text)).toBeInTheDocument()
+    }
+  })
+
+  it('shows the learner role', () => {
+    render(<ShowCard show={show} personalities={personalities} onChoose={vi.fn()} />)
+
     expect(screen.getByText("You're the guest")).toBeInTheDocument()
+  })
+
+  it('describes the topic, the hosts with their personalities and the role to screen readers', () => {
+    render(<ShowCard show={show} personalities={personalities} onChoose={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: 'Weekend Food Talk' })).toHaveAccessibleDescription(
+      "Topic: food. Lucía (Enthusiast) & Marco (Dry sceptic). You're the guest.",
+    )
   })
 
   it('chooses the show', () => {
