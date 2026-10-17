@@ -13,7 +13,7 @@ export default function Podcasts() {
   const notice = (useLocation().state as { message?: string } | null)?.message
   const { catalog, error } = usePodcastCatalog()
   return (
-    <PageShell title="Podcasts" backTo="/" backLabel="Back to Home">
+    <PageShell title="Podcasts" backTo="/" backLabel="Back to Home" maxWidth="var(--width-grid)">
       <PlainNotice message={notice} />
       {error && <ErrorBanner message={error} />}
       {!catalog && !error && <p aria-live="polite">Loading shows…</p>}

@@ -97,6 +97,7 @@
   --width-narrow:  360px;
   --width-content: 480px;
   --width-wide:    640px;
+  --width-grid:    1040px;
   --nav-height:    56px;
 
   /* Transitions */

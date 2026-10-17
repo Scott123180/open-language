@@ -197,6 +197,7 @@ The `--shadow` alias maps to `--shadow-sm` for backward compatibility.
 | `--width-narrow` | `360px` | Focused single-item views (flashcard prompts) |
 | `--width-content` | `480px` | Primary content column |
 | `--width-wide` | `640px` | Tables, analytics, history |
+| `--width-grid` | `1040px` | Card grids that reflow to as many columns as fit (Podcasts shows: `repeat(auto-fill, minmax(min(100%, 280px), 1fr))`) |
 | `--nav-height` | `56px` | App header height |
 
 ---

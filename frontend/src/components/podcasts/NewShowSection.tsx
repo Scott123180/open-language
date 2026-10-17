@@ -14,7 +14,7 @@ export default function NewShowSection() {
     if (made) navigate('/podcasts/setup', { state: made })
   }
   return (
-    <section aria-labelledby="new-show-heading" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+    <section aria-labelledby="new-show-heading" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', maxWidth: 'var(--width-wide)' }}>
       <h2 id="new-show-heading" style={{ margin: 0, fontSize: 'var(--text-lg)', color: 'var(--color-text)' }}>Make your own show</h2>
       <ShowGenerator onGenerate={(idea) => void drafts.generate(idea).then(open)} onSurprise={() => void drafts.surprise().then(open)} isPending={drafts.isPending} error={drafts.error} />
       <InterestsEditor interests={preferences?.interests ?? []} onSave={(interests) => update({ interests })} error={saveError} />
