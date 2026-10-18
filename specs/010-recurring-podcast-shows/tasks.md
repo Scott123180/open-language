@@ -571,7 +571,7 @@ is still `one_off`.
     - the median time to the first `line` frame of episode 1 and of episode 10 on the same series with full memory, 10 runs each (SC-006), with prompt token counts printed;
     - the p90 of the `?wait=true` catch-up straight after a Medium sign-off, 10 runs, with a target of ≤ 15 s.
 - [X] T064 [US1] Run T063 against `llama3.1:8b`: `backend/.venv/bin/pytest -m benchmark tests/integration/podcasts -k "series" -s`. Record the results in `specs/010-recurring-podcast-shows/series-review-sheet.md`, and fill the SC-002 and SC-003 review columns by hand. If SC-002 or SC-003 is missed, note it for T135 before building further on recall quality.
-- [ ] T065 [US1] US1 checkpoint: run the full backend and frontend suites, then quickstart §4 steps 1–4 by hand (series continuity, per language, unfinished, waiting for memory).
+- [X] T065 [US1] US1 checkpoint: run the full backend and frontend suites, then quickstart §4 steps 1–4 by hand (series continuity, per language, unfinished, waiting for memory).
 
 **Checkpoint**: a show continues as a series with the same hosts and remembered points.
 
@@ -659,7 +659,7 @@ that episode 3 keeps the new host while the other host and the count are unchang
 - [X] T080 [US3] Implement `frontend/src/components/podcasts/RememberedPoints.tsx`: a disclosure with Start over through `ConfirmDialog` and `resetSeries`.
 - [X] T081 [US3] Add the name-clash hint to `frontend/src/components/podcasts/LearnerNameField.tsx`, which receives the series host names from `SetupForm`. T071 passes.
 - [X] T082 [US3] Wire **Recast…** into `SeriesHostCard.tsx`, and `RememberedPoints` into `frontend/src/pages/PodcastSetup.tsx`. T072 passes, and `npm run test:e2e` is green.
-- [ ] T083 [US3] US3 checkpoint: run the full suites, then quickstart §4 step 6 and the step 10 edge cases (name clash, Start over).
+- [X] T083 [US3] US3 checkpoint: run the full suites, then quickstart §4 step 6 and the step 10 edge cases (name clash, Start over).
 
 **Checkpoint (MVP)**: US1 + US3 deliver a long-running show with consistent, deliberately changeable
 hosts.
@@ -712,7 +712,7 @@ reference to earlier episodes, and leaves the series' count and memory unchanged
 
   T086 and T087 pass, and `npm run test:e2e` is green.
 - [X] T091 [P] [US2] Write `backend/tests/integration/podcasts/test_one_off_isolation_benchmark.py` (`@pytest.mark.benchmark`, SC-004, research R12): 20 one-off episodes of shows with a series in progress. It lists every host line mentioning "last time", "last episode" or the known facts in `series-review-sheet.md`.
-- [ ] T092 [US2] US2 checkpoint: run the full suites, then quickstart §4 step 5.
+- [X] T092 [US2] US2 checkpoint: run the full suites, then quickstart §4 step 5.
 
 **Checkpoint**: the series and the quick one-off sit side by side.
 
@@ -841,7 +841,7 @@ ready-made list is unchanged (spec US4).
   - `ShowList.tsx` passes the toggle through.
 
   T109 and T110 pass, and `npm run test:e2e` is green.
-- [ ] T118 [US4] US4 checkpoint: run the full suites, then quickstart §4 step 7, including the app restart.
+- [X] T118 [US4] US4 checkpoint: run the full suites, then quickstart §4 step 7, including the app restart.
 
 **Checkpoint**: favourites and series are one choice away from the Podcasts screen (SC-005).
 
@@ -922,7 +922,7 @@ from the other; starting one opens setup; the ready-made list is unchanged (spec
 
   T124 and T125 pass, and `npm run test:e2e` is green.
 - [X] T132 [P] [US5] Write `backend/tests/integration/podcasts/test_discovery_benchmark.py` (`@pytest.mark.benchmark`, SC-007): 10 requests. Print the time to response, the count, the duplicates and the suitability for each.
-- [ ] T133 [US5] US5 checkpoint: run the full suites, quickstart §2 (the API smoke check), and quickstart §4 step 8.
+- [X] T133 [US5] US5 checkpoint: run the full suites, quickstart §2 (the API smoke check), and quickstart §4 step 8.
 
 **Checkpoint**: all six stories work independently.
 
@@ -967,6 +967,12 @@ from the other; starting one opens setup; the ready-made list is unchanged (spec
   - §6 manual accessibility check: keyboard-only, dialogs, Orca, contrast and 44px targets.
 
   Record the results in the PR description.
+
+  Status (2026-10-18): §1 automated suites green (backend 3609 passed, 98.2% coverage, no skips;
+  Vitest 850; Playwright 336); §2 and §4 steps 1–7 and 10 run against the live app (scratch database,
+  `llama3.1:8b`, Piper), 16/16 checks passing, with dark-mode screenshots of Podcasts and setup; §5 every
+  pre-010 row identical to `app.db.pre-010`, no link rows; step 9 covered by `themed-select.spec.ts` in
+  three themes. **Still to do by hand: §6** (keyboard-only walk, Orca, contrast by eye, 44px targets).
 
 ---
 
