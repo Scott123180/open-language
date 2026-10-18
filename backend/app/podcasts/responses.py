@@ -5,6 +5,7 @@ from app.podcasts.catalog import (
     EPISODE_LENGTHS,
     PERSONALITIES,
     PODCAST_FORMATS,
+    READY_MADE_SOURCE,
 )
 from app.podcasts.schemas import (
     CatalogResponse,
@@ -20,6 +21,7 @@ from app.podcasts.schemas import (
     PersonalityOption,
     PreferencesResponse,
     ShowDraftModel,
+    ShowListing,
 )
 from app.podcasts.services.casting import Host
 from app.podcasts.services.episode_turns import line_payload
@@ -29,8 +31,6 @@ from app.podcasts.services.storage import EpisodeRecord, HostRecord, Preferences
 from app.podcasts.services.turn_policy import Turn
 from app.practice_languages import language_name
 from app.services.tts.base import VoiceInstallation
-
-READY_MADE_SOURCE = "ready_made"
 
 
 def catalogue_options() -> dict:
@@ -75,15 +75,24 @@ def _personality_options() -> list[PersonalityOption]:
 
 
 def catalog_response(
-    language: str, shows: list[ShowDraftModel], voices: CatalogVoices
+    language: str,
+    shows: list[ShowListing],
+    voices: CatalogVoices,
+    my_shows: list[ShowListing],
 ) -> CatalogResponse:
     return CatalogResponse(
         language=language,
         language_name=language_name(language),
         shows=shows,
+        my_shows=my_shows,
         voices=voices,
         **catalogue_options(),
     )
+
+
+def catalog_listings(drafts: list[ShowDraftModel]) -> list[ShowListing]:
+    """The ready-made shows as listings, in catalogue order (FR-015)."""
+    return [ShowListing(**draft.model_dump()) for draft in drafts]
 
 
 def show_draft(show, hosts: tuple[Host, Host], language: str, source: str) -> ShowDraftModel:

@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.podcasts.catalog import PERSONALITIES
+from app.podcasts.catalog import PERSONALITIES, SHOW_TEMPLATES
 from app.practice_languages import host_names_for
 from app.services.tts.voices import AVAILABLE_VOICES
 from tests.support.podcast_harness import podcast_harness
@@ -10,7 +10,18 @@ from tests.support.podcast_harness import podcast_harness
 FORMAT_KEYS = {"format_id", "label", "host_count", "is_learner_speaking", "description"}
 LENGTH_KEYS = {"length_id", "label", "target_host_lines", "is_default"}
 PERSONALITY_KEYS = {"personality_id", "label", "description"}
-SHOW_KEYS = {"source", "show_id", "title", "premise", "topic", "learner_role", "language", "hosts"}
+DRAFT_KEYS_007 = {
+    "source",
+    "show_id",
+    "title",
+    "premise",
+    "topic",
+    "learner_role",
+    "language",
+    "hosts",
+}
+LISTING_KEYS = {"saved_show_id", "is_favourite", "series"}
+SHOW_KEYS = DRAFT_KEYS_007 | LISTING_KEYS
 HOST_KEYS = {"slot", "name", "personality_id", "voice_key", "show_role", "angle"}
 GENDER = {voice.key: voice.gender for voice in AVAILABLE_VOICES}
 
@@ -80,3 +91,24 @@ def test_german_practice_gives_german_names(harness):
     assert catalog["language"] == "de"
     for host in (host for show in catalog["shows"] for host in show["hosts"]):
         assert host["name"] in host_names_for("de", GENDER[host["voice_key"]])
+
+
+# --- 010: listings (contracts §1) ---------------------------------------------------------
+
+
+def test_every_show_is_a_listing_with_no_learner_state_on_a_fresh_database(catalog):
+    assert all(
+        (show["saved_show_id"], show["is_favourite"], show["series"]) == (None, False, None)
+        for show in catalog["shows"]
+    )
+
+
+def test_my_shows_is_empty_on_a_fresh_database(catalog):
+    assert catalog["my_shows"] == []
+
+
+def test_the_ready_made_shows_come_in_catalogue_order_on_every_call(harness, catalog):
+    again = harness.client.get("/api/podcasts/catalog").json()
+
+    assert [show["show_id"] for show in catalog["shows"]] == list(SHOW_TEMPLATES)
+    assert again["shows"] == catalog["shows"]

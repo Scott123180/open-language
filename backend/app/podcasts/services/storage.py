@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 
+from app.podcasts.services.series_snapshot import SeriesSnapshot
+
 
 @dataclass(frozen=True, slots=True)
 class NewHost:
@@ -13,6 +15,22 @@ class NewHost:
     voice_key: str
     show_role: str
     angle: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class NewSeriesLink:
+    """Makes a new episode part of a series, with what it knows of the series (010 §3)."""
+
+    series_id: int
+    episode_number: int
+    snapshot: SeriesSnapshot
+
+
+@dataclass(frozen=True, slots=True)
+class EpisodeSeriesFacts:
+    series_id: int
+    episode_number: int
+    snapshot: SeriesSnapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +50,8 @@ class NewEpisode:
     native_language: str
     llm_model: str
     hosts: tuple[NewHost, ...]
+    series: NewSeriesLink | None = None
+    """None for a one-off episode."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +70,7 @@ class EpisodeRecord:
     native_language: str
     status: str
     created_at: datetime
+    series: EpisodeSeriesFacts | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,7 +130,8 @@ class PreferencesRecord:
 class PodcastStorage(ABC):
     @abstractmethod
     def create_episode(self, episode: NewEpisode) -> EpisodeRecord:
-        """Create the conversation, the episode and its hosts together, or nothing."""
+        """Create the conversation, the episode, its hosts and its series link together, or
+        nothing."""
 
     @abstractmethod
     def get_episode(self, conversation_id: int) -> EpisodeRecord | None: ...

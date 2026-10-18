@@ -128,7 +128,7 @@ order":
 
 ### Tests for the foundation (write first)
 
-- [ ] T005 [P] Write the SC-009/FR-022 upgrade test `backend/tests/integration/podcasts/test_series_upgrade_preserves_data.py`, modelled on `backend/tests/integration/podcasts/test_upgrade_preserves_data.py`:
+- [X] T005 [P] Write the SC-009/FR-022 upgrade test `backend/tests/integration/podcasts/test_series_upgrade_preserves_data.py`, modelled on `backend/tests/integration/podcasts/test_upgrade_preserves_data.py`:
   - build the pre-010 file in `tmp_path` by `executescript` of `backend/tests/fixtures/schema_007.sql` (T003). Never use `create_all()`: the shared metadata will hold the 010 tables;
   - seed:
     - two podcast episodes (one `es`, one `de`), each with `conversations`, `podcast_episodes`, `podcast_hosts` and `podcast_host_lines` rows and their `messages`;
@@ -143,18 +143,18 @@ order":
     - `podcast_series_episodes` is empty.
 
   This test fails until T019 adds the models, because the five tables don't exist yet. From then on it pins the upgrade, and it must not be edited, except by T043's API-level additions.
-- [ ] T006 [P] Write the one-off golden test `backend/tests/unit/podcasts/test_one_off_golden.py` (FR-007, contracts §9). Write it **before** any change to `prompts.py`:
+- [X] T006 [P] Write the one-off golden test `backend/tests/unit/podcasts/test_one_off_golden.py` (FR-007, contracts §9). Write it **before** any change to `prompts.py`:
   - generate `backend/tests/unit/podcasts/golden/one_off_prompts.json` from the current code with a small script kept in the test module (`python -m tests.unit.podcasts.test_one_off_golden --write`). It holds:
     - `build_standing_prompt(...)` for every format (`one_host`, `panel`, `listen`), each with a learner name and with `learner_name=None`, at Natural and at Beginner;
     - `render_cue(...)` for every cue intent (`open`, `greet`, `discuss`, `reply`, `wrap_up`, `sign_off`), plus the settle and after-pass variants;
   - the test asserts that each call **without** a `series` argument equals the stored text. It passes on today's code;
   - the explicit `series=None` case belongs to T033, so that every checkpoint stays green.
-- [ ] T007 [P] Extend `backend/tests/unit/podcasts/test_catalog.py` (data-model §1):
+- [X] T007 [P] Extend `backend/tests/unit/podcasts/test_catalog.py` (data-model §1):
   - `"suggested" in SHOW_SOURCES`;
   - `EPISODE_KINDS == ("one_off", "series")`;
   - `MAX_REMEMBERED_TOPICS == 10`, `MAX_REMEMBERED_ABOUT_LEARNER == 8`, `MAX_POINTS_PER_EPISODE == 3`, `REMEMBERED_POINT_MAX_LENGTH == 160`, `REMEMBERED_TEXT_BUDGET == 1200`, `SERIES_SECTION_MAX_LENGTH == 1800`, `MIN_LINES_TO_REMEMBER == 2`, `MEMORY_CHUNK_CHARACTERS == 6000`, `MEMORY_WAIT_SECONDS == 30`, `SUGGESTION_SEEDS == 5`, `MIN_SUGGESTIONS == 3`, `INTEREST_SEEDS == 3`;
   - FR-015: `list(SHOW_TEMPLATES)` equals a literal list of today's eight template ids, in today's order, copied from the current catalogue.
-- [ ] T008 [P] Extend `backend/tests/unit/test_database.py`: after `init_db()` the five tables exist with exactly the columns, types, nullability and constraints of data-model §2.1–§2.5:
+- [X] T008 [P] Extend `backend/tests/unit/test_database.py`: after `init_db()` the five tables exist with exactly the columns, types, nullability and constraints of data-model §2.1–§2.5:
   - `podcast_shows.template_id` is UNIQUE;
   - UNIQUE (`show_id`, `target_language`) on `podcast_series`;
   - UNIQUE (`series_id`, `slot`) on `podcast_series_hosts`;
@@ -162,13 +162,13 @@ order":
   - `podcast_series_episodes.series_id` and `podcast_series_memories.series_id` are indexed;
   - every foreign key is `ON DELETE CASCADE`;
   - running `init_db()` twice is idempotent.
-- [ ] T009 [P] Write `backend/tests/contract/service_interfaces/test_series_storage_provider.py` (data-model §4, ISP):
+- [X] T009 [P] Write `backend/tests/contract/service_interfaces/test_series_storage_provider.py` (data-model §4, ISP):
   - `ShowLibraryStorage` is an ABC declaring exactly `keep`, `get`, `set_favourite`, `touch_played`, `list_mine` and `forget`;
   - `SeriesStorage` is an ABC declaring exactly `find`, `get`, `create`, `recast`, `reset`, `remembered`, `pending_episodes` and `remember`;
   - `EpisodeEndings` is an ABC with exactly one abstract method, `episode_finished(conversation_id)`;
   - the SQLite classes implement every method;
   - `PodcastStorage`'s abstract methods equal 007's set (copy the list from `test_podcast_storage_provider.py`), so it gains none.
-- [ ] T010 [P] Write `backend/tests/unit/podcasts/test_sqlite_show_library.py` against an in-memory database (data-model §2.1, §4, §5.1):
+- [X] T010 [P] Write `backend/tests/unit/podcasts/test_sqlite_show_library.py` against an in-memory database (data-model §2.1, §4, §5.1):
   - `keep` of a ready-made draft creates one row with `template_id` set, `source = "ready_made"` and every content column NULL, and a second `keep` returns the same row;
   - `keep` of a learner-made draft (`generated`, `surprise`, `suggested`) creates a row with `template_id` NULL and title, premise, topic, learner role, both personalities and both angles set; a second `keep` of the same content returns the same row;
   - `get(ShowRef(template_id=…))` and `get(ShowRef(saved_show_id=…))` return a `KeptShow`; a ready-made `KeptShow`'s content is read from `SHOW_TEMPLATES`; an unknown ref returns `None`;
@@ -181,7 +181,7 @@ order":
   - `list_mine(language)` returns the favourites, the shows with a series in `language`, and the played learner-made shows, ordered by the latest of `last_played_at` and `favourited_at`, newest first (research R9);
   - a show with a series in another language only is not listed, unless it is a favourite or a played learner-made show;
   - `forget(saved_show_id)` deletes a learner-made row and returns `True`; its series in every language cascade away (hosts, links, memories), while the `conversations` and `podcast_episodes` rows stay; an unknown id, or the id of a ready-made row, returns `False` (FR-024).
-- [ ] T011 [P] Write `backend/tests/unit/podcasts/test_sqlite_series_storage.py` against an in-memory database (data-model §2.2–§2.5, §4):
+- [X] T011 [P] Write `backend/tests/unit/podcasts/test_sqlite_series_storage.py` against an in-memory database (data-model §2.2–§2.5, §4):
   - `create(show_row_id, language, hosts)` stores both slots, each with `joined_after_episodes = 0`, and a second `create` for the same (show, language) is rejected;
   - `find` and `get` return a `SeriesRecord` with:
     - `episode_count` = the number of link rows;
@@ -198,12 +198,12 @@ order":
   - `pending_episodes(series_id)` returns only link rows with at least `MIN_LINES_TO_REMEMBER` messages after the marker;
   - `remembered(series_id)` returns `RememberedPoint`s, each with the `episode_number` of its source episode;
   - deleting a `conversations` row cascades its link row and the memories drawn from it, and `episode_count` follows (spec edge case "episode deleted").
-- [ ] T012 [P] Extend `backend/tests/unit/podcasts/test_sqlite_storage.py` (data-model §3):
+- [X] T012 [P] Extend `backend/tests/unit/podcasts/test_sqlite_storage.py` (data-model §3):
   - `create_episode(NewEpisode(..., series=NewSeriesLink(series_id, episode_number, snapshot)))` writes the link row with the snapshot JSON and a NULL marker;
   - a forced failure while inserting the hosts leaves no conversation, no episode and no link row (one transaction);
   - `create_episode` with `series=None` writes no link row;
   - `get_episode` returns `EpisodeRecord.series` as `EpisodeSeriesFacts(series_id, episode_number, snapshot)` for a linked episode, and `None` for a one-off.
-- [ ] T013 [P] Write `backend/tests/unit/podcasts/test_series_values.py` (data-model §3):
+- [X] T013 [P] Write `backend/tests/unit/podcasts/test_series_values.py` (data-model §3):
   - `ShowRef` requires exactly one of `template_id` and `saved_show_id`;
   - `ShowRef.of(draft)` reads `show_id` for a ready-made draft and `saved_show_id` otherwise, and returns `None` for an unsaved learner-made draft;
   - `SeriesHost.to_host()` returns the 007 `Host` with the same slot, name, personality, voice, show role and angle;
@@ -213,19 +213,19 @@ order":
   - `SeriesRecord.matches(draft_hosts)` compares slot, name, personality and voice;
   - `SeriesSnapshot.from_json(s.to_json()) == s` for empty, typical and full snapshots, including non-ASCII text;
   - `SeriesBrief` resolves the names of `new_host_slots` from the episode's cast.
-- [ ] T014 [P] Write `backend/tests/unit/podcasts/test_series_schemas.py` (data-model §6, contracts §1–§4):
+- [X] T014 [P] Write `backend/tests/unit/podcasts/test_series_schemas.py` (data-model §6, contracts §1–§4):
   - `StartEpisodeRequest.kind` defaults to `"one_off"` and rejects any other value with 422;
   - `ShowDraftModel.saved_show_id` defaults to `None`, and `source = "suggested"` is accepted;
   - a `ShowListing` dumped to JSON and posted back as `POST /episodes`'s `show` validates, with the extra fields ignored;
   - `EpisodeSummaryRow.episode_number` defaults to `None`;
   - `DiscoverRequest.avoid_titles` rejects more than 50 entries, and any entry over 200 characters;
   - `RecastRequest.personality_id` is optional.
-- [ ] T015 [P] Extend `backend/tests/unit/test_module_boundaries.py`:
+- [X] T015 [P] Extend `backend/tests/unit/test_module_boundaries.py`:
   - only `backend/app/services/factory.py` may import `app.podcasts.services.series_storage`, `sqlite_series_storage`, `series_memory` and `episode_endings` from outside `app.podcasts`;
   - `app.podcasts.services.episode_turns` never imports `series_memory`;
   - `app.podcasts.__all__` is unchanged;
   - `app.podcasts` never imports `app.conversation_summary`.
-- [ ] T016 [P] Extend `backend/tests/contract/test_podcasts_catalog_api.py` (contracts §1):
+- [X] T016 [P] Extend `backend/tests/contract/test_podcasts_catalog_api.py` (contracts §1):
   - every entry of `shows` carries the `ShowListing` fields, with `saved_show_id` null, `is_favourite` false and `series` null on a fresh database;
   - `my_shows == []`;
   - `shows` holds the eight ready-made shows in catalogue order on two consecutive calls (FR-015);
@@ -245,8 +245,8 @@ order":
 
 ### Implementation for the foundation
 
-- [ ] T018 Add the data-model §1 constants to `backend/app/podcasts/catalog.py`: `"suggested"` in `SHOW_SOURCES`, `EPISODE_KINDS`, the memory caps and budgets (including `REMEMBERED_TEXT_BUDGET`), `MEMORY_WAIT_SECONDS`, `SUGGESTION_SEEDS`, `MIN_SUGGESTIONS` and `INTEREST_SEEDS`. Leave `SHOW_TEMPLATES` untouched. T007 passes.
-- [ ] T019 Add the five models to `backend/app/podcasts/models.py`, exactly as specified in data-model §2.1–§2.5:
+- [X] T018 Add the data-model §1 constants to `backend/app/podcasts/catalog.py`: `"suggested"` in `SHOW_SOURCES`, `EPISODE_KINDS`, the memory caps and budgets (including `REMEMBERED_TEXT_BUDGET`), `MEMORY_WAIT_SECONDS`, `SUGGESTION_SEEDS`, `MIN_SUGGESTIONS` and `INTEREST_SEEDS`. Leave `SHOW_TEMPLATES` untouched. T007 passes.
+- [X] T019 Add the five models to `backend/app/podcasts/models.py`, exactly as specified in data-model §2.1–§2.5:
   - `podcast_shows`:
     - `id`; `template_id` VARCHAR(100) NULL UNIQUE; `source` VARCHAR(12) NOT NULL;
     - `title` VARCHAR(200) NULL; `premise` TEXT NULL; `topic` VARCHAR(200) NULL;
@@ -272,7 +272,7 @@ order":
     - `created_at` DATETIME NOT NULL.
 
   T008 passes, and T005 must now pass.
-- [ ] T020 Extend `backend/app/podcasts/schemas.py` (contracts §1–§8, data-model §6):
+- [X] T020 Extend `backend/app/podcasts/schemas.py` (contracts §1–§8, data-model §6):
   - new models: `ShowListing` (a `ShowDraftModel` plus read-only `is_favourite` and `series`), `SeriesSummaryModel`, `UnfinishedEpisodeModel`, `SeriesHostModel`, `RememberedPointModel`, `SeriesDetailResponse`, `RecastRequest`, `FavouriteRequest`, `DiscoverRequest` and `DiscoverResponse`, `MemoryStatusResponse`;
   - `kind: Literal["one_off", "series"] = "one_off"` on `StartEpisodeRequest`;
   - `saved_show_id: int | None = None` on `ShowDraftModel`, and `"suggested"` accepted as its `source`;
@@ -281,24 +281,24 @@ order":
   - `my_shows: list[ShowListing]` on `CatalogResponse`, with `shows: list[ShowListing]`.
 
   T014 passes.
-- [ ] T021 Declare the abstractions:
+- [X] T021 Declare the abstractions:
   - in `backend/app/podcasts/services/library.py`, `ShowRef` (frozen; exactly one of `template_id` and `saved_show_id`; `of(draft)`);
   - in the new `backend/app/podcasts/services/series_storage.py`:
     - the `ShowLibraryStorage` and `SeriesStorage` ABCs with the signatures of data-model §4;
     - the frozen records: `KeptShow`, `SeriesHost` (with `to_host`, `is_new_in`, `has_history`), `SeriesRecord` (with `next_episode_number` and `matches`), `EpisodeRef`, `RememberedPoint`, `PendingEpisode`, `ShelfEntry`, `PointText` and `MemoryReply`;
   - in the new `backend/app/podcasts/services/episode_endings.py`, the `EpisodeEndings` ABC with `episode_finished(conversation_id: int) -> None`, and a `NoEpisodeEndings` null object for tests and one-off wiring.
-- [ ] T022 Create `backend/app/podcasts/services/series_snapshot.py`:
+- [X] T022 Create `backend/app/podcasts/services/series_snapshot.py`:
   - `SeriesSnapshot` (frozen): `episode_number`, `topics_covered`, `about_learner`, `new_host_slots`, with `to_json()` and `from_json()`;
   - `SeriesBrief` (frozen): the snapshot plus `new_host_names` resolved from a `Cast` through `SeriesBrief.of(snapshot, cast)`.
 
   This module is a deliberate addition to plan.md's module list: `prompts.py` imports these values, and putting them in `series.py` would make the prompts depend on the service. T013 passes.
-- [ ] T023 Extend `backend/app/podcasts/services/storage.py` and `sqlite_storage.py` (data-model §3):
+- [X] T023 Extend `backend/app/podcasts/services/storage.py` and `sqlite_storage.py` (data-model §3):
   - in `storage.py`: `NewSeriesLink(series_id, episode_number, snapshot)`; `NewEpisode.series: NewSeriesLink | None = None`; `EpisodeSeriesFacts`; `EpisodeRecord.series`;
   - in `SQLitePodcastStorage.create_episode`, add one line, `self._add_series_link(...)`, in the same transaction (→ 14 lines);
   - in `get_episode` and `_episode_record`, add a left join on `podcast_series_episodes`, and fill `series` from `_series_facts(link)` (→ 9 and 18 lines).
 
   T012 passes.
-- [ ] T024 Implement `SQLiteShowLibraryStorage` in the new `backend/app/podcasts/services/sqlite_series_storage.py`:
+- [X] T024 Implement `SQLiteShowLibraryStorage` in the new `backend/app/podcasts/services/sqlite_series_storage.py`:
   - keep by template id, or by learner-made content;
   - read ready-made content from `SHOW_TEMPLATES`;
   - enforce the row-lifetime invariants of data-model §2.1 inside `set_favourite`;
@@ -306,20 +306,20 @@ order":
   - implement `forget`, deleting learner-made rows only.
 
   T010 passes.
-- [ ] T025 Implement `SQLiteSeriesStorage` in `backend/app/podcasts/services/sqlite_series_storage.py`:
+- [X] T025 Implement `SQLiteSeriesStorage` in `backend/app/podcasts/services/sqlite_series_storage.py`:
   - `find` and `get`, with the count and the unfinished episode;
   - `create`, `recast` and `reset`;
   - `remembered`, `pending_episodes`;
   - `remember`: write, replace the topic, prune to the caps and then to `REMEMBERED_TEXT_BUDGET`, and move the marker, in one transaction.
 
   T011 passes.
-- [ ] T026 Wire the storages in `backend/app/services/factory.py`: `get_show_library_storage` and `get_series_storage`, built over the request's `get_db` session, like `get_podcast_storage`. T009 and T015 pass.
-- [ ] T027 Return listings from the catalogue:
+- [X] T026 Wire the storages in `backend/app/services/factory.py`: `get_show_library_storage` and `get_series_storage`, built over the request's `get_db` session, like `get_podcast_storage`. T009 and T015 pass.
+- [X] T027 Return listings from the catalogue:
   - add `catalog_listings(drafts, ...)` to `backend/app/podcasts/responses.py`; it maps each draft to a `ShowListing` with `is_favourite=False`, `series=None` and `saved_show_id=None`;
   - make `get_catalog` in `backend/app/podcasts/routes.py` call it and return `my_shows=[]` (≈ 10 lines).
 
   T016 passes.
-- [ ] T028 [P] Write `backend/tests/support/scripted_memory_llm.py`, modelled on `scripted_show_llm.py`:
+- [X] T028 [P] Write `backend/tests/support/scripted_memory_llm.py`, modelled on `scripted_show_llm.py`:
   - a `StructuredLLMProvider` fake that returns queued JSON replies for the memory and discovery schemas, and records every prompt;
   - it can raise a queued `LLMError`;
   - it can block on a `threading.Event`, for the timeout tests.

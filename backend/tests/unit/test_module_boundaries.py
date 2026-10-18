@@ -119,3 +119,42 @@ def test_the_app_never_imports_the_language_kit():
     ]
 
     assert offenders == []
+
+
+# --- 010: the series modules (contracts §10) ----------------------------------------------
+
+FACTORY_ONLY_SERIES_MODULES = (
+    "app.podcasts.services.series_storage",
+    "app.podcasts.services.sqlite_series_storage",
+    "app.podcasts.services.series_memory",
+    "app.podcasts.services.episode_endings",
+)
+PODCAST_ROOT_NAMES = [
+    "router",
+    "PODCAST_SCENARIO_ID",
+    "PodcastMessageVoices",
+    "PodcastSpeakerNames",
+]
+
+
+@pytest.mark.parametrize("module", FACTORY_ONLY_SERIES_MODULES)
+def test_only_the_factory_imports_the_series_modules_from_outside_podcasts(module):
+    importers = [
+        path.relative_to(APP_DIR)
+        for path in _python_files()
+        if _package_of(path) != "app.podcasts" and module in _imports(path) and path != FACTORY
+    ]
+
+    assert importers == []
+
+
+def test_the_episode_turns_never_import_the_memory_keeper():
+    imports = _imports(APP_DIR / "podcasts" / "services" / "episode_turns.py")
+
+    assert "app.podcasts.services.series_memory" not in imports
+
+
+def test_the_podcast_package_root_is_unchanged():
+    import app.podcasts
+
+    assert app.podcasts.__all__ == PODCAST_ROOT_NAMES

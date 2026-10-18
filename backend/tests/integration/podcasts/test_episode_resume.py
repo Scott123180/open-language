@@ -48,6 +48,7 @@ def test_the_episode_is_listed_for_past_chats(podcast_client):
         "language": "es",
         "language_name": "Spanish",
         "status": "active",
+        "episode_number": None,
     }
 
 

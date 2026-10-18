@@ -21,6 +21,7 @@ from app.podcasts.catalog import LEAD_SLOT, PODCAST_FORMATS, SHOW_TEMPLATES
 from app.podcasts.host_routes import host_router
 from app.podcasts.responses import (
     READY_MADE_SOURCE,
+    catalog_listings,
     catalog_response,
     episode_response,
     preferences_response,
@@ -105,13 +106,14 @@ def get_catalog(
 ):
     language = app_settings.target_language
     learner_name = podcasts.get_preferences().learner_name
-    shows = [
+    drafts = [
         show_draft(
             show, caster.cast_template(show, language, learner_name), language, READY_MADE_SOURCE
         )
         for show in SHOW_TEMPLATES.values()
     ]
-    return catalog_response(language, shows, _catalog_voices(language, installation))
+    voices = _catalog_voices(language, installation)
+    return catalog_response(language, catalog_listings(drafts), voices, my_shows=[])
 
 
 @router.get("/preferences", response_model=PreferencesResponse)

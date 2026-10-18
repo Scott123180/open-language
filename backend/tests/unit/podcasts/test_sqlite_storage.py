@@ -7,17 +7,21 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from app.podcasts.catalog import PODCAST_SCENARIO_ID
-from app.podcasts.models import PodcastHost
+from app.podcasts.models import PodcastHost, PodcastSeriesEpisode
+from app.podcasts.services.series_snapshot import SeriesSnapshot
 from app.podcasts.services.sqlite_storage import SQLitePodcastStorage
 from app.podcasts.services.storage import (
+    EpisodeSeriesFacts,
     NewEpisode,
     NewHost,
     NewHostLine,
+    NewSeriesLink,
     PreferencesRecord,
 )
 from app.services.storage.sqlite import SQLiteStorageProvider
 from tests.support.podcast_records import new_episode, new_host
 from tests.support.scratch_database import make_session
+from tests.support.series_records import make_series
 
 
 @pytest.fixture
@@ -260,3 +264,49 @@ def test_new_episode_and_new_host_are_value_objects():
     assert host.angle is None
     assert isinstance(new_episode(), NewEpisode)
     assert PodcastHost.__tablename__ == "podcast_hosts"
+
+
+# --- 010: the series link (data-model §3) -------------------------------------------------
+
+
+def _linked(session, storage, snapshot=None):
+    series = make_series(session)
+    snapshot = snapshot or SeriesSnapshot(3, ("el sueño",), ("Odia las mañanas.",), ("second",))
+    return series, snapshot, _panel(storage, series=NewSeriesLink(series.series_id, 3, snapshot))
+
+
+def test_a_series_episode_is_created_with_its_link_and_snapshot(session, storage):
+    series, snapshot, episode = _linked(session, storage)
+
+    link = session.get(PodcastSeriesEpisode, episode.conversation_id)
+    assert (link.series_id, link.episode_number) == (series.series_id, 3)
+    assert link.snapshot == snapshot.to_json()
+    assert link.remembered_up_to_message_id is None
+
+
+def test_a_failure_while_adding_hosts_leaves_no_episode_and_no_link(session, storage):
+    series = make_series(session)
+    clashing = (new_host("lead", "Lucía"), new_host("lead", "Marco"))
+    link = NewSeriesLink(series.series_id, 1, SeriesSnapshot(1))
+
+    with pytest.raises(IntegrityError):
+        _panel(storage, hosts=clashing, series=link)
+
+    assert session.query(PodcastSeriesEpisode).count() == 0
+    assert storage.list_episodes() == []
+
+
+def test_a_one_off_episode_has_no_link(session, storage):
+    episode = _panel(storage)
+
+    assert session.query(PodcastSeriesEpisode).count() == 0
+    assert storage.get_episode(episode.conversation_id).series is None
+
+
+def test_the_episode_record_carries_its_series_facts(session, storage):
+    series, snapshot, episode = _linked(session, storage)
+
+    stored = storage.get_episode(episode.conversation_id)
+
+    assert stored.series == EpisodeSeriesFacts(series.series_id, 3, snapshot)
+    assert storage.list_episodes()[0].series == stored.series

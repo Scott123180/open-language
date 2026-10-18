@@ -173,3 +173,52 @@ def test_every_descriptor_is_frozen(catalogue):
 
     with pytest.raises(FrozenInstanceError):
         setattr(entry, field, "changed")
+
+
+# --- 010: recurring shows (data-model §1) -------------------------------------------------
+
+SHOW_IDS_BEFORE_010 = [
+    "weekend-food-talk",
+    "tech-for-normal-people",
+    "game-day",
+    "on-the-road",
+    "screen-and-sound",
+    "nine-to-five",
+    "home-sweet-home",
+    "big-little-questions",
+]
+
+
+def test_find_a_new_show_is_a_show_source():
+    from app.podcasts.catalog import SHOW_SOURCES
+
+    assert "suggested" in SHOW_SOURCES
+
+
+def test_an_episode_is_a_one_off_or_part_of_a_series():
+    from app.podcasts.catalog import EPISODE_KINDS
+
+    assert EPISODE_KINDS == ("one_off", "series")
+
+
+def test_the_memory_and_discovery_limits_match_the_data_model():
+    from app.podcasts import catalog
+
+    assert (
+        catalog.MAX_REMEMBERED_TOPICS,
+        catalog.MAX_REMEMBERED_ABOUT_LEARNER,
+        catalog.MAX_POINTS_PER_EPISODE,
+        catalog.REMEMBERED_POINT_MAX_LENGTH,
+        catalog.REMEMBERED_TEXT_BUDGET,
+        catalog.SERIES_SECTION_MAX_LENGTH,
+        catalog.MIN_LINES_TO_REMEMBER,
+        catalog.MEMORY_CHUNK_CHARACTERS,
+        catalog.MEMORY_WAIT_SECONDS,
+        catalog.SUGGESTION_SEEDS,
+        catalog.MIN_SUGGESTIONS,
+        catalog.INTEREST_SEEDS,
+    ) == (10, 8, 3, 160, 1200, 1800, 2, 6000, 30, 5, 3, 3)
+
+
+def test_the_ready_made_shows_are_unchanged_in_content_and_order():
+    assert list(SHOW_TEMPLATES) == SHOW_IDS_BEFORE_010

@@ -5,14 +5,16 @@ A show draft comes back from the client, so it is checked again before an episod
 """
 
 from datetime import datetime
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from app.podcasts.catalog import (
     EPISODE_LENGTHS,
     HOST_NAME_MAX_LENGTH,
     HOST_SLOTS,
     LEARNER_ROLES,
+    ONE_OFF_KIND,
     PERSONALITIES,
     PODCAST_FORMATS,
     SHOW_ROLES,
@@ -24,6 +26,8 @@ from app.services.tts.voices import AVAILABLE_VOICES
 
 LANGUAGE_CHANGED = "The practice language changed. Pick the show again."
 MAX_INTERESTS = 10
+MAX_AVOID_TITLES = 50
+AVOID_TITLE_MAX_LENGTH = 200
 INTEREST_MAX_LENGTH = 40
 FORMAT_PATTERN = f"^({'|'.join(PODCAST_FORMATS)})$"
 LENGTH_PATTERN = f"^({'|'.join(EPISODE_LENGTHS)})$"
@@ -93,12 +97,35 @@ class HostDraftModel(BaseModel):
 class ShowDraftModel(BaseModel):
     source: str = Field(pattern=SOURCE_PATTERN)
     show_id: str | None = None
+    saved_show_id: int | None = None
+    """A kept learner-made show's id (010 research R1); None for a ready-made or unsaved show."""
     title: str = Field(min_length=1, max_length=TITLE_MAX_LENGTH)
     premise: str = Field(min_length=1)
     topic: str = Field(min_length=1, max_length=TITLE_MAX_LENGTH)
     learner_role: str
     language: str
     hosts: list[HostDraftModel] = Field(min_length=2, max_length=2)
+
+
+class UnfinishedEpisodeModel(BaseModel):
+    conversation_id: int
+    episode_number: int
+
+
+class SeriesSummaryModel(BaseModel):
+    series_id: int
+    episode_count: int
+    next_episode_number: int
+    unfinished_episode: UnfinishedEpisodeModel | None
+
+
+class ShowListing(ShowDraftModel):
+    """A show as the catalogue lists it: a draft plus the learner's state (contracts §1).
+
+    Posted back as a draft, the extra fields are ignored."""
+
+    is_favourite: bool = False
+    series: SeriesSummaryModel | None = None
 
 
 class CatalogVoices(BaseModel):
@@ -113,7 +140,8 @@ class CatalogResponse(BaseModel):
     formats: list[FormatOption]
     lengths: list[LengthOption]
     personalities: list[PersonalityOption]
-    shows: list[ShowDraftModel]
+    shows: list[ShowListing]
+    my_shows: list[ShowListing] = Field(default_factory=list)
     voices: CatalogVoices
 
 
@@ -160,6 +188,24 @@ class ShowRefusal(BaseModel):
     can_surprise: bool
 
 
+AvoidTitle = Annotated[str, StringConstraints(max_length=AVOID_TITLE_MAX_LENGTH)]
+
+
+class DiscoverRequest(BaseModel):
+    """Find a new show: the titles already shown this visit are never suggested again."""
+
+    avoid_titles: list[AvoidTitle] = Field(default_factory=list, max_length=MAX_AVOID_TITLES)
+
+
+class DiscoverResponse(BaseModel):
+    suggestions: list[ShowDraftModel]
+
+
+class FavouriteRequest(BaseModel):
+    show: ShowDraftModel
+    is_favourite: bool
+
+
 # --- hosts (contracts §4) -----------------------------------------------------------------
 
 
@@ -183,6 +229,7 @@ class StartEpisodeRequest(BaseModel):
     format: str = Field(pattern=FORMAT_PATTERN)
     length: str = Field(pattern=LENGTH_PATTERN)
     learner_name: str | None = None
+    kind: Literal["one_off", "series"] = ONE_OFF_KIND
 
     @field_validator("learner_name")
     @classmethod
@@ -197,6 +244,12 @@ class EpisodeShowModel(BaseModel):
     learner_role: str
     source: str
     show_id: str | None
+    saved_show_id: int | None = None
+
+
+class EpisodeSeriesModel(BaseModel):
+    series_id: int
+    episode_number: int
 
 
 class EpisodeHostModel(BaseModel):
@@ -241,6 +294,7 @@ class EpisodeResponse(BaseModel):
     can_jump_in: bool
     can_pass: bool
     lines: list[EpisodeLineModel]
+    series: EpisodeSeriesModel | None = None
 
 
 class EpisodeSummaryRow(BaseModel):
@@ -252,6 +306,62 @@ class EpisodeSummaryRow(BaseModel):
     language: str
     language_name: str
     status: str
+    episode_number: int | None = None
+
+
+# --- series (contracts §5–§8) -------------------------------------------------------------
+
+
+class SeriesHostModel(BaseModel):
+    slot: str
+    name: str
+    personality_id: str
+    personality_label: str
+    voice_key: str
+    show_role: str
+    has_history: bool
+    is_new_next_episode: bool
+    is_voice_available: bool
+    voice_unavailable_message: str | None
+
+
+class RememberedPointModel(BaseModel):
+    point_id: int
+    text: str
+    episode_number: int
+
+
+class RememberedModel(BaseModel):
+    topics: list[RememberedPointModel]
+    about_learner: list[RememberedPointModel]
+
+
+class SeriesDetailResponse(BaseModel):
+    series_id: int
+    language: str
+    show: ShowListing
+    episode_count: int
+    next_episode_number: int
+    unfinished_episode: UnfinishedEpisodeModel | None
+    memory_status: str
+    hosts: list[SeriesHostModel]
+    remembered: RememberedModel
+
+
+class RecastRequest(BaseModel):
+    language: str
+    learner_name: str | None = None
+    personality_id: str | None = None
+
+    @field_validator("learner_name")
+    @classmethod
+    def _trim_learner_name(cls, value: str | None) -> str | None:
+        return _trimmed_name(value)
+
+
+class MemoryStatusResponse(BaseModel):
+    status: str
+    detail: str | None = None
 
 
 # --- draft validation (data-model §6) -----------------------------------------------------

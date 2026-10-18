@@ -18,9 +18,36 @@ SECOND_SLOT = "second"
 HOST_SLOTS = (LEAD_SLOT, SECOND_SLOT)
 LEARNER_ROLES = ("guest", "co_host", "caller")
 SHOW_ROLES = ("host", "co_host", "guest_expert")
-SHOW_SOURCES = ("ready_made", "generated", "surprise")
+READY_MADE_SOURCE = "ready_made"
+SHOW_SOURCES = (READY_MADE_SOURCE, "generated", "surprise", "suggested")
 HOST_NAME_MAX_LENGTH = 40
 TITLE_MAX_LENGTH = 200
+
+ONE_OFF_KIND, SERIES_KIND = "one_off", "series"
+EPISODE_KINDS = (ONE_OFF_KIND, SERIES_KIND)
+"""A one-off episode stands alone; a series episode continues its show (010 research R2)."""
+
+TOPIC_POINT, LEARNER_POINT = "topic", "learner"
+"""The two kinds of remembered point: an episode's subject, or something the learner shared."""
+MAX_REMEMBERED_TOPICS = 10
+MAX_REMEMBERED_ABOUT_LEARNER = 8
+MAX_POINTS_PER_EPISODE = 3
+"""The most learner points one memory reply may add."""
+REMEMBERED_POINT_MAX_LENGTH = 160
+REMEMBERED_TEXT_BUDGET = 1200
+"""The most conversation-language text a series' points hold together, so the stored list
+always fits the series prompt section whole (010 research R7)."""
+SERIES_SECTION_MAX_LENGTH = 1800
+MIN_LINES_TO_REMEMBER = 2
+MEMORY_CHUNK_CHARACTERS = 6000
+MEMORY_WAIT_SECONDS = 30
+"""The longest a Start waits for the hosts to catch up on the last episode (010 research R6)."""
+
+SUGGESTION_SEEDS = 5
+MIN_SUGGESTIONS = 3
+INTEREST_SEEDS = 3
+"""Find a new show: seeds per request, the fewest suggestions shown, and how many seeds come
+from the learner's interests when they have some (010 research R10)."""
 
 
 @dataclass(frozen=True, slots=True)

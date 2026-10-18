@@ -20,7 +20,12 @@ from app.flashcards.services.sqlite_storage import SQLiteFlashcardStorageProvide
 from app.flashcards.services.storage import FlashcardStorageProvider
 from app.podcasts.services.casting import HostCaster
 from app.podcasts.services.episode_lock import EpisodeLocks
+from app.podcasts.services.series_storage import SeriesStorage, ShowLibraryStorage
 from app.podcasts.services.speaker_views import PodcastMessageVoices, PodcastSpeakerNames
+from app.podcasts.services.sqlite_series_storage import (
+    SQLiteSeriesStorage,
+    SQLiteShowLibraryStorage,
+)
 from app.podcasts.services.sqlite_storage import SQLitePodcastStorage
 from app.podcasts.services.storage import PodcastStorage
 from app.podcasts.services.surprise import RecentSurprises
@@ -161,6 +166,14 @@ def get_stt(app_settings: AppSettingsRecord = Depends(get_app_settings)) -> STTP
 
 def get_podcast_storage(db: Session = Depends(get_db)) -> PodcastStorage:
     return SQLitePodcastStorage(db)
+
+
+def get_show_library_storage(db: Session = Depends(get_db)) -> ShowLibraryStorage:
+    return SQLiteShowLibraryStorage(db)
+
+
+def get_series_storage(db: Session = Depends(get_db)) -> SeriesStorage:
+    return SQLiteSeriesStorage(db)
 
 
 def get_message_voices(

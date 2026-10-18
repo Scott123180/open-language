@@ -524,3 +524,142 @@ class TestSummaryStorage:
             "created_at",
         }
         assert "summary_language" in settings
+
+
+class TestSeriesTables:
+    """010 T008: the five series tables (data-model §2.1–§2.5)."""
+
+    EXPECTED = {
+        "podcast_shows": {
+            "id": ("INTEGER", 1),
+            "template_id": ("VARCHAR(100)", 0),
+            "source": ("VARCHAR(12)", 1),
+            "title": ("VARCHAR(200)", 0),
+            "premise": ("TEXT", 0),
+            "topic": ("VARCHAR(200)", 0),
+            "learner_role": ("VARCHAR(12)", 0),
+            "lead_personality": ("VARCHAR(30)", 0),
+            "second_personality": ("VARCHAR(30)", 0),
+            "lead_angle": ("TEXT", 0),
+            "second_angle": ("TEXT", 0),
+            "favourited_at": ("DATETIME", 0),
+            "last_played_at": ("DATETIME", 0),
+            "created_at": ("DATETIME", 1),
+        },
+        "podcast_series": {
+            "id": ("INTEGER", 1),
+            "show_id": ("INTEGER", 1),
+            "target_language": ("VARCHAR(10)", 1),
+            "created_at": ("DATETIME", 1),
+        },
+        "podcast_series_hosts": {
+            "id": ("INTEGER", 1),
+            "series_id": ("INTEGER", 1),
+            "slot": ("VARCHAR(8)", 1),
+            "name": ("VARCHAR(40)", 1),
+            "personality": ("VARCHAR(30)", 1),
+            "voice_key": ("VARCHAR(200)", 1),
+            "show_role": ("VARCHAR(20)", 1),
+            "angle": ("TEXT", 0),
+            "joined_after_episodes": ("INTEGER", 1),
+        },
+        "podcast_series_episodes": {
+            "conversation_id": ("INTEGER", 1),
+            "series_id": ("INTEGER", 1),
+            "episode_number": ("INTEGER", 1),
+            "snapshot": ("TEXT", 1),
+            "remembered_up_to_message_id": ("INTEGER", 0),
+        },
+        "podcast_series_memories": {
+            "id": ("INTEGER", 1),
+            "series_id": ("INTEGER", 1),
+            "conversation_id": ("INTEGER", 1),
+            "kind": ("VARCHAR(8)", 1),
+            "conversation_language": ("TEXT", 1),
+            "english": ("TEXT", 1),
+            "created_at": ("DATETIME", 1),
+        },
+    }
+    UNIQUE = {
+        "podcast_shows": [["template_id"]],
+        "podcast_series": [["show_id", "target_language"]],
+        "podcast_series_hosts": [["series_id", "slot"]],
+    }
+    FOREIGN_KEYS = {
+        "podcast_series": {("show_id", "podcast_shows", "id")},
+        "podcast_series_hosts": {("series_id", "podcast_series", "id")},
+        "podcast_series_episodes": {
+            ("conversation_id", "podcast_episodes", "conversation_id"),
+            ("series_id", "podcast_series", "id"),
+        },
+        "podcast_series_memories": {
+            ("series_id", "podcast_series", "id"),
+            ("conversation_id", "conversations", "id"),
+        },
+    }
+
+    @pytest.fixture()
+    def fresh_engine(self, tmp_path, monkeypatch):
+        from app import database
+
+        engine = create_engine(f"sqlite:///{tmp_path / 'fresh-010.db'}")
+        monkeypatch.setattr(database, "_engine", engine)
+        database.init_db()
+        return engine
+
+    def _rows(self, engine, pragma: str) -> list:
+        with engine.connect() as conn:
+            return conn.execute(text(pragma)).fetchall()
+
+    def _unique_column_sets(self, engine, table: str) -> list[list[str]]:
+        indexes = self._rows(engine, f"PRAGMA index_list({table})")
+        return [
+            [row[2] for row in self._rows(engine, f"PRAGMA index_info('{index[1]}')")]
+            for index in indexes
+            if index[2]
+        ]
+
+    def _indexed_columns(self, engine, table: str) -> set[str]:
+        indexes = self._rows(engine, f"PRAGMA index_list({table})")
+        return {
+            row[2]
+            for index in indexes
+            for row in self._rows(engine, f"PRAGMA index_info('{index[1]}')")
+        }
+
+    @pytest.mark.parametrize("table", list(EXPECTED))
+    def test_init_db_creates_the_table_with_its_columns(self, fresh_engine, table):
+        rows = self._rows(fresh_engine, f"PRAGMA table_info({table})")
+
+        info = {row[1]: (row[2], int(bool(row[3] or row[5] > 0))) for row in rows}
+        assert info == self.EXPECTED[table]
+
+    @pytest.mark.parametrize("table", list(UNIQUE))
+    def test_the_unique_constraints_hold(self, fresh_engine, table):
+        unique = self._unique_column_sets(fresh_engine, table)
+
+        assert all(columns in unique for columns in self.UNIQUE[table])
+
+    def test_an_episode_is_linked_by_its_conversation_id(self, fresh_engine):
+        rows = self._rows(fresh_engine, "PRAGMA table_info(podcast_series_episodes)")
+
+        assert [row[1] for row in rows if row[5]] == ["conversation_id"]
+
+    @pytest.mark.parametrize("table", ["podcast_series_episodes", "podcast_series_memories"])
+    def test_the_series_id_is_indexed(self, fresh_engine, table):
+        assert "series_id" in self._indexed_columns(fresh_engine, table)
+
+    @pytest.mark.parametrize("table", list(FOREIGN_KEYS))
+    def test_every_foreign_key_cascades_on_delete(self, fresh_engine, table):
+        rows = self._rows(fresh_engine, f"PRAGMA foreign_key_list({table})")
+
+        assert {(row[3], row[2], row[4]) for row in rows} == self.FOREIGN_KEYS[table]
+        assert {row[6] for row in rows} == {"CASCADE"}
+
+    def test_init_db_is_idempotent(self, fresh_engine):
+        from app import database
+
+        database.init_db()
+
+        tables = {row[0] for row in self._rows(fresh_engine, "SELECT name FROM sqlite_master")}
+        assert set(self.EXPECTED) <= tables

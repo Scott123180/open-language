@@ -8,15 +8,24 @@ from sqlalchemy.orm import Session
 from app.models.conversation import Conversation, ConversationStatus
 from app.models.message import Message, MessageRole
 from app.podcasts.catalog import PODCAST_SCENARIO_ID
-from app.podcasts.models import PodcastEpisode, PodcastHost, PodcastHostLine, PodcastPreferences
+from app.podcasts.models import (
+    PodcastEpisode,
+    PodcastHost,
+    PodcastHostLine,
+    PodcastPreferences,
+    PodcastSeriesEpisode,
+)
+from app.podcasts.services.series_snapshot import SeriesSnapshot
 from app.podcasts.services.storage import (
     EpisodeRecord,
+    EpisodeSeriesFacts,
     HostLineFacts,
     HostRecord,
     LineRecord,
     NewEpisode,
     NewHost,
     NewHostLine,
+    NewSeriesLink,
     PodcastStorage,
     PreferencesRecord,
 )
@@ -36,29 +45,35 @@ class SQLitePodcastStorage(PodcastStorage):
             self._db.add(_new_episode_row(conversation.id, episode))
             self._db.flush()
             self._db.add_all(_new_host_row(conversation.id, host) for host in episode.hosts)
+            self._add_series_link(conversation.id, episode.series)
             self._db.commit()
         except Exception:
             self._db.rollback()
             raise
         return self.get_episode(conversation.id)
 
+    def _add_series_link(self, conversation_id: int, link: NewSeriesLink | None) -> None:
+        if link is not None:
+            self._db.add(_new_link_row(conversation_id, link))
+
     def get_episode(self, conversation_id: int) -> EpisodeRecord | None:
-        row = (
-            self._db.query(PodcastEpisode, Conversation)
-            .join(Conversation, Conversation.id == PodcastEpisode.conversation_id)
-            .filter(PodcastEpisode.conversation_id == conversation_id)
-            .first()
-        )
+        row = self._episode_rows().filter(PodcastEpisode.conversation_id == conversation_id).first()
         return _episode_record(*row) if row else None
 
     def list_episodes(self) -> list[EpisodeRecord]:
-        rows = (
-            self._db.query(PodcastEpisode, Conversation)
+        rows = self._episode_rows().order_by(Conversation.started_at.desc(), Conversation.id.desc())
+        return [_episode_record(*row) for row in rows.all()]
+
+    def _episode_rows(self):
+        """Each episode with its conversation, and its series link when it has one."""
+        return (
+            self._db.query(PodcastEpisode, Conversation, PodcastSeriesEpisode)
             .join(Conversation, Conversation.id == PodcastEpisode.conversation_id)
-            .order_by(Conversation.started_at.desc(), Conversation.id.desc())
-            .all()
+            .outerjoin(
+                PodcastSeriesEpisode,
+                PodcastSeriesEpisode.conversation_id == PodcastEpisode.conversation_id,
+            )
         )
-        return [_episode_record(*row) for row in rows]
 
     def get_hosts(self, conversation_id: int) -> tuple[HostRecord, ...]:
         rows = (
@@ -168,6 +183,16 @@ def _new_host_row(conversation_id: int, host: NewHost) -> PodcastHost:
     )
 
 
+def _new_link_row(conversation_id: int, link: NewSeriesLink) -> PodcastSeriesEpisode:
+    return PodcastSeriesEpisode(
+        conversation_id=conversation_id,
+        series_id=link.series_id,
+        episode_number=link.episode_number,
+        snapshot=link.snapshot.to_json(),
+        remembered_up_to_message_id=None,
+    )
+
+
 def _new_line_row(message_id: int, line: NewHostLine) -> PodcastHostLine:
     return PodcastHostLine(
         message_id=message_id,
@@ -181,7 +206,9 @@ def _new_line_row(message_id: int, line: NewHostLine) -> PodcastHostLine:
     )
 
 
-def _episode_record(episode: PodcastEpisode, conversation: Conversation) -> EpisodeRecord:
+def _episode_record(
+    episode: PodcastEpisode, conversation: Conversation, link: PodcastSeriesEpisode | None
+) -> EpisodeRecord:
     return EpisodeRecord(
         conversation_id=episode.conversation_id,
         show_source=episode.show_source,
@@ -197,7 +224,15 @@ def _episode_record(episode: PodcastEpisode, conversation: Conversation) -> Epis
         native_language=conversation.native_language,
         status=conversation.status.value,
         created_at=episode.created_at,
+        series=_series_facts(link),
     )
+
+
+def _series_facts(link: PodcastSeriesEpisode | None) -> EpisodeSeriesFacts | None:
+    if link is None:
+        return None
+    snapshot = SeriesSnapshot.from_json(link.snapshot)
+    return EpisodeSeriesFacts(link.series_id, link.episode_number, snapshot)
 
 
 def _host_record(row: PodcastHost) -> HostRecord:
