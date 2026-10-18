@@ -41,7 +41,13 @@
         "src/hooks/useConversationSummary.ts",
         "src/hooks/useSummaryLanguage.ts",
         "src/components/chat/Summary*.tsx",
-        "src/services/podcastsApi.ts"
+        "src/services/podcastsApi.ts",
+        "src/components/shared/ThemedSelect.tsx",
+        "src/components/shared/useListboxNavigation.ts",
+        "src/components/shared/ConfirmDialog.tsx",
+        "src/components/settings/SelectField.tsx",
+        "src/components/settings/LlmProviderFields.tsx",
+        "src/components/chat/ConversationLevelControl.tsx"
       ],
       "excludedFiles": [
         "*.test.ts",

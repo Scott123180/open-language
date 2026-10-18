@@ -91,19 +91,19 @@ order":
 
 **Purpose**: a green baseline, a database backup, the frozen pre-010 schema, and the lint override.
 
-- [ ] T001 Record the green baseline before any change:
+- [X] T001 Record the green baseline before any change:
   - from `backend/`: `backend/.venv/bin/pytest`, `backend/.venv/bin/ruff check .` and `backend/.venv/bin/black --check .`;
   - from `frontend/`: `npm run lint`, `npm run build`, `npm test` and `npm run test:e2e`.
 
   All must pass. Note any pre-existing failure in the PR description instead of fixing it here.
-- [ ] T002 Back up the local database: `cp ~/.open-language/app.db ~/.open-language/app.db.pre-010`. It must hold at least one 007 episode. Quickstart §5 (SC-009) compares against this copy, so take it before the app runs any 010 code.
-- [ ] T003 Freeze the pre-010 schema as `backend/tests/fixtures/schema_007.sql`, following the pattern of `schema_006.sql`:
+- [X] T002 Back up the local database: `cp ~/.open-language/app.db ~/.open-language/app.db.pre-010`. It must hold at least one 007 episode. Quickstart §5 (SC-009) compares against this copy, so take it before the app runs any 010 code.
+- [X] T003 Freeze the pre-010 schema as `backend/tests/fixtures/schema_007.sql`, following the pattern of `schema_006.sql`:
   - `git worktree add "$SCRATCH/wt-pre010" 27cf076`. This is the last commit before the 010 docs; `master` is still at 006, so do not use it;
   - in that worktree, run `init_db()` against an empty database with `OPEN_LANGUAGE_DB_PATH` set to a scratch file, using this repository's `backend/.venv/bin/python`;
   - `sqlite3 <file> .schema > backend/tests/fixtures/schema_007.sql`, then `git worktree remove "$SCRATCH/wt-pre010"`;
   - check the dump: `podcast_episodes`, `podcast_hosts`, `podcast_host_lines` and `podcast_preferences` are present, and no `podcast_shows` or `podcast_series*` table exists;
   - add a header comment naming the source commit and "Do not edit", as in `schema_006.sql`.
-- [ ] T004 [P] Extend the `max-lines-per-function: 20` override's `files` list in `frontend/.eslintrc.json` (Constitution I):
+- [X] T004 [P] Extend the `max-lines-per-function: 20` override's `files` list in `frontend/.eslintrc.json` (Constitution I):
   - the new shared files: `src/components/shared/ThemedSelect.tsx`, `src/components/shared/useListboxNavigation.ts` and `src/components/shared/ConfirmDialog.tsx`;
   - the non-podcast components this feature modifies that are already within the limit: `src/components/settings/SelectField.tsx`, `src/components/settings/LlmProviderFields.tsx` and `src/components/chat/ConversationLevelControl.tsx`. `npm run lint` must stay green;
   - **not** `src/components/flashcards/WordFilterBar.tsx` yet: it is 197 lines today, and T102 adds it once it is split;
