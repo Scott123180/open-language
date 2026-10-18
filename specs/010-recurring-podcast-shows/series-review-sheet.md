@@ -4,464 +4,485 @@ Written by the hand-run benchmarks (quickstart §3). The review columns are fill
 
 ## SC-002 / SC-003: recall and new topics
 
+**Result (llama3.1:8b, third run, after the topic and no-invention prompt fixes, reviewed 2026-10-18):**
+- SC-002 refers back correctly: **19/20** (bar ≥ 16): met.
+- SC-002 invented memories: **6/20** episodes (bar 0): **missed**.
+- SC-003 new topic: **8/20** (bar ≥ 18): **missed**. Several remembered topics are as broad as the show
+  itself ("Sports", "Everyday curiosities"), and the model often continues the remembered topic.
+
+Series therefore ship as **experimental** (T135; docs/architecture.md § "Open items").
+
 For each series: **Refers back** = some episode-2 host line correctly mentions a specific point from episode 1 (SC-002, bar ≥ 16/20); **Invented** = a host presents a memory that was never said (SC-002, bar 0); **New topic** = episode 2's subject is not a remembered topic (SC-003, bar ≥ 18/20).
 
 ### Series 1: weekend-food-talk
 
 - Facts said in episode 1: Odio las mañanas, siempre llego tarde al trabajo. / Este fin de semana voy a la playa con mi hermana.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: Yes, you agree with me.; This weekend you're going to the beach with your sister.; You hate mornings and always arrive late at work.
+- Remembered topics: The Gazpacho and Beach
+- Remembered about the learner: —
 - Episode 2 host lines:
 
-  1. ¡Bienvenido de nuevo, Sam! Estamos en el episodio dos y estoy emocionado de seguir explorando con usted las aventuras culinarias del fin de semana. Me acuerdo que mencionaste antes que te encanta la playa, pero no sé si has tenido tiempo para disfrutarla últimamente después de tu trabajo matutino... ¿Cómo fue tu última visita al mar?
-  2. ¡Ahah, qué curioso! Me parece que te estás burlando de mí, pero está bien, me encanta ser el blanco del humor. En serio, ¿cómo encuentras la energía para llegar al trabajo en las mañanas después de una larga noche sin dormir?
-  3. ¡Excelente respuesta! Me alegra saber que has estado pensando en mi consejo de la semana pasada. Pero, ahora quiero preguntarte sobre un tema completamente diferente: ¿qué tipo de frutas crees que son ideales para preparar un postre delicioso y rápido durante el fin de semana?
-  4. ¡Genial! Me parece que tenemos la misma mentalidad cuando se trata de comida. Ahora, dime, ¿recuerdas que mencionaste que vas a pasar el fin de semana con tu hermana? ¿Qué tipo de recetas esperas preparar juntas?
-  5. ¡Genial que te interese! Me alegra saber que estás dispuesto a escuchar sobre mis últimas aventuras culinarias. Bueno, este fin de semana me propuse hacer un plato tradicional de mi familia y... ¿Te gustaría saber qué fue?
-  6. ¡Ahah, parece que me has pillado de nuevo! Bueno, no voy a negarlo, pero mi plato tradicional es un poco complicado de preparar y requiere una habilidad especial con la cocina... ¿Has probado alguna vez hacer albóndigas?
-  7. ¡Genial! Me alegra saber que también tienes ganas de aventurarte en la cocina. Bueno, ahora te toca contar una de tus propias historias culinarias. ¿Qué fue lo peor que te pasó mientras cocinabas un plato delicioso?
-  8. ¡Ahah, parece que no has aprendido nada! En serio, ¿cómo puedes estar tan seguro sin haber compartido ninguna historia? ¡Habla de algo divertido que te haya pasado en la cocina!
-  9. ¡Genial que estés listo para escuchar! Bueno, no voy a dejar que te escapes esta vez... ¿Qué tipo de desastre culinario fue lo más gracioso que has experimentado en la cocina?
-  10. ¡Bueno, parece que todavía no he podido sacarte una historia decente! No te preocupes, Sam, siempre hay tiempo para compartir algunos de tus éxitos culinarios. ¿Qué tal si compartimos nuestras recetas favoritas antes de terminar el episodio? ¿Tienes alguna receta que quieras recomendarme?
+  1. ¡Bienvenido de nuevo, Sam! Estamos encantados de tenerlo con nosotros en el segundo episodio de La charla de los fines de semana. Como recordarás, hablamos del gazpacho y la playa en nuestro primer capítulo, pero hoy nos centramos en algo completamente diferente. ¿Qué le ha llevado a decidir compartir sus recetas favoritas este fin de semana?
+  2. ¡Ahah! Me alegra que te haya sorprendido nuestra elección de tema para hoy. Es cierto que el gazpacho y la playa fueron un éxito en nuestro primer episodio, pero estamos aquí para explorar nuevas ideas culinarias. ¿Qué relación crees tú que hay entre la comida casera y la creatividad?
+  3. ¡Excelente! Me alegra que estés de acuerdo. La comida casera puede ser un catalizador para la creatividad en la cocina. ¿Tienes algún secreto o truco para crear platos nuevos sin salirse del formato clásico?
+  4. Me encanta tu entusiasmo, Sam! La creatividad en la cocina es un proceso que requiere experimentar y arriesgar. ¿Podrías contarnos qué plato has creado recientemente que te ha sorprendido a ti mismo?
+  5. ¡Claro que sí! Me alegra haber despertado tu interés. He estado pensando en hacer una entrevista con algunos chefs locales para ver qué inspiración pueden brindarnos. ¿Qué te parece si nos unimos a ellos y los invitamos al programa?
+  6. ¡Ahah, otra vez! Me parece que estamos abriendo un nuevo capítulo en la cocina con tus respuestas, Sam. Me encanta la sorpresa y el entusiasmo que llevas contigo. ¿Crees que nuestra conversación podría inspirar a nuestros oyentes a explorar nuevas ideas culinarias?
+  7. ¡Genial! La energía de la creatividad en la cocina es contagiosa. ¿Te gustaría compartir un plato simple pero delicioso que puedas preparar con ingredientes básicos para inspirar a nuestros oyentes?
+  8. ¡Muy bien! Me parece que estamos en el camino correcto para concluir este episodio. ¿Podrías compartir contarnos cuál es tu plato favorito para preparar cuando no hay tiempo de cocinar algo elaborado?
+  9. ¡Claro que sí! Me alegra tener más tiempo para hablar sobre esta receta simple pero deliciosa. ¿Te has dado cuenta de cómo la comida casera puede unirnos con nuestros seres queridos y crear momentos inolvidables?
+  10. ¡Ahah, otra vez! Me parece que hemos descubierto algo nuevo en nuestra conversación hoy, Sam. La comida casera no solo es deliciosa, sino que también puede tener un impacto emocional significativo en nuestras vidas. ¿Crees que podríamos crear un espacio en el programa para compartir historias de la comida y la familia?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | N | Y | Recalls the gazpacho and beach episode; new subject: home cooking. |
 
 ### Series 2: tech-for-normal-people
 
 - Facts said in episode 1: Tengo un perro que se llama Toby. / Mañana empiezo un curso de cocina.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: A cooking course is exciting, but I don't see how technology fits in. Do you have an app or device to help with your recipes?; You will start a cooking course tomorrow.; You have a dog named Toby.
+- Remembered topics: Cooking Apps
+- Remembered about the learner: You are interested in cooking apps; You start cooking class tomorrow; You have a dog named Toby
 - Episode 2 host lines:
 
-  1. ¡Bienvenido de nuevo, Sam! Agradecemos su paciencia y estamos listos para seguir adelante con la segunda parte de nuestra serie sobre tecnología para personas normales. Recuerde que mencionó anteriormente un curso de cocina emocionante, pero no entendía cómo se relaciona con la tecnología. ¿Qué le parece si exploramos juntos algunos dispositivos y aplicaciones que pueden hacer que su curso sea más divertido? ¿Tiene experiencia previa con software para recetas digitales?
-  2. Entiendo su curiosidad, Sam. Bueno, a menudo la gente no se da cuenta de que incluso las aplicaciones y dispositivos más básicos pueden tener funcionalidades ocultas o características sorprendentes. ¿Tiene una idea de cómo podría ser Toby, su perro, un compañero en este curso de cocina?
-  3. Me alegra que le guste la idea, Sam. Un perro en el curso de cocina puede ser un punto de partida interesante para hablar sobre cómo podemos utilizar tecnología para hacer que nuestra vida diaria sea más fácil y divertida. ¿Qué piensa de utilizar una aplicación para recordarle a Toby tomar sus medicinas o seguir su rutina de ejercicio?
-  4. Me alegra que esté de acuerdo conmigo, Sam. Las aplicaciones para mascotas pueden ser muy útiles y también pueden enseñar a los dueños sobre la importancia del cuidado de su compañero cuatro patas. ¿Le gustaría saber más sobre cómo elegir una aplicación adecuada para sus necesidades específicas?
-  5. Excelente entusiasmo, Sam. Bueno, cuando se trata de elegir una aplicación para mascotas, es importante considerar qué características específicas necesita y cómo puede utilizar la tecnología para mejorar la vida de su perro Toby. ¿Ha investigado en línea alguna aplicación que le haya llamado la atención?
-  6. No hay nada de qué avergonzarse, Sam. A menudo la gente no se da cuenta de que existen tantas opciones y recursos disponibles en línea hasta que alguien les muestra la forma de encontrarlos. ¿Ha pensado en cómo podría utilizar una aplicación para registrar las actividades y comidas de Toby durante el curso de cocina?
-  7. Me alegra que le guste la idea, Sam. Registrar las actividades y comidas de Toby puede ser muy útil para su curso de cocina y también para mantener un registro saludable de su perro. ¿Cree que podría utilizar una aplicación para tomar notas en clase y después, como manera de combinar la tecnología con el aprendizaje?
-  8. Me alegra que estén de acuerdo, Sam. Utilizar la tecnología para tomar notas y organizar la información puede ser muy beneficioso en un curso de cocina. ¿Ha pensado en cómo podría utilizar una aplicación para compartir recetas con sus compañeros de clase después del curso?
-  9. Excelente entusiasmo, Sam. Bueno, compartir recetas con amigos y familiares es una de las mejores partes de aprender a cocinar, y la tecnología puede hacer que sea aún más fácil. ¿Tiene alguna idea sobre cómo podría utilizar su perro Toby como "comensal de prueba" para probar nuevas recetas?
-  10. No hay nada de qué avergonzarse, Sam. La idea es simple, pero puede ser muy útil para probar recetas nuevas sin tener que preocuparse por si el resultado sale mal. Bueno, creo que hemos explorado suficiente la relación entre tecnología y cocina en este momento. ¿Le gustaría saber cómo podemos seguir conectados después de hoy, tal vez a través de nuestra comunidad en línea?
+  1. Bienvenido de nuevo, Sam, a nuestro programa de tecnología para personas normales. ¡Hoy continuamos con el capítulo dos! Estamos emocionados de que esté de vuelta y listo para aprender algo nuevo. Recuerdo que mencionó anteriormente estar interesado en aplicaciones de cocina, pero hoy queremos hablar sobre una herramienta que puede ser útil para su curso de cocina: la sincronización de archivos. ¿Sabe cómo funciona eso?
+  2. Bueno, Sam, la sincronización de archivos es fundamental para cualquier persona que trabaje con documentos en diferentes dispositivos. Algo simple pero importante es asegurarse de que los archivos estén actualizados en todos lados. ¿Ha tenido algún problema con archivos perdidos mientras estábamos hablando sobre aplicaciones de cocina?
+  3. ¡Genial! Entonces entiende la importancia de la sincronización. Queremos profundizar un poco más en esto. ¿Tiene algún dispositivo que se conecta por Bluetooth, como su teléfono o una tableta?
+  4. Me alegra que esté de acuerdo, Sam. Pero ahora necesito que me diga algo más en español para que podamos seguir adelante con la conversación. ¿Puede decirme cómo te gustaría sincronizar tus archivos?
+  5. ¡Genial que estés interesado! Bueno, la sincronización de archivos es sencilla con las herramientas adecuadas. Quería mostrarle una aplicación llamada Google Drive, que permite almacenar y compartir archivos de manera segura en línea. ¿Sabe qué tipo de dispositivos utiliza para ayudarlo a preparar la comida para su curso?
+  6. Bueno, Sam, la respuesta es que Google Drive es una herramienta en línea y requiere conexión a Internet para funcionar. Esto significa que siempre estará sincronizando tus archivos entre todos los dispositivos conectados a tu cuenta de Google. ¿Tiene algún plan de almacenamiento externo para su curso de cocina?
+  7. ¡Excelente! Entonces entiende el concepto de almacenamiento en la nube. Quería mencionar que Toby, su perro, también puede beneficiarse de la tecnología adecuada. ¿Ha considerado usar una aplicación para registrar las recetas y listas de compras mientras planea sus comidas?
+  8. Me alegra que estés de acuerdo, Sam. Bueno, las aplicaciones para registrar recetas y listas de compras pueden ser muy útiles al planificar comidas y evitar pérdidas de información. ¿Ha utilizado alguna aplicación similar en el pasado o quiere probar una nueva?
+  9. ¡Genial que estés interesado! Bueno, hay varias aplicaciones disponibles para registrar recetas y listas de compras, algunas son gratuitas mientras que otras requieren una suscripción mensual. Una de las más populares es Paprika Recipe Manager, ¿ha oído hablar de ella?
+  10. Bueno, Sam, la respuesta es que Paprika Recipe Manager es una herramienta muy completa y fácil de usar, pero requiere un poco de configuración inicial. Ahora que hemos hablado sobre sincronización de archivos y aplicaciones para registrar recetas, creo que tienes una buena base para empezar a explorar estas herramientas en serio. ¿Qué te parece si repasamos algunos de los puntos clave y tú me das tu opinión final sobre lo que has aprendido hoy?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | N | Y | Cooking apps, the course and Toby; new subject: file sync. |
 
 ### Series 3: game-day
 
 - Facts said in episode 1: Vivo en Manchester desde hace tres años. / Mi deporte favorito es el baloncesto.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: Yes, you agree with me.; Your favorite sport is basketball.; You live in Manchester for three years.
+- Remembered topics: Basketball in Manchester
+- Remembered about the learner: You agree with Pablo/You agree with yourself; Your favorite sport is basketball.; You live in Manchester for three years.
 - Episode 2 host lines:
 
-  1. ¡Bienvenido de regreso al Game Day, Sam! Me alegra que estés con nosotros en este segundo episodio. ¡Es un placer tenerte de vuelta después de nuestra última conversación sobre el baloncesto! ¿Qué opinas sobre la reciente victoria del equipo local en la liga profesional?
-  2. ¡Ahah! ¡No te enteraste de la emocionante victoria del equipo local en el baloncesto? Bueno, eso es un tema que vamos a tratar hoy mismo. ¿Crees que el clima deportivo en Manchester ha tenido algún impacto en su desempeño reciente?
-  3. ¡Exactamente! El clima deportivo puede influir mucho en la motivación de los equipos y sus jugadores. ¿Te has fijado en cómo los aficionados locales han estado apoyando al equipo en las últimas semanas? ¿Qué te parece el nivel de pasión que muestran en cada partido?
-  4. ¡Me alegra verte de acuerdo conmigo! La pasión del público es un factor crucial en el éxito de los equipos. ¿Qué piensas sobre la posibilidad de que el equipo local pueda llegar a las finales de la liga este año?
-  5. ¡Genial! Me encanta ver tu interés en este tema. Bueno, la verdad es que el equipo ha estado jugando de manera muy sólida últimamente y muchos expertos creen que tienen una buena oportunidad de llegar a las finales. ¿Crees que los entrenadores han hecho algo diferente para lograr este cambio en su desempeño?
-  6. ¡Ahah! ¡No te enteraste de los cambios en la estrategia del equipo! Bueno, parece que han estado trabajando muy duro para mejorar su juego colectivo y eso ha dado resultado. ¿Te gustaría saber más sobre cómo han modificado su táctica de juego?
-  7. ¡Genial! Me alegra que estés interesado en saber más. Bueno, es un tema muy fascinante y creo que podemos aprender mucho de la forma en que han adaptado su estrategia para ajustarse a las necesidades del equipo. ¿Te parece que podríamos hablar con uno de los entrenadores sobre esto?
-  8. ¡Excelente! Me parece que tenemos un tema muy interesante para explorar en el futuro. ¿Qué te parece si invitamos al entrenador del equipo local a nuestra próxima transmisión y podemos hablar sobre sus estrategias de juego en más detalle?
-  9. ¡Genial! Me alegra verte tan entusiasmado con la idea. Bueno, creo que tendríamos una conversación muy interesante y podría ser una gran oportunidad para los nuestros oyentes aprender algo nuevo sobre el fútbol. ¿Crees que podrías preguntarle al entrenador qué cambios ha hecho en su táctica de juego en particular?
-  10. ¡Ahah! ¡No te enteraste de los cambios en la táctica del entrenador! Bueno, creo que hemos hablado lo suficiente sobre esto por ahora. Me parece que el equipo local está haciendo algunas cosas muy interesantes y es emocionante ver cómo van a afectar su desempeño en el futuro. ¿Crees que el equipo podrá mantener este ritmo en las próximas semanas?
+  1. ¡Bienvenido de nuevo a Game Day, Sam! Estamos emocionados de tenerlo en nuestro programa una vez más. Continuamos con el episodio 2 y voy a volver a hablar un poco sobre nuestra discusión anterior sobre el baloncesto en Manchester. ¿Qué te parece la temporada actual del Manchester United?
+  2. ¡Ahah! ¡Qué pregunta más interesante, Sam! Me alegra ver que estás pensando en los cambios de forma en el baloncesto. ¿Crees que la influencia del fútbol ha afectado realmente a la popularidad del baloncesto en Manchester?
+  3. ¡Genial! La gente a menudo asocia al fútbol con la pasión y la rivalidad, pero el baloncesto también tiene su propio lado emocionante. ¿Te has dado cuenta de cómo el ambiente en un partido de baloncesto es diferente al de un partido de fútbol?
+  4. ¡Exacto! Me alegra que compartas mi opinión, Sam. El entusiasmo y la energía en un partido de baloncesto son contagiosos. ¿Cuál es para ti el momento más emocionante de un partido de baloncesto?
+  5. ¡Claro que sí! Bueno, para mí el momento más emocionante es cuando un jugador hace una jugada increíble, como un triple desde la línea de tres puntos. ¿Tú tienes algún momento preferido en un partido de baloncesto?
+  6. ¡Ahah! Bueno, creo que es porque los jugadores de baloncesto suelen tener un instinto y una habilidad natural para improvisar en momentos críticos. ¿Crees que ese instinto también se puede desarrollar con la práctica y el entrenamiento?
+  7. ¡Genial! La práctica y el entrenamiento son fundamentales para mejorar cualquier habilidad, incluida la de improvisar en un partido de baloncesto. ¿Qué te parece la importancia de la comunicación entre los jugadores en el éxito de un equipo de baloncesto?
+  8. ¡Exacto! La comunicación es clave para cualquier equipo deportivo, especialmente en el baloncesto, donde la velocidad y la reacción son fundamentales. ¿Crees que los equipos locales de Manchester tienen una ventaja al jugar en su propio estadio?
+  9. ¡Claro que sí! Bueno, jugar en casa puede darles un sentido de comodidad y familiaridad que les permite aprovechar al máximo su entorno y energía del público. ¿Tú crees que la experiencia de los jugadores locales, como aquellos que han crecido jugando en Manchester, también es una ventaja en el baloncesto?
+  10. ¡Bueno, es que la experiencia y el conocimiento del terreno pueden darles una ventaja táctica y mental! Es como si supieran exactamente cómo moverse en la cancha. ¿Crees que esta ventaja podría ser decisiva en un partido importante?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | N | N | Recalls basketball in Manchester and stays on it. |
 
 ### Series 4: on-the-road
 
 - Facts said in episode 1: Trabajo como enfermera en un hospital. / El verano pasado viajé a Portugal.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: You agree with me.; You traveled to Portugal last summer.; You work as a nurse at a hospital.
+- Remembered topics: Sam's travel experiences
+- Remembered about the learner: Did not give details about Portugal; Travelled last summer; Works as a nurse
 - Episode 2 host lines:
 
-  1. ¡Bienvenido de nuevo, Sam! Estamos en la segunda parte de nuestra serie "En el camino", donde exploramos historias fascinantes sobre viajes exitosos y desafortunados. Me alegra tenerlo aquí hoy para seguir contando más historias. ¿Recuerdas cuando hablamos del verano pasado y su aventura en Portugal?
-  2. Bueno, parece que no recuerdas muy bien la conversación anterior. ¡No importa! Quiero preguntarte, ¿cómo crees que cambiaría tu experiencia de viajar si fueras enfermera en un hospital como lo eres?
-  3. Me alegra que pienses así. La reflexión sobre cómo nuestras profesiones pueden influir en nuestra forma de viajar es muy interesante. ¿Qué te parece si compartieras con nosotros una experiencia en la que tu trabajo como enfermera haya influido en tus planes de viaje?
-  4. ¡Me alegra que estés de acuerdo! Me recuerda la vez en que yo mismo estaba viajando por Sudamérica y tuve que improvisar un tratamiento para alguien con una herida abierta en medio del camino. ¿Te parece que, como enfermera, tienes una ventaja al elegir destinos de viaje más seguros?
-  5. Me alegra que te haya gustado la historia. Bueno, sí, como enfermera, tengo una sensibilidad especial hacia los lugares con acceso a servicios médicos adecuados. ¿Tienes alguna experiencia similar en Portugal durante tu viaje allí el verano pasado?
-  6. Bueno, parece que nos estamos repitiendo un poco. Me gustaría cambiar de tema y hablar sobre lo que crees que es la principal barrera para viajar a lugares remotos o menos comunes. ¿Te parece que hay algo en particular que te impide explorar rincones más inusuales del mundo?
-  7. Me alegra que pienses así. La reflexión sobre los desafíos del viaje es fundamental para entender mejor cómo podemos hacerlo más accesible y disfrutable. ¿Crees que la falta de información o recursos es una barrera importante para muchos viajeros?
-  8. ¡Me alegra que estés de acuerdo! Me recuerda cuando intenté viajar por un país en África y me costó mucho encontrar información sobre los requisitos para obtener el visado. ¿Tienes alguna sugerencia sobre cómo podemos mejorar la disponibilidad de información para los viajeros?
-  9. Me alegra que te haya gustado la historia. Bueno, sí, la falta de información puede ser un obstáculo importante para muchos viajeros. ¿Crees que los recursos en línea están haciendo un buen trabajo en esta área, o hay algo más que podríamos hacer para ayudar a las personas a planificar sus viajes?
-  10. Bueno, parece que nos hemos desviado un poco de la pregunta inicial. Quiero volver al tema y preguntarte, ¿crees que la falta de información es algo que se puede resolver con tecnología y recursos en línea, o hay algo más profundo en juego?
+  1. Bienvenido de nuevo, Sam, al On the Road, ¡estamos emocionados de tenerlo con nosotros de nuevo en este episodio número dos. Como recordarás, hablaste sobre tus aventuras de verano pasado y mencionaste que no quisiste compartir detalles sobre Portugal, pero estoy seguro de que hay algo más que querrías contar sobre ese viaje. ¿Qué fue lo que te gustó más de tu experiencia en el extranjero?
+  2. Entiendo que te cueste admitirlo, pero en viajes hay momentos de desconcierto como ese. ¿Qué crees que te hubiera pasado si hubieras investigado más sobre Portugal antes de partir?
+  3. Me alegra que estés considerando eso. Como enfermera, sabes la importancia de estar preparado para cualquier situación, ¿cómo crees que esa actitud podría aplicarse a otros aspectos del viaje?
+  4. Me parece que estamos en el mismo camino, Sam. A veces la experiencia es lo mejor para aprender y corregir nuestros errores. ¿Qué te ha llevado a cambiar tu forma de planificar viajes después de tus aventuras?
+  5. ¡Genial que estés dispuesto a escuchar! Bueno, si quieres saber algo más sobre cómo planificar viajes sin sorpresas desagradables, he tenido una experiencia personal con un destino que pensé que sería tranquilo y terminó siendo un reto. ¿Te gustaría escuchar esa historia?
+  6. Pensé que conocía bien un lugar en Centroamérica, pero resultó ser el peor destino para mí debido a la humedad y los insectos. A veces las personas no se dan cuenta de que hay lugares con condiciones climáticas muy diferentes a lo que estamos acostumbrados. ¿Te has encontrado alguna vez en una situación similar, sin saber qué esperar del clima?
+  7. Me alegra que estés pensando en eso. Investigar sobre el clima y las condiciones del lugar antes de ir es fundamental para disfrutar del viaje. ¿Cuál crees que es la mejor herramienta o recurso para investigar un destino antes de viajar?
+  8. Me parece que estamos en completo acuerdo sobre la importancia de investigar antes del viaje, Sam. Ahora, ¿cómo crees que puedes compartir tus descubrimientos con otros viajeros para evitar que cometan los mismos errores que tú has hecho?
+  9. Genial que estés interesado en eso. Bueno, después de mi propia experiencia, he aprendido que compartir historias y consejos con otros viajeros puede ser muy valioso. ¿Cómo crees que puedes aprovechar tus propias experiencias para ayudar a otros viajeros a planificar sus aventuras?
+  10. Pensé que era algo obvio, pero supongo que no siempre es así. Bueno, creo que hemos hablado suficiente sobre la importancia de investigar y compartir experiencias con otros viajeros. ¿Qué consejo te gustaría darte a ti mismo antes de planificar tu próxima aventura?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | N | N | Portugal and nursing recalled; still travel experiences. |
 
 ### Series 5: screen-and-sound
 
 - Facts said in episode 1: Toco la guitarra todos los domingos. / No me gusta nada el café.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: You agree with him.; You don't like coffee at all.; You play the guitar every Sunday.
+- Remembered topics: Music and movies
+- Remembered about the learner: You don't like coffee; You have no plans to record an album; You play the guitar
 - Episode 2 host lines:
 
-  1. Buenos días, bienvenido de nuevo a Screen & Sound. Me alegra tenerlo aquí conmigo en el episodio dos. Me acuerdo que nos dijiste que tocabas la guitarra todos los domingos, ¿qué te inspira para seguir tocando?
-  2. Ahah, no te importa, ¡no es necesario que lo sepas! Lo importante es que sigues tocando y expresándote de alguna manera. ¿Cuál crees que es el papel de la música en la sociedad actual?
-  3. Me alegra que pienses así. La música tiene el poder de unir y emocionar, pero también puede ser muy personal y subjetiva. ¿Crees que una película puede tener la misma capacidad para conmover a las personas que una canción?
-  4. ¡Genial! Me alegra compartir ideas con alguien que piensa de manera similar. La empatía y la comprensión son fundamentales para entender las obras de arte, ¿crees que un espectador puede realmente experimentar lo mismo que el director de una película o el compositor de una partitura?
-  5. ¡Bueno! Me alegra que te haya llamado la atención. Creo que los creadores de contenido pueden dejar muchos elementos abiertos a la interpretación del público, pero también es posible que un espectador interprete algo completamente diferente al intención original. ¿Qué te parece el concepto de "leer entre líneas" en una película o una canción?
-  6. Es porque cada persona trae su propia experiencia y perspectiva al texto o la obra de arte, lo que hace que la interpretación sea única en cada caso. Me recuerda una película que hablamos en el episodio anterior... ¿Te acuerdas cómo mencioné que me gustaría ver una adaptación fílmica del libro "El aleph" de Jorge Luis Borges?
-  7. Me alegra que estés de acuerdo. Es un libro fascinante con ideas muy originales y complejas. Me gustaría saber, ¿crees que una película podría capturar la esencia de ese tipo de literatura sin perder la autenticidad del original?
-  8. ¡Genial! Me alegra que compartamos la misma opinión. Pero me gustaría explorar un poco más esta idea. ¿Qué te parece si hablamos de una película que no solo adapte la literatura, sino que también la reinterprete y la reinvente en cierto sentido?
-  9. Me alegra que te haya llamado la atención. Creo que eso es exactamente lo que hace que las obras de arte sean tan fascinantes y dinámicas. Me recuerda a una serie que mencionamos en el episodio anterior, "Westworld"... ¿Qué te parece si hablamos sobre cómo esa serie explora la frontera entre la realidad y la ficción?
-  10. Es porque la serie se atreve a cuestionar la naturaleza de la realidad y la condición humana de una manera muy profunda y filosófica. Me parece que eso es exactamente lo que hace que las obras de arte sean tan importantes: nos hacen preguntarnos sobre nosotros mismos y el mundo que vivimos. ¿Crees que la música puede ser un medio para explorar estas mismas ideas y cuestionamientos?
+  1. ¡Bienvenido de nuevo, Sam! Estamos emocionados de tenerlo de vuelta en Screen & Sound. El tema sigue siendo la fusión entre cine y música, pero hoy nos enfocaremos en algo que muchos creadores han estado explorando últimamente: la relación entre películas de ciencia ficción y los ritmos electrónicos en la música. ¿Qué te parece si empezamos hablando sobre eso?
+  2. Es sorprendente cómo la música electrónica puede complementar los temas futuristas y ambientales de las películas de ciencia ficción, ¿no crees que hay algo en la energía de esos ritmos que resuena con el espíritu innovador de ese género cinematográfico? ¿Qué te parece si exploramos cómo se inspira a los músicos para crear sonidos que reflejen la atmósfera de películas como "Blade Runner" o "Inception"?
+  3. Me alegra que pienses así. Y hablando de inspiración, ¿recuerdas lo que me dijiste sobre tu relación con la música? Que no te gusta el café, pero que sí puedes encontrar inspiración en él... ¡no, espera! Me refiero a que tocas la guitarra y has mencionado antes que la música es un mundo muy diferente al de las películas. ¿Qué es lo que te lleva a crear música, Sam?
+  4. Me alegra que estés de acuerdo conmigo. Me parece que tenemos una buena base para empezar a explorar esto. La relación entre la música y el cine es un tema fascinante, y me gustaría saber más sobre tus propias experiencias al respecto. ¿Qué te parece si compartes contamos un ejemplo de cómo has visto la música influir en una película que hayas visto recientemente?
+  5. Me alegra verte entusiasmado. La verdad es que la música puede agregar un nivel de profundidad y emoción a una película que no se podría lograr de otra manera. ¿Te ha ocurrido alguna vez que veas una película y sientas que la banda sonora es lo que realmente hace que el filme funcione, en lugar de los actores o la trama?
+  6. Es un fenómeno fascinante. A veces creo que la música puede capturar la esencia de una película de manera más eficaz que las palabras o las imágenes solas. Me hace pensar en lo que dijiste anteriormente sobre tocar la guitarra... ¿Crees que hay algo en la experiencia de crear música que te permite entender mejor cómo funciona la relación entre la música y el cine?
+  7. Me alegra que estés de acuerdo. La verdad es que creo que la música y el cine están más relacionados de lo que parece al principio. Me gustaría explorar esta idea un poco más a fondo. ¿Qué te parece si hablamos sobre algunos ejemplos de películas que han utilizado la música de manera innovadora, como "La ley del silencio" o "El club de los poetas muertos"?
+  8. Me alegra que compartas mi entusiasmo por estas películas. Me parece que están explorando temas profundos y complejos de manera única, y la música es un elemento clave en eso. ¿Crees que hay algo en la forma en que estos filmes utilizan la música que nos podría enseñar sobre cómo crear una película más poderosa, no solo visualmente, sino también auditivamente?
+  9. Me alegra verte entusiasmado de nuevo. Creo que la clave está en permitir que la música fluya de manera natural, como una extensión del drama o la narrativa. Me parece que cuando la música es utilizada de esta forma, puede crear un efecto casi mágico en el espectador... ¿Crees que hay algún director o compositor en particular que esté logrando esto de manera excepcional?
+  10. Es un proceso fascinante que requiere una comprensión profunda de la narrativa y la emoción. Me parece que cuando se logra esa conexión perfecta entre música y imagen, el resultado es algo realmente especial. Bueno, creo que hemos explorado esta idea con suficiente profundidad para hoy. ¿Qué te gustaría discutir en nuestro próximo episodio sobre la relación entre música y cine?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | N | N | Guitar recalled (a garbled coffee aside is corrected); says the topic stays music and film. |
 
 ### Series 6: nine-to-five
 
 - Facts said in episode 1: Odio las mañanas, siempre llego tarde al trabajo. / Este fin de semana voy a la playa con mi hermana.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: —
+- Remembered topics: Morning habits
+- Remembered about the learner: Will go to the beach with sister this weekend; Hates mornings
 - Episode 2 host lines:
 
-  1. Bienvenido de nuevo, Sam, a nuestro programa Nine to Five en este segundo episodio donde seguirán los temas y consejos para mejorar tu vida laboral. ¿Qué te preocupa más ahora que has estado reflexionando sobre tus experiencias en el trabajo?
-  2. Bueno, Sam, parece que te has encontrado con un problema nuevo al considerar tu vida laboral. ¿Podrías decirme más sobre por qué te sorprendes?
-  3. Me alegra que te parezca útil, Sam. ¿Crees que podrías implementar esta idea en tu trabajo actual y qué obstáculos piensas que podría enfrentar?
-  4. Me complace ver que estás de acuerdo conmigo, pero recuerda que la clave está en aplicar estos conceptos en tu vida diaria, Sam. ¿Qué cambios específicos piensas hacer en tu rutina laboral para aprovechar al máximo esta idea?
-  5. ¡Claro que sí! Me alegra que estés interesado en seguir explorando esta idea, Sam. ¿Cuáles crees que son los beneficios más importantes que podrías obtener al aplicar este cambio en tu trabajo?
-  6. Bueno, Sam, parece que este tema te ha llevado a preguntas más profundas sobre tu vida laboral. ¿Crees que es el miedo al cambio o la falta de confianza en ti mismo lo que está deteniéndote?
-  7. Me alegra que estés considerando esta opción, Sam. ¿Crees que podrías encontrar el tiempo y la motivación necesarios para aplicar esta idea en tu vida diaria?
-  8. Me complace ver que estás en sintonía conmigo, pero recuerda que la clave está en la acción, no solo en el acuerdo, Sam. ¿Qué pasos concretos planeas dar para empezar a implementar esta idea?
-  9. ¡Claro que sí! Me alegra compartir contigo más ideas y estrategias para mejorar tu vida laboral, Sam. ¿Crees que la comunicación con tus colegas es un aspecto clave en este proceso de cambio?
-  10. Bueno, Sam, parece que este tema te ha hecho reflexionar sobre aspectos fundamentales de tu vida laboral. Quiero enfatizar la importancia de no solo conocer los problemas, sino también cómo abordarlos y encontrar soluciones efectivas. ¿Crees que estarás listo para compartir tus progresos con nosotros en el próximo episodio?
+  1. Buenos días, Sam, bienvenido nuevamente al programa. Continuamos con el segundo episodio sobre la vida laboral y los pequeños dramas del trabajo diario. Me alegra verte de nuevo entre nosotros. ¿Recuerdas que anteriormente hablamos sobre hábitos matutinos? ¿Cómo te sientes en cuanto a planificar tu día cuando llegas a la oficina?
+  2. Haha, no te preocupes, Sam, que no sepas algo es normal. Me alegra poder aprender juntos en este programa. Creo que la pregunta correcta es cómo pueden afectar tus hábitos matutinos tu rendimiento laboral y tu bienestar general. ¿Qué crees que pasaría si lograras mejorar tus hábitos de mañana?
+  3. Me da gusto que te parezca interesante, Sam. La mejora de los hábitos matutinos puede tener un impacto significativo en nuestra calidad de vida y en nuestro trabajo. ¿Crees que sería posible implementar algunos cambios pequeños cada mañana para lograr este objetivo?
+  4. Genial, Sam, la voluntad es el primer paso hacia cualquier cambio. Ahora, pensando en tu vida laboral, ¿qué te parece la idea de establecer un plan para manejar mejor las presiones y los estrés del trabajo?
+  5. ¡Claro que sí! Un plan para manejar el estrés laboral podría incluir identificar los momentos y las situaciones que te sienten más presionado, así como algunas técnicas para relajarte en ese momento. ¿Qué crees que sería lo primero que necesitarías hacer para empezar a implementar este plan?
+  6. No te preocupes, Sam, la falta de conocimiento sobre cómo manejar el estrés laboral es algo muy común. Me parece que esto se debe en parte a que no siempre se habla abiertamente sobre este tema en el lugar de trabajo. ¿Qué crees que cambiaría si los jefes y compañeros de trabajo fueran más abiertos al respecto?
+  7. Me alegra que te parezca útil, Sam. La comunicación abierta y honesta en el lugar de trabajo puede hacer una gran diferencia en la calidad del ambiente laboral. ¿Crees que podrías establecer un ejemplo siendo más abierto con tus propios compañeros sobre cómo manejar el estrés en el trabajo?
+  8. Me parece que estamos avanzando en la dirección correcta, Sam. La reciprocidad y el apoyo entre compañeros de trabajo pueden ser muy beneficiosos para todos. ¿Qué crees que harías si tu jefe te pidiera que compartieras tus propias estrategias para manejar el estrés laboral con un grupo de colegas?
+  9. ¡Claro que sí! En este sentido, compartir tus estrategias podría ser una forma de inspirar y apoyar a otros en su propio camino hacia un trabajo más saludable y sostenible. ¿Qué crees que te permitiría sentirte cómodo compartiendo tus ideas con un grupo?
+  10. No te preocupes, Sam, no es algo que debas saber. La verdad es que muchas personas se sienten incómodas compartiendo sus estrategias personales en un entorno laboral formal. Me parece que hemos hablado mucho sobre la importancia de compartir ideas y apoyar a los demás en el lugar de trabajo. ¿Qué crees que sería el próximo paso para empezar a implementar algunos de estos cambios en tu propio entorno laboral?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | N | N | Opens on morning habits again before moving to work stress. |
 
 ### Series 7: home-sweet-home
 
 - Facts said in episode 1: Tengo un perro que se llama Toby. / Mañana empiezo un curso de cocina.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: —
+- Remembered topics: Budget priorities
+- Remembered about the learner: You don't have plans to adjust expenses.; You start a cooking course tomorrow.; You have a dog named Toby.
 - Episode 2 host lines:
 
-  1. Bienvenido de nuevo, Sam, al programa Home Sweet Home. Estamos en el episodio dos y hoy vamos a explorar algo que me parece muy interesante sobre la vivienda compartida. ¿Cuál es tu opinión, Sam, sobre compartir gastos para alquilar un piso?
-  2. Pasan porque los alquileres de pisos en la ciudad son muy altos y algunos jóvenes prefieren compartir gastos para que sea más manejable. ¿Qué te parece si nos hablas sobre cómo has hecho para encontrar un lugar barato?
-  3. Me alegra que estés de acuerdo. ¿Qué crees que es lo más importante para considerar al buscar un lugar donde vivir con amigos o familiares?
-  4. Me parece que estás muy en sintonía con el tema. ¿Has tenido alguna experiencia personal al buscar un lugar donde vivir y compartirlo con otros?
-  5. Me alegra que estés interesado. Bueno, como sabes, vivir con otros puede ser una gran aventura, pero también puede generar algunos problemas si no se establecen reglas claras desde el principio. ¿Qué crees sobre la importancia de definir reglas y responsabilidades al compartir un espacio?
-  6. Pasa porque la falta de claridad y comunicación puede llevar a malentendidos y conflictos. Por ejemplo, ¿cómo manejarías si tu amigo no pagara su parte del alquiler en tiempo?
-  7. Me alegra que estés considerando la importancia de la planificación y la comunicación en un espacio compartido. ¿Qué crees que es lo más importante para mantener la paz y la armonía en una casa con varios ocupantes?
-  8. Me parece que estamos en sintonía. Bueno, para terminar hoy, ¿crees que la vivienda compartida es una opción viable y deseable para muchos jóvenes como tú?
-  9. Me alegra que estés interesado en seguir hablando sobre el tema. Sin embargo, creo que hemos cubierto bastante terreno para hoy. Antes de irnos, ¿qué consejo le darías a un joven que está considerando compartir una vivienda con otros?
-  10. Bueno, parece que tenemos un tema muy interesante y complejo que seguir explorando en futuros episodios. Me parece que la vivienda compartida es una opción que vale la pena considerar, pero también requiere mucha planificación y comunicación. ¿Qué crees que sería lo más importante para mí como anfitrión si decidiera compartir mi casa con amigos o familiares?
+  1. Bienvenido de nuevo, Sam, al programa Home Sweet Home. Continuamos con episodio dos, donde exploraremos cómo mejorar la vida en el hogar sin gastar un fortuna. Me acuerdo que mencionaste que mañana empieza un curso de cocina, ¿cómo planeas integrarlo a tus horarios diarios?
+  2. Eso es un buen punto, Sam, porque si no se planifica con anticipación, las nuevas adquisiciones pueden generar gastos adicionales en lugar de ahorrarlos. ¿Crees que deberías establecer una regla para evitar comprar equipos culinarios innecesarios antes de terminar el curso?
+  3. Me alegra que estés considerando esto, Sam, pero también me gustaría saber si has pensado en cómo afectará el curso de cocina a la comida para Toby, tu perro. ¿Planeas hacerle comidas caseras con los nuevos conocimientos?
+  4. Entonces, parece que ya tienes claro cómo quieres abordar la alimentación de Toby con tus nuevos conocimientos. ¿Crees que invertir en utensilios para cocina específicos para perros sería una buena inversión en términos de costo-beneficio?
+  5. Me alegra que estés interesado en seguir explorando esta idea, Sam. En realidad, había pensado en invitarte a un episodio futuro para investigar más a fondo cómo los propietarios de mascotas pueden ahorrar dinero al hacer sus propias comidas caseras. ¿Te gustaría participar en ese episodio?
+  6. Es una buena pregunta, Sam, pero parece que te has olvidado de usar el idioma en que estamos grabando este episodio. ¿Puedes repetir la pregunta en español?
+  7. Me alegra que estés de acuerdo con la idea, pero me gustaría saber si has considerado cómo esta inversión podría afectar tus planes de ajustar gastos en el futuro. ¿Crees que invertir en utensilios para cocina específicos para perros es compatible con tu objetivo de reducir tus gastos?
+  8. Me alegra que estés de acuerdo conmigo una vez más, Sam. Pero ahora quiero saber si has pensado en cómo la cocina casera para Toby puede beneficiar también a tus finanzas personales, al ahorrar dinero en compras de comida para perros y al mismo tiempo mejorar tu habilidad culinaria. ¿Crees que esta es una relación clara entre las tres cosas?
+  9. Me alegra que estés interesado en seguir explorando esta idea, Sam. Bueno, te diré que la cocina casera para mascotas no solo puede ahorrar dinero, sino que también puede ser una oportunidad para aprender nuevas habilidades culinarias y experimentar con ingredientes frescos. ¿Crees que deberías considerar crear un presupuesto específico para tus gastos de comida para Toby y tus propias comidas caseras?
+  10. Me parece que hemos profundizado en un tema muy interesante, Sam. La cocina casera para mascotas puede ser una forma excelente de ahorrar dinero y mejorar la calidad de vida de nuestros animales de compañía. ¿Crees que deberías compartir tus experiencias y consejos con otros propietarios de mascotas a través de nuestra comunidad en línea?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | N | N | Course and Toby recalled; budget theme again. |
 
 ### Series 8: big-little-questions
 
 - Facts said in episode 1: Vivo en Manchester desde hace tres años. / Mi deporte favorito es el baloncesto.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: Your favorite sport is basketball.; You live in Manchester for three years.
+- Remembered topics: everyday curiosities
+- Remembered about the learner: You have lived there for 3 years; Your favorite sport is basketball; You live in Manchester
 - Episode 2 host lines:
 
-  1. ¡Bienvenido de nuevo a Big Little Questions, Sam! Estamos en el episodio dos y nos alegra tenerlo con nosotros de nuevo. Me acuerdo que mencionaste antes cómo te gusta jugar al baloncesto, pero me sorprende que no hayan inventado aún una forma de hacer que la pelota sea más ligera para facilitar los saltos al aro. ¿Crees que es importante en el juego?
-  2. Ahah, ¡qué curioso! Me parece que no se trata de la ligereza del balón en sí, sino más bien cómo nuestra percepción y habilidad para controlar el mismo influyen en nuestro juego. ¿Sientes que tu tiempo jugando al baloncesto ha mejorado tus habilidades en otros aspectos de la vida?
-  3. Me alegra que estés de acuerdo. Creo que hay algo en los deportes y actividades físicas que nos ayuda a desarrollar habilidades transferibles. ¿Te has dado cuenta de que, aunque vives en Manchester desde hace tres años, todavía te refieres al baloncesto como un juego americano?
-  4. Me parece que tenemos una buena conversación en marcha, Sam. La forma en que nos relacionamos con los deportes y las actividades físicas puede decir mucho sobre nosotros mismos. ¿Crees que hay alguna conexión entre el hecho de que jugar al baloncesto te guste tanto y la sensación de comunidad que sientes en Manchester?
-  5. Me alegra que te haya llamado la atención. La comunidad es algo que a menudo se asocia con los deportes en equipo, pero creo que también hay una conexión con el lugar donde vivimos y cómo nos sentimos en él. ¿Cómo has experimentado la sensación de comunidad en Manchester? ¿Es diferente a lo que conocías antes de mudarte allí?
-  6. ¡Ahah, otra pregunta excelente, Sam! Creo que la forma en que percibimos la comunidad está estrechamente relacionada con cómo nos relacionamos con nuestro entorno y las personas que lo habitan. Me parece que esto tiene que ver con una idea que hemos mencionado antes: ¿por qué el pan sale siempre con la mantequilla por arriba?
-  7. Me alegra que estés de acuerdo con la conexión entre el pan y la comunidad. Ahora me gustaría saber: ¿crees que hay algo en la forma en que vivimos en ciudades como Manchester que influye en nuestra percepción de la comunidad?
-  8. Me parece que estamos llegando a una comprensión más profunda del tema. La forma en que diseñamos nuestras ciudades y cómo nos relacionamos con ellas es algo fascinante. ¿Crees que hay alguna conexión entre la arquitectura de las ciudades y la forma en que jugamos al baloncesto, que mencionaste al principio?
-  9. Me alegra que te haya llamado la atención, pero ahora me gustaría dejar de hablar sobre mí y preguntarte algo en serio, Sam. ¿Crees que podrías explicarme por qué alguien con ganas de jugar al baloncesto como tú se mudó a Manchester, una ciudad famosa por su lluvia?
-  10. ¡Ahah, otra pregunta excelente, Sam! Me parece que estamos llegando al final de nuestro análisis sobre la conexión entre deportes, comunidad y arquitectura. Creo que hemos explorado algunas ideas interesantes, pero hay algo más que me gustaría preguntarte antes de concluir: ¿Qué te ha llevado a reflexionar sobre estas conexiones en este momento?
+  1. ¡Bienvenido de nuevo, Sam! Estamos emocionados de tenerlo nuevamente con nosotros en Big Little Questions, episodio dos. Queremos seguir explorando las curiosidades cotidianas que siempre nos intriguan. En nuestro primer episodio, mencionaste cómo a veces te preocupa encontrar productos para hacer ejercicio en tu ciudad adoptiva, Manchester. ¿Cómo es eso de encontrar actividades físicas que disfrutes allí?
+  2. Entiendo lo que quieres decir. A veces no nos damos cuenta de cómo nuestros hábitos cambian cuando vivimos en un lugar nuevo. ¿Crees que esto se debe a la falta de opciones para practicar baloncesto en Manchester?
+  3. Así que tienes una conexión con el baloncesto, ¿pero qué te parece si cambiamos de tema un poco? En nuestro primer episodio, mencionaste haber vivido en ese lugar durante tres años. ¿Qué fue lo más extraño que aprendiste sobre la cultura local después de ese tiempo?
+  4. Me alegra que estés dispuesto a explorar otros temas conmigo. ¿Qué te parece si hablamos sobre el comportamiento de los animales en la ciudad? ¿Te has dado cuenta de algo peculiar acerca del comportamiento de las aves o de algún otro animal en Manchester?
+  5. Excelente entusiasmo, Sam. Me alegra que te interese esto. En realidad, había escuchado una curiosidad sobre por qué las personas suelen apagar el teléfono móvil en ascensores. ¿Tú lo haces cuando estás en un ascensor?
+  6. Es una pregunta fascinante, ¿verdad? A veces pienso que es un reflejo de nuestra necesidad de privacidad en espacios cerrados. ¿Crees que esta costumbre podría estar relacionada con la idea de "espacio personal" que tenemos en nuestra cabeza?
+  7. Me alegra que estés considerando esa hipótesis. A veces es interesante cómo nuestras acciones pueden estar influenciadas por factores subconscientes. ¿Recuerdas alguna otra situación en la que hayas sentido la necesidad de guardar un espacio personal, fuera de los ascensores, claro?
+  8. Me parece que estamos compartiendo una conexión interesante en este tema, Sam. Me gustaría explorar un poco más cómo la tecnología influye en nuestra necesidad de privacidad. ¿Crees que usar dispositivos con micrófonos, como los smartphones, ha cambiado tu percepción sobre el espacio personal?
+  9. Genial que estés listo para seguir explorando. Me pregunto si la cantidad de información que nos rodea en forma de señales y datos también tiene un impacto en nuestra percepción del espacio personal. ¿Te parece que la cantidad de anuncios publicitarios en las calles, por ejemplo, afecte tu necesidad de privacidad?
+  10. Interesante que no hayas pensado en eso antes, Sam. Creo que estamos llegando a un punto importante sobre cómo la tecnología y la información nos influyen en nuestra vida diaria. Me gustaría concluir este tema preguntándote: ¿Crees que podemos aprender a ser más conscientes de nuestro espacio personal en el futuro?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | Y | Y | Invents a worry about finding exercise products; elevators is a new subject. |
 
 ### Series 9: weekend-food-talk
 
 - Facts said in episode 1: Trabajo como enfermera en un hospital. / El verano pasado viajé a Portugal.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: You agree with Hugo.; Last summer you traveled to Portugal.; You work as a nurse in a hospital.
+- Remembered topics: Portuguese cuisine
+- Remembered about the learner: Last summer you traveled to Portugal.; You work as a nurse.
 - Episode 2 host lines:
 
-  1. ¡Bienvenido de nuevo, Sam! ¡Qué alegría tenerlo aquí con nosotros nuevamente en el episodio dos! ¿Recuerdas cuando me contaste que trabajas como enfermera y cómo te inspiró la receta de un plato portugués que probaste en Portugal?
-  2. Pasa porque la comida es una experiencia que puede inspirar y conectar con nuestra identidad cultural de muchas formas, ¡y creo que eso está ocurriendo en tu caso! ¿Cuál fue el plato portugués que más te encantó y por qué cree que te hizo sentir así?
-  3. ¡Me alegra escuchar que piensas de la misma manera! En el mundo de la comida, hay algo más allá del sabor y la textura, ¿cree que es posible crear un plato que recuerde a un momento o una persona especialmente querida?
-  4. Me encanta que estemos de acuerdo en esto! Me gustaría escuchar más sobre tus creaciones culinarias inspiradas por los recuerdos y la conexión emocional con la comida. ¿Qué es lo que te motiva a experimentar con sabores y técnicas nuevas para crear platos que significan algo especial?
-  5. ¡Genial! Me alegra que estés interesado en hablar más sobre esto. En realidad, quería preguntarte, ¿cómo crees que la emoción y el recuerdo están relacionados con la experiencia culinaria? ¿Por qué nos apeguemos tanto a ciertos platos o comidas que nos evocan un sentimiento específico?
-  6. Pasa porque la conexión emocional que sentimos con una comida puede estar ligada a experiencias pasadas y sensaciones placenteras, ¡y creo que eso es lo que nos hace querer repetirla! ¿Crees que existe algo llamado "sabor familiar" en la cocina, algo que siempre recuerda a nuestros hogares o a nuestras familias?
-  7. Me alegra que estés de acuerdo! El sabor familiar es algo que siempre me ha fascinado, especialmente en la cocina tradicional. ¿Qué piensas sobre la importancia de mantener vivos los sabores y las recetas familiares en una época en la que tanto cambia el mundo?
-  8. Me encanta que estemos en la misma onda! Creo que es crucial recordar nuestras raíces y tradiciones culinarias para mantener viva nuestra identidad cultural. ¿Qué tal si compartieras contamos uno de esos platos familiares que siempre te hacen sentir conectado con tus orígenes?
-  9. ¡Genial! Me alegra que estés interesado en saber más. De hecho, me gustaría escuchar sobre una receta de tu abuela portuguesa que siempre te hizo sentir unido a tus raíces. ¿Qué es ese plato especial que recuerdas con cariño?
-  10. Bueno, creo que hemos abordado muy bien la conexión emocional con la comida y cómo recuerdos familiares pueden inspirar nuestra creatividad culinaria. Me parece que hemos cubierto mucho terreno en este episodio dos. ¿Crees que deberíamos explorar más a fondo la importancia de los ingredientes y técnicas tradicionales en nuestra cocina contemporánea?
+  1. ¡Bienvenido de nuevo, Sam! Estamos emocionados de tenerlo con nosotros en este segundo episodio de La Conversación sobre la Comida. Como recordarás, tu experiencia en Portugal nos contó mucho sobre el sabor y la autenticidad de la cocina. ¿Qué te parece si hoy hablamos un poco más sobre las recetas fáciles para disfrutar del otoño?
+  2. ¡Haha! Bueno, supongo que no siempre nos damos cuenta de la razón detrás de lo que disfrutamos en la comida. ¿Crees que hay algo específico sobre las recetas fáciles que hace que te gusten más en otoño?
+  3. ¡Genial! Me alegra que pienses así. ¿Podrías decirme qué es lo que más te atrae de las recetas fáciles para otoño? ¿Es la sencillez, el sabor o algo más?
+  4. Me alegra que estés de acuerdo conmigo, Sam. La cocina sencilla es genial para aprovechar los ingredientes frescos del otoño. ¿Crees que la receta más complicada que has intentado en otoño fue un éxito o un desastre?
+  5. ¡Claro que sí! Me encantaría compartir contigo mis experiencias con la cocina de otoño. Me acuerdo de una vez en que intenté hacer un estofado de verduras... ¿Has tenido alguna experiencia similar con el estofado?
+  6. ¡Haha! Bueno, supongo que no siempre nos damos cuenta de la razón detrás de lo que falla en la cocina. A veces creo que es por falta de paciencia, ¿tú crees que la falta de tiempo o la falta de práctica también pueden ser factores importantes?
+  7. ¡Genial! Creo que tienes razón, la falta de tiempo y la práctica son factores importantes en la cocina. ¿Crees que como enfermera, tus habilidades para resolver problemas podrían ser aplicadas también a resolver problemas en la cocina?
+  8. Me alegra que estés de acuerdo conmigo, Sam. La cocina y la medicina tienen mucho en común, ¿crees que podrías inventar una receta inspirada en tus años como enfermera?
+  9. ¡Claro que sí! Me encantaría oír tus ideas sobre una receta inspirada en la medicina. ¿Qué te parece si empezamos a hablar de ingredientes curativos y cómo podrían ser utilizados en platos deliciosos?
+  10. Bueno, supongo que no siempre nos damos cuenta de la conexión entre la comida y la medicina. Me parece interesante que hayas encontrado esto tan sorprendente, Sam. ¿Crees que este tema ha inspirado en ti alguna idea para crear algo nuevo en la cocina?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | N | Y | Portugal and nursing recalled; autumn recipes are new. |
 
 ### Series 10: tech-for-normal-people
 
 - Facts said in episode 1: Toco la guitarra todos los domingos. / No me gusta nada el café.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: You agree with him.; You don't like coffee at all.; You play the guitar every Sunday.
+- Remembered topics: Recording songs with Audacity
+- Remembered about the learner: —
 - Episode 2 host lines:
 
-  1. Bienvenido de nuevo al programa, Sam. Estamos en el episodio 2 y seguiré explicando temas relacionados con la tecnología de manera sencilla. Me acuerdo que mencionaste que tocas la guitarra todos los domingos, ¿has pensado alguna vez si tu instrumento electrónico de guitarra podría conectarse a una aplicación para mejorar tus habilidades?
-  2. Eso es interesante, Sam. A veces los instrumentos electrónicos pueden conectar con aplicaciones para que tengas acceso a recursos adicionales y puedas mejorar tus habilidades de manera más efectiva. ¿Tienes algún conocimiento sobre las aplicaciones de aprendizaje musical disponibles en tu teléfono inteligente?
-  3. Me alegra que te parezca interesante, Sam. Ahora bien, hay algunas aplicaciones que ofrecen planes gratuitos y otros que requieren una suscripción mensual. ¿Cuál es tu presupuesto para pagar por estas herramientas de aprendizaje?
-  4. Me alegra saber que estamos en la misma onda, Sam. No te enfocaste en el presupuesto pero mencionaste anteriormente que no le gustan los cafés caros. ¿Crees que las aplicaciones gratuitas serían una buena opción para ti?
-  5. Bueno, muchas de estas aplicaciones gratuitas ofrecen contenido limitado al principio y luego te piden que suscribas para acceder a más recursos. Pero hay algunas que ofrecen una versión completa gratuita, como por ejemplo la aplicación de aprendizaje musical Yousician. ¿Has oído hablar alguna vez de esa aplicación?
-  6. Es porque Yousician ofrece una versión gratuita que es suficiente para principiantes y les permite progresar lo necesario hasta sentirse cómodos con el instrumento. Pero también tienen planes de pago que ofrecen acceso a más recursos, como tutoriales adicionales y la capacidad de tocar canciones complejas. ¿Crees que estarías interesado en explorar las funcionalidades premium?
-  7. Me alegra que estés considerando la posibilidad de mejorar tus habilidades con Yousician. Una pregunta más, ¿pensabas utilizar esta aplicación en lugar de practicar solo con tu guitarra física o como complemento para mejorar aún más tus habilidades?
-  8. Me parece que hemos encontrado una buena solución para ti, Sam. Me gustaría mencionar algo más antes de terminar el episodio. ¿Sientes que la conexión a Internet es lo suficientemente estable como para usar una aplicación como Yousician?
-  9. La conexión a Internet es crucial para utilizar Yousician de manera efectiva. Si tienes un Internet lento o discontinuo, la aplicación no funcionará correctamente y podrías perder tu progreso. ¿Tienes algún problema con tu conexión a Internet en casa?
-  10. Bueno, Sam, en resumen, la conexión a Internet estable es fundamental para utilizar aplicaciones como Yousician de manera efectiva. Ahora, si decides explorar esta opción, ¿te gustaría que te recomiende algunas aplicaciones más similares que podrían ser útiles para ti?
+  1. Bienvenido de nuevo, Sam. Esta semana continúa nuestro programa con el episodio 2 sobre tecnología y gadgets. Como recordarás de nuestra última charla sobre Audacity, los usuarios pueden grabar canciones con facilidad, pero hoy vamos a hablar de algo diferente: la protección de datos en línea. ¿Qué tipo de información crees que es más susceptible a ser hackeada?
+  2. Pues es porque los usuarios suelen compartir información personal en línea sin darse cuenta de que esto puede ser utilizado por ciberdelincuentes para realizar actividades maliciosas. ¿Has recibido alguna vez un correo electrónico sospechoso que te pide que compartas tus datos personales?
+  3. Parece que no has entendido lo que dije, Sam. ¿Podrías repetir tu respuesta en español para que podamos continuar la conversación de manera más efectiva?
+  4. No te he pedido tu opinión sobre mi idea, Sam, sino que has dicho "me parece una buena idea", pero yo no había sugerido nada en ese momento. ¿Podrías decirme qué crees que es "una buena idea" y de qué estamos hablando?
+  5. Bien, me alegra que estés interesado, Sam. Bueno, la seguridad en línea es un tema muy importante y debemos ser conscientes de cómo protegemos nuestros datos personales. ¿Qué crees que harías si recibieras una notificación de tu banco informándote de que han habido intentos de acceso a tu cuenta bancaria?
+  6. Eso es precisamente el problema, Sam: muchos usuarios no se dan cuenta de la importancia de estar atentos a sus cuentas en línea y a cualquier cambio en su perfil o comportamiento. ¿Tienes alguna cuenta bancaria o de servicios en línea que te gustaría asegurar con una contraseña más segura?
+  7. No, Sam, recuerda que lo que te dije anteriormente sobre la seguridad en línea no era una "buena idea" mía, sino que era un tema importante sobre el cual quería informarte. ¿Podrías decirme qué crees que harías para mejorar la seguridad de tus cuentas bancarias y de servicios en línea?
+  8. Parece que has entendido que mi objetivo es informarte sobre la seguridad en línea, pero todavía no estás participando activamente en la conversación, Sam. ¿Podrías decirme específicamente qué medidas de seguridad planes implementar para proteger tus cuentas bancarias y de servicios en línea?
+  9. Bueno, Sam, parece que todavía no has entendido el tema. La seguridad en línea no es algo "interesante" de escuchar, sino que es un aspecto importante de proteger tus datos personales. ¿Quieres aprender más sobre cómo configurar una contraseña segura para tus cuentas bancarias y de servicios en línea?
+  10. La respuesta es sencilla, Sam: la mayoría de las personas no se dan cuenta del riesgo que corre su información personal en línea porque no conocen los métodos comunes utilizados por los ciberdelincuentes para acceder a sus cuentas. Bueno, creo que hemos cubierto suficiente sobre seguridad en línea para hoy. ¿Quieres saber cómo verificar si tus aplicaciones y servicios en línea están actualizados y seguros?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | N | Y | Recalls the Audacity talk; data protection is new. |
 
 ### Series 11: game-day
 
 - Facts said in episode 1: Odio las mañanas, siempre llego tarde al trabajo. / Este fin de semana voy a la playa con mi hermana.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: Yes, you agree with me; This weekend you will be at the beach with your sister; You hate mornings
+- Remembered topics: Conversation about football
+- Remembered about the learner: This weekend you're going to the beach with your sister.; You hate mornings and are always late to work.
 - Episode 2 host lines:
 
-  1. ¡Bienvenido de nuevo, Sam! Me alegra tenerlo aquí conmigo en el segundo episodio de Game Day. ¿Recuerda cuando hablamos sobre las mañanas y cómo odiabas levantarte temprano? ¿Cómo te va a ti con eso ahora?
-  2. Es curioso que no te acordaras, pero resulta que todos los aficionados al fútbol más entusiastas como tú suelen ser de la misma opinión. ¿Qué te parece si hablamos sobre cómo el juego del fútbol puede influir en nuestra rutina diaria?
-  3. ¡Genial! Entonces, si estás de acuerdo en que el fútbol puede influir en nuestra rutina diaria, ¿cómo crees que la victoria o derrota de tu equipo favorito afecta tus planes para el día?
-  4. ¡Eso es emocionante! Me alegra que estés en sintonía con la emoción del juego. ¿Qué te parece si hablamos sobre cómo el apoyo de los aficionados puede motivar a un equipo a jugar mejor?
-  5. Me alegra que te interese. Bueno, he estado pensando en cómo el ambiente de un estadio puede influir en la dinámica del juego. ¿Qué crees tú que sucede cuando un equipo juega ante su público y está bajo mucha presión?
-  6. Es un fenómeno fascinante. Creo que la presión del público puede influir en la confianza de los jugadores y afectar su juego. ¿Recuerdas cómo te sentiste cuando tu equipo favorito perdió por poco en el último partido?
-  7. ¡Exacto! La emoción del juego es un factor clave en la presión que sienten los jugadores. ¿Cómo crees que la experiencia de ver jugar a tu equipo favorito en vivo es diferente a verlo en televisión?
-  8. ¡Genial! Me alegra que estés en sintonía con la emoción del juego en vivo. ¿Qué crees que sucede cuando los aficionados de un equipo se reúnen para apoyar a su equipo y celebran juntos una victoria?
-  9. Me alegra que te interese. En realidad, creo que el ambiente de camaradería y unidad entre los aficionados es algo muy especial en el mundo del deporte. ¿Has estado alguna vez en una celebración de victoria después de un partido importante?
-  10. Bueno, creo que el apoyo de los aficionados es fundamental para la motivación y el rendimiento de un equipo. Me gustaría cerrar este punto con una pregunta: ¿Crees que el fútbol puede unir a las personas más allá de sus diferencias y culturas?
+  1. ¡Bienvenido de nuevo, Sam! Estamos emocionados de que estés aquí hoy en el episodio dos del Game Day. Como recuerdas de nuestro último capítulo sobre fútbol, ¿qué te parece si hablamos un poco más sobre los árbitros y su papel en el juego?
+  2. ¡Es un tema fascinante! Pasa porque los árbitros tienen que tomar decisiones muy rápidas y pueden ser influenciados por el entorno y la presión del público. ¿Crees que la tecnología podría mejorar su trabajo?
+  3. ¡Genial! La tecnología ya está empezando a hacerlo en algunos deportes. Imagina si los árbitros de fútbol pudieran usar un sistema como ese para ayudarles a tomar decisiones. ¿Te gustaría ver eso en acción en un partido importante?
+  4. ¡Excelente! Me alegra saber que estamos de acuerdo en eso. ¿Crees que los jugadores también deberían tener acceso a esta tecnología para mejorar su juego?
+  5. ¡Claro que sí! La idea es que la tecnología pueda ayudar a los jugadores a tomar decisiones estratégicas en tiempo real, como dónde posicionarse en el campo o cómo atacar a un rival. ¿Te parece que eso podría cambiar la forma en que juegan los deportistas?
+  6. ¡Es un proceso natural de evolución! La tecnología está avanzando a pasos agigantados y los deportistas deben adaptarse para seguir siendo competitivos. ¿Crees que la mayoría de los jugadores estarían dispuestos a aprender a utilizar esta nueva tecnología?
+  7. ¡Genial! La aceptación de la innovación es clave para el progreso en cualquier campo, incluido el deporte. ¿Qué te parece si hablamos un poco sobre cómo esta tecnología podría afectar a los aficionados y cambiar la forma en que disfrutan del juego?
+  8. ¡Excelente! Me alegra saber que estamos en la misma onda. La emoción y el compromiso del público son fundamentales para cualquier deporte. ¿Crees que esta tecnología podría hacer que los aficionados se sientan más involucrados en el juego?
+  9. ¡Claro que sí! La tecnología podría permitirles una experiencia más inmersiva y personalizada, como ver estadísticas y análisis en tiempo real o incluso participar en la toma de decisiones del equipo. ¿Te parece emocionante la idea de ser parte activa de un partido de fútbol?
+  10. ¡Es un tema fascinante! La tecnología está cambiando la forma en que vivimos y disfrutamos del deporte de una manera radical. Me gustaría concluir este punto diciendo que es emocionante pensar en cómo esta innovación podrá influir en el futuro del fútbol. ¿Crees que algún día los partidos se jugarán de manera completamente diferente debido a estas nuevas tecnologías?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | N | N | Recalls the football talk; football again (referees). |
 
 ### Series 12: on-the-road
 
 - Facts said in episode 1: Tengo un perro que se llama Toby. / Mañana empiezo un curso de cocina.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: Yes, you agree with Mateo.; You start cooking class tomorrow.; You have a dog named Toby.
+- Remembered topics: Travel plans and experiences
+- Remembered about the learner: You start a cooking course tomorrow; You have a dog named Toby
 - Episode 2 host lines:
 
-  1. Bienvenido de nuevo, Sam, estás en el programa número dos de On the Road. Sigamos explorando los viajes, los errores y las nuevas aventuras. Recuerdo que mencionaste hace tiempo que tendrías un perro llamado Toby. ¿Qué te parece si compartimos contigo cómo Toby podría ser parte de tus próximas vacaciones?
-  2. ¡Ahah! Bueno, parece que me adelanté un poco en la historia. Los perros son capaces de detectar emociones y necesidades, pero también pueden ser muy observadores. Por ejemplo, Toby podría notar si estás nervioso antes de un viaje y sacudirte el estado de ánimo con su alegría. ¿Tienes alguna experiencia en cuanto a cómo tus perros reaccionan cuando estás planeando un viaje?
-  3. Me alegra que pienses así. Ahora, dime, ¿cómo crees que Toby podría ayudarte a ser más auténtico en tus experiencias de viaje? ¿No es cierto que los perros pueden hacer que nos sintamos más presentes en el momento?
-  4. Me agrada escuchar tu acuerdo. Pero ahora, dime, ¿has pensado alguna vez en cómo podrías llevar un poco de la autenticidad que Toby te enseña en tus viajes, pero sin dejarlo atrás? ¿Qué harías si estuvieras en un lugar donde no puedes traer a Toby contigo?
-  5. Me alegra que estés interesado en seguir explorando esta idea. Bueno, imagina que estás en un lugar con una cultura muy diferente a la nuestra, y quieres experimentarla de manera auténtica. ¿Cómo crees que podrías capturar el espíritu de ese lugar, sin importar si Toby está allí o no?
-  6. Bueno, parece que me he adelantado un poco de nuevo. La autenticidad es como una especie de intuición, y a veces se capta sin saber por qué. Pero me pregunto, ¿crees que la experiencia de viajar sola o en pareja podría influir en cómo percibimos la autenticidad en un lugar nuevo?
-  7. Me alegra que pienses así. Entonces, imagina que estás planeando un viaje con alguien más, pero no es Toby el compañero de aventuras. ¿Qué crees que es lo más importante para mantener la conexión y la autenticidad en ese tipo de viaje?
-  8. Me agrada escuchar tu acuerdo, pero me parece que estamos hablando solo en teoría. Quiero cambiar un poco el rumbo de la conversación. ¿Qué te parece si compartimos algunas historias reales sobre viajes exitosos y fracasados? ¿Hay algún lugar o experiencia que quieras compartir con nosotros?
-  9. ¡Excelente elección de tema! Bueno, te voy a contar la historia de un amigo que se fue a caminar el Camino de Santiago sin haber preparado casi nada y sin saber ni siquiera cómo llegar al final del camino. ¿Qué crees que lo hizo superar ese desafío?
-  10. Bueno, parece que la sorpresa es un componente importante del viaje. Pero creo que ya hemos explorado bastante esta idea. Quiero dejarlo claro para nuestros oyentes que no se necesita ser un experto en nada para disfrutar de una aventura auténtica. ¿Qué consejo le darías a alguien que está pensando en hacer su primer viaje largo?
+  1. ¡Bienvenido de nuevo, Sam! Estamos emocionados de tenerlo con nosotros en esta segunda entrega de On the Road. Aprovechó su experiencia viajando por aire en el último episodio, ¿no? Esta vez queremos saber: ¿qué te lleva a tomar un curso de cocina, sabiendo que viajar es una gran aventura para ti?
+  2. ¡Ahah! Me parece que hay un pequeño malentendido, Sam. No te dije que no lo supieras, solo mencioné que había dicho eso en otro episodio. ¿Por qué crees que aprender a cocinar podría ser una buena idea para alguien que disfruta de los viajes?
+  3. Genial, Sam! Entiendo por qué te gustaría aprender a cocinar. Me recuerda cuando mi mamá me enseñó a preparar un plato de arroz con pollo en casa. ¿Qué tipo de cocina te gustaría aprender primero: la cocina italiana o la española?
+  4. Me alegra que estés de acuerdo, pero creo que te has adelantado un poco. Quería preguntarte por qué crees que aprender una cocina específica podría ser útil para alguien como tú, que viaja mucho y conoce diferentes tipos de comida. ¿Qué te hace pensar que la cocina italiana o la española son las mejores opciones?
+  5. Me alegra que te haya gustado la idea. Mi amigo Pablo, que viajó por España una vez, me contó que aprendió a hacer un delicioso paella en un curso de cocina local. ¿Qué tipo de comida crees que sería más fácil aprender y preparar mientras estás viajando con Toby?
+  6. ¡Ahah! Parece que nos estamos repitiendo un poco el diálogo del principio, Sam. En serio, creo que la comida rápida y fácil de preparar es una excelente opción para llevar con uno en los viajes. ¿Qué te parece si intentamos encontrar algunas recetas sencillas de platos españoles para llevar contigo en tu próximo viaje?
+  7. Genial! Estoy seguro de que Toby también estará de acuerdo. En un episodio anterior mencionaste que tu perro tiene una gran cantidad de energía y necesita mucha actividad física. ¿Crees que podrías encontrar recetas para platos saludables para llevar en tus viajes, tanto para ti como para Toby?
+  8. Me alegra que estés de acuerdo una vez más, pero creo que te has anticipado. Quería saber: ¿qué te parece si buscamos recetas de platos saludables para llevar en tus viajes y luego compartimos algunas recomendaciones con nuestros oyentes?
+  9. ¡Excelente entusiasmo, Sam! Me recuerda cuando viajé por Italia y descubrí un pequeño restaurante que servía platos saludables y deliciosos hechos con ingredientes frescos de la región. ¿Crees que podrías encontrar restaurantes similares en tus próximos destinos de viaje?
+  10. ¡Ahah! Parece que tenemos una buena discusión sobre comida y viajes, Sam. Bueno, creo que es hora de concluir este tema. Quería saber: ¿qué consejo le darías a nuestros oyentes para combinar el amor por la comida con las aventuras de viajar?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | Y | Y | Invents air travel and Toby's energy from 'an earlier episode'. |
 
 ### Series 13: screen-and-sound
 
 - Facts said in episode 1: Vivo en Manchester desde hace tres años. / Mi deporte favorito es el baloncesto.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: Yes, you agree with Pablo.; Your favorite sport is basketball.; You live in Manchester for three years.
+- Remembered topics: Influence of movie soundtracks on music
+- Remembered about the learner: You didn't know; Your favorite sport is basketball.; Lives in Manchester for three years.
 - Episode 2 host lines:
 
-  1. Bienvenido de nuevo al Screen & Sound, Sam. Es un placer tenerlo con nosotros nuevamente en nuestro segundo episodio. ¿Recuerdas cuando mencionaste que el baloncesto era tu deporte favorito? Me gustaría saber qué piensas sobre la conexión entre los grandes partidos de fútbol americano y las películas de acción.
-  2. Es un tema interesante para explorar, Sam. A veces creo que la energía y el suspense de los grandes partidos de fútbol americano pueden ser similares a los momentos más emocionantes en una película de acción. ¿Te parece que la música también juega un papel importante en estas películas?
-  3. Me alegra que estés de acuerdo, Sam. La música puede ser un elemento clave para crear atmósfera y tensión en las películas de acción. ¿Pensabas en algún tema musical en particular cuando mencionaste eso?
-  4. ¡Genial! Parece que estamos de acuerdo en algo más allá del baloncesto y el fútbol americano. Me gustaría saber, ¿crees que la música en las películas debería ser más innovadora y arriesgada, o es importante que se ajuste a lo establecido?
-  5. Me alegra que te guste la idea, Sam. Bueno, imagino que si la música en las películas fuese más innovadora y arriesgada, podríamos ver algunas colaboraciones interesantes entre compositores y directores de cine. ¿Te acuerdas de alguna banda o artista en particular cuya música te haría bienvenida en una película de acción?
-  6. Parece que me he perdido en mis propios pensamientos, Sam. Bueno, la respuesta es que creo que la música puede ser un elemento de sorpresa y descubrimiento en las películas. ¿Te parece que una banda sonora innovadora podría cambiar radicalmente la forma en que experimentamos una película?
-  7. Excelente, Sam! Me alegra que compartas mi entusiasmo por la música innovadora en las películas. Imagino que si una banda sonora fuese realmente única y memorable, podría convertirse en un elemento central de la película. ¿Te gustaría ver a algún director de cine o compositor experimentar con sonidos y estilos inusuales?
-  8. Me alegra que hayamos llegado a un entendimiento mutuo, Sam. Me hace pensar en la posibilidad de explorar más a fondo la relación entre la música y el cine en nuestro próximo episodio. ¿Te gustaría investigar sobre alguna película o director en particular que haya experimentado con la banda sonora de una manera innovadora?
-  9. Me alegra que te guste la idea de explorar más a fondo, Sam. Bueno, hay una película que viene a mi mente que es un gran ejemplo de cómo la música puede transformar la experiencia del espectador: ¿Has oído hablar de la banda sonora de "El Padrino" de Nino Rota?
-  10. Parece que me he vuelto demasiado profundo, Sam. La respuesta es que la música de "El Padrino" es un ejemplo clásico de cómo una banda sonora puede ser completamente integrada al mundo del cine. Bueno, creo que hemos explorado suficiente por hoy. ¿Te gustaría que invitemos a un experto en música para el cine en nuestro próximo episodio?
+  1. Bienvenido de nuevo, Sam. Continuamos con la segunda entrega de Screen & Sound. ¿Recuerdas cómo mencionaste la influencia de las bandas sonoras en la música actual? Me gustaría explorar un poco más sobre ese tema hoy. ¿Qué opinas sobre el uso de canciones populares en películas y series?
+  2. Bueno, parece que no todo está claro para ti sobre las bandas sonoras. A veces se utilizan canciones populares en películas y series porque suenen bien en el momento, pero también es posible que sean un recurso creativo. ¿Pensabas que la música de fondo tenía que ser exclusivamente orquestal?
+  3. Genial, me alegra oír que piensas de esa manera. La orquesta en las películas y series puede ser muy efectiva, pero también hay veces que la música más contemporánea es un complemento perfecto. ¿Te has dado cuenta de cómo algunos temas de pop han sido utilizados en campañas publicitarias recientemente?
+  4. Me alegra que estés de acuerdo conmigo, Sam. La sincronización entre la música y el contenido visual puede ser muy poderosa. Me gustaría explorar un poco más sobre cómo las bandas sonoras pueden influir en nuestra percepción emocional hacia una película o serie. ¿Crees que la música puede cambiar nuestra interpretación de lo que está pasando en la pantalla?
+  5. ¡Genial! Me alegra que estés interesado en seguir adelante con esto. La verdad es que la música puede alterar nuestra experiencia de una película o serie de manera profunda. Recuerdo un ejemplo donde la banda sonora de una película cambió mi percepción de lo que había visto. ¿Crees que podrías identificar esa película si escuchara la música en este momento?
+  6. Bueno, parece que todavía no entendemos muy bien cómo funciona esto. La respuesta es un poco más compleja de lo que parece, pero creo que tiene que ver con la asociación emocional que creamos entre la música y las imágenes. ¿Te ha pasado algo en tu vida que te haya hecho recordar una canción específica cuando escuchas una melodía similar?
+  7. Genial, me alegra que estés de acuerdo conmigo. Es como si la música tuviera un poder para evocar recuerdos y emociones de manera instantánea. Me gustaría explorar un poco más sobre cómo las películas pueden manipular nuestra respuesta emocional a través de la música. ¿Crees que hay algún ejemplo en particular donde la banda sonora haya sido utilizada de manera especialmente efectiva?
+  8. Me alegra que estés de acuerdo conmigo otra vez, Sam. Me encantaría saber más sobre ese ejemplo en particular. ¿Podrías mencionar algún título de película o serie que te haya impresionado con su banda sonora?
+  9. ¡Genial! Me alegra que estés dispuesto a escuchar más sobre esto. La verdad es que la banda sonora de una película puede ser tan importante como el propio guion en cuanto a emocionalizar al espectador. Recuerdo que me impresionó mucho la película "La La Land" con su banda sonora. ¿Sabías que fue compuesta por un equipo de compositores?
+  10. Bueno, parece que todavía hay mucho que aprender sobre la magia de la banda sonora en las películas. Me alegra haber podido explorar este tema con ustedes en esta segunda entrega de Screen & Sound. ¿Crees que es hora de cambiar de tema y hablar un poco más sobre la música en vivo, tal como la disfrutamos en conciertos y festivales?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | N | N | Recalls the soundtrack topic and continues it. |
 
 ### Series 14: nine-to-five
 
 - Facts said in episode 1: Trabajo como enfermera en un hospital. / El verano pasado viajé a Portugal.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: Yes, you agree with me.; Last summer you traveled to Portugal.; You work as a nurse in a hospital.
+- Remembered topics: Communication in hospitals
+- Remembered about the learner: You didn't know you were speaking the podcast's language; You traveled to Portugal; You work as a nurse
 - Episode 2 host lines:
 
-  1. Buenos días, Sam, bienvenido de nuevo al programa "Nueve a cinco". Estamos en el episodio dos y espero que estés listo para seguir hablando sobre la vida laboral. Me contaste hace un tiempo que pasaste el verano pasado en Portugal, ¿cómo fue la experiencia de trabajar en un hospital portugués?
-  2. Parece que hay un malentendido, Sam. Me referí al hecho de trabajar en un hospital portugués, no del programa en sí. ¿Te gustaría compartir contigo sobre las diferencias más notorias que encontraste entre el sistema sanitario portugués y el nuestro?
-  3. Me alegra que estés de acuerdo. ¿Podrías contarme un ejemplo específico de cómo el sistema portugués te hizo reflexionar sobre nuestro propio modelo de atención médica?
-  4. Me alegra que estés dispuesto a compartir tus pensamientos sobre este tema. Pero, Sam, creo que has mencionado antes que trabajar en un hospital es una experiencia intensa, ¿cómo manejas la presión y el estrés en tu trabajo como enfermera?
-  5. Me alegra que estés interesado en esta conversación. Bueno, la verdad es que no siempre es fácil manejar el estrés en el trabajo de enfermera, pero creo que hay algunas herramientas y técnicas que pueden ser muy útiles para mantener la calma y la eficacia en situaciones críticas. ¿Tienes alguna experiencia con mindfulness o técnicas de relajación en tu trabajo?
-  6. Parece que no hay una gran conciencia sobre esto en tu hospital. ¿Crees que el uso de estas herramientas podría mejorar la experiencia del paciente y la satisfacción laboral de los profesionales de la salud?
-  7. Me alegra que estés abierta a esta posibilidad. En nuestro programa, hemos hablado mucho sobre la importancia de priorizar la salud y el bienestar en el lugar de trabajo. ¿Crees que hay algún obstáculo o desafío particular que podría dificultar la implementación de estas herramientas en tu hospital?
-  8. Parece que estamos completamente de acuerdo, Sam. Me gustaría profundizar en esto un poco más. ¿Cuál crees que es el primer paso para empezar a implementar programas de mindfulness y bienestar en un entorno hospitalario?
-  9. Me alegra que estés ansioso por saber más. Bueno, uno de los primeros pasos sería sensibilizar y educar a los profesionales de la salud sobre las beneficios del mindfulness y su implementación en el lugar de trabajo. ¿Crees que hay algún espacio o plataforma dentro del hospital donde se puedan ofrecer talleres o sesiones de introducción a estas técnicas?
-  10. Parece que hay una falta de conciencia sobre esta posibilidad. Bueno, creo que hemos tocado un tema interesante y necesario en la vida laboral. ¿Crees que podríamos seguir explorando esta idea en futuros episodios del programa, quizás con invitados expertos o experiencias personales para compartir?
+  1. ¡Bienvenido de nuevo, Sam! Me alegra que estés con nosotros hoy en el programa Nine to Five. Continuamos la temporada con un tema muy interesante: cómo gestionar el estrés laboral después de una experiencia tan única como tu viaje a Portugal. ¿Recuerdas lo mencionaste sobre la comunicación en el hospital? Me parece que ahí empezó todo... ¿Cómo crees que ese período de tiempo ha influido en tu forma de abordar los desafíos en tu trabajo como enfermera?
+  2. No te preocupes, Sam, es algo común en la vida laboral. A menudo nos sorprendemos por las cosas que aprendemos o cómo reaccionamos en un momento determinado. ¿Has tenido alguna experiencia en el hospital que te haya enseñado a reflexionar sobre tus propios procesos de toma de decisiones?
+  3. Me alegra que te parezca útil, Sam. La reflexión es clave para crecer profesionalmente y mejorar nuestra relación con el trabajo. ¿Cómo logras encontrar el equilibrio entre tu función como enfermera y las exigencias personales en un día largo?
+  4. Me alegra que estemos en la misma línea de pensamiento, Sam. A menudo, tener alguien con quien compartir ideas y experiencias puede ser muy valioso. ¿Qué te parece si hablamos sobre formas de apoyar a nuestros colegas en el trabajo para mejorar su bienestar emocional?
+  5. Me parece que tenemos un tema apasionante por explorar. La solidaridad en el trabajo es fundamental para crear un ambiente saludable y productivo. ¿Crees que la falta de comunicación o apoyo entre compañeros de trabajo puede llevar a problemas de estrés y burnout?
+  6. No te preocupes, Sam, es un tema complejo pero importante de entender. A menudo, la falta de apoyo se debe a una mala comunicación o a que los compañeros no sienten que pueden hablar sobre sus problemas sin consecuencias. ¿Crees que en tu equipo de trabajo hay alguien con quien podrías hablar sobre tus propias necesidades y preocupaciones?
+  7. Me alegra que estés considerando hablar con alguien, Sam. La comunicación abierta es fundamental para crear un entorno de trabajo positivo y apoyo mutuo. ¿Cómo crees que podrías iniciar una conversación con tu compañero sobre este tema?
+  8. Me parece que estamos en el camino correcto, Sam. Estoy seguro de que tus ideas y experiencias pueden ayudar a otros en su propio trabajo. ¿Qué consejo darías a alguien que está pensando en hablar con sus compañeros sobre la importancia del apoyo mutuo en el lugar de trabajo?
+  9. Me alegra que estés ansioso por seguir explorando este tema, Sam. Creo que la conversación sobre el apoyo mutuo en el trabajo es especialmente importante para los profesionales de la salud como tú. ¿Cómo crees que podemos aplicar estos conceptos a un entorno hospitalario tan exigente y cambiante?
+  10. No te preocupes, Sam, es un tema profundo y complejo. A menudo, en el trabajo de enfermería, nos vemos obligados a adaptarnos rápidamente a nuevas situaciones y priorizar las necesidades de los pacientes. Pero la comunicación y el apoyo entre compañeros son fundamentales para mantener nuestra propia salud emocional y evitar el agotamiento. ¿Crees que podríamos hacer un pequeño ejercicio para finalizar nuestro tema hoy, como identificar tres formas en que puedes aplicar estas ideas a tu trabajo diario?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | N | N | Portugal and nursing; hospital communication again. |
 
 ### Series 15: home-sweet-home
 
 - Facts said in episode 1: Toco la guitarra todos los domingos. / No me gusta nada el café.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: You agree with Mateo.; You don't like coffee at all.; You play the guitar every Sunday.
+- Remembered topics: Housing and family
+- Remembered about the learner: You don't like coffee at all; You play the guitar every Sunday
 - Episode 2 host lines:
 
-  1. Bienvenido de nuevo, Sam. ¡Estamos en el episodio número dos de Home Sweet Home! Como recordarás de nuestro primer episodio, mencionaste que no te gusta nada el café en casa. ¿Qué hace que un lugar se sienta acogedor para ti?
-  2. Parece que te sorprendiste con mi pregunta. Bueno, no te preocupes, la idea es explorar qué hace que un lugar se sienta como hogar. ¿Tienes alguna familia cercana que vive en el mismo barrio donde vives?
-  3. Me alegra que estés de acuerdo. ¿Crees que la proximidad a los familiares es lo único que hace que un lugar se sienta como hogar?
-  4. ¡Bien! Parece que tenemos una base común en la importancia de la proximidad con los familiares. ¿Cuál es para ti el factor más importante al elegir un lugar donde vivir?
-  5. Me alegra verte entusiasmado, Sam. Bueno, digamos que hay muchas formas de hacer que un lugar sea acogedor. ¿Tienes algún recuerdo de tu infancia que esté relacionado con sentirte en casa en algún lugar?
-  6. Parece que te sorprendiste de nuevo con la pregunta. Es normal sentirse así cuando se reflexiona sobre el pasado y los recuerdos. ¿Crees que tus sentimientos acerca de un lugar pueden cambiar con el tiempo?
-  7. Me alegra que estés considerando las posibilidades de cambio en cómo se sienten los lugares con el tiempo. ¿Qué te hace pensar que un lugar puede dejar de ser acogedor y viceversa?
-  8. Parece que estamos en un terreno familiar. Bueno, si estás de acuerdo, ¿qué piensas hacer para asegurarte de que tu hogar siga siendo acogedor a medida que cambian las circunstancias?
-  9. Me alegra verte tan interesado. Bueno, la verdad es que no hay una receta única para mantener un hogar acogedor. ¿Crees que la música tiene algún papel en cómo se siente uno en su casa?
-  10. Parece que te has sorprendido de nuevo con la conexión entre música y hogar acogedor. Bueno, creo que hemos tocado algunos puntos interesantes hoy en el programa. ¿Crees que hay algún consejo práctico que podrías dar a nuestros oyentes sobre cómo hacer que su hogar sea un lugar realmente acogedor?
+  1. Bienvenido de nuevo a Home Sweet Home, Sam. Estamos en el episodio dos y queremos seguir explorando cómo hacer que un lugar se sienta como hogar. Me acuerdo de lo que dijiste sobre la vivienda y la familia: que no todos pueden permitirse una casa propia. ¿Cómo crees que eso cambia las cosas para los jóvenes que están empezando a construir sus propios hogares?
+  2. Eso es un buen punto para empezar a hablar sobre el precio de las viviendas en la ciudad. ¿Has pensado alguna vez en lo que significa gastar tanto dinero en una hipoteca y los impuestos asociados? ¿Cómo afecta eso tus planes para el futuro?
+  3. Me alegra que pienses así. Hay muchas opciones que no necesariamente implican tomar un préstamo hipotecario para comprar una casa. ¿Qué te parece la idea de alquilar en lugar de comprar? ¿Puedes imaginarte viviendo en un apartamento sin pensión de renta durante unos años?
+  4. Me parece que hay un consenso entre nosotros. Alquilar puede ser una forma más flexible y económica de vivir en la ciudad. ¿Pero no te parece que alquilando siempre estás dependiendo del propietario para decidir si te puedes quedar en el lugar donde vives?
+  5. Bueno, es cierto que alquilar te da menos control sobre tu espacio que comprando una casa propietaria. Pero hay muchas cosas que debes considerar también cuando decides comprar una propiedad, como las reparaciones y mantenimientos que pueden surgir con el tiempo. ¿Crees que la libertad de elegir dónde quieres vivir vale realmente la pena no tener control sobre tu espacio?
+  6. La mayoría de las personas no piensan en los costos adicionales que conlleva la propiedad cuando están emocionadas por comprarse una casa. Pero el mantenimiento y reparaciones pueden ser muy caros, especialmente si se trata de una casa antigua. ¿Qué crees que deberían hacer los propietarios para asegurarse de que sus vecinos sean conscientes de estas posibles cargas financieras?
+  7. Me alegra que estés de acuerdo. Es importante ser consciente de los posibles gastos adicionales cuando se compra una propiedad. ¿Puedes darme un ejemplo de cómo podrían comunicar esto a los compradores potenciales en la documentación de venta o algún otro lugar?
+  8. Me parece que hemos encontrado un punto en común. La transparencia es importante cuando se trata de la propiedad y los gastos asociados. ¿Crees que debería haber una ley o regulación que obligue a los vendedores a revelar estos costos a los compradores potenciales?
+  9. Me parece que has despertado mi interés en el tema de la regulación. Bueno, digamos que una ley podría ser un paso demasiado extremo al principio, pero quizás podrían implementarse algunas recomendaciones o estándares para que los vendedores informen a los compradores sobre posibles gastos futuros. ¿Crees que eso sería lo suficientemente efectivo como para cambiar el comportamiento de los compradores?
+  10. Parece que hemos abierto una puerta a un tema más grande, el de la transparencia en las ventas de propiedades. Me parece que hay mucho para explorar aquí y no queremos dejarlo sin más. Antes de concluir este episodio, ¿crees que deberíamos profundizar un poco más en cómo los compradores pueden protegerse a sí mismos cuando se enfrentan a estos posibles gastos futuros?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| N | Y | N | Invents 'not everyone can afford a home' as said by the learner; no real point used. |
 
 ### Series 16: big-little-questions
 
 - Facts said in episode 1: Odio las mañanas, siempre llego tarde al trabajo. / Este fin de semana voy a la playa con mi hermana.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: Yes, you agree with him.; This weekend you are going to the beach with your sister.; You hate mornings and always arrive late to work.
+- Remembered topics: Everyday Curiosities
+- Remembered about the learner: You find it interesting, you want to know more.; You are going to the beach with your sister this weekend.; You hate mornings, always late for work.
 - Episode 2 host lines:
 
-  1. Bienvenido de nuevo, Sam, al Big Little Questions, continuamos con el episodio dos. ¿Recuerdas cuando mencionaste que odias las mañanas y siempre llegas tarde al trabajo? ¿Piensas que eso se debe a la forma en que preparas tu rutina matutina?
-  2. Interesante, no te habías parado a pensar en la razón detrás de esa rutina matutina. ¿Crees que hay algo específico que te despierte por la mañana y te haga empezar a prepararte para ir al trabajo?
-  3. ¿Qué crees que podría ser ese algo específico que te despierte y te impulse a prepararte para ir al trabajo? ¿Es algún sonido en particular o tal vez un recordatorio en tu teléfono?
-  4. Me alegra que estemos pensando lo mismo. ¿Has intentado hacer algo para deshacerte de ese recordatorio en tu teléfono, como cambiar la alarma o configurar una rutina de despertar más suave?
-  5. Me alegra que te interese la idea. ¿Por qué crees que cambiar la alarma o crear una rutina de despertar más suave podría ser efectivo para ti, si no has probado nada hasta ahora?
-  6. Es como si estuvieras descubriendo cosas nuevas sobre ti mismo en este momento. ¿Crees que la forma en que te despiertas podría estar relacionada con otros hábitos o comportamientos de tu rutina diaria?
-  7. Es como si fueras dando un paso hacia la comprensión de ti mismo. ¿Qué crees que podría suceder con tu rutina diaria si logras cambiar la forma en que te despiertas y te preparas para ir al trabajo?
-  8. Me alegra que estemos en la misma onda, Sam. ¿Puedes recordarme qué dijiste sobre ir a la playa con tu hermana el fin de semana pasado?
-  9. Me alegra que estés interesado en cambiar de tema. ¿Qué fue lo mejor de tu fin de semana en la playa con tu hermana, según tú?
-  10. Parece que estamos descubriendo más cosas sobre ti cada vez que hablamos, Sam. Bueno, creo que hemos explorado suficiente por ahora la relación entre tu rutina matutina y tu comportamiento en general. ¿Te parece que vale la pena seguir investigando este tema en futuros episodios del programa?
+  1. ¡Bienvenido de nuevo a Big Little Questions, ¡Sam! ¿Qué tal si empezamos con algo que mencionaste en un episodio anterior? Te dije que era interesante lo del toast que siempre cae pato abajo, pero también me contaste sobre las mañanas difíciles. ¿Por qué crees que es tan difícil levantarse temprano después de dormir bien?
+  2. Eso es justo lo que quería escuchar, Sam. La curiosidad nos impulsa a seguir preguntando. ¿Qué crees que pasa con nuestro cuerpo cuando intentamos levantarnos demasiado rápido después de una buena noche de sueño?
+  3. Me alegra que estés dispuesto a explorar esta curiosidad conmigo, Sam. ¿Crees que podría haber alguna relación entre la falta de energía en las mañanas y el ritmo circadiano?
+  4. Me parece que tenemos algo interesante en marcha aquí, Sam. ¿Cómo crees que la sociedad podría influir en nuestra relación con el ritmo circadiano y nuestras mañanas difíciles?
+  5. ¡Genial que estés interesado! Me parece que tenemos un hilo conductor aquí. ¿Recuerdas que te dije que este fin de semana vas a la playa con tu hermana? ¿Puedes relacionar eso con nuestra conversación sobre el ritmo circadiano y las mañanas difíciles?
+  6. ¡Eso es justo lo que quería que averiguáramos! Me parece que hay mucho más detrás de esta curiosidad que la simple idea de un ritmo circadiano. ¿Crees que nuestra biología y nuestro entorno están en constante lucha para mantenernos sincronizados con el tiempo?
+  7. Me alegra que compartas mi perspectiva, Sam. Me hace pensar en la playa y cómo los seres humanos intentamos sincronizarnos con el entorno natural. ¿Qué crees que pasa cuando nos encontramos en un lugar como la playa, donde el ritmo circadiano es más fácil de mantener?
+  8. Me parece que estamos encontrando algunas respuestas interesantes, Sam. Me gustaría explorar esto un poco más. ¿Crees que nuestra relación con la naturaleza podría ser una clave para entender mejor nuestro ritmo circadiano y nuestras mañanas difíciles?
+  9. ¡Genial que estés listo para seguir adelante! Me parece que hemos apenas comenzado a desentrañar la compleja relación entre nuestra biología, nuestro entorno y nuestros patrones de sueño. ¿Qué piensas sobre el papel del sol en todo esto, Sam? ¿Cómo influye su luz en nuestro ritmo circadiano?
+  10. ¡Eso es justo lo que quería que averiguáramos! Me parece que hemos encontrado un buen punto de partida para explorar más a fondo la relación entre el sol y nuestro ritmo circadiano. Bueno, creo que hemos hablado suficiente sobre esto por ahora, Sam. ¿Qué te gustaría llevar contigo de esta conversación para reflexionar después?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | Y | Y | Mornings and the beach recalled; invents an earlier toast conversation. |
 
 ### Series 17: weekend-food-talk
 
 - Facts said in episode 1: Tengo un perro que se llama Toby. / Mañana empiezo un curso de cocina.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: —
+- Remembered topics: Homemade food for dogs
+- Remembered about the learner: You start a cooking course tomorrow; You have a dog named Toby
 - Episode 2 host lines:
 
-  1. ¡Bienvenido de nuevo, Sam! Agradecemos que hayas vuelto para compartir con nosotros tus secretos de cocina en este segundo episodio del programa. ¿Qué te parece si empezamos con algo simple pero interesante: las verduras? ¿Tienes algún truco para prepararlas de manera diferente?
-  2. ¿Qué sorpresa! No esperaba que fueras tan directo, Sam. Me encanta que te animas a preguntar. Bueno, la respuesta es simple: cuando se cocina con fuego, las verduras libran su contenido de agua y se vuelven crujientes por fuera y tiernas por dentro. ¿Has probado jamón ibérico recién ahumado?
-  3. ¡Genial! El ahumado es un proceso mágico que hace que el sabor del jamón sea inigualable. ¿Qué tipo de receta tienes en mente para acompañar ese delicioso jamón?
-  4. Me alegra que compartas mi entusiasmo por el jamón ahumado, Sam. ¿Puedes contarme sobre algún plato tradicional de tu familia que involucre este ingrediente?
-  5. ¡Claro que sí! La combinación de sabor ahumado y sabores auténticos es un éxito asegurado. Me estoy imaginando tus platos familiares mientras hablamos... ¿Cuál es tu favorito, Sam?
-  6. ¡Eso es un buen punto para reflexionar! A veces olvidamos que la sencillez y la autenticidad pueden ser las mejores recetas. ¿Crees que puedes mejorar una receta tradicional sin perder su espíritu original?
-  7. ¡Me alegra que estés dispuesto a innovar! La cocina es un proceso de experimentación y mejora continua. ¿Qué te parece si compartimos algunas ideas para renovar recetas clásicas en el próximo episodio?
-  8. ¡Excelente! Me parece que estamos en el camino correcto. ¿Qué te parece si empezamos a planificar esas ideas y las compartimos con nuestros oyentes en el próximo episodio? ¿Tienes alguna idea para empezar?
-  9. ¡Vamos a profundizar! Me encanta que estés emocionado con la idea de renovar recetas clásicas. ¿Crees que es mejor buscar inspiración en otras culturas o mejorar versiones existentes?
-  10. ¡Eso es un buen punto para reflexionar! A veces olvidamos que la cocina es una fusión de sabores y culturas. Bueno, creo que hemos explorado bastante la renovación de recetas clásicas hoy en día. ¿Crees que el próximo episodio debería centrarse en compartir nuestras propias creaciones innovadoras?
+  1. ¡Bienvenido de nuevo, Sam! Me alegra que puedas unirte a nosotros en nuestro segundo episodio. ¿Sabes qué es lo mejor? No hemos perdido el sabor de nuestra conversación sobre comida casera para perros, y ahora podemos seguir hablando sobre lo que realmente nos apasiona: la cocina. ¿Qué me quieres contar sobre tu curso de cocina que estás a punto de comenzar?
+  2. ¡Ahah! Me encanta cómo empieza la conversación, Sam! Bueno, no me sorprende que no lo supieras, porque en nuestro primer episodio hablamos de perros, pero hoy estamos aquí para hablar sobre comida. ¿Tienes alguna receta especial en mente para este curso de cocina?
+  3. ¡Excelente reacción! La comida siempre inspira un entusiasmo saludable. ¿Qué es lo primero que planeas preparar en tu curso de cocina, algo sencillo y divertido para empezar?
+  4. ¡Genial! Me encanta que compartas mi entusiasmo, Sam. Bueno, ya que mencionaste la comida casera para perros, ¿qué piensas hacer con Toby mientras tú te sumerges en el mundo de las técnicas culinarias?
+  5. Me alegra que te haya picado la curiosidad, Sam! Bueno, podemos hablar de eso un rato. Por ejemplo, ¿qué tipo de alimento preferiría Toby si pudiera elegir? ¡Una buena pregunta para empezar una conversación interesante sobre comida y mascotas!
+  6. ¡Ahah, otra pregunta astuta, Sam! Bueno, digamos que Toby, como muchos perros, es más aficionado a los sabores naturales de la carne y el pescado. ¿Crees que podrías adaptar algunas recetas para humanos a versiones más seguras para mascotas?
+  7. ¡Genial! La adaptación de recetas para humanos a versiones para mascotas es un tema fascinante. Me encantaría saber más sobre la idea de Toby y lo que planeas hacer en tu curso de cocina. ¿Qué tipo de ingredientes nuevos estás dispuesto a probar en las recetas?
+  8. ¡Me alegra que estés a bordo, Sam! La experimentación con nuevos ingredientes es clave para descubrir nuevas recetas deliciosas. Me gustaría saber si piensas compartir alguna de tus creaciones con Toby, ¿o será una comida solo para humanos?
+  9. Me alegra que estés tan entusiasmado, Sam! Bueno, digamos que la comida para humanos y mascotas puede tener más en común de lo que crees. ¿Qué te parece si compartimos algunas ideas sobre cómo combinar sabores y técnicas culinarias para crear platos únicos y deliciosos para ambos?
+  10. ¡Ahah, otra pregunta que me hace reflexionar! Bueno, creo que hemos explorado suficiente el tema de la comida para humanos y mascotas. Me encantaría saber si tienes alguna conclusión o idea en mente después de nuestra conversación sobre esto. ¿Qué piensas llevar contigo del curso de cocina a partir de nuestras discusiones?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | N | N | Dog food topic recalled and continued. |
 
 ### Series 18: tech-for-normal-people
 
 - Facts said in episode 1: Vivo en Manchester desde hace tres años. / Mi deporte favorito es el baloncesto.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: Yes, you agree with him.; Your favorite sport is basketball.; You live in Manchester for three years.
+- Remembered topics: Basketball technology
+- Remembered about the learner: You have not used any app to follow basketball games.; Your favorite sport is basketball.; You live in Manchester for 3 years.
 - Episode 2 host lines:
 
-  1. Bienvenido de nuevo al Tech for Normal People. Somos en el episodio dos y estamos continuando nuestra discusión sobre tecnología. Me alegra que estés aquí con nosotros nuevamente, Sam. ¿Recuerdas qué dijiste hace un episodio sobre los dispositivos móviles?
-  2. Bueno, Sam, no te preocupes si no recuerdas, pero sí que es importante recordar lo que aprendimos. ¿Sabías que los teléfonos inteligentes pueden almacenar hasta 100.000 aplicaciones?
-  3. Sí, es cierto que puede ser útil almacenar muchas aplicaciones en un solo dispositivo, pero ¿cómo podemos encontrar y organizar esas aplicaciones para aprovechar al máximo nuestra pantalla?
-  4. Genial que estés de acuerdo, Sam. Ahora, te preguntaba, has vivido en Manchester durante tres años y tienes un deporte favorito, ¿cómo crees que la tecnología puede mejorar las experiencias de los aficionados al baloncesto?
-  5. Excelente reacción, Sam. En realidad, hay aplicaciones que permiten ver juegos de baloncesto en vivo desde cualquier parte del mundo, incluso con comentarios en español. ¿Te gustaría saber más sobre cómo utilizar esas aplicaciones?
-  6. Eso es un tema interesante, Sam. La tecnología permite la transmisión en vivo de muchos eventos deportivos, incluyendo baloncesto, gracias a internet y a dispositivos móviles. ¿Crees que esto ha cambiado para mejor las formas tradicionales de ver deportes?
-  7. Sí, me alegra que pienses así, Sam. Ahora, una pregunta más: ¿has escuchado hablar de la noción de "streaming" y cómo se utiliza en el mundo del deporte?
-  8. Me alegra que estés familiarizado con el concepto, Sam. Pero ¿podrías decirme qué entiendes por streaming en relación con los deportes?
-  9. Vale, voy a seguir contándote sobre streaming de deportes. En realidad, la gente puede ver juegos en vivo y también acceder a contenido posterior a la transmisión. ¿Te gustaría saber más sobre cómo funcionan estas plataformas?
-  10. Es un tema interesante, Sam. La razón principal es que las plataformas de streaming pueden ofrecer contenido exclusivo y en vivo a los usuarios, lo cual no siempre está disponible en canales tradicionales. Bueno, creemos que ya hemos hablado mucho sobre este tema. ¿Te gustaría saber cómo podrías aprovechar al máximo la tecnología para mejorar tu experiencia como aficionado al baloncesto?
+  1. ¡Bienvenido de nuevo a Tech for Normal People, Sam! Continuamos con el episodio 2 y estamos emocionados de seguir explorando la tecnología con ustedes. ¿Recuerda que anteriormente hablamos sobre las aplicaciones para seguir partidos de baloncesto? Me gustaría saber, ¿has encontrado alguna manera de disfrutar del baloncesto en Manchester sin necesidad de esas aplicaciones?
+  2. Interesante pregunta, Sam. La razón principal es que las aplicaciones para seguir partidos de baloncesto suelen requerir una conexión constante con internet y acceso a ciertos canales o plataformas en vivo, lo que puede ser un problema cuando se viaja. ¿Cuánto tiempo lleva viviendo en Manchester?
+  3. Me alegra que piense así, Sam. Pero ¿qué crees que podrías hacer para seguir disfrutando del baloncesto en Manchester, teniendo en cuenta la limitación de las aplicaciones?
+  4. Genial que estén de acuerdo, Sam. Me gustaría profundizar un poco más en esto. ¿Has pensado en utilizar algún dispositivo o herramienta para seguir los partidos de manera más independiente?
+  5. Excelente entusiasmo, Sam. Bueno, hay varios dispositivos y aplicaciones que no requieren conexión a internet para seguir los partidos de baloncesto en vivo. Por ejemplo, existen relojes inteligentes que pueden mostrar información en tiempo real sin necesidad de una señal Wi-Fi. ¿Te gustaría saber más sobre los relojes inteligentes?
+  6. La razón es que estos relojes inteligentes pueden almacenar información en su memoria interna y actualizarse solo cuando estén conectados a la fuente de datos. También tienen sensores que les permiten actualizar automáticamente con cierta frecuencia. ¿Te parece útil tener acceso a esa clase de información incluso cuando no hay conexión a internet?
+  7. Me alegra que pienses así, Sam. Bueno, si decides explorar esta opción, hay algunas marcas y modelos de relojes inteligentes que están disponibles en el mercado. ¿Cuál es tu presupuesto aproximado para un dispositivo como ese?
+  8. Genial que estén de acuerdo, Sam. Me gustaría darte algunos consejos prácticos para elegir el reloj inteligente adecuado para tus necesidades. ¿Qué características consideras más importantes en un dispositivo como ese?
+  9. Excelente entusiasmo, Sam. Bueno, hay varias características que debes considerar al elegir un reloj inteligente, como la resistencia a la humedad y el calor, la autonomía de la batería y la compatibilidad con diferentes sistemas operativos. ¿Qué crees que es lo más importante para ti: tener acceso a una gran cantidad de información o mantener un diseño elegante y minimalista?
+  10. La razón es que los relojes inteligentes pueden tener varios componentes electrónicos que requieren energía para funcionar, lo que puede afectar la autonomía de la batería si no se diseñan correctamente. Bueno, creo que hemos cubierto bien esta parte del tema. ¿Crees que estarías dispuesto a hacer algunas investigaciones y considerar la posibilidad de utilizar un reloj inteligente para seguir los partidos de baloncesto en vivo?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | N | N | Basketball apps recalled; still basketball tech. |
 
 ### Series 19: game-day
 
 - Facts said in episode 1: Trabajo como enfermera en un hospital. / El verano pasado viajé a Portugal.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: —
+- Remembered topics: Sports
+- Remembered about the learner: You traveled to Portugal last summer.; You work as a nurse in a hospital.
 - Episode 2 host lines:
 
-  1. ¡Bienvenido de nuevo, Sam! Estamos emocionados de tenerlo nuevamente en nuestro programa. Continuamos con episodio número dos de Game Day y estamos listos para hablar sobre un tema que nos apasiona: el fútbol universitario local. ¿Cuál crees que será la gran sorpresa del fin de semana?
-  2. ¡Haha! Bueno, no te preocupes por no saberlo, Sam. A menudo la sorpresa es lo que hace que el fútbol sea tan emocionante. ¿Puedes darme un ejemplo de equipo local que crees podría ganar su partido este fin de semana?
-  3. ¡Genial! Me alegra que pienses así. El fútbol es un deporte que puede hacer que la emoción y el entusiasmo sean contagiosos. ¿Crees que la victoria de un equipo local podría tener algún impacto en la comunidad?
-  4. ¡Excelente punto! La victoria puede dar mucho más que un resultado en el tablero, puede inspirar y unir a las personas. ¿Qué te parece si hablamos con uno de los entrenadores de ese equipo local para saber su perspectiva sobre la importancia de jugar en casa?
-  5. ¡Ahah, me alegra verte emocionado, Sam! Bueno, pensaba que podríamos hacer una entrevista con él este próximo episodio. ¿Te gustaría que te encargue de preparar algunas preguntas para ese entrenador?
-  6. ¡Haha! Bueno, Sam, parece que todavía hay mucho que descubrir en este mundo del deporte. Me alegra poder compartir algunos de esos secretos contigo. ¿Crees que la presencia de los aficionados en el estadio es lo que hace a un equipo verdaderamente fuerte?
-  7. ¡Genial! La energía de la multitud puede ser un factor decisivo en el resultado del partido. ¿Puedes pensar en algún momento en particular en que la presencia de los aficionados haya cambiado el curso de un juego?
-  8. ¡Excelente ejemplo! La conexión entre los aficionados y su equipo es algo muy especial. ¿Crees que ese vínculo también se mantiene después de que el partido haya terminado?
-  9. ¡Ahah, te gusta saber más, eh! Bueno, parece que la pasión por el deporte no se limita solo al resultado de un partido. ¿Qué crees que sucede cuando una estrella del equipo local decide seguir su carrera en otro país? ¿Es un golpe para el equipo o una oportunidad para otros jóvenes talentos?
-  10. ¡Haha! Bueno, parece que todavía hay mucho para aprender sobre el mundo del deporte, Sam. La decisión de un jugador de seguir su carrera en otro país es un tema interesante y complejo. ¡Parece que tenemos tema para varios episodios más! ¿Te gustaría saber cómo se siente un joven futbolista al ser elegido por una selección nacional?
+  1. ¡Bienvenido de regreso, Sam! Estamos muy emocionados de que estés con nosotros nuevamente en Game Day. Como sabes, estamos en el episodio dos y seguimos hablando sobre deportes. Me acuerdo que en el último episodio mencionaste a Portugal como uno de los lugares más grandes del mundo para los aficionados al fútbol. ¿Qué te parece si hoy hablamos un poco sobre la forma en que la pasión por el deporte afecta nuestra salud y bienestar?
+  2. Eso es genial que no lo supieras, ¡es algo que no siempre se habla! La pasión por el deporte puede aumentar los niveles de estrés y cansancio físico, pero también estimula la producción de endorfinas, que son como nuestro medicamento natural para sentirnos bien. ¿Has notado alguna vez que después de hacer ejercicio o jugar con tus amigos, te sientes un poco mejor?
+  3. ¡Exacto! Eso es justo lo que queremos decir. Y hablando de ejercicio, ¿recuerdas cuando mencionaste que viajó a Portugal el verano pasado? ¿Qué deportes o actividades al aire libre hicieron en tu tiempo libre durante tu estancia allí?
+  4. Me alegra verte tan entusiasta, Sam! La concordancia es clave en cualquier conversación sobre deportes. ¿Crees que el trabajo en un hospital como enfermera te ha dado una perspectiva única sobre la importancia de mantenerse activo y saludable?
+  5. ¡Genial! Me alegra que estés interesado en saber más. En realidad, creo que el trabajo en un hospital es muy relevante para hablar sobre la salud y el bienestar en relación con los deportes. ¿Crees que podríamos tener como invitados a otros profesionales de la salud para compartir sus perspectivas sobre la relación entre deporte y salud?
+  6. Bueno, es que la gente suele pensar que el deporte y la salud son dos cosas separadas, pero en realidad están muy relacionadas. El ejercicio regular puede prevenir enfermedades crónicas, como la diabetes o la hipertensión, y mejorar la calidad de vida en general. ¿Te has preguntado alguna vez cómo podríamos promover la actividad física entre las personas mayores?
+  7. ¡Genial! Creo que es un tema muy importante y necesario. La actividad física es fundamental para mantenerse saludable en cualquier edad. Me gustaría saber, ¿crees que podríamos hacer algo en Game Day para promover la actividad física entre nuestros oyentes?
+  8. ¡Excelente! Estoy emocionado de que estés con nosotros en esto, Sam. Me parece que tenemos mucho material interesante para explorar. ¿Qué te parece si empezamos a pensar en cómo podemos hacer una sección especial en el programa sobre la relación entre deporte y salud?
+  9. ¡Genial! Me alegra que estés emocionado de seguir explorando este tema. Podríamos tener expertos en salud compartiendo consejos y recomendaciones para mantenerse activo y saludable, o incluso podríamos hacer un segmento sobre ejercicios fáciles que pueden hacerse en casa. ¿Te gustaría que hagamos una llamada a los oyentes para preguntarles qué tipo de contenido les interesaría ver en nuestra sección de deporte y salud?
+  10. Bueno, Sam, creo que hemos tocado un tema muy interesante hoy en el programa. La relación entre deporte y salud es fundamental para mantenerse activo y saludable. Me parece que tenemos mucho material para seguir explorando en futuros episodios. ¿Qué te parece si dejamos esta idea de la sección especial como una especie de "orden del día" para nuestro próximo episodio?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | Y | Y | Invents a Portugal claim; sport and health is new. |
 
 ### Series 20: on-the-road
 
 - Facts said in episode 1: Toco la guitarra todos los domingos. / No me gusta nada el café.
 - Catch-up before episode 2: up_to_date
-- Remembered topics: —
-- Remembered about the learner: Yes, you agree with Mateo. / It's a good idea, You think so too.; You don't like coffee at all.; You play the guitar every Sunday.
+- Remembered topics: Travel and adventures
+- Remembered about the learner: You don't like coffee; You play the guitar
 - Episode 2 host lines:
 
-  1. Bienvenido de nuevo, Sam. ¡Estoy emocionado de tenerlo con nosotros en este episodio dos! A medida que continuamos nuestra conversación sobre viajes, me gustaría recordarte lo que dijiste anteriormente sobre el café. ¿Sigue sin gustarle?
-  2. Eso es interesante, porque la primera vez que hablamos de café, no me di cuenta del disgusto que te causaba. ¿Pero qué hay en el sabor o aroma del café que te hace sentir así?
-  3. Me alegra que estés de acuerdo, pero creo que todavía no has explicado por qué el café te desagrada tanto. ¿Puedes contarme una anécdota sobre la primera vez que probaste café y fue un fracaso para ti?
-  4. No te esperaba que estuvieras tan de acuerdo en cuanto a la importancia de explorar nuevos lugares antes de viajar. ¿Cuál es tu próximo destino secreto?
-  5. Me alegra que estés interesado, pero parece que te has adelantado un poco. Quiero contarte algo sobre un lugar que descubrí hace años en una de mis viajes a Centroamérica, y que me hizo reflexionar sobre la verdadera esencia del viaje. ¿Te gustaría escuchar esa historia?
-  6. Es que no siempre se ven los detalles que hacen a un lugar especial, pero en este caso había algo que me llamó la atención desde el primer momento. ¿Puedes imaginar una escena idílica para un viaje tranquilo y relajante?
-  7. Me alegra que estés de acuerdo con la idea de un viaje relajante. Una vez fui a un lugar así y encontré una playa desierta donde pude pasarme horas escuchando el sonido del mar. ¿Qué tipo de música crees que sería adecuada para acompañar ese tipo de paisaje?
-  8. Me parece que estamos pensando en lo mismo. ¿Te gustaría probar a escribir tus respuestas en español para que podamos profundizar aún más en la conversación?
-  9. Me alegra que estés ansioso por saber más. En realidad, la música me vino bien esa noche porque tocaba mi guitarra todos los domingos y siempre es un momento de reflexión para mí. ¿Crees que la música también puede ayudar a mejorar nuestra experiencia en viajes?
-  10. Me parece que has descubierto un nuevo aspecto de la experiencia del viaje. En mi opinión, es que la música tiene el poder de evocar emociones y crear recuerdos que se relacionan con los lugares que visitamos. ¿Crees que podrías encontrar una conexión entre la música que escuchas y los lugares a los que te gustaría viajar en el futuro?
+  1. ¡Bienvenido de nuevo, Sam! Estamos en el episodio dos de On the Road y seguimos explorando los mejores viajes y aventuras alrededor del mundo. Como ya mencionamos en nuestro primer episodio, los viajes pueden ser un gran aprendizaje para la vida. ¿Sam, recuerdas lo que dijo sobre no gustarte el café en nuestros antiguos viajes?
+  2. ¡Ahah! Bueno, Sam, no importa si sabías o no, lo importante es que te sientes cómodo en tu propio espacio. Como tú mismo mencionaste una vez, la música es un gran compañero de viaje para ti. ¿Te has considerado llevar tu guitarra a algún destino inusual, como una isla desierta o un refugio de montaña?
+  3. ¡Eso es fantástico! La música puede agregar un nuevo nivel de apreciación para los paisajes naturales y las culturas locales. Me acuerdo de que una vez te vi tocando en un parque público durante tu aventura por la Costa Brava... ¿Crees que podrías compartir un momento inspirador sobre cómo la naturaleza ha influido en tus canciones?
+  4. ¡Genial! Me alegra que estés de acuerdo, Sam. En realidad, creo que la conexión con la naturaleza es una de las claves para viajar de manera auténtica y reflexiva. ¿Qué te parece si compartimos algunos consejos sobre cómo encontrar rutas de senderismo o caminatas en lugares desconocidos?
+  5. ¡Excelente! Me alegra que estés emocionado. Un amigo mío me contó sobre un pequeño pueblo en la región de las Montañas Rocosas donde se pueden encontrar senderos secretos y vistas impresionantes. ¿Sabes algo sobre los senderos más tranquilos y menos frecuentados en tu último viaje al Caribe?
+  6. Bueno, creo que hay lugares donde la naturaleza es tan exuberante que el senderismo puede ser un reto para los viajeros menos experimentados. Como tú misma mencionaste una vez, prefieres las playas tranquilas y solitarias... ¿Crees que estarías dispuesta a aventurarte en un lugar como el archipiélago de la Tortuga?
+  7. ¡Genial! La isla de la Tortuga es un lugar mágico, con aguas cristalinas y una gran biodiversidad. Me he oído decir que es posible hacer kayak por las bahías y calas más escondidas... ¿Te gustaría compartir contigo cómo podríamos hacer que nuestros oyentes puedan experimentar algo similar en sus propios viajes?
+  8. ¡Excelente! Me alegra que estén pensando en la manera de compartir experiencias como ésta con nuestros oyentes. En realidad, hay una aplicación muy interesante que permite explorar rutas y senderos en tiempo real... ¿Sabes si alguna vez has utilizado aplicaciones para planificar tus viajes y descubrir nuevos lugares?
+  9. ¡Genial! Me alegra que estén interesados en explorar nuevas herramientas para planificar viajes. Una amiga mía utilizó una aplicación para encontrar un lugar perfecto para observar ballenas jorobadas en la costa de Alaska... ¿Crees que podríamos hablar sobre cómo elegir la aplicación adecuada para cada tipo de viaje y necesidad?
+  10. Bueno, creo que la variedad de aplicaciones y herramientas puede ser confusa para algunos viajeros. Pero hay algunas características clave que pueden hacer una gran diferencia en su planificación... ¿Crees que podríamos hacer una lista de las cinco cosas más importantes a considerar al elegir una aplicación de planificación de viajes, según tu experiencia?
 
 | Refers back | Invented | New topic | Note |
 |---|---|---|---|
-|  |  |  |  |
+| Y | Y | N | Guitar and coffee recalled; invents a Costa Brava trip, the Caribbean and beaches. |
+
+## SC-006 and the catch-up wait: latency
+
+`test_series_latency_benchmark.py` on llama3.1:8b, RTX 3070 Ti, 2026-10-17:
+
+| Measure | Bar | Result |
+|---|---|---|
+| Median time to the first `line` frame, episode 1 (10 fresh series) | — | 1.06 s |
+| Median time to the first `line` frame, episode 10+ with full memory (10 runs) | within 20% of episode 1 | 1.53 s (+44%): **missed** |
+| Catch-up wait straight after a Medium sign-off, p90 of 10 | ≤ 15 s | 6.53 s (4.8–6.6 s): met |
+
+The extra half second is the full series section in the prompt (about 1,800 characters at the
+caps and text budget), read once when the session opens.

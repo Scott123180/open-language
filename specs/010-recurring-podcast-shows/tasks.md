@@ -562,7 +562,7 @@ is still `one_off`.
   - `frontend/src/pages/PodcastSetup.tsx` renders `ContinueEpisode` or `StartActions`, and `SeriesHosts` instead of `SetupHosts` when `series.episode_count ≥ 1`.
 
   T046 and T047 pass, and `npm run test:e2e` is green.
-- [ ] T063 [P] [US1] Write the hand-run benchmarks (research R12, quickstart §3), marked `@pytest.mark.benchmark`:
+- [X] T063 [P] [US1] Write the hand-run benchmarks (research R12, quickstart §3), marked `@pytest.mark.benchmark`:
   - `backend/tests/integration/podcasts/test_series_recall_benchmark.py`:
     - 20 scripted two-episode series on the default local setup;
     - each episode 1 has learner lines with a known fact, and each episode 2 runs to 10 host lines;
@@ -570,7 +570,7 @@ is still `one_off`.
   - `backend/tests/integration/podcasts/test_series_latency_benchmark.py`:
     - the median time to the first `line` frame of episode 1 and of episode 10 on the same series with full memory, 10 runs each (SC-006), with prompt token counts printed;
     - the p90 of the `?wait=true` catch-up straight after a Medium sign-off, 10 runs, with a target of ≤ 15 s.
-- [ ] T064 [US1] Run T063 against `llama3.1:8b`: `backend/.venv/bin/pytest -m benchmark tests/integration/podcasts -k "series" -s`. Record the results in `specs/010-recurring-podcast-shows/series-review-sheet.md`, and fill the SC-002 and SC-003 review columns by hand. If SC-002 or SC-003 is missed, note it for T135 before building further on recall quality.
+- [X] T064 [US1] Run T063 against `llama3.1:8b`: `backend/.venv/bin/pytest -m benchmark tests/integration/podcasts -k "series" -s`. Record the results in `specs/010-recurring-podcast-shows/series-review-sheet.md`, and fill the SC-002 and SC-003 review columns by hand. If SC-002 or SC-003 is missed, note it for T135 before building further on recall quality.
 - [ ] T065 [US1] US1 checkpoint: run the full backend and frontend suites, then quickstart §4 steps 1–4 by hand (series continuity, per language, unfinished, waiting for memory).
 
 **Checkpoint**: a show continues as a series with the same hosts and remembered points.
