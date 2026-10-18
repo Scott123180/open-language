@@ -14,10 +14,12 @@ from app.podcasts.catalog import (
     MAX_POINTS_PER_EPISODE,
     PERSONALITIES,
     REMEMBERED_POINT_MAX_LENGTH,
+    SUGGESTION_SEEDS,
     PodcastFormat,
 )
 from app.podcasts.services.casting import Cast, Host
 from app.podcasts.services.series_snapshot import SeriesBrief
+from app.podcasts.services.surprise import SurpriseIdea
 from app.podcasts.services.turn_policy import LineCue
 from app.practice_languages import ConversationLanguages
 
@@ -262,21 +264,32 @@ _SHOW_FIELDS = (
 )
 
 
+_SUITABILITY_RULE = (
+    "First decide whether the idea is suitable. An idea that asks for hateful, sexual or "
+    "dangerous content is not: set is_suitable to false, give a short decline_reason, and "
+    "leave the other text fields empty."
+)
+
+
 def build_generator_prompt(idea: ShowIdea) -> str:
     """One structured request: judge the idea, then describe the show. Names are cast by code."""
-    target, native = idea.languages.target_name, idea.languages.native_name
     sections = (
-        f"You create podcast shows for a learner practising {target}. The show is spoken in "
-        f"{target}, but write the title, premise, topic and angles in {native}.",
+        _creator_intro(idea.languages, "The show is"),
         f"Idea: {idea.idea}",
         *_personal_sections(idea),
-        "First decide whether the idea is suitable. An idea that asks for hateful, sexual or "
-        "dangerous content is not: set is_suitable to false, give a short decline_reason, and "
-        "leave the other text fields empty.",
+        _SUITABILITY_RULE,
         "\n".join(_SHOW_FIELDS),
         "Personalities:\n" + "\n".join(_personality_lines()),
     )
     return "\n\n".join(sections)
+
+
+def _creator_intro(languages: ConversationLanguages, spoken: str) -> str:
+    target, native = languages.target_name, languages.native_name
+    return (
+        f"You create podcast shows for a learner practising {target}. {spoken} spoken in "
+        f"{target}, but write the title, premise, topic and angles in {native}."
+    )
 
 
 def _personal_sections(idea: ShowIdea) -> tuple[str, ...]:
@@ -364,3 +377,37 @@ def _memory_rules(target: str) -> str:
         f"- Keep each text under {REMEMBERED_POINT_MAX_LENGTH} characters.",
     )
     return "\n".join(rules)
+
+
+# --- Find a new show (010 research R10) ---------------------------------------------------
+
+DISCOVERY_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "shows": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": SUGGESTION_SEEDS,
+            "items": SHOW_JSON_SCHEMA,
+        }
+    },
+    "required": ["shows"],
+}
+
+
+def discovery_prompt(
+    seeds: Sequence[SurpriseIdea], avoid_titles: Sequence[str], languages: ConversationLanguages
+) -> str:
+    """One structured request for one show per seed, judged and described as the generator does."""
+    ideas = "\n".join(f"{number}. {seed.idea}" for number, seed in enumerate(seeds, start=1))
+    sections = [
+        _creator_intro(languages, "Every show is"),
+        f"Make one show for each idea below, in this order:\n{ideas}",
+        _SUITABILITY_RULE.replace("the idea is", "each idea is"),
+        "\n".join(_SHOW_FIELDS),
+        "Personalities:\n" + "\n".join(_personality_lines()),
+    ]
+    if avoid_titles:
+        titles = ", ".join(f'"{title}"' for title in avoid_titles)
+        sections.insert(2, f"Do not reuse these titles, or anything close to them: {titles}.")
+    return "\n\n".join(sections)

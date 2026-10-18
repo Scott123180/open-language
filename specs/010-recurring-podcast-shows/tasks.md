@@ -858,7 +858,7 @@ from the other; starting one opens setup; the ready-made list is unchanged (spec
 
 ### Tests for User Story 5 (write first, see them fail)
 
-- [ ] T119 [P] [US5] Write `backend/tests/unit/podcasts/test_discovery.py` (research R10), with the scripted provider (T028) and a seeded `random.Random`:
+- [X] T119 [P] [US5] Write `backend/tests/unit/podcasts/test_discovery.py` (research R10), with the scripted provider (T028) and a seeded `random.Random`:
   - `SuggestionSeeds.draw(interests)` returns `SUGGESTION_SEEDS` distinct seeds: with interests, exactly `INTEREST_SEEDS` come from them; without, all come from the built-in `SurpriseTopics` vocabulary;
   - `normalise_title` casefolds and strips punctuation and spacing;
   - `ShowDiscovery.suggest(avoid_titles, interests, mine, language)`:
@@ -869,18 +869,18 @@ from the other; starting one opens setup; the ready-made list is unchanged (spec
   - fewer than `MIN_SUGGESTIONS` survivors trigger exactly one top-up call for the shortfall, with fresh seeds;
   - still too few raises `NotEnoughSuggestions`;
   - an `LLMError` propagates unchanged.
-- [ ] T120 [P] [US5] Extend `backend/tests/unit/podcasts/test_generator.py`: the public `parse_show(parsed: dict)` reads one show object exactly as `_show_reply` did, and `ShowGenerator.generate` behaves the same as before.
-- [ ] T121 [P] [US5] Write `backend/tests/unit/podcasts/test_discovery_prompts.py`:
+- [X] T120 [P] [US5] Extend `backend/tests/unit/podcasts/test_generator.py`: the public `parse_show(parsed: dict)` reads one show object exactly as `_show_reply` did, and `ShowGenerator.generate` behaves the same as before.
+- [X] T121 [P] [US5] Write `backend/tests/unit/podcasts/test_discovery_prompts.py`:
   - `DISCOVERY_JSON_SCHEMA` is an object with `shows`, an array of `SHOW_JSON_SCHEMA` items with `minItems: 1` and `maxItems: 5`;
   - the prompt lists every seed and every title to avoid;
   - the prompt reuses the generator's suitability and field rules;
   - the prompt names the languages, never their codes.
-- [ ] T122 [P] [US5] Write `backend/tests/contract/test_podcast_discovery_api.py` (contracts §4):
+- [X] T122 [P] [US5] Write `backend/tests/contract/test_podcast_discovery_api.py` (contracts §4):
   - `POST /shows/discover {avoid_titles: []}` returns 200 with 3–5 suggestions, each a `ShowDraft` with `source: "suggested"`;
   - too few survivors return 503 "Find a new show didn't come up with enough shows this time. Please try again.";
   - an `LLMError` returns 503 with the provider's message;
   - `avoid_titles` with more than 50 entries, or with an entry over 200 characters, returns 422.
-- [ ] T123 [P] [US5] Write `backend/tests/integration/podcasts/test_discovery_keeps_nothing.py`:
+- [X] T123 [P] [US5] Write `backend/tests/integration/podcasts/test_discovery_keeps_nothing.py`:
   - a discover call writes no row in any table (table counts before and after);
   - a suggestion passed to `PUT /favourites` is kept and appears in `my_shows`;
   - a suggestion started as an episode is kept;
@@ -904,10 +904,10 @@ from the other; starting one opens setup; the ready-made list is unchanged (spec
 
 ### Implementation for User Story 5
 
-- [ ] T126 [US5] Make `_show_reply` the public `parse_show` in `backend/app/podcasts/services/generator.py`, with no change in length. T120 passes.
-- [ ] T127 [US5] Add `DISCOVERY_JSON_SCHEMA` and `discovery_prompt(seeds, avoid_titles, languages)` to `backend/app/podcasts/prompts.py`, reusing the generator's rule text. T121 passes, and T006 stays green.
-- [ ] T128 [US5] Implement `SuggestionSeeds`, `normalise_title`, `ShowDiscovery` and `NotEnoughSuggestions` in the new `backend/app/podcasts/services/discovery.py`. It takes the `StructuredLLMProvider`, a `HostCaster`, `SurpriseTopics` and an injected `random.Random`. T119 passes.
-- [ ] T129 [US5] Create `backend/app/podcasts/discovery_routes.py` with `POST /shows/discover`:
+- [X] T126 [US5] Make `_show_reply` the public `parse_show` in `backend/app/podcasts/services/generator.py`, with no change in length. T120 passes.
+- [X] T127 [US5] Add `DISCOVERY_JSON_SCHEMA` and `discovery_prompt(seeds, avoid_titles, languages)` to `backend/app/podcasts/prompts.py`, reusing the generator's rule text. T121 passes, and T006 stays green.
+- [X] T128 [US5] Implement `SuggestionSeeds`, `normalise_title`, `ShowDiscovery` and `NotEnoughSuggestions` in the new `backend/app/podcasts/services/discovery.py`. It takes the `StructuredLLMProvider`, a `HostCaster`, `SurpriseTopics` and an injected `random.Random`. T119 passes.
+- [X] T129 [US5] Create `backend/app/podcasts/discovery_routes.py` with `POST /shows/discover`:
   - add a `get_show_discovery` dependency, like `show_routes.get_show_generator`;
   - read the interests from the podcast preferences;
   - build `mine` from `ShowLibrary.mine(language)`;
@@ -921,7 +921,7 @@ from the other; starting one opens setup; the ready-made list is unchanged (spec
   - `frontend/src/pages/Podcasts.tsx` adds `<FindNewShow>` as a secondary action.
 
   T124 and T125 pass, and `npm run test:e2e` is green.
-- [ ] T132 [P] [US5] Write `backend/tests/integration/podcasts/test_discovery_benchmark.py` (`@pytest.mark.benchmark`, SC-007): 10 requests. Print the time to response, the count, the duplicates and the suitability for each.
+- [X] T132 [P] [US5] Write `backend/tests/integration/podcasts/test_discovery_benchmark.py` (`@pytest.mark.benchmark`, SC-007): 10 requests. Print the time to response, the count, the duplicates and the suitability for each.
 - [ ] T133 [US5] US5 checkpoint: run the full suites, quickstart §2 (the API smoke check), and quickstart §4 step 8.
 
 **Checkpoint**: all six stories work independently.

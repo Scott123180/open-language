@@ -180,3 +180,26 @@ def test_an_unreadable_reply_is_a_provider_error_with_a_plain_retry(raw):
 
     assert isinstance(unreadable.value, LLMError)
     assert "try again" in unreadable.value.user_message.lower()
+
+
+# --- 010: the show parser is shared with Find a new show (T120) ---------------------------
+
+
+def test_parse_show_reads_one_show_object():
+    from app.podcasts.services.generator import parse_show
+
+    reply = parse_show(SUITABLE_SHOW)
+
+    assert (reply.title, reply.topic, reply.learner_role) == (
+        SUITABLE_SHOW["title"],
+        SUITABLE_SHOW["topic"],
+        SUITABLE_SHOW["learner_role"],
+    )
+    assert reply.personalities == ("storyteller", "dry_sceptic")
+
+
+def test_parse_show_refuses_a_show_with_one_host():
+    from app.podcasts.services.generator import parse_show
+
+    with pytest.raises(ValueError):
+        parse_show({**SUITABLE_SHOW, "hosts": SUITABLE_SHOW["hosts"][:1]})

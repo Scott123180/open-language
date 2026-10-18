@@ -17,6 +17,7 @@ from app.conversation_levels import ConversationLevel
 from app.conversation_turns import Corrections, LearnerMessageRequest
 from app.corrections.services.storage import CorrectionStorageProvider
 from app.corrections.services.strategies import CorrectionStrategy
+from app.podcasts.discovery_routes import discovery_router
 from app.podcasts.host_routes import host_router
 from app.podcasts.responses import (
     catalog_listings,
@@ -371,3 +372,4 @@ async def get_suggestions(
 router.include_router(show_router)
 router.include_router(host_router)
 router.include_router(series_router)
+router.include_router(discovery_router)

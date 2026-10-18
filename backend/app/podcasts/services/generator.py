@@ -14,7 +14,14 @@ from app.podcasts.prompts import SHOW_JSON_SCHEMA, ShowIdea, build_generator_pro
 from app.podcasts.services.casting import Host, HostCaster
 from app.services.llm.base import ChatMessage, LLMError, StructuredLLMProvider
 
-__all__ = ["GeneratedShow", "ShowDeclined", "ShowGenerator", "ShowIdea", "UnreadableShowError"]
+__all__ = [
+    "GeneratedShow",
+    "ShowDeclined",
+    "ShowGenerator",
+    "ShowIdea",
+    "UnreadableShowError",
+    "parse_show",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +51,7 @@ class GeneratedShow:
 
 
 @dataclass(frozen=True, slots=True)
-class _ShowReply:
+class ShowReply:
     """The model's show, checked against the catalogues, before any host is cast."""
 
     title: str
@@ -71,23 +78,25 @@ class ShowGenerator:
         return GeneratedShow(reply.title, reply.premise, reply.topic, reply.learner_role, hosts)
 
 
-def _parse_reply(raw: str) -> _ShowReply:
+def _parse_reply(raw: str) -> ShowReply:
     try:
         parsed = json.loads(raw)
         if not parsed["is_suitable"]:
             logger.info("The generator declined an idea: %s", parsed.get("decline_reason", ""))
             raise ShowDeclined("The idea was judged unsuitable.")
-        return _show_reply(parsed)
+        return parse_show(parsed)
     except (KeyError, TypeError, ValueError, AttributeError) as exc:
         raise UnreadableShowError(f"malformed show reply: {exc}") from exc
 
 
-def _show_reply(parsed: dict) -> _ShowReply:
+def parse_show(parsed: dict) -> ShowReply:
+    """One show object of a structured reply, checked against the catalogues (shared with Find a
+    new show). Raises ValueError, KeyError or TypeError for a show it cannot read."""
     hosts = parsed["hosts"]
     if len(hosts) != HOST_COUNT:
         raise ValueError(f"a show needs {HOST_COUNT} hosts, not {len(hosts)}")
     lead, second = (_known(host["personality"], PERSONALITIES) for host in hosts)
-    return _ShowReply(
+    return ShowReply(
         title=_text(parsed["title"], TITLE_MAX_LENGTH),
         premise=_text(parsed["premise"]),
         topic=_text(parsed["topic"], TITLE_MAX_LENGTH),
