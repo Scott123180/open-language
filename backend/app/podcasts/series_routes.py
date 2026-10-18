@@ -13,12 +13,15 @@ from app.podcasts.catalog import MEMORY_WAIT_SECONDS
 from app.podcasts.responses import series_detail, show_listing
 from app.podcasts.schemas import (
     SLOT_PATTERN,
+    FavouriteRequest,
     MemoryStatusResponse,
     RecastRequest,
     SeriesDetailResponse,
+    ShowListing,
+    show_problem,
 )
 from app.podcasts.services.casting import HostCaster
-from app.podcasts.services.library import ShowLibrary, ShowShelf
+from app.podcasts.services.library import ShowLibrary, ShowNoLongerKept, ShowShelf
 from app.podcasts.services.series import (
     SERIES_GONE,
     LanguageChanged,
@@ -29,6 +32,7 @@ from app.podcasts.services.series import (
 )
 from app.podcasts.services.storage import PodcastStorage
 from app.services.factory import (
+    get_app_settings,
     get_host_caster,
     get_memory_catch_ups,
     get_podcast_storage,
@@ -166,3 +170,49 @@ def catch_up_memory(
     if catch_ups.status(series_id, series_storage) == UP_TO_DATE:
         return MemoryStatusResponse(status=UP_TO_DATE)
     return MemoryStatusResponse(status=catch_ups.start(series_id, keeper))
+
+
+# --- favourites and My shows (contracts §3) -----------------------------------------------
+
+
+def get_show_library(library_storage=Depends(get_show_library_storage)) -> ShowLibrary:
+    return ShowLibrary(library_storage)
+
+
+@series_router.put("/favourites", response_model=ShowListing, responses={204: {}})
+def set_favourite(
+    req: FavouriteRequest,
+    app_settings=Depends(get_app_settings),
+    library: ShowLibrary = Depends(get_show_library),
+    series_storage=Depends(get_series_storage),
+    shelf: ShowShelf = Depends(get_show_shelf),
+    podcasts: PodcastStorage = Depends(get_podcast_storage),
+):
+    """Mark or unmark a show; 204 when unfavouriting left nothing to keep (FR-012, FR-019)."""
+    language = app_settings.target_language
+    problem = show_problem(req.show, language)
+    if problem is not None:
+        raise HTTPException(422, problem)
+    kept = _favourite(library, req)
+    if kept is None:
+        return Response(status_code=NO_CONTENT_STATUS)
+    series = series_storage.find(kept.show_row_id, language)
+    item = shelf.item(kept, series, podcasts.get_preferences().learner_name, language)
+    return show_listing(item, language)
+
+
+def _favourite(library: ShowLibrary, req: FavouriteRequest):
+    try:
+        return library.favourite(req.show, req.is_favourite)
+    except ShowNoLongerKept as gone:
+        raise HTTPException(404, str(gone)) from gone
+
+
+@series_router.delete("/shows/{saved_show_id}", status_code=NO_CONTENT_STATUS)
+def remove_show(saved_show_id: int, library: ShowLibrary = Depends(get_show_library)):
+    """Remove a kept learner-made show; its episodes stay in Past Chats (FR-024)."""
+    try:
+        library.remove(saved_show_id)
+    except ShowNoLongerKept as gone:
+        raise HTTPException(404, str(gone)) from gone
+    return Response(status_code=NO_CONTENT_STATUS)

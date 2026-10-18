@@ -112,8 +112,8 @@ def get_catalog(
     language = app_settings.target_language
     learner_name = podcasts.get_preferences().learner_name
     shows = catalog_listings(shelf.ready_made(language, learner_name), language)
-    voices = _catalog_voices(language, installation)
-    return catalog_response(language, shows, voices, my_shows=[])
+    mine = catalog_listings(shelf.mine(language, learner_name), language)
+    return catalog_response(language, shows, _catalog_voices(language, installation), mine)
 
 
 @router.get("/preferences", response_model=PreferencesResponse)

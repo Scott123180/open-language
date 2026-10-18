@@ -13,6 +13,7 @@ from app.podcasts.services.series_storage import (
     KeptShow,
     SeriesRecord,
     SeriesStorage,
+    ShelfEntry,
     ShowContent,
     ShowLibraryStorage,
     ShowRef,
@@ -53,6 +54,21 @@ class ShowLibrary:
 
     def played(self, kept: KeptShow) -> None:
         self._storage.touch_played(kept.show_row_id)
+
+    def favourite(self, draft, is_favourite: bool) -> KeptShow | None:
+        """Mark or unmark a show. None when unfavouriting left nothing to keep (FR-019)."""
+        kept = self.keep(draft) if is_favourite else self.resolve(draft)
+        if kept is None:
+            return None
+        return self._storage.set_favourite(kept.show_row_id, is_favourite)
+
+    def mine(self, language: str) -> list[ShelfEntry]:
+        return self._storage.list_mine(language)
+
+    def remove(self, saved_show_id: int) -> None:
+        """Remove a kept learner-made show and its series in every language (FR-024)."""
+        if not self._storage.forget(saved_show_id):
+            raise ShowNoLongerKept()
 
 
 def show_content(draft) -> ShowContent:
@@ -102,6 +118,11 @@ class ShowShelf:
             self._ready_made(template, language, learner_name)
             for template in SHOW_TEMPLATES.values()
         ]
+
+    def mine(self, language: str, learner_name: str | None) -> list[ShelfItem]:
+        """My shows, newest activity first (research R9)."""
+        entries = self._library.list_mine(language)
+        return [self.item(entry.show, entry.series, learner_name, language) for entry in entries]
 
     def item(
         self, kept: KeptShow, series: SeriesRecord | None, learner_name: str | None, language: str

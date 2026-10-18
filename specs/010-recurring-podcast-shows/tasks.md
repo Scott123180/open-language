@@ -784,12 +784,12 @@ ready-made list is unchanged (spec US4).
 
 ### Tests for User Story 4 (write first, see them fail)
 
-- [ ] T107 [P] [US4] Write `backend/tests/contract/test_podcast_favourites_api.py` (contracts §3):
+- [X] T107 [P] [US4] Write `backend/tests/contract/test_podcast_favourites_api.py` (contracts §3):
   - `PUT /favourites {show, is_favourite: true}` returns 200 with the updated `ShowListing` (`is_favourite: true`), and an unsaved learner-made draft gains `saved_show_id`;
   - unfavouriting returns 204 when the row was deleted (a ready-made show with no series, or a learner-made show never played and with no series), and 200 otherwise;
   - a bad draft returns 422;
   - `DELETE /shows/{saved_show_id}` returns 204 for a kept learner-made show, and 404 "That show isn't kept any more. Pick another one." for an unknown id or a ready-made row (contracts §3, FR-024).
-- [ ] T108 [P] [US4] Write `backend/tests/integration/podcasts/test_my_shows.py` (contracts §1, §3, research R9):
+- [X] T108 [P] [US4] Write `backend/tests/integration/podcasts/test_my_shows.py` (contracts §1, §3, research R9):
   - `my_shows` is exactly the favourites, the shows with a series in this language and the played learner-made shows, newest activity first;
   - a ready-made show in `my_shows` equals its entry in `shows`;
   - a favourite made in `es` appears in `de` too, while the series and hosts stay per language;
@@ -818,13 +818,13 @@ ready-made list is unchanged (spec US4).
 
 ### Implementation for User Story 4
 
-- [ ] T111 [US4] Add `favourite(draft, is_favourite)`, `mine(language)` and `remove(saved_show_id)` to `ShowLibrary` in `backend/app/podcasts/services/library.py`, delegating to `set_favourite`, `list_mine` and `forget`; `remove` raises `ShowNoLongerKept` when `forget` returns `False`.
-- [ ] T112 [US4] Add to `backend/app/podcasts/series_routes.py`:
+- [X] T111 [US4] Add `favourite(draft, is_favourite)`, `mine(language)` and `remove(saved_show_id)` to `ShowLibrary` in `backend/app/podcasts/services/library.py`, delegating to `set_favourite`, `list_mine` and `forget`; `remove` raises `ShowNoLongerKept` when `forget` returns `False`.
+- [X] T112 [US4] Add to `backend/app/podcasts/series_routes.py`:
   - `PUT /favourites`, returning 200 with a `ShowListing`, or 204 when the row was deleted;
   - `DELETE /shows/{saved_show_id}`, returning 204, or 404 with the data-model §6 message for `ShowNoLongerKept`.
 
   T107 passes.
-- [ ] T113 [US4] Fill `my_shows` and `is_favourite`:
+- [X] T113 [US4] Fill `my_shows` and `is_favourite`:
   - in `backend/app/podcasts/responses.py`: `catalog_listings` and a new `my_show_listings(entries, ...)`;
   - in `get_catalog` in `backend/app/podcasts/routes.py`: still ≤ 11 lines.
 
