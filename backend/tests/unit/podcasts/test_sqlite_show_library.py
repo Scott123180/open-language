@@ -129,6 +129,17 @@ def test_a_ready_made_show_reads_its_content_from_the_catalogue(library):
     assert kept.angles == (None, None)
 
 
+def test_a_kept_learner_made_show_is_found_by_its_content(library):
+    kept = library.keep(MADE)
+
+    assert library.find(MADE) == kept
+
+
+def test_finding_content_never_kept_is_none_and_keeps_nothing(library, session):
+    assert library.find(_made(title="Another Show")) is None
+    assert _rows(session) == []
+
+
 def test_a_learner_made_show_is_found_by_its_saved_id(library):
     kept = library.keep(MADE)
 

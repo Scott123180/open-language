@@ -57,10 +57,16 @@ class ShowLibrary:
 
     def favourite(self, draft, is_favourite: bool) -> KeptShow | None:
         """Mark or unmark a show. None when unfavouriting left nothing to keep (FR-019)."""
-        kept = self.keep(draft) if is_favourite else self.resolve(draft)
+        kept = self.keep(draft) if is_favourite else self._kept_for(draft)
         if kept is None:
             return None
         return self._storage.set_favourite(kept.show_row_id, is_favourite)
+
+    def _kept_for(self, draft) -> KeptShow | None:
+        """The draft's kept show, found by its content when the draft does not name it (FR-012)."""
+        if ShowRef.of(draft) is not None:
+            return self.resolve(draft)
+        return self._storage.find(show_content(draft))
 
     def mine(self, language: str) -> list[ShelfEntry]:
         return self._storage.list_mine(language)

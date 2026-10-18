@@ -11,7 +11,7 @@ from app.podcasts.services.sqlite_series_storage import (
 )
 from app.podcasts.services.storage import PodcastStorage
 
-LIBRARY_METHODS = {"keep", "get", "set_favourite", "touch_played", "list_mine", "forget"}
+LIBRARY_METHODS = {"keep", "get", "find", "set_favourite", "touch_played", "list_mine", "forget"}
 SERIES_METHODS = {
     "find",
     "get",

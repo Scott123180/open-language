@@ -41,6 +41,31 @@ test.describe('Find a new show (010 US5)', () => {
     expect((await favourite).postDataJSON()).toMatchObject({ show: { source: 'suggested', title: 'Plant Parents' }, is_favourite: true })
   })
 
+  test('unfavouriting a kept suggestion sends its saved show and clears the toggle', async ({ page }) => {
+    await openPodcasts(page, [{ json: suggestionsFixture }])
+    let myShows: unknown[] = []
+    await page.unroute('/api/podcasts/catalog')
+    await page.route('/api/podcasts/catalog', (route) => route.fulfill({ json: { ...mockPodcastCatalog, my_shows: myShows } }))
+    const sent: { show: { saved_show_id?: number | null }; is_favourite: boolean }[] = []
+    await page.route('/api/podcasts/favourites', (route) => {
+      const body = route.request().postDataJSON()
+      sent.push(body)
+      const kept = { ...body.show, saved_show_id: 12, is_favourite: body.is_favourite, series: null }
+      myShows = body.is_favourite ? [kept] : []
+      return body.is_favourite ? route.fulfill({ json: kept }) : route.fulfill({ status: 204 })
+    })
+    await page.getByRole('button', { name: 'Find a new show' }).click()
+    const toggle = page.getByRole('region', { name: 'Something new' }).getByRole('button', { name: 'Favourite Plant Parents' })
+
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('heading', { name: 'My shows' })).toBeVisible()
+    await toggle.click()
+
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(sent[1]).toMatchObject({ show: { saved_show_id: 12 }, is_favourite: false })
+  })
+
   test('starting a suggestion opens its setup', async ({ page }) => {
     await openPodcasts(page, [{ json: suggestionsFixture }])
 

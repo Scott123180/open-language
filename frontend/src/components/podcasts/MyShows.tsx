@@ -8,6 +8,9 @@ interface MyShowsProps {
   onToggleFavourite: (show: ShowDraft) => void
 }
 
+/** Every My shows entry names its next episode; a show with no series yet starts at 1 (FR-013). */
+const FIRST_EPISODE_TEXT = 'Episode 1 next'
+
 const listStyle = {
   listStyle: 'none',
   margin: 0,
@@ -26,7 +29,7 @@ export default function MyShows({ catalog, onChoose, onToggleFavourite }: MyShow
       <ul style={listStyle}>
         {catalog.my_shows.map((show) => (
           <li key={showKey(show)} style={{ display: 'flex' }}>
-            <ShowCard show={show} personalities={catalog.personalities} onChoose={onChoose} onToggleFavourite={onToggleFavourite}
+            <ShowCard show={show} personalities={catalog.personalities} onChoose={onChoose} onToggleFavourite={onToggleFavourite} noSeriesText={FIRST_EPISODE_TEXT}
               extraAction={show.saved_show_id !== null ? <RemoveShowButton title={show.title} savedShowId={show.saved_show_id} /> : null} />
           </li>
         ))}

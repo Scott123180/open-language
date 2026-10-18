@@ -17,6 +17,8 @@ interface ShowCardProps {
   onToggleFavourite?: (show: CardShow) => void
   /** Another secondary action beside the toggle, such as Remove. */
   extraAction?: ReactNode
+  /** What the series badge says before the show has a series, such as My shows' "Episode 1 next". */
+  noSeriesText?: string
 }
 
 const showCardStyle: CSSProperties = { ...cardStyle, gap: 'var(--space-4)', height: '100%', padding: 'var(--space-5)' }
@@ -52,17 +54,16 @@ const seriesBadgeStyle: CSSProperties = {
   padding: '2px var(--space-3)',
 }
 
-/** "Episode 2 next" or "Episode 1 unfinished"; null for a show with no series yet. */
-function seriesText(series: SeriesSummary | null | undefined): string | null {
-  if (!series) return null
+/** "Episode 2 next" or "Episode 1 unfinished"; the fallback for a show with no series yet. */
+function seriesText(series: SeriesSummary | null | undefined, noSeriesText: string | null = null): string | null {
+  if (!series) return noSeriesText
   const unfinished = series.unfinished_episode
   return unfinished ? `Episode ${unfinished.episode_number} unfinished` : `Episode ${series.next_episode_number} next`
 }
 
 /** "Topic: food. Lucía (Enthusiast) & Marco (Dry sceptic). You're the guest. Episode 2 next." */
-function describeShow(show: CardShow, labelOf: (id: string) => string): string {
+function describeShow(show: CardShow, labelOf: (id: string) => string, series: string | null): string {
   const hosts = show.hosts.map((host) => `${host.name} (${labelOf(host.personality_id)})`).join(' & ')
-  const series = seriesText(show.series)
   return `Topic: ${show.topic}. ${hosts}. ${roleText(show.learner_role)}.${series ? ` ${series}.` : ''}`
 }
 
@@ -84,12 +85,13 @@ export default function ShowCard(props: ShowCardProps) {
 
 /** One show: a button named by its title. The topic sits over the title, the hosts under it and
  * the learner's role at the foot; screen readers get the same as one sentence. */
-function ShowCardButton({ show, personalities, onChoose }: ShowCardProps) {
+function ShowCardButton({ show, personalities, onChoose, noSeriesText }: ShowCardProps) {
   const labelOf = (id: string) => personalities.find((p) => p.personality_id === id)?.label ?? id
   const detailsId = `${useId()}-details`
+  const series = seriesText(show.series, noSeriesText)
   return (
     <button type="button" aria-label={show.title} aria-describedby={detailsId} onClick={() => onChoose(show)} style={showCardStyle}>
-      <span id={detailsId} style={visuallyHiddenStyle}>{describeShow(show, labelOf)}</span>
+      <span id={detailsId} style={visuallyHiddenStyle}>{describeShow(show, labelOf, series)}</span>
       <span aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
         <span style={topicStyle}>{show.topic}</span>
         <span style={{ fontSize: 'var(--text-md)', fontWeight: 'var(--weight-semibold)' as never }}>{show.title}</span>
@@ -97,7 +99,7 @@ function ShowCardButton({ show, personalities, onChoose }: ShowCardProps) {
       <span aria-hidden="true"><ShowCast hosts={show.hosts} labelOf={labelOf} /></span>
       <span aria-hidden="true" style={footerStyle}>
         <RoleBadge role={show.learner_role} />
-        {seriesText(show.series) && <span style={seriesBadgeStyle}>{seriesText(show.series)}</span>}
+        {series && <span style={seriesBadgeStyle}>{series}</span>}
       </span>
     </button>
   )

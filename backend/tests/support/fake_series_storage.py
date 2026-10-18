@@ -45,6 +45,9 @@ class FakeShowLibraryStorage(ShowLibraryStorage):
     def get(self, ref: ShowRef) -> KeptShow | None:
         return next((show for show in self.shows.values() if show.ref == ref), None)
 
+    def find(self, content: ShowContent) -> KeptShow | None:
+        return next((self.shows[i] for i, kept in self.contents.items() if kept == content), None)
+
     def set_favourite(self, show_row_id: int, is_favourite: bool) -> KeptShow | None:
         self.shows[show_row_id] = replace(self.shows[show_row_id], is_favourite=is_favourite)
         return self.shows[show_row_id]

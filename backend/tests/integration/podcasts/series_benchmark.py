@@ -59,6 +59,12 @@ def start_one_off(client: TestClient, show_id: str, format: str) -> dict:
     return response.json()
 
 
+def warm(client: TestClient, conversation_id: int) -> None:
+    """Warm the episode's session as the episode screen does on load, before its first line."""
+    response = client.post(f"{EPISODES}/{conversation_id}/session")
+    assert response.status_code == 202, response.text
+
+
 def post_action(client: TestClient, conversation_id: int, action: str, body=None) -> list[dict]:
     with client.stream("POST", f"{EPISODES}/{conversation_id}/{action}", json=body) as response:
         response.read()

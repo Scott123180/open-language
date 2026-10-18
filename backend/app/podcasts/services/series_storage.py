@@ -209,6 +209,10 @@ class ShowLibraryStorage(ABC):
     def get(self, ref: ShowRef) -> KeptShow | None: ...
 
     @abstractmethod
+    def find(self, content: ShowContent) -> KeptShow | None:
+        """The show kept with this content, or None; never creates one."""
+
+    @abstractmethod
     def set_favourite(self, show_row_id: int, is_favourite: bool) -> KeptShow | None:
         """None when unfavouriting deleted the row: nothing else keeps the show (§2.1)."""
 

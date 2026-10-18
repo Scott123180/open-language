@@ -14,4 +14,10 @@ describe('PodcastLabel', () => {
 
     expect(screen.getByText('Podcast · Panel · Lucía & Marco')).toBeInTheDocument()
   })
+
+  it('names a series episode by its number', () => {
+    render(<PodcastLabel formatLabel="Panel" hostNames={['Lucía', 'Marco']} episodeNumber={3} />)
+
+    expect(screen.getByText('Podcast · Panel · Lucía & Marco · Episode 3')).toBeInTheDocument()
+  })
 })

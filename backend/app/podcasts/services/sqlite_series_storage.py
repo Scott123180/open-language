@@ -78,6 +78,10 @@ class SQLiteShowLibraryStorage(ShowLibraryStorage):
             ).first()
         return _kept_show(row) if row is not None else None
 
+    def find(self, content: ShowContent) -> KeptShow | None:
+        row = self._find(content)
+        return _kept_show(row) if row is not None else None
+
     def set_favourite(self, show_row_id: int, is_favourite: bool) -> KeptShow | None:
         row = self._db.get(PodcastShow, show_row_id)
         if row is None:

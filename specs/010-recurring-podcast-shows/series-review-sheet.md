@@ -487,6 +487,20 @@ For each series: **Refers back** = some episode-2 host line correctly mentions a
 The extra half second is the full series section in the prompt (about 1,800 characters at the
 caps and text budget), read once when the session opens.
 
+Re-run 2026-10-18 (T143), with each episode's session warmed first as the episode screen does on
+load. `llama3.1:8b` was partly on the CPU (4.8 of 5.6 GB in VRAM, the rest of the GPU held by other
+applications), so both figures are slower than the first run:
+
+| Text budget | Episode 1 median | Episode 10+ median | Gap |
+|---|---|---|---|
+| 1,200 characters (shipped) | 2.14 s | 3.13 s | +46%: **missed** |
+| 600 characters (trial, not kept) | 2.10 s | 2.79 s | +33%: **missed** |
+
+Warming does not close the gap: the Ollama warm-up is an empty preload that keeps the model loaded
+and never reads the prompt. Part of the gap is not the memory either: a `line` frame is sent once the
+whole line is written, so the measure includes episode 10's longer "welcome back, and bring up one
+thing from earlier" opening. The budget stays at 1,200 characters.
+
 ## SC-004: one-off isolation
 
 Every one-off host line that mentions an earlier episode or a fact from the series. Mark each **Reference (Y/N)**: a Y is a line that refers to an earlier episode (SC-004, bar 0). A coincidental word ("mañanas" in a general sense) is an N.

@@ -4,6 +4,7 @@ import pytest
 
 from tests.support.podcast_harness import podcast_harness
 
+CATALOG = "/api/podcasts/catalog"
 FAVOURITES = "/api/podcasts/favourites"
 SHOWS = "/api/podcasts/shows"
 SHOW_GONE = "That show isn't kept any more. Pick another one."
@@ -76,6 +77,15 @@ def test_unfavouriting_a_show_kept_only_by_its_favourite_is_a_204(harness, show)
     response = _favourite(harness, draft, is_favourite=False)
 
     assert response.status_code == 204
+
+
+def test_unfavouriting_a_kept_suggestion_by_its_unsaved_draft_stops_keeping_it(harness):
+    _favourite(harness, SUGGESTION)
+
+    response = _favourite(harness, SUGGESTION, is_favourite=False)
+
+    assert response.status_code == 204
+    assert harness.client.get(CATALOG).json()["my_shows"] == []
 
 
 def test_unfavouriting_a_show_with_a_series_returns_its_listing(harness):

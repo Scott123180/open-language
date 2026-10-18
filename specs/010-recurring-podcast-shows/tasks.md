@@ -1127,3 +1127,15 @@ Task: "T103 HostCard.tsx → ThemedSelect"
   never skipped. Results below a bar go to `docs/architecture.md` § "Open items".
 - Commit after each task or logical group, ending commit messages with the attribution line the
   session requires.
+
+## Phase 10: Convergence
+
+- [X] T141 [US5] Make unfavouriting a kept suggestion work from the Find a new show list per FR-012, US5/AC3 (partial). Today `FindNewShow` sends the unsaved draft (`saved_show_id: null`), `ShowLibrary.favourite(draft, False)` resolves it to `None`, and `PUT /favourites` answers 204 while the row stays favourited:
+  - write the failing tests first: in `backend/tests/contract/test_podcast_favourites_api.py`, favourite `SUGGESTION`, then unfavourite the same unsaved draft: the response is 204 and `my_shows` no longer lists it; in `frontend/src/components/podcasts/FindNewShow.test.tsx`, toggling a favourited suggestion sends the kept show's `saved_show_id`; in `frontend/e2e/podcast-discovery.spec.ts`, favourite then unfavourite a suggestion and check the second request and the toggle state;
+  - fix both sides: `SuggestionList` passes the matching `my_shows` listing, with its `saved_show_id`, to `onToggleFavourite`; `ShowLibrary.favourite` resolves an unsaved learner-made draft by its content (as `keep` finds it) before unfavouriting, and never answers 204 while the row is still kept.
+- [X] T142 [US4] Show a next episode number on every My shows entry per FR-013 (partial). A favourite with no series in the current language shows "Episode 1 next" on its card in `frontend/src/components/podcasts/MyShows.tsx` / `ShowCard.tsx`; the ready-made list stays as it is. Extend `MyShows.test.tsx` and `frontend/e2e/podcast-favourites.spec.ts` first.
+- [X] T143 [US1] Close the SC-006 latency gap per SC-006, FR-006 (partial). The recorded figures are 1.53 s against 1.06 s (+44%, target ≤ 20%):
+  - make `backend/tests/integration/podcasts/test_series_latency_benchmark.py` measure the way the app runs: call the episode's warm-session endpoint before the first line, as `usePodcastEpisode` does, for both episode 1 and episode 10;
+  - re-run it on `llama3.1:8b`. If episode 10 is still more than 20% slower, reduce the series section's cost: shorten its fixed rule text, or lower `REMEMBERED_TEXT_BUDGET` with T035's property tests and T033's budget test updated to the new constant;
+  - update the SC-006 row in `docs/architecture.md` § "Open items" and in `specs/010-recurring-podcast-shows/series-review-sheet.md` with the new figures.
+- [X] T144 [US1] Show the episode number of series episodes in Past Chats per plan: US1 "`episode_number` in Past Chats" (partial). `frontend/src/components/podcasts/EpisodeRowLink.tsx` (or `PodcastLabel`) shows "Episode N" when the row's `episode_number` is set, and nothing for one-offs or pre-010 episodes. Write the Vitest test and a `frontend/e2e/history.spec.ts` assertion first.

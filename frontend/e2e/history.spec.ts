@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { mockConversation, mockConversationCompleted, mockGermanConversation, mockMessages } from './fixtures'
 
 const HISTORY_URL = '/history'
@@ -163,25 +163,30 @@ test.describe('History page — conversation languages (006)', () => {
   })
 })
 
+async function routeEpisodeRow(page: Page, changes: Record<string, unknown> = {}) {
+  await page.route('/api/podcasts/episodes', (route) =>
+    route.fulfill({
+      json: [
+        {
+          conversation_id: mockConversation.id,
+          show_title: mockConversation.scenario_title,
+          format: 'one_host',
+          format_label: 'One host',
+          host_names: ['Lucía'],
+          language: 'es',
+          language_name: 'Spanish',
+          status: 'active',
+          ...changes,
+        },
+      ],
+    }),
+  )
+}
+
 test.describe('History page — podcast episodes (007)', () => {
   test('a podcast row is labelled and links to its episode', async ({ page }) => {
     await setupHistoryRoutes(page)
-    await page.route('/api/podcasts/episodes', (route) =>
-      route.fulfill({
-        json: [
-          {
-            conversation_id: mockConversation.id,
-            show_title: mockConversation.scenario_title,
-            format: 'one_host',
-            format_label: 'One host',
-            host_names: ['Lucía'],
-            language: 'es',
-            language_name: 'Spanish',
-            status: 'active',
-          },
-        ],
-      }),
-    )
+    await routeEpisodeRow(page)
     await page.goto(HISTORY_URL)
 
     await expect(page.getByText('Podcast · One host · Lucía')).toBeVisible()
@@ -190,5 +195,13 @@ test.describe('History page — podcast episodes (007)', () => {
       `/podcasts/episodes/${mockConversation.id}`,
     )
     await expect(page.getByText(/Podcast ·/)).toHaveCount(1)
+  })
+
+  test('a series episode row names its episode number (010)', async ({ page }) => {
+    await setupHistoryRoutes(page)
+    await routeEpisodeRow(page, { episode_number: 3 })
+    await page.goto(HISTORY_URL)
+
+    await expect(page.getByText('Podcast · One host · Lucía · Episode 3')).toBeVisible()
   })
 })

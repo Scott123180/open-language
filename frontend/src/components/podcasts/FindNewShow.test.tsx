@@ -7,8 +7,8 @@ import { suggestions } from './fixtures.test.utils'
 
 vi.mock('../../services/podcastsApi')
 
-const renderFinder = () => {
-  const props = { catalog, onChoose: vi.fn(), onToggleFavourite: vi.fn() }
+const renderFinder = (shown = catalog) => {
+  const props = { catalog: shown, onChoose: vi.fn(), onToggleFavourite: vi.fn() }
   render(<FindNewShow {...props} />)
   return props
 }
@@ -51,6 +51,17 @@ describe('FindNewShow', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Favourite Board Game Night' }))
 
     expect(props.onToggleFavourite).toHaveBeenCalledWith(expect.objectContaining({ title: 'Board Game Night' }))
+  })
+
+  it('unfavourites a kept suggestion by its saved show', async () => {
+    vi.mocked(podcasts.discoverShows).mockResolvedValue(suggestions)
+    const kept = { ...suggestions[2], saved_show_id: 31, is_favourite: true, series: null }
+    const props = renderFinder({ ...catalog, my_shows: [kept] })
+    fireEvent.click(screen.getByRole('button', { name: 'Find a new show' }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Favourite Board Game Night', pressed: true }))
+
+    expect(props.onToggleFavourite).toHaveBeenCalledWith(expect.objectContaining({ saved_show_id: 31, is_favourite: true }))
   })
 
   it('shows the plain message when no shows came, and stays usable', async () => {

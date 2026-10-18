@@ -31,6 +31,14 @@ describe('MyShows', () => {
     expect(screen.getByRole('button', { name: 'Big Little Questions' })).toHaveAccessibleDescription(/Episode 2 next/)
   })
 
+  it('says episode 1 is next for a show with no series yet', () => {
+    renderMine()
+
+    const card = screen.getByRole('button', { name: 'Night Shift Abroad' })
+    expect(card).toHaveAccessibleDescription(/Episode 1 next\./)
+    expect(card).toHaveTextContent('Episode 1 next')
+  })
+
   it('is hidden when empty', () => {
     renderMine([])
 

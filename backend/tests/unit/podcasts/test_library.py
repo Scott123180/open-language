@@ -95,3 +95,15 @@ def test_resolving_an_unsaved_learner_made_draft_finds_nothing(library):
 
 def test_resolving_a_ready_made_show_never_kept_finds_nothing(library):
     assert library.resolve(_draft()) is None
+
+
+def test_unfavouriting_an_unsaved_draft_finds_the_show_kept_with_its_content(library, storage):
+    kept = library.favourite(_draft("suggested"), True)
+
+    library.favourite(_draft("suggested"), False)
+
+    assert storage.shows[kept.show_row_id].is_favourite is False
+
+
+def test_unfavouriting_an_unsaved_draft_never_kept_finds_nothing(library):
+    assert library.favourite(_draft("suggested"), False) is None

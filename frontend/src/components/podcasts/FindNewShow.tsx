@@ -39,15 +39,21 @@ export default function FindNewShow({ catalog, onChoose, onToggleFavourite }: Fi
 
 function SuggestionList({ suggestions, catalog, onChoose, onToggleFavourite }: FindNewShowProps & { suggestions: ShowDraft[] }) {
   if (suggestions.length === 0) return null
-  const isFavourite = (show: ShowDraft) => catalog.my_shows.some((mine) => mine.title === show.title && mine.is_favourite)
   return (
     <ul style={listStyle}>
-      {suggestions.map((show) => (
-        <li key={show.title} style={{ display: 'flex' }}>
-          <ShowCard show={{ ...show, is_favourite: isFavourite(show) }} personalities={catalog.personalities}
-            onChoose={() => onChoose(show)} onToggleFavourite={() => onToggleFavourite({ ...show, is_favourite: isFavourite(show) } as ShowDraft)} />
-        </li>
-      ))}
+      {suggestions.map((show) => {
+        const kept = keptFavourite(catalog, show)
+        return (
+          <li key={show.title} style={{ display: 'flex' }}>
+            <ShowCard show={{ ...show, is_favourite: kept !== undefined }} personalities={catalog.personalities}
+              onChoose={() => onChoose(show)} onToggleFavourite={() => onToggleFavourite(kept ?? show)} />
+          </li>
+        )
+      })}
     </ul>
   )
 }
+
+/** The kept favourite a suggestion became; toggling it sends its saved id, so it can be unkept (FR-012). */
+const keptFavourite = (catalog: PodcastCatalog, show: ShowDraft) =>
+  catalog.my_shows.find((mine) => mine.title === show.title && mine.is_favourite)

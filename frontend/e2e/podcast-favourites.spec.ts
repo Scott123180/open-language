@@ -65,6 +65,19 @@ test.describe('Podcast favourites and My shows (010 US4)', () => {
     await expect(page.getByRole('region', { name: 'My shows' })).toHaveCount(0)
   })
 
+  test('a favourite with no series says episode 1 is next in My shows only', async ({ page }) => {
+    await mockFavourites(page)
+    await page.goto('/podcasts')
+
+    await page.getByRole('list').getByRole('button', { name: 'Favourite Game Day' }).click()
+
+    const mine = page.getByRole('region', { name: 'My shows' })
+    await expect(mine.getByRole('button', { name: 'Game Day', exact: true })).toContainText('Episode 1 next')
+    const cards = page.getByRole('button', { name: 'Game Day', exact: true })
+    await expect(cards).toHaveCount(2)
+    await expect(cards.last()).not.toContainText('Episode')
+  })
+
   test('a show with a series stays in My shows after unfavouriting', async ({ page }) => {
     await mockFavourites(page, [{ ...seriesShowFixture, is_favourite: true }])
     await page.goto('/podcasts')

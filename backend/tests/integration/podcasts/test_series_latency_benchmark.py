@@ -6,7 +6,8 @@ Hand-run against the real default model, deselected by default:
 
 - First line: the median time to the first `line` frame of a series' episode 1, over ten fresh
   series, against episode 10 and later of one series whose memory is full (SC-006: within 20%).
-  The full memory is written straight to storage, at the caps and the text budget.
+  The full memory is written straight to storage, at the caps and the text budget. Each episode's
+  session is warmed first, as the episode screen does on load.
 - Catch-up wait: `?wait=true` straight after a Medium episode's sign-off, ten runs (p90 ≤ 15 s).
 """
 
@@ -22,7 +23,13 @@ from app.podcasts.catalog import (
 from app.podcasts.services.series_storage import MemoryReply, PointText
 from app.podcasts.services.sqlite_series_storage import SQLiteSeriesStorage
 from tests.integration.podcasts.podcast_harness import real_podcast_app
-from tests.integration.podcasts.series_benchmark import end, play, start_series, wait_for_memory
+from tests.integration.podcasts.series_benchmark import (
+    end,
+    play,
+    start_series,
+    wait_for_memory,
+    warm,
+)
 
 pytestmark = pytest.mark.benchmark
 
@@ -37,6 +44,7 @@ POINT = "Le encanta hablar de la historia de su ciudad y de los mercados del bar
 
 def _first_line_seconds(client, show_id: str) -> float:
     episode = start_series(client, show_id, "one_host")
+    warm(client, episode["conversation_id"])
     return play(client, episode["conversation_id"], [], 1).first_line_seconds
 
 
