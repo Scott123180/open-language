@@ -29,6 +29,7 @@ podcast_shows ──< podcast_series   (unique per show × target_language)
 | `SERIES_SECTION_MAX_LENGTH` | new: `1800` characters, the budget the series prompt section is tested against |
 | `MIN_LINES_TO_REMEMBER` | new: `2` |
 | `MEMORY_CHUNK_CHARACTERS` | new: `6000` (the summariser's budget, 007 R14) |
+| `MEMORY_WAIT_SECONDS` | new: `30`, the longest `POST /series/{id}/memory?wait=true` holds (research R6) |
 | `SUGGESTION_SEEDS` / `MIN_SUGGESTIONS` / `INTEREST_SEEDS` | new: `5` / `3` / `3` (research R10) |
 
 `SHOW_TEMPLATES` is **unchanged**: same shows, same order (FR-015).
@@ -220,8 +221,17 @@ only `touch_played` when its row exists. Then 007's start, unchanged.
 started (marker NULL) ──lines──► pending ──catch-up──► remembered up to message m ──more lines──► pending …
 ```
 
-Catch-up runs after a series sign-off and on `POST /series/{id}/memory`. It never runs on the
-start path (research R6).
+Catch-up runs after a series sign-off and on `POST /series/{id}/memory`.
+
+A series' `memory_status` is derived, never stored:
+- `running` while `MemoryCatchUps` holds the series;
+- otherwise `pending` when any of its episodes has at least `MIN_LINES_TO_REMEMBER` lines after
+  its marker;
+- otherwise `up_to_date`.
+
+Before a series start, the setup screen waits on the catch-up (`?wait=true`) whenever the status
+is not `up_to_date`, showing a "catching up" message. `POST /episodes` itself never waits
+(research R6).
 
 ---
 

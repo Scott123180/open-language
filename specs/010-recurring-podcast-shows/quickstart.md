@@ -77,7 +77,7 @@ backend/.venv/bin/pytest -m benchmark tests/integration/podcasts -k "series or o
 |---|---|---|
 | `test_series_recall_benchmark.py` | 20 second episodes. The bars: **≥ 16** with a host line that correctly refers to a specific earlier point, and **0** invented memories (SC-002); **≥ 18** on a topic not already covered (SC-003) | `series-review-sheet.md` rows, filled by hand |
 | `test_one_off_isolation_benchmark.py` | 20 one-off episodes of shows with a series in progress: **0** host lines refer to earlier episodes (SC-004) | flagged lines in the review sheet |
-| `test_series_latency_benchmark.py` | The median time to episode 10's first `line` frame is within **20%** of episode 1's, on the same series with full memory, 10 runs each (SC-006). Prompt token counts are printed | printed table |
+| `test_series_latency_benchmark.py` | The median time to episode 10's first `line` frame is within **20%** of episode 1's, on the same series with full memory, 10 runs each (SC-006). Prompt token counts are printed. The catch-up wait straight after a Medium sign-off is p90 **≤ 15 s** (research R6) | printed table |
 | `test_discovery_benchmark.py` | 10 requests, each returning **≥ 3** suitable, non-duplicate suggestions or the plain message, within **30 s** (SC-007) | printed table |
 
 If SC-002 or SC-003 fails on `llama3.1:8b`, ship series as **experimental**:
@@ -103,31 +103,37 @@ Use the default local setup, Spanish, in dark mode. Set the name the hosts use t
    episode 2 or 3, with Hugo.
 3. **US1-5, unfinished**: start an episode, leave after two lines, and reopen the show. Expected:
    **Continue episode N** first, and "Start a new episode instead" below it.
-4. **US2, one-off**:
+4. **Waiting for memory** (research R6):
+   - Finish an episode with End episode, go straight back, and press **Start episode N+1** at
+     once. Expected: "Hugo and Inés are catching up on episode N. This takes a few seconds.", and
+     then the episode starts on its own. Its opening refers to episode N.
+   - Repeat with Ollama stopped. Expected: a plain failure message with **Try again** and
+     **Start without it**.
+5. **US2, one-off**:
    - Choose **One-off episode**, Shuffle a host, and run a few lines. Expected: no mention of
      earlier episodes, and the header says "One-off".
    - Return to the show. Expected: the next episode number and the remembered points are as before.
-5. **US3, consistent hosts**:
+6. **US3, consistent hosts**:
    - On episode N ≥ 2's setup, check that there is no Shuffle and no personality drop-down.
    - Press **Recast…** on the second host and choose a personality. Expected: the dialog says the
      new host won't know the history. **Cancel** changes nothing.
    - Recast again and **Confirm**. Expected: a new name, and the lead unchanged.
    - Run the episode. Expected: the new host is introduced as new, and Hugo still recalls earlier
      points. In the next episode the new host is kept.
-6. **US4, My shows**:
+7. **US4, My shows**:
    - Favourite Big Little Questions and Game Day, and generate a show and play one line of it.
    - Restart the app (`./run.sh`). Expected: My shows lists all three with their next episode
      numbers, and the ready-made list is unchanged.
    - Unfavourite Game Day. Expected: it leaves My shows (no series).
    - Unfavourite Big Little Questions. Expected: it stays (series in progress).
-7. **US5, Find a new show**:
+8. **US5, Find a new show**:
    - Press **Find a new show**. Expected: 3–5 cards, none already listed. Press **Show me others**.
      Expected: no repeats.
    - Favourite one. Expected: it joins My shows.
    - Start another. Expected: the setup screen opens.
    - Stop Ollama and press Find a new show. Expected: a plain message, and the rest of the screen
      still works.
-8. **US6, drop-downs**: in light, dark and system themes, open:
+9. **US6, drop-downs**: in light, dark and system themes, open:
    - the setup personality drop-down;
    - Settings' drop-downs;
    - the chat Level control;
@@ -135,7 +141,7 @@ Use the default local setup, Spanish, in dark mode. Set the name the hosts use t
 
    Expected: each list is drawn on the theme surface with the theme text, and the selected and
    focused options are both clearly marked.
-9. **Edge cases**:
+10. **Edge cases**:
    - Set the hosts' name for you to "Hugo". Expected: setup points out the clash, and Start says
      to change your name.
    - Remove one Spanish voice file. Expected: the series host keeps their name, and the missing-voice

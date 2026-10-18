@@ -184,6 +184,7 @@ The setup screen's view of a series: who the hosts are and what they remember (F
   "episode_count": 3,
   "next_episode_number": 4,
   "unfinished_episode": null,
+  "memory_status": "up_to_date",
   "hosts": [
     {"slot": "lead", "name": "Hugo", "personality_id": "curious_interviewer", "personality_label": "Curious interviewer",
      "voice_key": "es_ES-davefx-medium", "show_role": "host", "has_history": true, "is_new_next_episode": false},
@@ -197,7 +198,8 @@ The setup screen's view of a series: who the hosts are and what they remember (F
 }
 ```
 
-`text` is the English version. **404** "That series isn't there any more. Open the show again."
+`text` is the English version. `memory_status` is `up_to_date`, `pending` or `running`
+(data-model §5.3). **404** "That series isn't there any more. Open the show again."
 
 ## 6. `POST /api/podcasts/series/{series_id}/hosts/{slot}/recast`
 
@@ -227,10 +229,19 @@ Chats with `episode_number: null` from then on (FR-011). **404** for an unknown 
 
 ## 8. `POST /api/podcasts/series/{series_id}/memory`
 
-Starts a background catch-up of the series' pending episodes (research R6). It never waits for
-the model.
+Starts a background catch-up of the series' pending episodes (research R6), unless one is
+already running.
 
-**202** `{"status": "started" | "running" | "up_to_date"}`. **404** for an unknown series.
+**Without `wait`** (the setup screen opening, and fire-and-forget): **202**
+`{"status": "started" | "running" | "up_to_date"}`.
+
+**With `?wait=true`** (before a series Start): holds until the catch-up finishes or
+`MEMORY_WAIT_SECONDS` (30 s) pass, then returns **200** with one of:
+- `{"status": "up_to_date"}`;
+- `{"status": "failed", "detail": "<provider's message>"}`;
+- `{"status": "timed_out", "detail": "It's taking longer than usual."}`.
+
+A catch-up that times out keeps running in the background. **404** for an unknown series.
 
 | Guarantee | Test |
 |---|---|
@@ -239,6 +250,8 @@ the model.
 | The caps hold after any number of catch-ups (FR-006) | property test, seeded, 200 random catch-up sequences |
 | A provider failure leaves the memory and the marker unchanged, and is logged | integration |
 | Two concurrent requests start one catch-up | unit (`MemoryCatchUps`) |
+| `?wait=true` returns `up_to_date` once the running catch-up finishes, and a later series start's snapshot includes its points | integration |
+| `?wait=true` returns `failed` with the provider's message, or `timed_out` at the limit, without blocking the event loop | integration with a blocking fake and a short injected limit |
 | A series sign-off schedules a catch-up through `EpisodeEndings`; a one-off sign-off does not | integration |
 
 ---
@@ -341,7 +354,7 @@ No change to `prompts/templates.py`, `conversation_levels`, `conversation_summar
 | Screen | Primary action | Secondary | Accessibility |
 |---|---|---|---|
 | Podcasts (`/podcasts`) | Choose a show card | Favourite toggle per card; **Find a new show**; Generate; Surprise me | **My shows** is a labelled section, shown only when non-empty. Cards are groups: the choose button is named by the title and described by its details, including "Episode 2 next" or "Episode 1 unfinished". The favourite toggle is a separate button, `aria-pressed`, named "Favourite Big Little Questions". Suggestions arrive in an `aria-live="polite"` region |
-| Setup, series | **Continue episode N** if unfinished, otherwise **Start episode N** | One-off choice tile; per host: ▶ sample and **Recast…**; "What the hosts remember" disclosure with **Start over** | Series hosts are read-only text, with no Shuffle and no personality control. Recast and Start over use `ConfirmDialog` (`role="alertdialog"`, focus trapped and returned, Escape cancels). A name clash is a `role="status"` hint linked to the name field |
+| Setup, series | **Continue episode N** if unfinished, otherwise **Start episode N** | One-off choice tile; per host: ▶ sample and **Recast…**; "What the hosts remember" disclosure with **Start over**; while catching up after a failure or timeout: **Try again** (primary) and **Start without it** | Series hosts are read-only text, with no Shuffle and no personality control. While memory catches up, Start is `aria-busy`, and a `role="status"` message says "Hugo and Inés are catching up on episode 3. This takes a few seconds."; the episode then starts on its own. Recast and Start over use `ConfirmDialog` (`role="alertdialog"`, focus trapped and returned, Escape cancels). A name clash is a `role="status"` hint linked to the name field |
 | Setup, one-off or series episode 1 | **Start episode 1** / **Start one-off episode** | 007's Shuffle and personality control (now `ThemedSelect`) | As 007 |
 | Episode | Unchanged | Unchanged | The header names the episode ("Episode 2" or "One-off") |
 | Every drop-down | n/a | n/a | `ThemedSelect` follows the APG select-only combobox. Options use theme tokens; the selected option is marked with colour and a check; the focused option has an outline; contrast ≥ 4.5:1 (FR-021) |
@@ -378,6 +391,8 @@ New hooks:
   - read-only hosts;
   - Recast confirm and cancel;
   - Continue unfinished;
+  - Start while memory is catching up: the message, then the automatic start; on failure,
+    Try again and Start without it;
   - one-off choice;
   - remembered points and Start over;
   - name-clash hint;

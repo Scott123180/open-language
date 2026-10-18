@@ -177,7 +177,7 @@ what SC-002 measures.
 
 ---
 
-## R6. Memory is written by a background catch-up, never on the path to the first line
+## R6. Memory is written by a background catch-up; a series Start waits for it, visibly
 
 **Decision**: A `SeriesMemoryKeeper` turns finished or abandoned lines into remembered points with
 **one structured call per episode chunk**, through the stateless `StructuredLLMProvider`, as the
@@ -209,22 +209,56 @@ The keeper's input and output:
 Concurrency: one catch-up per series at a time (a per-series in-process guard, like
 `EpisodeLocks`). A second request while one runs returns `{"status": "running"}`.
 
-**Starting an episode never waits for the keeper.** If a catch-up is still running when the
-learner starts, the episode starts with what is already remembered, and the pending points arrive
-for the next episode.
+**Start waits for memory, and says so** (spec clarification, 2026-10-17). The series detail
+reports `memory_status`:
+- `up_to_date`: no episode has unread lines;
+- `pending`: lines are unread and no catch-up is running;
+- `running`: a catch-up is running.
+
+When the learner presses **Start episode N** (or **Continue**) and the status is not
+`up_to_date`, the setup screen:
+1. keeps the Start button in a busy state;
+2. shows a `role="status"` message: "Hugo and Inés are catching up on episode 3. This takes a
+   few seconds.";
+3. calls `POST /series/{id}/memory?wait=true`. The server starts a catch-up if none is running,
+   then holds the request until it finishes or `MEMORY_WAIT_SECONDS` (30 s) pass. It waits on the
+   catch-up's completion event in an executor, so the event loop is never blocked;
+4. on `up_to_date`, starts the episode with no further action. The new snapshot then includes
+   the last episode.
+
+If the catch-up fails (provider error) or times out:
+- the message changes to "The hosts couldn't catch up on episode 3. {provider message or 'It's
+  taking longer than usual.'}";
+- it offers **Try again** (primary) and **Start without it** (secondary): the episode starts
+  with what is already remembered;
+- nothing switches provider (Principle VI), and starting without the update is the learner's
+  explicit choice, never a silent one.
+
+`POST /episodes` itself does not wait or refuse: the client does the waiting, so the start
+endpoint keeps one job and stays fast. Two tabs racing to start is harmless: the second takes
+whatever memory exists at that moment.
 
 **Rationale**:
-- SC-006 requires episode 10's first line within 20% of episode 1's. Episode 1 makes no memory
-  call, so any call on the start path would miss SC-006.
-- The setup screen is where the learner spends a few seconds before starting, so a catch-up
-  started there usually finishes before Start is pressed.
-- Failures are quiet by design: a failed catch-up is logged and retried at the next trigger. The
-  learner is never blocked by memory, and the provider they selected is the only one used
-  (Principle VI).
+- Recall is the point of a series (US1). Waiting a few seconds with a clear message is better
+  than an episode that has forgotten the last one, and this is the learner's stated preference.
+- In the usual case the status is already `up_to_date` and nothing waits. The catch-up after a
+  sign-off, or the one started when the setup screen opens, has normally finished before Start
+  is pressed. The wait only shows when the learner starts straight after finishing or abandoning
+  an episode.
+- SC-006 still holds as specified, because it compares the first host line *of the episode*.
+  The catch-up is a separate, visible step before the episode exists, with its own budget,
+  measured in R12: p90 ≤ 15 s on the local setup.
+- A failed catch-up outside a Start (sign-off or setup open) is logged and retried at the next
+  trigger. It only reaches the learner when they are waiting on it.
 
 **Alternatives considered**:
-- *Extract at Start, synchronously*: simplest, but adds a model call (5–10 s locally) to every
-  later episode's start (SC-006).
+- *Never wait: start with what is remembered and let late points arrive for the next episode*:
+  fastest, but an episode started straight after the last one could forget it entirely. The
+  learner chose to wait.
+- *Make `POST /episodes` itself wait*: one call fewer, but a start request that can block for
+  30 s, and no distinct "catching up" state to show or retry.
+- *Extract at Start, synchronously, always*: simplest, but adds a model call (5–10 s locally) to
+  every later episode's start, even when memory is already up to date.
 - *Extract after each learner line*: competes with host-line generation on a single local GPU, on
   the latency path 007 protects (SC-009 of 007).
 - *Reuse the conversation Summary*: it summarises what was said (five points, both speakers). It
@@ -406,7 +440,9 @@ existing `benchmark` marker, with a review sheet for what needs a person:
   (SC-004). Because a one-off prompt carries no memory, a reference can only be invented. The
   sheet lists any line that mentions "last time", "last episode" or the known facts, for review;
 - `test_series_latency_benchmark.py`: the time to episode 1's first line versus episode 10's, on
-  the same series with a full memory, 10 runs each (SC-006);
+  the same series with a full memory, 10 runs each (SC-006). It also times the catch-up wait:
+  `POST /series/{id}/memory?wait=true` straight after a Medium episode's sign-off, 10 runs, with
+  a target of p90 ≤ 15 s (R6);
 - `test_discovery_benchmark.py`: 10 requests, each with time to response, count, duplicates and
   suitability (SC-007).
 

@@ -32,11 +32,17 @@ The design rests on five decisions from [research.md](research.md):
    stores, when it starts, the bounded list of what the hosts remember. Its standing prompt and
    its `open`/`greet` cues are rendered from that snapshot only. A one-off's prompt and cues stay
    byte-identical to 007's.
-3. **Memory is written in the background, never on the path to the first line** (R6, R7). A
+3. **Memory is written in the background, and Start waits for it with a message** (R6, R7). A
    `SeriesMemoryKeeper` makes one structured call per episode chunk, after a series sign-off and
-   when the setup screen opens a series. It writes at most 3 points about the learner per episode
-   and keeps the newest 10 topics and 8 learner points (FR-006, SC-006). Learner points are only
-   taken from chunks that contain learner lines, so a Listen episode remembers topics only.
+   when the setup screen opens a series:
+   - it writes at most 3 points about the learner per episode and keeps the newest 10 topics and
+     8 learner points (FR-006, SC-006);
+   - learner points are only taken from chunks that contain learner lines, so a Listen episode
+     remembers topics only;
+   - if the learner presses Start while memory is still catching up, the setup screen says so
+     ("Hugo and Inés are catching up on episode 3…"), waits up to 30 s, and then starts on its
+     own. A failure or timeout offers **Try again** or **Start without it**. Usually memory is
+     already up to date and nothing waits.
 4. **The series' hosts are checked, not trusted** (R2, R8). A series episode after the first must
    start with the series' hosts, or it is refused with a plain 409. There is no Shuffle once a
    series has started. **Recast…** is a confirmed server action that changes one slot for this and
@@ -98,8 +104,10 @@ No `_ADDITIVE_COLUMNS` entry, no existing column, and no existing row is updated
 **Project Type**: Web application (FastAPI backend + Vite/React frontend).
 
 **Performance Goals**:
-- SC-006: episode 10's first host line within 20% of episode 1's. Nothing on the start path
-  calls the model (R6), and the series section is capped at 1,800 characters (R7).
+- SC-006: episode 10's first host line within 20% of episode 1's. `POST /episodes` never calls
+  the model (R6), and the series section is capped at 1,800 characters (R7).
+- Catch-up wait before a series Start, when memory is not up to date: p90 ≤ 15 s on the local
+  setup, capped at 30 s, and shown to the learner as a "catching up" message (R6).
 - SC-007: Find a new show in ≤ 30 s on the local setup. One structured call for five shows, plus
   at most one top-up call (R10).
 - The setup screen loads without waiting for memory. The catch-up is a 202, like 007's
@@ -179,9 +187,12 @@ reviewed.
     (a deterministic quota, seeded-testable); without, 5 built-in everyday topics.
 15. **FR-021, "every drop-down"** means every `<select>` in `frontend/src`. There are five today,
     and `ThemedSelect` replaces them all (R11).
-16. **Memory timing**: memory is written after a series sign-off and when the setup screen opens a
-    series. If a catch-up is still running when the learner presses Start, the episode starts with
-    what is already remembered (R6). This trades a rare missed recall (SC-002) for SC-006.
+16. **Memory timing** (clarified 2026-10-17): memory is written after a series sign-off and when
+    the setup screen opens a series. If the learner presses Start while memory is pending or
+    being written, the setup screen waits for it (up to 30 s) with a "catching up" message, then
+    starts. A failure or timeout offers Try again or Start without it (R6). SC-006 and FR-006
+    concern the episode itself: the wait is a visible step before the episode exists, with its
+    own measured budget.
 
 ---
 
@@ -201,7 +212,7 @@ bottom of this section.*
 | **III. TDD (non-negotiable)** | ✅ | The pure pieces get their tests first: snapshot round-trip, series prompt section and budget, the memory parser and grounding rule, cap pruning, seed quota, title normalisation. The golden one-off test and the frozen `schema_007.sql` upgrade test are written **before** any prompt or model change. `ThemedSelect`'s keyboard and ARIA tests come before the component. |
 | **≥ 90% coverage, zero skipped tests** | ✅ | Benchmarks are deselected by marker, not skipped. The structured provider is a scripted fake from `tests/support`. The background keeper is tested synchronously through an injected executor. |
 | **IV. One primary action per screen** | ✅ | Podcasts: choose a show (the favourite toggle and Find a new show are secondary). Setup: **Continue episode N** *or* **Start episode N / Start one-off episode**, never two at once (R4). Recast, Start over and One-off are secondary. |
-| **IV. Immediate feedback** | ✅ | The favourite toggle updates at once (optimistic, rolled back with a message on failure). Find a new show shows progress in a live region. Recast shows the new host in place. The remembered list notes "Updating…" while a catch-up runs. |
+| **IV. Immediate feedback** | ✅ | The favourite toggle updates at once (optimistic, rolled back with a message on failure). Find a new show shows progress in a live region. Recast shows the new host in place. The remembered list notes "Updating…" while a catch-up runs. A Start that waits on memory says who is catching up on which episode, then starts on its own. |
 | **IV. Plain-language, what-to-do-next messages** | ✅ | Every new 404, 409, 422 and 503 says what to do (data-model §6, contracts §2–§8). The Recast and Start over dialogs say exactly what is lost and what is kept. |
 | **IV. Accessibility** | ✅ | `ThemedSelect` follows the APG pattern. `ConfirmDialog` is an `alertdialog` with focus trap and return. The favourite toggle is a separate `aria-pressed` button, never nested inside the card's button. My shows is a labelled region, and suggestions use a live region. Manual check in quickstart §6. |
 | **V. Compartmentalization** | ✅ | All new code is inside `app.podcasts`; its package root does not change. The factory, the composition root, is the only outside importer of the new storage, keeper and endings modules. `test_module_boundaries.py` is extended to enforce it. `conversation_summary` is not touched or imported (R6 rejects reusing it). |
@@ -248,7 +259,9 @@ The design added nothing that weakens a row above:
 - the data model confirms five additive tables, every one cascading from `conversations` or a new
   parent, with no existing column or row touched;
 - the quickstart gives every Principle IV claim and every success criterion a concrete check;
-- research R6 keeps the model off the start path, which is what SC-006 needs, and R11 makes
+- research R6 keeps the model out of `POST /episodes`, which is what SC-006 needs. When memory is
+  behind, the wait is a visible, bounded step on the setup screen (Principle IV), not a silent
+  delay. R11 makes
   SC-008 automatable rather than manual-only.
 
 ---
@@ -377,12 +390,13 @@ frontend/
      - the catalogue's `series` summaries and series hosts;
      - `GET /series/{id}`, recast and reset;
      - the memory keeper (parser, grounding, caps, catch-ups) with `EpisodeEndings` and
-       `POST /series/{id}/memory`;
+       `POST /series/{id}/memory`, including `?wait=true` and `memory_status`;
      - `episode_number` in Past Chats and the episode header;
    - frontend:
      - the series badge on cards;
-     - series setup: Start/Continue, read-only hosts, Recast with `ConfirmDialog`, remembered
-       points, Start over, the name-clash hint;
+     - series setup: Start/Continue, the catching-up wait and its Try again / Start without it,
+       read-only hosts, Recast with `ConfirmDialog`, remembered points, Start over, the
+       name-clash hint;
      - `podcast-series.spec.ts`.
 
    **Run `test_series_recall_benchmark.py` and `test_series_latency_benchmark.py` here**, before

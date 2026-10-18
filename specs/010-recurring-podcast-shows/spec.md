@@ -30,6 +30,10 @@ the personality drop-down whose open list ignores the app's theme.
 
 - Q: Should episodes recorded before this feature start series? → A: No. Every show starts a fresh
   series; earlier episodes stay in Past Chats but are not counted or remembered (FR-022).
+- Q: If the hosts' memory of the last episode is still being updated when the learner starts the
+  next one, should the start wait? → A: Yes. The setup screen tells the learner the hosts are
+  catching up, waits, then starts. If the update fails or takes too long, the learner can try
+  again or start without it. FR-006 and SC-006 concern the episode once it starts.
 
 ## User Scenarios & Testing *(mandatory)*
 
