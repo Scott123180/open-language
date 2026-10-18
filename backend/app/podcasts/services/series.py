@@ -12,11 +12,20 @@ from dataclasses import dataclass
 from app.podcasts.catalog import (
     LEAD_SLOT,
     LEARNER_POINT,
+    PERSONALITIES,
     PODCAST_FORMATS,
     SERIES_KIND,
     TOPIC_POINT,
 )
-from app.podcasts.schemas import HostDraftModel, StartEpisodeRequest, show_problem, validate_draft
+from app.podcasts.schemas import (
+    LANGUAGE_CHANGED,
+    SERIES_CLASH,
+    HostDraftModel,
+    StartEpisodeRequest,
+    show_problem,
+    validate_draft,
+)
+from app.podcasts.services.casting import HostCaster
 from app.podcasts.services.library import ShowLibrary
 from app.podcasts.services.series_snapshot import SeriesSnapshot
 from app.podcasts.services.series_storage import (
@@ -30,6 +39,9 @@ from app.podcasts.services.storage import NewEpisode, NewHost, NewSeriesLink
 from app.services.storage.base import AppSettingsRecord
 
 SERIES_HOSTS_CHANGED = "This show's hosts changed. Open the show again."
+SERIES_GONE = "That series isn't there any more. Open the show again."
+PERSONALITY_TAKEN = "{other} already has that personality. Pick another one."
+UNKNOWN_PERSONALITY = "That personality isn't in the list. Pick one of the listed ones."
 
 InstalledCount = Callable[[str], int]
 """How many voices are installed for a language."""
@@ -46,6 +58,22 @@ class SeriesHostsChanged(ValueError):  # noqa: N818 — reads as what the learne
         super().__init__(SERIES_HOSTS_CHANGED)
 
 
+class SeriesNotFound(LookupError):  # noqa: N818 — reads as what the learner is told
+    def __init__(self) -> None:
+        super().__init__(SERIES_GONE)
+
+
+class LanguageChanged(ValueError):  # noqa: N818 — reads as what happened
+    """A series of another practice language cannot be changed from this one (422)."""
+
+    def __init__(self) -> None:
+        super().__init__(LANGUAGE_CHANGED)
+
+
+class PersonalityTaken(ValueError):  # noqa: N818 — reads as what the learner is told
+    """Two hosts never share a personality (422)."""
+
+
 @dataclass(frozen=True)
 class PreparedStart:
     """Everything an episode needs beyond the request: its hosts and its series link."""
@@ -58,17 +86,53 @@ class PreparedStart:
 
 class SeriesService:
     def __init__(
-        self, library: ShowLibrary, series: SeriesStorage, installed_count: InstalledCount
+        self,
+        library: ShowLibrary,
+        series: SeriesStorage,
+        installed_count: InstalledCount,
+        caster: HostCaster,
     ) -> None:
         self._library = library
         self._series = series
         self._installed_count = installed_count
+        self._caster = caster
 
     def prepare(self, req: StartEpisodeRequest, settings: AppSettingsRecord) -> PreparedStart:
         """Check the draft, keep the show and, for a series, find or create it."""
         if req.kind == SERIES_KIND:
             return self._series_start(req, settings.target_language)
         return self._one_off_start(req, settings.target_language)
+
+    def recast(
+        self,
+        series_id: int,
+        slot: str,
+        personality_id: str | None,
+        learner_name: str | None,
+        language: str,
+    ) -> SeriesRecord:
+        """Replace one host for this and every later episode (FR-009, research R8)."""
+        series = self._require(series_id)
+        if series.language != language:
+            raise LanguageChanged()
+        _check_personality(series, slot, personality_id)
+        hosts = tuple(host.to_host() for host in series.hosts)
+        new = self._caster.recast(slot, hosts, learner_name, personality_id=personality_id)
+        replacement = SeriesHost(
+            slot, new.name, new.personality_id, new.voice_key, new.show_role, None, 0
+        )
+        return self._series.recast(series_id, replacement)
+
+    def reset(self, series_id: int) -> bool:
+        """Start over: forget the series; its episodes stay in Past Chats (FR-011)."""
+        self._require(series_id)
+        return self._series.reset(series_id)
+
+    def _require(self, series_id: int) -> SeriesRecord:
+        series = self._series.get(series_id)
+        if series is None:
+            raise SeriesNotFound()
+        return series
 
     def new_episode(self, prepared: PreparedStart, settings: AppSettingsRecord) -> NewEpisode:
         req, show = prepared.request, prepared.request.show
@@ -108,13 +172,16 @@ class SeriesService:
     def _check_series_draft(
         self, req: StartEpisodeRequest, series: SeriesRecord | None, language: str
     ) -> None:
-        """Episode 1 is checked as 007 checks a draft; later ones keep the series' hosts."""
+        """Episode 1 is checked as 007 checks a draft; later ones keep the series' hosts, whose
+        names never change, so a clash with the learner's name is theirs to fix (R8)."""
         if series is None:
             installed = self._installed_count(language)
-            return self._refuse(validate_draft(req.show, language, req.learner_name, installed))
+            draft, name = req.show, req.learner_name
+            return self._refuse(validate_draft(draft, language, name, installed, SERIES_CLASH))
         self._refuse(show_problem(req.show, language))
         if not series.matches(req.show.hosts):
             raise SeriesHostsChanged()
+        self._refuse(_name_clash(series, req.learner_name))
 
     def _create(self, kept: KeptShow, req: StartEpisodeRequest, language: str) -> SeriesRecord:
         hosts = tuple(_series_host(draft) for draft in _lead_first(req.show.hosts))
@@ -145,6 +212,23 @@ class SeriesService:
     def _refuse(problem: str | None) -> None:
         if problem is not None:
             raise StartRefused(problem)
+
+
+def _check_personality(series: SeriesRecord, slot: str, personality_id: str | None) -> None:
+    if personality_id is None:
+        return
+    if personality_id not in PERSONALITIES:
+        raise StartRefused(UNKNOWN_PERSONALITY)
+    other = next(host for host in series.hosts if host.slot != slot)
+    if other.personality_id == personality_id:
+        raise PersonalityTaken(PERSONALITY_TAKEN.format(other=other.name))
+
+
+def _name_clash(series: SeriesRecord, learner_name: str | None) -> str | None:
+    if not learner_name:
+        return None
+    clashing = next((h for h in series.hosts if h.name.casefold() == learner_name.casefold()), None)
+    return SERIES_CLASH.format(name=clashing.name) if clashing else None
 
 
 def _lead_first(hosts):

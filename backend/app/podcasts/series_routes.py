@@ -7,14 +7,26 @@ endpoints on, so the event loop is never blocked (research R6).
 
 from functools import partial
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Response
 
 from app.podcasts.catalog import MEMORY_WAIT_SECONDS
 from app.podcasts.responses import series_detail, show_listing
-from app.podcasts.schemas import MemoryStatusResponse, SeriesDetailResponse
+from app.podcasts.schemas import (
+    SLOT_PATTERN,
+    MemoryStatusResponse,
+    RecastRequest,
+    SeriesDetailResponse,
+)
 from app.podcasts.services.casting import HostCaster
 from app.podcasts.services.library import ShowLibrary, ShowShelf
-from app.podcasts.services.series import SeriesService
+from app.podcasts.services.series import (
+    SERIES_GONE,
+    LanguageChanged,
+    PersonalityTaken,
+    SeriesNotFound,
+    SeriesService,
+    StartRefused,
+)
 from app.podcasts.services.storage import PodcastStorage
 from app.services.factory import (
     get_host_caster,
@@ -30,9 +42,15 @@ from app.services.tts.voices import voices_for
 
 series_router = APIRouter(tags=["podcasts"])
 
-SERIES_GONE = "That series isn't there any more. Open the show again."
 ACCEPTED_STATUS = 202
+NO_CONTENT_STATUS = 204
 UP_TO_DATE = "up_to_date"
+_REFUSAL_STATUS = {
+    SeriesNotFound: 404,
+    LanguageChanged: 422,
+    PersonalityTaken: 422,
+    StartRefused: 422,
+}
 
 
 def get_memory_wait_seconds() -> float:
@@ -48,9 +66,10 @@ def get_series_service(
     library_storage=Depends(get_show_library_storage),
     series_storage=Depends(get_series_storage),
     installation: VoiceInstallation = Depends(get_voice_installation),
+    caster: HostCaster = Depends(get_host_caster),
 ) -> SeriesService:
     counter = partial(installed_count, installation=installation)
-    return SeriesService(ShowLibrary(library_storage), series_storage, counter)
+    return SeriesService(ShowLibrary(library_storage), series_storage, counter, caster)
 
 
 def get_show_shelf(
@@ -68,21 +87,60 @@ def _require_series(series_storage, series_id: int):
     return series
 
 
+class SeriesView:
+    """Builds a series' detail response: the hosts, the memory and its catch-up status."""
+
+    def __init__(
+        self,
+        series_storage=Depends(get_series_storage),
+        catch_ups=Depends(get_memory_catch_ups),
+        shelf: ShowShelf = Depends(get_show_shelf),
+        podcasts: PodcastStorage = Depends(get_podcast_storage),
+        installation: VoiceInstallation = Depends(get_voice_installation),
+    ) -> None:
+        self._series, self._catch_ups, self._shelf = series_storage, catch_ups, shelf
+        self._podcasts, self._installation = podcasts, installation
+
+    def detail(self, series) -> SeriesDetailResponse:
+        learner_name = self._podcasts.get_preferences().learner_name
+        item = self._shelf.item(series.show, series, learner_name, series.language)
+        status = self._catch_ups.status(series.series_id, self._series)
+        points = self._series.remembered(series.series_id)
+        listing = show_listing(item, series.language)
+        return series_detail(series, points, status, listing, self._installation)
+
+
 @series_router.get("/series/{series_id}", response_model=SeriesDetailResponse)
 def get_series(
-    series_id: int,
-    series_storage=Depends(get_series_storage),
-    catch_ups=Depends(get_memory_catch_ups),
-    shelf: ShowShelf = Depends(get_show_shelf),
-    podcasts: PodcastStorage = Depends(get_podcast_storage),
-    installation: VoiceInstallation = Depends(get_voice_installation),
+    series_id: int, series_storage=Depends(get_series_storage), view: SeriesView = Depends()
 ):
-    series = _require_series(series_storage, series_id)
-    learner_name = podcasts.get_preferences().learner_name
-    item = shelf.item(series.show, series, learner_name, series.language)
-    status = catch_ups.status(series_id, series_storage)
-    points = series_storage.remembered(series_id)
-    return series_detail(series, points, status, show_listing(item, series.language), installation)
+    return view.detail(_require_series(series_storage, series_id))
+
+
+@series_router.post("/series/{series_id}/hosts/{slot}/recast", response_model=SeriesDetailResponse)
+def recast_host(
+    series_id: int,
+    req: RecastRequest,
+    slot: str = Path(pattern=SLOT_PATTERN),
+    service: SeriesService = Depends(get_series_service),
+    view: SeriesView = Depends(),
+):
+    """Replace one host, after the learner confirmed it, for this and later episodes (§6)."""
+    try:
+        series = service.recast(series_id, slot, req.personality_id, req.learner_name, req.language)
+    except tuple(_REFUSAL_STATUS) as refusal:
+        raise HTTPException(_REFUSAL_STATUS[type(refusal)], str(refusal)) from refusal
+    return view.detail(series)
+
+
+@series_router.delete("/series/{series_id}", status_code=NO_CONTENT_STATUS)
+def reset_series(series_id: int, service: SeriesService = Depends(get_series_service)):
+    """Start over: the series, its hosts and memory go; the episodes stay (§7, FR-011)."""
+    try:
+        service.reset(series_id)
+    except SeriesNotFound as missing:
+        raise HTTPException(404, str(missing)) from missing
+    return Response(status_code=NO_CONTENT_STATUS)
 
 
 @series_router.post(

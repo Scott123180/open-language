@@ -113,19 +113,26 @@ class HostCaster:
             _host(SECOND_SLOT, second_name, personalities[1], voices[1], angles[1]),
         )
 
-    def recast(self, slot: str, hosts: tuple[Host, Host], learner_name: str | None) -> Host:
+    def recast(
+        self,
+        slot: str,
+        hosts: tuple[Host, Host],
+        learner_name: str | None,
+        personality_id: str | None = None,
+    ) -> Host:
         """Shuffle: a new host for `slot`, unlike either host in name and personality.
 
-        The voice stays unless a third installed voice differs from the other host's, or the
-        two hosts share a voice and another is installed (plan interpretation 6)."""
+        The personality is `personality_id` when given (010's Recast), otherwise random. The
+        voice stays unless a third installed voice differs from the other host's, or the two
+        hosts share a voice and another is installed (plan interpretation 6)."""
         replaced = next(host for host in hosts if host.slot == slot)
         other = next(host for host in hosts if host.slot != slot)
         voice = self._recast_voice(replaced, other)
         taken = _names_taken(learner_name) | {replaced.name.casefold(), other.name.casefold()}
         name = self._random_name(voice, voice.language, taken)
         used = {replaced.personality_id, other.personality_id}
-        personality = self._rng.choice([key for key in PERSONALITIES if key not in used])
-        return _host(slot, name, personality, voice, None)
+        free = [key for key in PERSONALITIES if key not in used]
+        return _host(slot, name, personality_id or self._rng.choice(free), voice, None)
 
     def _recast_voice(self, replaced: Host, other: Host) -> VoiceInfo:
         catalogue = voices_for(_VOICES[replaced.voice_key].language)

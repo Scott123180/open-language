@@ -38,7 +38,7 @@ _INTENT_INSTRUCTIONS = {
     "wrap_up": "Start wrapping up the topic, in character.",
     "sign_off": "Close the show: thank {label} and say goodbye.",
 }
-_OPEN, _GREET = "open", "greet"
+_OPEN, _GREET, _LEAD = "open", "greet", "lead"
 _SERIES_RULES = (
     "Series rules:",
     "- Choose a subject within the show's topic that is not in the covered list.",
@@ -108,20 +108,28 @@ def render_cue(
 
 
 def _instruction(cue: LineCue, cast: Cast, label: str, series: SeriesBrief | None) -> str:
-    """What the host is asked to do: 007's instruction, or a series episode's opening."""
-    if series is not None and cue.intent == _OPEN and series.episode_number > 1:
+    """What the host is asked to do: 007's instruction, or a series episode's variant."""
+    plain = _INTENT_INSTRUCTIONS[cue.intent].format(label=label, lead=cast.lead.name)
+    if series is None:
+        return plain
+    if cue.intent == _OPEN and series.episode_number > 1:
         return _series_open(label, series)
-    return _INTENT_INSTRUCTIONS[cue.intent].format(label=label, lead=cast.lead.name)
+    if cue.intent == _GREET and series.is_new_host(cue.speaker_slot):
+        return f"Greet {cast.lead.name} and {label}, then introduce yourself as new to the show."
+    return plain
 
 
 def _series_open(label: str, series: SeriesBrief) -> str:
     snapshot = series.snapshot
     recall = snapshot.topics_covered or snapshot.about_learner
     recollection = ", and bring up one thing from earlier episodes" if recall else ""
-    return (
+    opening = (
         f"Open the show: welcome {label} back, say the show is continuing with episode "
         f"{series.episode_number}{recollection}."
     )
+    if series.is_new_host(_LEAD):
+        return f"{opening} Introduce yourself as the show's new host."
+    return opening
 
 
 def _series_section(series: SeriesBrief, learner_label: str) -> str:
@@ -138,7 +146,15 @@ def _series_section(series: SeriesBrief, learner_label: str) -> str:
         lines.append(f"What {learner_label} {verb} told you before:")
         lines.extend(f"- {point}" for point in snapshot.about_learner)
     lines.extend(_series_rules(bool(snapshot.topics_covered or snapshot.about_learner)))
+    lines.extend(_new_host_rule(name) for name in series.new_host_names)
     return "\n".join(lines)
+
+
+def _new_host_rule(name: str) -> str:
+    return (
+        f"- {name} is new to the show and does not know the earlier episodes: introduce "
+        f"{name} as new."
+    )
 
 
 def _episode_sentence(episode_number: int) -> str:

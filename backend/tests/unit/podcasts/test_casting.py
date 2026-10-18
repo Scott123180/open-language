@@ -259,3 +259,23 @@ def test_three_shuffles_in_a_row_never_clash(seed):
         Cast(*hosts)
         assert hosts[0].voice_key != hosts[1].voice_key
         assert "sam" not in {host.name.casefold() for host in hosts}
+
+
+# --- 010: a chosen personality for a recast (plan interpretation 4) -------------------------
+
+
+def test_a_recast_can_take_the_chosen_personality():
+    hosts = _caster().cast_template(SHOW, "es", None)
+
+    new = _caster(seed=3).recast("second", hosts, None, personality_id="joker")
+
+    assert new.personality_id == "joker"
+    assert new.name not in {host.name for host in hosts}
+
+
+def test_a_recast_without_a_choice_is_007s_shuffle():
+    hosts = _caster().cast_template(SHOW, "es", None)
+
+    assert _caster(seed=5).recast("second", hosts, None) == _caster(seed=5).recast(
+        "second", hosts, None, personality_id=None
+    )

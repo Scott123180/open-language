@@ -1,22 +1,28 @@
 """010 T032: preparing a series start (data-model §5.2, research R2, R5)."""
 
+import random
 from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
+
+from app.podcasts.schemas import LANGUAGE_CHANGED, StartEpisodeRequest
+from app.podcasts.services.casting import HostCaster
+from app.podcasts.services.library import ShowLibrary, ShowNoLongerKept
 from app.podcasts.services.series import (
+    LanguageChanged,
+    PersonalityTaken,
     SeriesHostsChanged,
+    SeriesNotFound,
     SeriesService,
     StartRefused,
 )
-
-from app.podcasts.schemas import LANGUAGE_CHANGED, StartEpisodeRequest
-from app.podcasts.services.library import ShowLibrary, ShowNoLongerKept
 from app.podcasts.services.series_snapshot import SeriesSnapshot
 from app.podcasts.services.series_storage import SeriesHost, ShowContent
 from app.podcasts.services.storage import NewHost
 from app.services.storage.base import AppSettingsRecord
 from tests.support.fake_series_storage import FakeSeriesStorage, FakeShowLibraryStorage
+from tests.support.fake_speech import FakeVoiceInstallation
 
 HUGO = SeriesHost("lead", "Hugo", "curious_interviewer", "es_AR-daniela-high", "host", None, 0)
 INES = SeriesHost("second", "Inés", "expert", "es_ES-davefx-medium", "co_host", None, 0)
@@ -71,8 +77,12 @@ class World:
     def __init__(self, installed: int = 2) -> None:
         self.library_storage = FakeShowLibraryStorage()
         self.series_storage = FakeSeriesStorage(self.library_storage)
+        caster = HostCaster(FakeVoiceInstallation(), random.Random(7))
         self.service = SeriesService(
-            ShowLibrary(self.library_storage), self.series_storage, lambda _language: installed
+            ShowLibrary(self.library_storage),
+            self.series_storage,
+            lambda _language: installed,
+            caster,
         )
 
     def existing_series(self, hosts=(HUGO, INES), episodes: int = 1, language: str = "es"):
@@ -253,3 +263,95 @@ def test_the_new_episode_carries_the_series_link_and_hosts(world):
         "one_host",
     )
     assert (episode.target_language, episode.native_language) == ("es", "en")
+
+
+# --- US3: recast, reset and the name clash (research R8) ------------------------------------
+
+
+def test_a_recast_replaces_one_host_with_a_new_name_and_joins_after_the_count(world):
+    series = world.existing_series(episodes=2)
+
+    recast = world.service.recast(series.series_id, "second", None, "Sam", "es")
+
+    newcomer = recast.host("second")
+    assert newcomer.name not in {"Hugo", "Inés", "Sam"}
+    assert newcomer.personality_id not in {HUGO.personality_id, INES.personality_id}
+    assert newcomer.joined_after_episodes == 2
+    assert recast.host("lead") == HUGO
+    assert recast.episode_count == 2
+
+
+def test_a_recast_takes_the_chosen_personality(world):
+    series = world.existing_series()
+
+    recast = world.service.recast(series.series_id, "second", "joker", None, "es")
+
+    assert recast.host("second").personality_id == "joker"
+
+
+def test_a_recast_cannot_take_the_other_hosts_personality(world):
+    series = world.existing_series()
+
+    with pytest.raises(
+        PersonalityTaken, match="Hugo already has that personality. Pick another one."
+    ):
+        world.service.recast(series.series_id, "second", HUGO.personality_id, None, "es")
+
+    assert world.series_storage.recasts == []
+
+
+def test_a_recast_cannot_take_an_unknown_personality(world):
+    series = world.existing_series()
+
+    with pytest.raises(StartRefused):
+        world.service.recast(series.series_id, "second", "pirate", None, "es")
+
+
+def test_a_recast_in_another_practice_language_is_refused(world):
+    series = world.existing_series()
+
+    with pytest.raises(LanguageChanged):
+        world.service.recast(series.series_id, "second", None, None, "de")
+
+
+def test_recasting_an_unknown_series_is_refused(world):
+    with pytest.raises(SeriesNotFound):
+        world.service.recast(99, "second", None, None, "es")
+
+
+def test_a_reset_deletes_the_series(world):
+    series = world.existing_series()
+
+    assert world.service.reset(series.series_id) is True
+    assert world.series_storage.resets == [series.series_id]
+
+
+def test_resetting_an_unknown_series_is_refused(world):
+    with pytest.raises(SeriesNotFound):
+        world.service.reset(99)
+
+
+def test_a_series_host_named_like_the_learner_is_pointed_out_without_shuffle_advice(world):
+    world.existing_series()
+    request = _request().model_copy(update={"learner_name": "hugo"})
+
+    with pytest.raises(StartRefused) as refused:
+        world.service.prepare(request, _settings())
+
+    assert (
+        str(refused.value) == "Hugo has the same name as you. Change the name the hosts call you."
+    )
+
+
+def test_the_first_series_episode_uses_the_series_clash_wording(world):
+    request = _request().model_copy(update={"learner_name": "Inés"})
+
+    with pytest.raises(StartRefused, match="Change the name the hosts call you."):
+        world.service.prepare(request, _settings())
+
+
+def test_a_one_off_keeps_007s_clash_wording(world):
+    request = _request(kind="one_off").model_copy(update={"learner_name": "Inés"})
+
+    with pytest.raises(StartRefused, match="Shuffle the host or change your name."):
+        world.service.prepare(request, _settings())

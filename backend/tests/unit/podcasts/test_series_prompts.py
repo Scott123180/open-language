@@ -174,3 +174,34 @@ def test_an_explicit_series_none_is_the_007_text(key, render, monkeypatch):
     )
 
     assert render() == _golden()[key]
+
+
+# --- US3: a new host ----------------------------------------------------------------------
+
+
+def test_the_section_introduces_a_new_host_as_new_to_the_show():
+    section = _section(_prompt(_brief(new=("second",))))
+
+    assert "Inés is new to the show" in section
+    assert "does not know the earlier episodes" in section
+    assert "introduce Inés as new" in section
+
+
+def test_a_new_hosts_greeting_introduces_them_as_new():
+    greet = LineCue("second", "greet", False, False, False)
+
+    cue = render_cue(greet, CAST, "Sam", series=_brief(new=("second",)))
+
+    assert "introduce yourself as new to the show" in cue
+
+
+def test_an_old_hosts_greeting_is_unchanged():
+    greet = LineCue("second", "greet", False, False, False)
+
+    assert render_cue(greet, CAST, "Sam", series=_brief()) == render_cue(greet, CAST, "Sam")
+
+
+def test_a_new_lead_opens_by_introducing_themselves_as_the_new_host():
+    cue = render_cue(OPEN, CAST, "Sam", series=_brief(new=("lead",)))
+
+    assert "Introduce yourself as the show's new host." in cue

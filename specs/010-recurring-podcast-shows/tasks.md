@@ -591,7 +591,7 @@ that episode 3 keeps the new host while the other host and the count are unchang
 
 ### Tests for User Story 3 (write first, see them fail)
 
-- [ ] T066 [P] [US3] Extend `backend/tests/unit/podcasts/test_series_service.py` with recast and reset (research R8, data-model §6):
+- [X] T066 [P] [US3] Extend `backend/tests/unit/podcasts/test_series_service.py` with recast and reset (research R8, data-model §6):
   - `recast(series_id, slot, personality_id, learner_name, language)` uses `HostCaster.recast`:
     - the slot gets a new name, unlike the other host's and the learner's;
     - the personality is the chosen one, or a random one the other host does not have;
@@ -603,17 +603,17 @@ that episode 3 keeps the new host while the other host and the count are unchang
   - a series host's name equal to `learner_name` (casefold) raises the clash with "{name} has the same name as you. Change the name the hosts call you.", and **no** Shuffle advice.
 
   Extend `backend/tests/unit/podcasts/test_casting.py` too: `HostCaster.recast(..., personality_id="joker")` gives that personality; without `personality_id` it behaves exactly as today (007's Shuffle).
-- [ ] T067 [P] [US3] Extend `backend/tests/unit/podcasts/test_series_prompts.py` with new hosts:
+- [X] T067 [P] [US3] Extend `backend/tests/unit/podcasts/test_series_prompts.py` with new hosts:
   - with `new_host_slots=("second",)`, the section tells the hosts to introduce {name} as new to the show, someone who does not know the earlier episodes;
   - that host's `greet` cue asks them to introduce themselves as new to the show;
   - with a new lead, the `open` cue adds "introduce yourself as the show's new host".
-- [ ] T068 [P] [US3] Write `backend/tests/contract/test_podcast_series_hosts_api.py` (contracts §1, §6, §7):
+- [X] T068 [P] [US3] Write `backend/tests/contract/test_podcast_series_hosts_api.py` (contracts §1, §6, §7):
   - `POST /series/{id}/hosts/{slot}/recast` returns 200 with the §5 shape: the recast slot has `has_history: false` and `is_new_next_episode: true`;
   - recast returns 422 for a bad slot, for the other host's personality, and for `LANGUAGE_CHANGED`, and 404 for an unknown series;
   - `DELETE /series/{id}` returns 204, then the series is 404; an unknown id returns 404;
   - FR-010: two `GET /catalog` calls with the same language and learner name list identical hosts for every unstarted ready-made show;
   - a `kind=series` start whose series host is named like the learner returns 422 with the clash message.
-- [ ] T069 [P] [US3] Write `backend/tests/integration/podcasts/test_series_recast_and_reset.py`:
+- [X] T069 [P] [US3] Write `backend/tests/integration/podcasts/test_series_recast_and_reset.py`:
   - after episode 2, recast the second host and start episode 3: the snapshot's `new_host_slots == ("second",)`, the lead is unchanged, and the standing prompt introduces the new host;
   - episode 4 keeps the new host, with no new-host line;
   - SC-001 holds across the recast;
@@ -645,14 +645,14 @@ that episode 3 keeps the new host while the other host and the count are unchang
 
 ### Implementation for User Story 3
 
-- [ ] T073 [US3] Add the new-host wording to `_series_section` and `_instruction` in `backend/app/podcasts/prompts.py` (contracts §9). T067 passes, and T006 stays green.
-- [ ] T074 [US3] Recast and reset:
+- [X] T073 [US3] Add the new-host wording to `_series_section` and `_instruction` in `backend/app/podcasts/prompts.py` (contracts §9). T067 passes, and T006 stays green.
+- [X] T074 [US3] Recast and reset:
   - give `HostCaster.recast` in `backend/app/podcasts/services/casting.py` an optional keyword `personality_id: str | None = None`, used instead of the random choice when given (11 → ≈ 12 lines). 007's Shuffle calls it without one and is unchanged;
   - add `recast(...)` and `reset(...)` to `SeriesService` in `backend/app/podcasts/services/series.py`, with `PersonalityTaken` and `LanguageChanged`, and the series name-clash check in `prepare` (for every series episode, including after the first).
 
   T066 passes.
-- [ ] T075 [US3] Give `validate_draft` and `_host_problem` in `backend/app/podcasts/schemas.py` a `clash_message` argument (≈ 10 and 10 lines after T053's `show_problem` split), so that series starts use the data-model §6 wording, while one-offs keep 007's.
-- [ ] T076 [US3] Add `POST /series/{series_id}/hosts/{slot}/recast` and `DELETE /series/{series_id}` to `backend/app/podcasts/series_routes.py`, mapping the errors as in data-model §6. T068 and T069 pass.
+- [X] T075 [US3] Give `validate_draft` and `_host_problem` in `backend/app/podcasts/schemas.py` a `clash_message` argument (≈ 10 and 10 lines after T053's `show_problem` split), so that series starts use the data-model §6 wording, while one-offs keep 007's.
+- [X] T076 [US3] Add `POST /series/{series_id}/hosts/{slot}/recast` and `DELETE /series/{series_id}` to `backend/app/podcasts/series_routes.py`, mapping the errors as in data-model §6. T068 and T069 pass.
 - [ ] T077 [P] [US3] Add `recastHost(seriesId, slot, body)` and `resetSeries(seriesId)` to `frontend/src/services/podcastsApi.ts`.
 - [ ] T078 [P] [US3] Implement `frontend/src/components/shared/ConfirmDialog.tsx`: an `alertdialog` with a focus trap and focus return, tokens only, and a `--color-error` confirm style for destructive actions. T070 passes.
 - [ ] T079 [US3] Implement `frontend/src/hooks/podcasts/useRecast.ts` and `frontend/src/components/podcasts/RecastDialog.tsx` (`ConfirmDialog` plus `ThemedSelect`).

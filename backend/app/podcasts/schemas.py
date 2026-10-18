@@ -28,6 +28,9 @@ from app.services.tts.voices import AVAILABLE_VOICES
 
 LANGUAGE_CHANGED = "The practice language changed. Pick the show again."
 UNKNOWN_SHOW = "That show isn't in the list any more. Pick one of the listed shows."
+ONE_OFF_CLASH = "{name} has the same name as you. Shuffle the host or change your name."
+SERIES_CLASH = "{name} has the same name as you. Change the name the hosts call you."
+"""A series host never changes name, so the learner is asked to change theirs (010 R8)."""
 MAX_INTERESTS = 10
 MAX_AVOID_TITLES = 50
 AVOID_TITLE_MAX_LENGTH = 200
@@ -371,14 +374,18 @@ class MemoryStatusResponse(BaseModel):
 
 
 def validate_draft(
-    draft: ShowDraftModel, language: str, learner_name: str | None, installed_count: int
+    draft: ShowDraftModel,
+    language: str,
+    learner_name: str | None,
+    installed_count: int,
+    clash_message: str = ONE_OFF_CLASH,
 ) -> str | None:
     """The first reason the draft cannot start an episode, or None when it can."""
     problem = show_problem(draft, language)
     if problem is not None:
         return problem
     for host in draft.hosts:
-        problem = _host_problem(host, language, learner_name)
+        problem = _host_problem(host, language, learner_name, clash_message)
         if problem is not None:
             return problem
     return _pair_problem(*draft.hosts, installed_count=installed_count)
@@ -397,7 +404,9 @@ def show_problem(draft: ShowDraftModel, language: str) -> str | None:
     return None
 
 
-def _host_problem(host: HostDraftModel, language: str, learner_name: str | None) -> str | None:
+def _host_problem(
+    host: HostDraftModel, language: str, learner_name: str | None, clash_message: str
+) -> str | None:
     if host.personality_id not in PERSONALITIES:
         return f"{host.name}: that personality isn't in the list. Pick one of the listed ones."
     if _VOICE_LANGUAGES.get(host.voice_key) != language:
@@ -405,7 +414,7 @@ def _host_problem(host: HostDraftModel, language: str, learner_name: str | None)
     if host.show_role not in SHOW_ROLES:
         return f"{host.name}: the show role must be host, co_host or guest_expert."
     if learner_name and host.name.casefold() == learner_name.casefold():
-        return f"{host.name} has the same name as you. Shuffle the host or change your name."
+        return clash_message.format(name=host.name)
     return None
 
 
