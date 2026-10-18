@@ -120,3 +120,46 @@ def test_a_finished_episode_is_no_longer_unfinished(harness):
     harness.stream(episode["conversation_id"], "end")
 
     assert harness.listing(SERIES_SHOW)["series"]["unfinished_episode"] is None
+
+
+# --- US2: one-off episodes (FR-007, FR-014) -------------------------------------------------
+
+
+def _show_rows(harness):
+    from app.podcasts.models import PodcastShow
+
+    return harness.session().query(PodcastShow).all()
+
+
+def test_a_request_without_a_kind_is_a_007_one_off(harness):
+    body = {"show": harness.listing("weekend-food-talk"), "format": "panel", "length": "short"}
+
+    response = harness.client.post(EPISODES, json=body)
+
+    assert response.status_code == 201
+    assert response.json()["series"] is None
+
+
+def test_a_one_off_of_a_learner_made_show_keeps_it_and_marks_it_played(harness):
+    episode = _post(harness, GENERATED, kind="one_off").json()
+
+    (row,) = _show_rows(harness)
+    assert episode["show"]["saved_show_id"] == row.id
+    assert row.last_played_at is not None
+
+
+def test_a_one_off_of_an_unkept_ready_made_show_keeps_nothing(harness):
+    _post(harness, harness.listing("weekend-food-talk"), kind="one_off")
+
+    assert _show_rows(harness) == []
+
+
+def test_a_one_off_of_a_kept_ready_made_show_marks_it_played(harness):
+    harness.start_series(show_id="game-day")
+    (row,) = _show_rows(harness)
+    first_played = row.last_played_at
+
+    _post(harness, harness.listing("game-day"), kind="one_off")
+
+    (row,) = _show_rows(harness)
+    assert row.last_played_at > first_played

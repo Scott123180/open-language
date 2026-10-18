@@ -95,17 +95,15 @@ class PodcastHarness:
         assert response.status_code == 201, response.text
         return response.json()
 
-    def play_through(self, conversation_id: int) -> None:
-        """Ask for host lines, replying when invited, until the episode has signed off."""
-        for _step in range(60):
-            state = self.episode(conversation_id)
-            if state["turn"] == "finished":
-                return
-            if state["turn"] == "learner":
+    def play_through(self, conversation_id: int, steps: int = 6) -> None:
+        """Ask for host lines, replying when invited, then end the episode with its sign-off."""
+        for _step in range(steps):
+            if self.episode(conversation_id)["turn"] == "learner":
                 self.say(conversation_id, "Me encanta este tema.")
             else:
                 self.stream(conversation_id, "next")
-        raise AssertionError("the episode never finished")
+        self.stream(conversation_id, "end")
+        assert self.episode(conversation_id)["turn"] == "finished"
 
 
 def install_seeded_policy(seed: int = POLICY_SEED) -> None:

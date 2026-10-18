@@ -290,3 +290,37 @@ describe('PodcastSetup page — a series (010 US1)', () => {
     expect(podcasts.startEpisode).toHaveBeenCalledWith(expect.objectContaining({ kind: 'series', show: expect.objectContaining({ show_id: 'big-little-questions' }) }))
   })
 })
+
+describe('PodcastSetup page — a one-off beside the series (010 US2)', () => {
+  const pablo = { slot: 'second' as const, name: 'Pablo', personality_id: 'joker', voice_key: 'es_ES-davefx-medium', show_role: 'co_host', angle: null }
+
+  beforeEach(() => {
+    vi.mocked(podcasts.getPodcastCatalog).mockResolvedValue({ ...catalog, shows: [...catalog.shows, seriesListing] })
+    vi.mocked(podcasts.getSeries).mockResolvedValue(seriesDetail())
+    vi.mocked(podcasts.catchUpSeriesMemory).mockResolvedValue({ status: 'up_to_date' })
+    vi.mocked(podcasts.shuffleHost).mockResolvedValue(pablo)
+  })
+
+  it('offers the next episode by default and a one-off beside it', async () => {
+    renderSetup('?show=big-little-questions')
+
+    expect(await screen.findByRole('radio', { name: /Episode 2/ })).toBeChecked()
+    expect(screen.getByRole('radio', { name: /One-off episode/ })).not.toBeChecked()
+  })
+
+  it('a one-off brings back Shuffle and starts as a one-off with the shuffled hosts', async () => {
+    renderSetup('?show=big-little-questions')
+    await waitFor(() => expect(screen.getByRole('radio', { name: /Panel/ })).toBeChecked())
+
+    fireEvent.click(await screen.findByRole('radio', { name: /One-off episode/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Shuffle Inés' }))
+    await screen.findByText('Pablo')
+    fireEvent.click(screen.getByRole('button', { name: 'Start one-off episode' }))
+
+    await waitFor(() => expect(podcasts.startEpisode).toHaveBeenCalled())
+    const body = vi.mocked(podcasts.startEpisode).mock.calls[0][0]
+    expect(body.kind).toBe('one_off')
+    expect(body.show.hosts[1]).toEqual(pablo)
+    expect(podcasts.catchUpSeriesMemory).not.toHaveBeenCalledWith(4, { wait: true })
+  })
+})

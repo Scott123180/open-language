@@ -4,6 +4,7 @@ import type { SetupShowDraft } from '../../hooks/podcasts/useSetupShow'
 import type { StartEpisode } from '../../hooks/podcasts/useStartEpisode'
 import { useSetupHosts } from '../../hooks/podcasts/useSetupHosts'
 import { useSetupStart } from '../../hooks/podcasts/useSetupStart'
+import EpisodeKindFieldset from './EpisodeKindFieldset'
 import FormatFieldset from './FormatFieldset'
 import LengthFieldset from './LengthFieldset'
 import LearnerNameField from './LearnerNameField'
@@ -27,19 +28,20 @@ interface SetupFormProps {
 export default function SetupForm({ show, catalog, form, starting, series }: SetupFormProps) {
   const hostCount = catalog.formats.find((f) => f.format_id === form.format)?.host_count ?? 1
   const hosts = useSetupHosts(show, form.learnerName)
-  const seriesHosts = (show.series?.episode_count ?? 0) >= 1 ? series?.hosts ?? listedHosts(show, catalog) : null
+  const seriesHosts = continuingHosts(show, catalog, form, series)
   const start = useSetupStart({ show, form, hosts: seriesHosts ? show.hosts : hosts.hosts, starting, series })
   const hostNames = show.hosts.map((host) => host.name)
   return (
     <>
       <p style={{ margin: 0, color: 'var(--color-text)' }}>{show.premise}</p>
+      <EpisodeKindFieldset nextEpisodeNumber={show.series?.next_episode_number ?? 1} value={form.kind} onChange={form.setKind} />
       {seriesHosts ? <SeriesSection show={show} catalog={catalog} form={form} hosts={seriesHosts} hostCount={hostCount} series={series} onPlaySample={hosts.playSample} />
         : <SetupHosts controls={hosts} personalities={catalog.personalities} hostCount={hostCount} />}
       <FormatFieldset formats={catalog.formats} value={form.format} onChange={form.setFormat} />
       <SetupVoiceNotice voices={catalog.voices} hostCount={hostCount} />
       <LengthFieldset lengths={catalog.lengths} value={form.length} onChange={form.setLength} />
       <LearnerNameField value={form.learnerName} onChange={form.setLearnerName} hostNames={seriesHosts ? hostNames : []} />
-      <SetupActions series={show.series ?? null} starting={starting} onStart={start} hostNames={hostNames} />
+      <SetupActions series={show.series ?? null} isOneOff={form.kind === 'one_off'} starting={starting} onStart={start} hostNames={hostNames} />
     </>
   )
 }
@@ -64,6 +66,12 @@ function SeriesSection({ show, catalog, form, hosts, hostCount, series, onPlaySa
       {series && <SeriesMemoryPanel detail={series} />}
     </>
   )
+}
+
+/** A continuing series' fixed hosts, or null for a one-off or a series' first episode. */
+function continuingHosts(show: SetupShowDraft, catalog: PodcastCatalog, form: SetupFormState, series: SeriesDetail | undefined) {
+  const isContinuing = form.kind === 'series' && (show.series?.episode_count ?? 0) >= 1
+  return isContinuing ? series?.hosts ?? listedHosts(show, catalog) : null
 }
 
 /** The series' hosts as the catalogue lists them, while the series detail loads. */

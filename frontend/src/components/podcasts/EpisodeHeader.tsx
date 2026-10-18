@@ -13,9 +13,12 @@ const headerStyle = {
   background: 'var(--color-surface)',
 }
 
-/** "Big Little Questions · Episode 2" for a series episode; the show's title otherwise. */
+/** "Big Little Questions · Episode 2" or "· One-off"; the title alone when the server says
+ * nothing of series (010 contracts §2). */
 function episodeTitle(episode: Episode): string {
-  return episode.series ? `${episode.show.title} · Episode ${episode.series.episode_number}` : episode.show.title
+  if (episode.series === undefined) return episode.show.title
+  const kind = episode.series ? `Episode ${episode.series.episode_number}` : 'One-off'
+  return `${episode.show.title} · ${kind}`
 }
 
 /** The episode header: back to Podcasts, the show and its hosts, and the level control. */

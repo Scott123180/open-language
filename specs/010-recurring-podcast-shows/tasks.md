@@ -676,34 +676,34 @@ reference to earlier episodes, and leaves the series' count and memory unchanged
 
 ### Tests for User Story 2 (write first, see them fail)
 
-- [ ] T084 [P] [US2] Write `backend/tests/integration/podcasts/test_one_off_isolation.py` (FR-007, quickstart §1):
+- [X] T084 [P] [US2] Write `backend/tests/integration/podcasts/test_one_off_isolation.py` (FR-007, quickstart §1):
   - with a series at episode 2 and remembered points, a `kind=one_off` start, its lines and its sign-off write no `podcast_series*` row, no link row and no memory;
   - `EpisodeEndings` is not triggered;
   - the next episode number and `remembered` are unchanged;
   - the one-off's standing prompt has no series section and equals the golden one-off text for its inputs;
   - US2-4: one-off hosts that differ from the series' hosts start fine and leave the series' hosts unchanged.
-- [ ] T085 [P] [US2] Extend `backend/tests/contract/test_podcast_series_episodes_api.py`:
+- [X] T085 [P] [US2] Extend `backend/tests/contract/test_podcast_series_episodes_api.py`:
   - a request with no `kind` gives a 007-shaped 201 response with `series: null`;
   - a one-off of a learner-made show assigns `show.saved_show_id` and sets `last_played_at` (FR-014, plan interpretation 7);
   - a one-off of a ready-made show creates no `podcast_shows` row when none exists, and touches `last_played_at` when one does.
-- [ ] T086 [P] [US2] Write `frontend/src/components/podcasts/EpisodeKindFieldset.test.tsx`, and extend `frontend/src/pages/PodcastSetup.test.tsx`:
+- [X] T086 [P] [US2] Write `frontend/src/components/podcasts/EpisodeKindFieldset.test.tsx`, and extend `frontend/src/pages/PodcastSetup.test.tsx`:
   - the two choice tiles are "Episode N" (the default) and "One-off episode";
   - choosing one-off swaps `SeriesHosts` for 007's `SetupHosts` with Shuffle and personality, and the primary action reads **Start one-off episode**;
   - Start sends `kind: "one_off"` with the shuffled hosts.
-- [ ] T087 [P] [US2] Extend `frontend/e2e/podcast-series.spec.ts`:
+- [X] T087 [P] [US2] Extend `frontend/e2e/podcast-series.spec.ts`:
   - choose One-off, Shuffle a host, and Start: the request has `kind: "one_off"`, and the episode header reads "· One-off";
   - back on the show, the card still says "Episode 2 next".
 
 ### Implementation for User Story 2
 
-- [ ] T088 [US2] Add the one-off path to `SeriesService.prepare` in `backend/app/podcasts/services/series.py`:
+- [X] T088 [US2] Add the one-off path to `SeriesService.prepare` in `backend/app/podcasts/services/series.py`:
   - keep and touch a learner-made show;
   - touch a ready-made show only if its row exists;
   - never read or write a series.
 
   `start_episode` in `backend/app/podcasts/routes.py` now always delegates. T084 and T085 pass.
-- [ ] T089 [US2] Implement `frontend/src/components/podcasts/EpisodeKindFieldset.tsx`, built on `ChoiceTile`.
-- [ ] T090 [US2] Integrate the one-off choice:
+- [X] T089 [US2] Implement `frontend/src/components/podcasts/EpisodeKindFieldset.tsx`, built on `ChoiceTile`.
+- [X] T090 [US2] Integrate the one-off choice:
   - `SetupForm.tsx` gains `kind`;
   - `StartActions.tsx` labels **Start one-off episode**;
   - `useStartEpisode.ts` sends `kind` and skips the memory wait for one-offs;

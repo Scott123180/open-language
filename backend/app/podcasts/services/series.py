@@ -14,6 +14,7 @@ from app.podcasts.catalog import (
     LEARNER_POINT,
     PERSONALITIES,
     PODCAST_FORMATS,
+    READY_MADE_SOURCE,
     SERIES_KIND,
     TOPIC_POINT,
 )
@@ -164,10 +165,20 @@ class SeriesService:
         return PreparedStart(req, hosts, self._link(series), kept.ref.saved_show_id)
 
     def _one_off_start(self, req: StartEpisodeRequest, language: str) -> PreparedStart:
-        self._refuse(
-            validate_draft(req.show, language, req.learner_name, self._installed_count(language))
-        )
-        return PreparedStart(req, _draft_hosts(req), None, None)
+        """007's start, unchanged; a learner-made show is kept by playing it (FR-014)."""
+        installed = self._installed_count(language)
+        self._refuse(validate_draft(req.show, language, req.learner_name, installed))
+        return PreparedStart(req, _draft_hosts(req), None, self._play_one_off(req.show))
+
+    def _play_one_off(self, draft) -> int | None:
+        """Keep a learner-made show; touch a ready-made one only if it is already kept."""
+        if draft.source == READY_MADE_SOURCE:
+            kept = self._library.resolve(draft)
+        else:
+            kept = self._library.keep(draft)
+        if kept is not None:
+            self._library.played(kept)
+        return kept.ref.saved_show_id if kept is not None else None
 
     def _check_series_draft(
         self, req: StartEpisodeRequest, series: SeriesRecord | None, language: str

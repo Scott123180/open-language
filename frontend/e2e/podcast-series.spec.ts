@@ -188,3 +188,30 @@ test.describe('Podcast series — consistent hosts (010 US3)', () => {
     await expect(page.getByRole('status')).toHaveText('Hugo has the same name as you. Change the name the hosts call you.')
   })
 })
+
+test.describe('Podcast series — a one-off beside it (010 US2)', () => {
+  test('a one-off can shuffle a host, starts as a one-off, and leaves the series as it was', async ({ page }) => {
+    const oneOff = { ...seriesEpisodeFixture(), series: null }
+    await mockHomeApis(page)
+    await mockPodcastApis(page, { catalog: catalogWithSeries(), episode: oneOff })
+    await mockSeriesApis(page)
+    await page.route('/api/podcasts/hosts/shuffle', (route) =>
+      route.fulfill({ json: { slot: 'lead', name: 'Elena', personality_id: 'joker', voice_key: 'es_ES-davefx-medium', show_role: 'host', angle: null } }),
+    )
+    await page.goto(SETUP)
+
+    await page.getByRole('radio', { name: /One-off episode/ }).check()
+    await page.getByRole('button', { name: 'Shuffle Hugo' }).click()
+    await expect(page.getByText('Elena', { exact: true })).toBeVisible()
+    const started = startRequest(page)
+    await page.getByRole('button', { name: 'Start one-off episode' }).click()
+
+    const body = (await started).postDataJSON()
+    expect(body.kind).toBe('one_off')
+    expect(body.show.hosts[0].name).toBe('Elena')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Big Little Questions · One-off')
+
+    await page.goto('/podcasts')
+    await expect(page.getByRole('button', { name: 'Big Little Questions' })).toContainText('Episode 2 next')
+  })
+})

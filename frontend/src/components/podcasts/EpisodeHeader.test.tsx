@@ -26,3 +26,11 @@ describe('EpisodeHeader', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/^Weekend Food Talk$/)
   })
 })
+
+describe('EpisodeHeader — a one-off (010 US2)', () => {
+  it('names a one-off episode', () => {
+    renderHeader({ series: null })
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Weekend Food Talk · One-off')
+  })
+})
