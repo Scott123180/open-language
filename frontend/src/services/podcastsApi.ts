@@ -300,6 +300,23 @@ export const getSeries = (seriesId: number): Promise<SeriesDetail> => podcastFet
 export const catchUpSeriesMemory = (seriesId: number, options: { wait?: boolean } = {}): Promise<CatchUpResult> =>
   podcastFetch(`/series/${seriesId}/memory${options.wait ? '?wait=true' : ''}`, { method: 'POST' })
 
+export interface RecastBody {
+  language: string
+  learner_name: string | null
+  /** The new host's personality, or null to let the server pick one the other host lacks. */
+  personality_id: string | null
+}
+
+/** Replace one series host for this and later episodes, after the learner confirmed (§6). */
+export const recastHost = (seriesId: number, slot: HostSlot, body: RecastBody): Promise<SeriesDetail> =>
+  podcastFetch(`/series/${seriesId}/hosts/${slot}/recast`, jsonBody('POST', body))
+
+/** Start over: forget the series; its episodes stay in Past Chats (§7). */
+export const resetSeries = async (seriesId: number): Promise<void> => {
+  const res = await fetch(`${BASE}/series/${seriesId}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(await readError(res))
+}
+
 export const getEpisodeSuggestions = (conversationId: number): Promise<{ suggestions: string[] }> =>
   podcastFetch(`/episodes/${conversationId}/suggestions`, { method: 'POST' })
 

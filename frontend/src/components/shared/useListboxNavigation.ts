@@ -83,6 +83,7 @@ function handleOpenAction(event: KeyboardEvent, nav: NavState): void {
     nav.choose(nav.activeIndex)
   } else if (event.key === 'Escape') {
     event.preventDefault()
+    event.stopPropagation()
     nav.close()
   } else if (event.key === 'Tab') {
     nav.choose(nav.activeIndex)

@@ -618,12 +618,12 @@ that episode 3 keeps the new host while the other host and the count are unchang
   - episode 4 keeps the new host, with no new-host line;
   - SC-001 holds across the recast;
   - a reset deletes the series, hosts, links and memories; the episodes stay in `GET /episodes` with `episode_number: null`; the show then offers episode 1.
-- [ ] T070 [P] [US3] Write `frontend/src/components/shared/ConfirmDialog.test.tsx`:
+- [X] T070 [P] [US3] Write `frontend/src/components/shared/ConfirmDialog.test.tsx`:
   - `role="alertdialog"`, labelled and described;
   - focus moves into it and is trapped;
   - Escape and Cancel call `onCancel` and return focus to the opener;
   - Confirm calls `onConfirm`.
-- [ ] T071 [P] [US3] Write the US3 component and hook tests in `frontend/src/components/podcasts/` and `frontend/src/hooks/podcasts/`:
+- [X] T071 [P] [US3] Write the US3 component and hook tests in `frontend/src/components/podcasts/` and `frontend/src/hooks/podcasts/`:
   - `RecastDialog.test.tsx`:
     - the message says the new host will not know the earlier history;
     - a `ThemedSelect` offers "Any" plus the personalities the other host does not have;
@@ -635,7 +635,7 @@ that episode 3 keeps the new host while the other host and the count are unchang
     - it shows "Updating…" while `memory_status` is `running`;
     - **Start over** opens a `ConfirmDialog`;
   - `LearnerNameField.test.tsx` (extended): a `role="status"` clash hint is linked to the field by `aria-describedby`.
-- [ ] T072 [P] [US3] Extend `frontend/e2e/podcast-series.spec.ts`:
+- [X] T072 [P] [US3] Extend `frontend/e2e/podcast-series.spec.ts`:
   - episode 2's setup has no Shuffle and no personality drop-down;
   - **Recast…** → Cancel sends no request;
   - **Recast…** → choose a personality → Confirm posts the recast and shows the new host in place;
@@ -653,12 +653,12 @@ that episode 3 keeps the new host while the other host and the count are unchang
   T066 passes.
 - [X] T075 [US3] Give `validate_draft` and `_host_problem` in `backend/app/podcasts/schemas.py` a `clash_message` argument (≈ 10 and 10 lines after T053's `show_problem` split), so that series starts use the data-model §6 wording, while one-offs keep 007's.
 - [X] T076 [US3] Add `POST /series/{series_id}/hosts/{slot}/recast` and `DELETE /series/{series_id}` to `backend/app/podcasts/series_routes.py`, mapping the errors as in data-model §6. T068 and T069 pass.
-- [ ] T077 [P] [US3] Add `recastHost(seriesId, slot, body)` and `resetSeries(seriesId)` to `frontend/src/services/podcastsApi.ts`.
-- [ ] T078 [P] [US3] Implement `frontend/src/components/shared/ConfirmDialog.tsx`: an `alertdialog` with a focus trap and focus return, tokens only, and a `--color-error` confirm style for destructive actions. T070 passes.
-- [ ] T079 [US3] Implement `frontend/src/hooks/podcasts/useRecast.ts` and `frontend/src/components/podcasts/RecastDialog.tsx` (`ConfirmDialog` plus `ThemedSelect`).
-- [ ] T080 [US3] Implement `frontend/src/components/podcasts/RememberedPoints.tsx`: a disclosure with Start over through `ConfirmDialog` and `resetSeries`.
-- [ ] T081 [US3] Add the name-clash hint to `frontend/src/components/podcasts/LearnerNameField.tsx`, which receives the series host names from `SetupForm`. T071 passes.
-- [ ] T082 [US3] Wire **Recast…** into `SeriesHostCard.tsx`, and `RememberedPoints` into `frontend/src/pages/PodcastSetup.tsx`. T072 passes, and `npm run test:e2e` is green.
+- [X] T077 [P] [US3] Add `recastHost(seriesId, slot, body)` and `resetSeries(seriesId)` to `frontend/src/services/podcastsApi.ts`.
+- [X] T078 [P] [US3] Implement `frontend/src/components/shared/ConfirmDialog.tsx`: an `alertdialog` with a focus trap and focus return, tokens only, and a `--color-error` confirm style for destructive actions. T070 passes.
+- [X] T079 [US3] Implement `frontend/src/hooks/podcasts/useRecast.ts` and `frontend/src/components/podcasts/RecastDialog.tsx` (`ConfirmDialog` plus `ThemedSelect`).
+- [X] T080 [US3] Implement `frontend/src/components/podcasts/RememberedPoints.tsx`: a disclosure with Start over through `ConfirmDialog` and `resetSeries`.
+- [X] T081 [US3] Add the name-clash hint to `frontend/src/components/podcasts/LearnerNameField.tsx`, which receives the series host names from `SetupForm`. T071 passes.
+- [X] T082 [US3] Wire **Recast…** into `SeriesHostCard.tsx`, and `RememberedPoints` into `frontend/src/pages/PodcastSetup.tsx`. T072 passes, and `npm run test:e2e` is green.
 - [ ] T083 [US3] US3 checkpoint: run the full suites, then quickstart §4 step 6 and the step 10 edge cases (name clash, Start over).
 
 **Checkpoint (MVP)**: US1 + US3 deliver a long-running show with consistent, deliberately changeable

@@ -5,6 +5,7 @@ import { mutedTextStyle, secondaryButtonStyle } from './styles'
 interface SeriesHostCardProps {
   host: SeriesHostView
   onPlaySample: () => void
+  onRecast?: () => void
 }
 
 const cardStyle: CSSProperties = {
@@ -20,8 +21,9 @@ const cardStyle: CSSProperties = {
 
 const nameStyle: CSSProperties = { display: 'flex', flexDirection: 'column', flex: '1 1 8rem', color: 'var(--color-text)' }
 
-/** A series host: the same person every episode, so read-only, with no Shuffle (FR-008). */
-export default function SeriesHostCard({ host, onPlaySample }: SeriesHostCardProps) {
+/** A series host: the same person every episode, so read-only, with no Shuffle (FR-008).
+ * Recast… is the deliberate way to replace them (FR-009). */
+export default function SeriesHostCard({ host, onPlaySample, onRecast }: SeriesHostCardProps) {
   return (
     <div style={cardStyle}>
       <span style={nameStyle}>
@@ -29,6 +31,7 @@ export default function SeriesHostCard({ host, onPlaySample }: SeriesHostCardPro
         <span style={mutedTextStyle}>{host.personality_label}</span>
       </span>
       <button type="button" onClick={onPlaySample} disabled={!host.is_voice_available} aria-label={`Play ${host.name}'s voice`} style={secondaryButtonStyle}>▶</button>
+      {onRecast && <button type="button" onClick={onRecast} aria-label={`Recast ${host.name}`} style={secondaryButtonStyle}>Recast…</button>}
       {host.voice_unavailable_message && <p style={{ ...mutedTextStyle, flexBasis: '100%', margin: 0 }}>{host.voice_unavailable_message}</p>}
     </div>
   )

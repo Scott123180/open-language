@@ -8,6 +8,7 @@ import FormatFieldset from './FormatFieldset'
 import LengthFieldset from './LengthFieldset'
 import LearnerNameField from './LearnerNameField'
 import SeriesHosts from './SeriesHosts'
+import SeriesMemoryPanel from './SeriesMemoryPanel'
 import SetupActions from './SetupActions'
 import SetupHosts from './SetupHosts'
 import SetupVoiceNotice from './SetupVoiceNotice'
@@ -26,18 +27,41 @@ interface SetupFormProps {
 export default function SetupForm({ show, catalog, form, starting, series }: SetupFormProps) {
   const hostCount = catalog.formats.find((f) => f.format_id === form.format)?.host_count ?? 1
   const hosts = useSetupHosts(show, form.learnerName)
-  const start = useSetupStart({ show, form, hosts: hosts.hosts, starting, series })
   const seriesHosts = (show.series?.episode_count ?? 0) >= 1 ? series?.hosts ?? listedHosts(show, catalog) : null
+  const start = useSetupStart({ show, form, hosts: seriesHosts ? show.hosts : hosts.hosts, starting, series })
+  const hostNames = show.hosts.map((host) => host.name)
   return (
     <>
       <p style={{ margin: 0, color: 'var(--color-text)' }}>{show.premise}</p>
-      {seriesHosts ? <SeriesHosts hosts={seriesHosts} hostCount={hostCount} onPlaySample={hosts.playSample} />
+      {seriesHosts ? <SeriesSection show={show} catalog={catalog} form={form} hosts={seriesHosts} hostCount={hostCount} series={series} onPlaySample={hosts.playSample} />
         : <SetupHosts controls={hosts} personalities={catalog.personalities} hostCount={hostCount} />}
       <FormatFieldset formats={catalog.formats} value={form.format} onChange={form.setFormat} />
       <SetupVoiceNotice voices={catalog.voices} hostCount={hostCount} />
       <LengthFieldset lengths={catalog.lengths} value={form.length} onChange={form.setLength} />
-      <LearnerNameField value={form.learnerName} onChange={form.setLearnerName} />
-      <SetupActions series={show.series ?? null} starting={starting} onStart={start} hostNames={show.hosts.map((host) => host.name)} />
+      <LearnerNameField value={form.learnerName} onChange={form.setLearnerName} hostNames={seriesHosts ? hostNames : []} />
+      <SetupActions series={show.series ?? null} starting={starting} onStart={start} hostNames={hostNames} />
+    </>
+  )
+}
+
+interface SeriesSectionProps {
+  show: SetupShowDraft
+  catalog: PodcastCatalog
+  form: SetupFormState
+  hosts: SeriesHostView[]
+  hostCount: number
+  series: SeriesDetail | undefined
+  onPlaySample: (host: SeriesHostView) => void
+}
+
+/** A continuing series: its fixed hosts with Recast…, then what they remember. */
+function SeriesSection({ show, catalog, form, hosts, hostCount, series, onPlaySample }: SeriesSectionProps) {
+  const context = { seriesId: show.series!.series_id, language: show.language, learnerName: form.learnerName }
+  return (
+    <>
+      <SeriesHosts hosts={hosts} hostCount={hostCount} personalities={catalog.personalities}
+        keepsVoice={catalog.voices.installed_count <= 2} series={context} onPlaySample={onPlaySample} />
+      {series && <SeriesMemoryPanel detail={series} />}
     </>
   )
 }
