@@ -932,7 +932,7 @@ from the other; starting one opens setup; the ready-made list is unchanged (spec
 
 **Purpose**: measured quality, documentation, accessibility and full validation.
 
-- [ ] T134 Run every hand-run benchmark on `llama3.1:8b`: `backend/.venv/bin/pytest -m benchmark tests/integration/podcasts -k "series or one_off or discovery" -s`. Then complete `specs/010-recurring-podcast-shows/series-review-sheet.md` against the quickstart §3 bars:
+- [X] T134 Run every hand-run benchmark on `llama3.1:8b`: `backend/.venv/bin/pytest -m benchmark tests/integration/podcasts -k "series or one_off or discovery" -s`. Then complete `specs/010-recurring-podcast-shows/series-review-sheet.md` against the quickstart §3 bars:
   - SC-002: ≥ 16/20 correct references and 0 invented memories;
   - SC-003: ≥ 18/20 new topics;
   - SC-004: 0 references in one-offs;

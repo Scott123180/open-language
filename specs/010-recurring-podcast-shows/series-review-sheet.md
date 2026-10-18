@@ -486,3 +486,32 @@ For each series: **Refers back** = some episode-2 host line correctly mentions a
 
 The extra half second is the full series section in the prompt (about 1,800 characters at the
 caps and text budget), read once when the session opens.
+
+## SC-004: one-off isolation
+
+Every one-off host line that mentions an earlier episode or a fact from the series. Mark each **Reference (Y/N)**: a Y is a line that refers to an earlier episode (SC-004, bar 0). A coincidental word ("mañanas" in a general sense) is an N.
+
+Flagged lines: 1. **Result: 0 references to an earlier episode in 20 one-off episodes (SC-004 met).**
+
+| Run | Show | Host line | Reference (Y/N) |
+|---|---|---|---|
+| 12 | on-the-road | Pasa porque no siempre es fácil elegir un destino que se adapte perfectamente a nuestros gustos y necesidades. Recuerdo cuando fui a una isla paradisíaca en el Caribe pensando en un relax total y me encontré con que la playa estaba llena de palmeras caídas debido a un huracán reciente. ¿Qué es lo más importante para ti al elegir un lugar para viajar, Sam? | N: the host's own Caribbean trip, not an earlier episode |
+
+## SC-007: Find a new show
+
+Requests 2, 4, 6, 8 and 10 carry saved interests (chess, jazz, cycling).
+
+**Result: 10/10 requests gave 4–5 suitable suggestions with no ready-made duplicate, in 6.6–9.2 s (SC-007 met).** With interests, 3–4 of each set relate to them. The model sometimes writes a title or premise in Spanish rather than English (requests 2, 3, 7, 9); the generator (007) asks for the native language and shares the rule.
+
+| Request | Time | Status | Count | Ready-made duplicates | Suggestions | Suitable (Y/N) |
+|---|---|---|---|---|---|---|
+| 1 | 7.0 s | 200 | 5 | — | Summit Stories — Two hikers share their favorite mountain adventures.; Coffee Culture Conundrum — A listener shares their struggles with coffee etiquette.; Future Flavors — Two chefs discuss the changing world of cooking.; Tent Talk — Two campers share their unpopular opinions on camping.; Pedals and Debates — Two cyclists discuss the best way to ride a city. | Y |
+| 2 | 9.2 s | 200 | 5 | — | Jazz del Futuro: Lo que Está a Punto de Cambiar — Un viaje a través de la evolución de la música jazz.; Mitos y Realidades del Jazz: Lo que No Sabías — Separar la verdad de las leyendas sobre el mundo del jazz.; ¿Por qué No Puedo Apreciar el Jazz? — Ayudamos a un oyente confundido sobre su preferencia musical.; Recuerdos de Niñez con Mascotas: Una Historia — Explorando los recuerdos felices que muchas personas comparten.; Consejos para Jardineros: Lo Que Saben los Expertos — Aprendiendo de aquellos que tienen experiencia en el cuidado de plantas. | Y |
+| 3 | 6.7 s | 200 | 4 | — | Caminata en Montaña para Principiantes — Learn the basics of mountain hiking in Spanish.; Consejos de Expertos para el Primer Empleo — Get expert advice on your first job in Spanish.; El Futuro de la Jardinería — Explore the future of gardening and sustainability.; Mitos y Realidades de Mudarse a una Ciudad Nueva — Separate fact from fiction about moving to a new city. | Y |
+| 4 | 7.0 s | 200 | 5 | — | Jazz Nights: A Musical Life — Join hosts for a night of jazz music and conversation.; Pedals and Memories — A show about childhood memories of cycling.; Checkmate: The Chess Challenge — A quiz show about chess strategies and rules.; Wedding Wisdom: Expert Advice — Get tips and advice from wedding planners and experts.; Island Life: A Beginner's Guide — Learn about island living and its challenges. | Y |
+| 5 | 6.6 s | 200 | 4 | — | Shutterbugs and Snaps — Explore the fascinating world of photography.; Say I Do — Get prepared for your first wedding.; Tales from the Edge — Local legends and the experts who know them.; Fuel for the Journey — Road trips and the future of travel. | Y |
+| 6 | 6.8 s | 200 | 4 | — | Unpopular Opinions on the Chessboard — Hosts discuss unconventional chess strategies and theories.; Childhood Memories of the Chessboard — Hosts share stories about learning chess as children.; A Day in the Life of Jazz Lovers — Hosts explore their daily routines connected to jazz music.; Debating the Seaside in Winter — Hosts discuss the merits and drawbacks of winter seaside visits. | Y |
+| 7 | 6.9 s | 200 | 4 | — | Sabor y Sazon — Listen to expert tips on cooking Spanish dishes.; El Tablero de Ajedrez — Join a day in the life of a chess player.; Mitos y Verdades — Separate fact from fiction about pets.; La Gran Aventura — Laugh at funny disasters with houseplants. | Y |
+| 8 | 6.7 s | 200 | 5 | — | Bike Rebels Unite — Two hosts discuss unpopular opinions on cycling.; Pista o Bicicleta? — Hosts help a listener solve their cycling problem.; ¿Soy un ciclista? — Hosts quiz each other on cycling trivia.; Monedas y Mitos — Two hosts separate fact from fiction on saving money.; Pan: Una Historia — Hosts explore the history of bread baking. | Y |
+| 9 | 7.8 s | 200 | 5 | — | La Futura de Fútbol — We explore the future of football and its implications.; Mitos y Realidades de los Mercados — We delve into the truth behind flea markets.; La Historia de Ajedrez — We explore the fascinating history of chess.; Debate Amigable: Cumpleaños — We engage in a friendly debate about birthdays.; Problemas de Lluvia: Una Solución? — We tackle the issue of rainy days and find solutions. | Y |
+| 10 | 6.6 s | 200 | 5 | — | Pedals and Memories of Childhood — Hosts discuss their favourite childhood cycling memories.; Checkmate or Check- Up? — Hosts help a listener with their chess problems.; Jazz on the Horizon — Hosts discuss the future of jazz music.; Job Fails and Laughter — Hosts share funny stories of job mishaps.; Sleep Myth-Busting — Hosts discuss common myths and facts about sleep. | Y |
