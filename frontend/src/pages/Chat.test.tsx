@@ -658,8 +658,8 @@ describe('Chat — conversation level control (005 US2)', () => {
 
     // The header sits inside <main>, so it is not a banner landmark; find it by element.
     const header = document.querySelector('header') as HTMLElement
-    const level = await within(header).findByRole<HTMLSelectElement>('combobox', { name: 'Level' })
-    await waitFor(() => expect(level.value).toBe('elementary'))
+    const level = await within(header).findByRole('combobox', { name: 'Level' })
+    await waitFor(() => expect(level).toHaveTextContent(/^Elementary/))
   })
 
   it('keeps the primary styling on Send, not on the Level control', async () => {

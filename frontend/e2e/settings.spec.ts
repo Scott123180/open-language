@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test'
 import {
+  chooseOption,
+  combobox,
+  optionLabels,
   CLAUDE_UNAVAILABLE_MESSAGES,
   type ClaudeUnavailableReason,
   mockConversationLevels,
@@ -56,7 +59,7 @@ test.describe('Settings page', () => {
   test('loads and displays current model', async ({ page }) => {
     await setupSettingsRoutes(page)
     await page.goto(SETTINGS_URL)
-    await expect(page.getByLabel('Model', { exact: true })).toHaveValue('llama3.1')
+    await expect(combobox(page, 'Model')).toHaveText('llama3.1')
   })
 
   test('loads and displays current suggestion count', async ({ page }) => {
@@ -68,17 +71,14 @@ test.describe('Settings page', () => {
   test('model select shows all available models', async ({ page }) => {
     await setupSettingsRoutes(page)
     await page.goto(SETTINGS_URL)
-    const select = page.getByLabel('Model', { exact: true })
-    await expect(select.getByRole('option', { name: 'llama3.1', exact: true })).toBeAttached()
-    await expect(select.getByRole('option', { name: 'llama3.2' })).toBeAttached()
-    await expect(select.getByRole('option', { name: 'mistral' })).toBeAttached()
+    expect(await optionLabels(page, 'Model')).toEqual(expect.arrayContaining(['llama3.1', 'llama3.2', 'mistral']))
   })
 
   test('changing model updates the select value', async ({ page }) => {
     await setupSettingsRoutes(page)
     await page.goto(SETTINGS_URL)
-    await page.getByLabel('Model', { exact: true }).selectOption('mistral')
-    await expect(page.getByLabel('Model', { exact: true })).toHaveValue('mistral')
+    await chooseOption(page, 'Model', 'mistral')
+    await expect(combobox(page, 'Model')).toHaveText('mistral')
   })
 
   test('changing suggestion count updates the input', async ({ page }) => {
@@ -102,7 +102,7 @@ test.describe('Settings page', () => {
     )
     await page.goto(SETTINGS_URL)
 
-    await page.getByLabel('Model', { exact: true }).selectOption('mistral')
+    await chooseOption(page, 'Model', 'mistral')
     await page.getByLabel('Suggestion Count (1–5)').fill('5')
     await page.getByRole('button', { name: /save/i }).click()
 
@@ -216,7 +216,7 @@ test.describe('Settings page', () => {
       suggestion_count: 5,
     })
     await page.goto(SETTINGS_URL)
-    await expect(page.getByLabel('Model', { exact: true })).toHaveValue('llama3.2')
+    await expect(combobox(page, 'Model')).toHaveText('llama3.2')
     await expect(page.getByLabel('Suggestion Count (1–5)')).toHaveValue('5')
   })
 
@@ -236,15 +236,13 @@ test.describe('Settings page', () => {
   test('loads and displays current voice', async ({ page }) => {
     await setupSettingsRoutes(page)
     await page.goto(SETTINGS_URL)
-    await expect(page.getByLabel('Voice')).toHaveValue('es_ES-davefx-medium')
+    await expect(combobox(page, 'Voice')).toHaveText('David (Spain)')
   })
 
   test('voice select shows all available voices', async ({ page }) => {
     await setupSettingsRoutes(page)
     await page.goto(SETTINGS_URL)
-    const select = page.getByLabel('Voice')
-    await expect(select.getByRole('option', { name: 'David (Spain)' })).toBeAttached()
-    await expect(select.getByRole('option', { name: 'Daniela (Argentina)' })).toBeAttached()
+    expect(await optionLabels(page, 'Voice')).toEqual(expect.arrayContaining(['David (Spain)', 'Daniela (Argentina)']))
   })
 
   test('selected voice shows gender, country, quality, and pace detail', async ({ page }) => {
@@ -262,23 +260,24 @@ test.describe('Settings page', () => {
   test('loads and displays current speech recognition model', async ({ page }) => {
     await setupSettingsRoutes(page)
     await page.goto(SETTINGS_URL)
-    await expect(page.getByLabel('Speech Recognition Model')).toHaveValue('base')
+    await expect(combobox(page, 'Speech Recognition Model')).toHaveText('Base — fast, lower accuracy')
   })
 
   test('speech recognition model select shows all three options', async ({ page }) => {
     await setupSettingsRoutes(page)
     await page.goto(SETTINGS_URL)
-    const select = page.getByLabel('Speech Recognition Model')
-    await expect(select.getByRole('option', { name: /Base/ })).toBeAttached()
-    await expect(select.getByRole('option', { name: /Small/ })).toBeAttached()
-    await expect(select.getByRole('option', { name: /Medium/ })).toBeAttached()
+    expect(await optionLabels(page, 'Speech Recognition Model')).toEqual([
+      'Base — fast, lower accuracy',
+      'Small — balanced',
+      'Medium — slower, higher accuracy',
+    ])
   })
 
   test('changing speech recognition model updates the select value', async ({ page }) => {
     await setupSettingsRoutes(page)
     await page.goto(SETTINGS_URL)
-    await page.getByLabel('Speech Recognition Model').selectOption('medium')
-    await expect(page.getByLabel('Speech Recognition Model')).toHaveValue('medium')
+    await chooseOption(page, 'Speech Recognition Model', 'Medium — slower, higher accuracy')
+    await expect(combobox(page, 'Speech Recognition Model')).toHaveText('Medium — slower, higher accuracy')
   })
 
   test('save button sends updated whisper model to API', async ({ page }) => {
@@ -294,7 +293,7 @@ test.describe('Settings page', () => {
       route.fulfill({ json: mockVoices })
     )
     await page.goto(SETTINGS_URL)
-    await page.getByLabel('Speech Recognition Model').selectOption('small')
+    await chooseOption(page, 'Speech Recognition Model', 'Small — balanced')
     await page.getByRole('button', { name: /save/i }).click()
     await expect(page.getByRole('status')).toContainText('Settings saved.')
     expect(capturedBody).toMatchObject({ whisper_model: 'small' })
@@ -303,8 +302,8 @@ test.describe('Settings page', () => {
   test('changing voice updates the select value', async ({ page }) => {
     await setupSettingsRoutes(page)
     await page.goto(SETTINGS_URL)
-    await page.getByLabel('Voice').selectOption('es_AR-daniela-high')
-    await expect(page.getByLabel('Voice')).toHaveValue('es_AR-daniela-high')
+    await chooseOption(page, 'Voice', 'Daniela (Argentina)')
+    await expect(combobox(page, 'Voice')).toHaveText('Daniela (Argentina)')
   })
 
   test('save button sends updated voice to API', async ({ page }) => {
@@ -320,7 +319,7 @@ test.describe('Settings page', () => {
       route.fulfill({ json: mockVoices })
     )
     await page.goto(SETTINGS_URL)
-    await page.getByLabel('Voice').selectOption('es_AR-daniela-high')
+    await chooseOption(page, 'Voice', 'Daniela (Argentina)')
     await page.getByRole('button', { name: /save/i }).click()
     await expect(page.getByRole('status')).toContainText('Settings saved.')
     expect(capturedBody).toMatchObject({ tts_voice: 'es_AR-daniela-high' })
@@ -423,8 +422,8 @@ test.describe('Settings page — language model provider', () => {
 
     await page.getByRole('radio', { name: 'Claude (via Claude Code)' }).check()
 
-    await expect(modelSelect(page).locator('option:checked')).toHaveText('Claude Sonnet')
-    await expect(effortSelect(page).locator('option:checked')).toHaveText('Low — fastest replies')
+    await expect(modelSelect(page)).toHaveText('Claude Sonnet')
+    await expect(effortSelect(page)).toHaveText('Low — fastest replies')
     await page.getByRole('button', { name: /save/i }).click()
     await expect(page.getByRole('status')).toContainText('Settings saved.')
     expect(capturedBody).toMatchObject({
@@ -442,7 +441,7 @@ test.describe('Settings page — language model provider', () => {
     await expect(effortSelect(page)).toBeVisible()
     await page.getByRole('radio', { name: 'Ollama (local)' }).check()
 
-    await expect(modelSelect(page)).toHaveValue('llama3.1:8b')
+    await expect(modelSelect(page)).toHaveText('llama3.1:8b')
     await expect(effortSelect(page)).toHaveCount(0)
   })
 

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import PodcastSetup from './PodcastSetup'
+import { chooseOption } from '../components/shared/themedSelect.test.utils'
 import * as podcasts from '../services/podcastsApi'
 import { catalog, episode, preferences } from './podcastPageFixtures.test.utils'
 import { generatedShow, seriesDetail, seriesListing } from '../components/podcasts/fixtures.test.utils'
@@ -212,7 +213,7 @@ describe('PodcastSetup page — shaping the hosts (US5)', () => {
     await onPanel()
     fireEvent.click(screen.getByRole('button', { name: 'Shuffle Marco' }))
     await screen.findByText('Pablo')
-    fireEvent.change(screen.getByLabelText("Lucía's personality"), { target: { value: 'dry_sceptic' } })
+    chooseOption("Lucía's personality", 'Dry sceptic')
 
     fireEvent.click(screen.getByRole('button', { name: 'Start episode 1' }))
 

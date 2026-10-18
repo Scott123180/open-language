@@ -53,10 +53,11 @@ function handleKey(event: KeyboardEvent, nav: NavState): void {
 }
 
 function handleClosedKey(event: KeyboardEvent, nav: NavState): void {
-  const opens = ['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)
+  const opens = ['Enter', ' ', 'ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)
   if (opens) {
     event.preventDefault()
     nav.open()
+    if (event.key === 'Home' || event.key === 'End') nav.move(event.key === 'Home' ? 0 : Number.MAX_SAFE_INTEGER)
   } else if (isPrintable(event)) {
     nav.open()
     nav.move(nav.typeAhead(event.key, nav.activeIndex))

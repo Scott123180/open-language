@@ -16,6 +16,8 @@ interface ThemedSelectProps {
   describedBy?: string
   disabled?: boolean
   style?: CSSProperties
+  /** Sized to its content, with the open list aligned to its right edge (a header control). */
+  isCompact?: boolean
 }
 
 /**
@@ -32,9 +34,9 @@ export default function ThemedSelect(props: ThemedSelectProps) {
     (index) => props.onChange(props.options[index].value),
   )
   return (
-    <div style={wrapperStyle}>
+    <div style={props.isCompact ? compactWrapperStyle : wrapperStyle}>
       <SelectTrigger {...props} nav={nav} listId={listId} selectedIndex={selectedIndex} />
-      {nav.isOpen && <OptionList options={props.options} nav={nav} listId={listId} label={props.label} selectedIndex={selectedIndex} />}
+      {nav.isOpen && <OptionList options={props.options} nav={nav} listId={listId} label={props.label} selectedIndex={selectedIndex} isCompact={props.isCompact} />}
     </div>
   )
 }
@@ -66,22 +68,22 @@ function SelectTrigger(props: ThemedSelectProps & PartProps) {
       onClick={() => (nav.isOpen ? nav.close() : nav.open())}
       onKeyDown={nav.onKeyDown}
       onBlur={nav.close}
+      className="themed-select-trigger"
       style={{ ...triggerStyle, ...props.style }}
     >
-      <span>{props.options[props.selectedIndex]?.label ?? ''}</span>
-      <span aria-hidden="true" style={chevronStyle}>▾</span>
+      {props.options[props.selectedIndex]?.label ?? ''}
     </button>
   )
 }
 
-function OptionList(props: PartProps & { options: ThemedSelectOption[]; label: string }) {
+function OptionList(props: PartProps & { options: ThemedSelectOption[]; label: string; isCompact?: boolean }) {
   const listRef = useRef<HTMLUListElement>(null)
   const { nav, listId } = props
   useEffect(() => {
     listRef.current?.querySelector('.themed-select-option--active')?.scrollIntoView?.({ block: 'nearest' })
   }, [nav.activeIndex])
   return (
-    <ul ref={listRef} role="listbox" id={listId} aria-label={props.label} tabIndex={-1} className="themed-select-list">
+    <ul ref={listRef} role="listbox" id={listId} aria-label={props.label} tabIndex={-1} className={`themed-select-list${props.isCompact ? ' themed-select-list--compact' : ''}`}>
       {props.options.map((option, index) => (
         <OptionItem key={option.value} option={option} index={index} {...props} />
       ))}
@@ -111,6 +113,7 @@ function OptionItem(props: PartProps & { option: ThemedSelectOption; index: numb
 const optionId = (listId: string, index: number) => `${listId}-option-${index}`
 
 const wrapperStyle: CSSProperties = { position: 'relative', width: '100%' }
+const compactWrapperStyle: CSSProperties = { position: 'relative', display: 'inline-block' }
 const triggerStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
@@ -125,5 +128,4 @@ const triggerStyle: CSSProperties = {
   fontSize: '1rem',
   textAlign: 'left',
 }
-const chevronStyle: CSSProperties = { color: 'var(--color-text-muted)' }
 const checkSlotStyle: CSSProperties = { display: 'inline-flex', width: '16px', flexShrink: 0 }

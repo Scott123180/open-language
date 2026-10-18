@@ -1,5 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
 import {
+  chooseOption,
+  combobox,
+  optionLabels,
   GERMAN_VOICE_UNAVAILABLE_MESSAGE,
   mockConversationLevelsApi,
   mockGermanChatApis,
@@ -55,7 +58,6 @@ async function openSettings(
   return state
 }
 
-const voiceOptions = (page: Page) => page.getByLabel('Voice').locator('option')
 
 test.describe('Practice language — Settings', () => {
   test('choosing German lists only German voices, with Thorsten selected', async ({ page }) => {
@@ -63,8 +65,8 @@ test.describe('Practice language — Settings', () => {
 
     await page.getByRole('radio', { name: 'German' }).check()
 
-    await expect(voiceOptions(page)).toHaveText(['Thorsten (Germany)', 'Kerstin (Germany)'])
-    await expect(page.getByLabel('Voice')).toHaveValue('de_DE-thorsten-medium')
+    expect(await optionLabels(page, 'Voice')).toEqual(['Thorsten (Germany)', 'Kerstin (Germany)'])
+    await expect(combobox(page, 'Voice')).toHaveText('Thorsten (Germany)')
   })
 
   test('saving sends the language and its voice together', async ({ page }) => {
@@ -150,8 +152,8 @@ test.describe('Practice language — a third language added by data alone', () =
 
     await page.getByRole('radio', { name: 'Italian' }).check()
 
-    await expect(voiceOptions(page)).toHaveText(['Paola (Italy)', 'Riccardo (Italy)'])
-    await expect(page.getByLabel('Voice')).toHaveValue('it_IT-paola-medium')
+    expect(await optionLabels(page, 'Voice')).toEqual(['Paola (Italy)', 'Riccardo (Italy)'])
+    await expect(combobox(page, 'Voice')).toHaveText('Paola (Italy)')
   })
 
   for (const theme of ['Light', 'Dark']) {
@@ -248,8 +250,8 @@ test.describe('Practice language — switching back and forth (US2)', () => {
     await expect.poll(() => state.puts.length).toBe(1)
     await page.getByRole('radio', { name: 'Spanish' }).check()
 
-    await expect(voiceOptions(page)).toHaveText(['David (Spain)', 'Daniela (Argentina)'])
-    await expect(page.getByLabel('Voice')).toHaveValue('es_AR-daniela-high')
+    expect(await optionLabels(page, 'Voice')).toEqual(['David (Spain)', 'Daniela (Argentina)'])
+    await expect(combobox(page, 'Voice')).toHaveText('Daniela (Argentina)')
   })
 
   test('an older Spanish conversation stays Spanish while German is selected', async ({ page }) => {
@@ -285,7 +287,7 @@ test.describe('Practice language — choosing a German voice (US4)', () => {
     const state = await openSettings(page)
     await page.getByRole('radio', { name: 'German' }).check()
 
-    await page.getByLabel('Voice').selectOption('de_DE-kerstin-low')
+    await chooseOption(page, 'Voice', 'Kerstin (Germany)')
     await page.getByRole('button', { name: /save/i }).click()
 
     await expect.poll(() => state.puts.length).toBe(1)
@@ -301,7 +303,7 @@ test.describe('Practice language — choosing a German voice (US4)', () => {
       languages,
     )
 
-    await expect(page.getByLabel('Voice')).toHaveValue('de_DE-kerstin-low')
+    await expect(combobox(page, 'Voice')).toHaveText('Kerstin (Germany)')
   })
 
   test('a voice that is not installed says how to get it', async ({ page }) => {

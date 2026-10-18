@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+import { chooseOption, optionLabels } from '../shared/themedSelect.test.utils'
 import HostCard from './HostCard'
 import { personalities, show } from './fixtures.test.utils'
 
@@ -30,26 +31,25 @@ describe('HostCard', () => {
   it('has a labelled personality choice on the hosts personality', () => {
     renderCard()
 
-    expect(screen.getByLabelText("Lucía's personality")).toHaveValue('enthusiast')
+    expect(screen.getByRole('combobox', { name: "Lucía's personality" })).toHaveTextContent('Enthusiast')
   })
 
   it('offers every personality except the other hosts', () => {
     renderCard()
 
-    const options = screen.getAllByRole('option').map((option) => option.textContent)
-    expect(options).toEqual(['Enthusiast', 'Joker'])
+    expect(optionLabels("Lucía's personality")).toEqual(['Enthusiast', 'Joker'])
   })
 
   it('offers every personality when there is no other host', () => {
     renderCard({ otherPersonalityId: null })
 
-    expect(screen.getAllByRole('option')).toHaveLength(3)
+    expect(optionLabels("Lucía's personality")).toHaveLength(3)
   })
 
   it('reports a changed personality', () => {
     const props = renderCard()
 
-    fireEvent.change(screen.getByLabelText("Lucía's personality"), { target: { value: 'joker' } })
+    chooseOption("Lucía's personality", 'Joker')
 
     expect(props.onPersonalityChange).toHaveBeenCalledWith('joker')
   })

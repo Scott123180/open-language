@@ -44,7 +44,7 @@ test.describe('Chat page', () => {
   test('shows the stored conversation level in the header', async ({ page }) => {
     const level = page.locator('header').getByRole('combobox', { name: 'Level' })
     await expect(level).toBeVisible()
-    await expect(level).toHaveValue(mockSettings.conversation_level)
+    await expect(level).toHaveText('Natural')
   })
 
   test('shows scenario title in subheader', async ({ page }) => {

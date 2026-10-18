@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
-import { mockChatApis, mockSettings, mockVoices } from './fixtures'
+import {
+  chooseOption, mockChatApis, mockSettings, mockVoices } from './fixtures'
 
 const CHAT_URL = '/chat/1'
 const SETTINGS_URL = '/settings'
@@ -37,11 +38,11 @@ test.describe('Conversation level — chat header control', () => {
     await page.goto(CHAT_URL)
     await expect(page.getByText('¡Hola! ¿Cómo estás?')).toBeVisible()
 
-    await levelControl(page).selectOption('beginner')
+    await chooseOption(page, 'Level', 'Beginner (A1)')
 
     await expect(page.getByText(ANNOUNCEMENT)).toBeAttached()
     expect(state.puts).toEqual([{ conversation_level: 'beginner' }])
-    await expect(levelControl(page)).toHaveValue('beginner')
+    await expect(levelControl(page)).toHaveText('Beginner (A1)')
   })
 
   test('the change keeps the learner in the conversation with its messages', async ({ page }) => {
@@ -49,7 +50,7 @@ test.describe('Conversation level — chat header control', () => {
     await page.goto(CHAT_URL)
     await expect(page.getByText('¡Hola! ¿Cómo estás?')).toBeVisible()
 
-    await levelControl(page).selectOption('beginner')
+    await chooseOption(page, 'Level', 'Beginner (A1)')
     await expect(page.getByText(ANNOUNCEMENT)).toBeAttached()
 
     await expect(page).toHaveURL(CHAT_URL)
@@ -59,12 +60,13 @@ test.describe('Conversation level — chat header control', () => {
   test('the level can be changed from the keyboard in two steps', async ({ page }) => {
     const state = await statefulSettings(page)
     await page.goto(CHAT_URL)
-    await expect(levelControl(page)).toHaveValue('natural')
+    await expect(levelControl(page)).toHaveText('Natural')
 
     await levelControl(page).focus()
     await page.keyboard.press('Home')
+    await page.keyboard.press('Enter')
 
-    await expect(levelControl(page)).toHaveValue('beginner')
+    await expect(levelControl(page)).toHaveText('Beginner (A1)')
     await expect.poll(() => state.puts).toEqual([{ conversation_level: 'beginner' }])
   })
 
@@ -75,18 +77,18 @@ test.describe('Conversation level — chat header control', () => {
         : route.fulfill({ json: mockSettings })
     )
     await page.goto(CHAT_URL)
-    await expect(levelControl(page)).toHaveValue('natural')
+    await expect(levelControl(page)).toHaveText('Natural')
 
-    await levelControl(page).selectOption('beginner')
+    await chooseOption(page, 'Level', 'Beginner (A1)')
 
     await expect(page.getByRole('alert')).toContainText(/level was not changed/i)
-    await expect(levelControl(page)).toHaveValue('natural')
+    await expect(levelControl(page)).toHaveText('Natural')
   })
 
   test('a change in the chat header shows on the Settings screen', async ({ page }) => {
     await statefulSettings(page)
     await page.goto(CHAT_URL)
-    await levelControl(page).selectOption('beginner')
+    await chooseOption(page, 'Level', 'Beginner (A1)')
     await expect(page.getByText(ANNOUNCEMENT)).toBeAttached()
 
     await page.goto(SETTINGS_URL)
@@ -103,7 +105,7 @@ test.describe('Conversation level — chat header control', () => {
 
     await page.goto(CHAT_URL)
 
-    await expect(levelControl(page)).toHaveValue('intermediate')
+    await expect(levelControl(page)).toHaveText('Intermediate (B1)')
   })
 
   test('explains in the header when the level cannot be loaded', async ({ page }) => {

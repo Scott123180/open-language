@@ -1,5 +1,6 @@
 import type { HostDraft, PersonalityOption } from '../../services/podcastsApi'
-import { secondaryButtonStyle, visuallyHiddenStyle } from './styles'
+import ThemedSelect from '../shared/ThemedSelect'
+import { secondaryButtonStyle } from './styles'
 
 interface HostCardProps {
   host: HostDraft
@@ -23,7 +24,7 @@ const hostCardStyle = {
   borderRadius: 'var(--radius-lg)',
 }
 
-const selectStyle = { ...secondaryButtonStyle, padding: '0 var(--space-2)', font: 'inherit', background: 'var(--color-surface)' }
+const selectStyle = { ...secondaryButtonStyle, width: 'auto', padding: '0 var(--space-3)', font: 'inherit', background: 'var(--color-surface)' }
 
 /** A host on the setup screen: name, personality, a voice sample and Shuffle (US5). */
 export default function HostCard({ host, personalities, otherPersonalityId, isShuffling, onShuffle, onPersonalityChange, onPlaySample }: HostCardProps) {
@@ -32,10 +33,8 @@ export default function HostCard({ host, personalities, otherPersonalityId, isSh
   return (
     <div style={hostCardStyle}>
       <span style={{ fontWeight: 'var(--weight-semibold)' as never, color: 'var(--color-text)', flex: '1 1 6rem' }}>{host.name}</span>
-      <label htmlFor={selectId} style={visuallyHiddenStyle}>{`${host.name}'s personality`}</label>
-      <select id={selectId} value={host.personality_id} onChange={(e) => onPersonalityChange(e.target.value)} style={selectStyle}>
-        {choices.map((option) => <option key={option.personality_id} value={option.personality_id}>{option.label}</option>)}
-      </select>
+      <ThemedSelect id={selectId} label={`${host.name}'s personality`} value={host.personality_id} onChange={onPersonalityChange}
+        options={choices.map((option) => ({ value: option.personality_id, label: option.label }))} style={selectStyle} isCompact />
       <button type="button" onClick={onPlaySample} aria-label={`Play ${host.name}'s voice`} style={secondaryButtonStyle}>▶</button>
       <button type="button" onClick={onShuffle} disabled={isShuffling} aria-label={`Shuffle ${host.name}`} style={secondaryButtonStyle}>Shuffle</button>
     </div>

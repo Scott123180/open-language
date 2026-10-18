@@ -222,15 +222,12 @@ button {
   min-width: 44px;
 }
 
-/* A select's popup takes its colours from the options, not the select: without this, options
-   inherit the light text of a dark theme and draw it on the browser's white default */
-option {
-  background-color: var(--color-surface);
-  color: var(--color-text);
-}
-
 /* ThemedSelect's open list (010 research R11): drawn by the app, so it follows the theme. The
    chosen option is tinted and checked; the active one has an outline, so both can show at once */
+.themed-select-trigger::after {
+  content: '▾';
+  color: var(--color-text-muted);
+}
 .themed-select-list {
   position: absolute;
   z-index: 20;
@@ -246,6 +243,10 @@ option {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
+}
+.themed-select-list--compact {
+  left: auto;
+  min-width: max-content;
 }
 .themed-select-option {
   display: flex;

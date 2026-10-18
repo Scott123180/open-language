@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import {
+  chooseOption,
   generatedShowFixture,
   IDEA_DECLINED,
   IDEA_NEEDED,
@@ -207,7 +208,7 @@ test.describe('Podcasts — shaping the hosts (US5)', () => {
     await expect(page.getByText('Elena', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Shuffle Marco' }).click()
     await expect(page.getByText('Hugo', { exact: true })).toBeVisible()
-    await page.getByLabel("Hugo's personality").selectOption('dry_sceptic')
+    await chooseOption(page, "Hugo's personality", 'Dry sceptic')
     const started = page.waitForRequest((request) => request.url().endsWith('/api/podcasts/episodes') && request.method() === 'POST')
     await page.getByRole('button', { name: 'Start episode 1' }).click()
 
@@ -240,19 +241,18 @@ test.describe('Podcasts — setup in dark mode', () => {
     await page.goto('/podcasts/setup?show=weekend-food-talk')
   })
 
-  test('the personality drop-down and its options are drawn on the dark surface', async ({ page }) => {
-    const select = page.getByLabel("Marco's personality")
+  test('the personality drop-down and its open list are drawn on the dark surface', async ({ page }) => {
+    const select = page.getByRole('combobox', { name: "Marco's personality" })
+    await select.click()
+    const option = page.getByRole('listbox').getByRole('option', { selected: false }).first()
 
-    const colours = await select.evaluate((element) => {
-      const option = element.querySelector('option') as HTMLOptionElement
-      return {
-        scheme: getComputedStyle(element).colorScheme,
-        selectBackground: getComputedStyle(element).backgroundColor,
-        optionBackground: getComputedStyle(option).backgroundColor,
-      }
-    })
+    const colours = {
+      selectBackground: await select.evaluate((element) => getComputedStyle(element).backgroundColor),
+      listBackground: await page.getByRole('listbox').evaluate((element) => getComputedStyle(element).backgroundColor),
+      optionBackground: await option.evaluate((element) => getComputedStyle(element).backgroundColor),
+    }
 
-    expect(colours).toEqual({ scheme: 'dark', selectBackground: darkSurface, optionBackground: darkSurface })
+    expect(colours).toEqual({ selectBackground: darkSurface, listBackground: darkSurface, optionBackground: darkSurface })
   })
 
   test('the chosen format and length are highlighted as selected tiles', async ({ page }) => {

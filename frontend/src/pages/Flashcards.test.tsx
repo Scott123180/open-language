@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Flashcards from './Flashcards'
+import { chooseOption } from '../components/shared/themedSelect.test.utils'
 import * as api from '../services/flashcardsApi'
 
 vi.mock('../services/flashcardsApi')
@@ -143,9 +144,7 @@ describe('Flashcards — sorting', () => {
     renderPage()
     await screen.findByText('bonjour')
 
-    fireEvent.change(screen.getByRole('combobox', { name: /sort/i }), {
-      target: { value: 'saved_at_asc' },
-    })
+    chooseOption(/sort/i, 'Oldest first')
 
     expect(listedWords()).toEqual(['bonjour', 'aurevoir', 'merci'])
   })
@@ -154,9 +153,7 @@ describe('Flashcards — sorting', () => {
     renderPage()
     await screen.findByText('bonjour')
 
-    fireEvent.change(screen.getByRole('combobox', { name: /sort/i }), {
-      target: { value: 'word_asc' },
-    })
+    chooseOption(/sort/i, 'Word A→Z')
 
     expect(listedWords()).toEqual(['aurevoir', 'bonjour', 'merci'])
   })

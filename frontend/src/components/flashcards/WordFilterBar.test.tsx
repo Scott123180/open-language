@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+import { chooseOption, optionLabels } from '../shared/themedSelect.test.utils'
 import WordFilterBar from './WordFilterBar'
 import type { WordFilters, WordSort } from '../../services/flashcardsApi'
 
@@ -63,17 +64,13 @@ describe('WordFilterBar', () => {
     render(<WordFilterBar {...defaultProps} />)
     const sortSelect = screen.getByRole('combobox', { name: /sort/i })
     expect(sortSelect).toBeInTheDocument()
-    const options = Array.from(sortSelect.querySelectorAll('option')).map((o) => o.value)
-    expect(options).toContain('saved_at_desc')
-    expect(options).toContain('saved_at_asc')
-    expect(options).toContain('word_asc')
-    expect(options).toContain('classification_desc')
+    expect(optionLabels(/sort/i)).toEqual(['Recently added', 'Oldest first', 'Word A→Z', 'Hardest first'])
   })
 
   it('calls onSortChange when sort selection changes', () => {
     const onSortChange = vi.fn()
     render(<WordFilterBar {...defaultProps} onSortChange={onSortChange} />)
-    fireEvent.change(screen.getByRole('combobox', { name: /sort/i }), { target: { value: 'word_asc' } })
+    chooseOption(/sort/i, 'Word A→Z')
     expect(onSortChange).toHaveBeenCalledWith('word_asc')
   })
 
@@ -153,14 +150,12 @@ describe('WordFilterBar — focus affordances', () => {
     expect(search.style.borderColor).toBe('var(--color-border)')
   })
 
-  it('highlights the sort select on focus and restores it on blur', () => {
+  it('takes keyboard focus on the sort drop-down, which draws the theme focus ring', () => {
     render(<WordFilterBar {...defaultProps} />)
     const sort = screen.getByRole('combobox', { name: /sort/i })
 
-    fireEvent.focus(sort)
-    expect(sort.style.borderColor).toBe('var(--color-primary)')
+    sort.focus()
 
-    fireEvent.blur(sort)
-    expect(sort.style.borderColor).toBe('var(--color-border)')
+    expect(sort).toHaveFocus()
   })
 })

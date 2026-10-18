@@ -1,5 +1,6 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+import { chooseOption, optionLabels } from '../shared/themedSelect.test.utils'
 import TtsVoiceField from './TtsVoiceField'
 import type { VoiceOption } from '../../services/api'
 
@@ -27,19 +28,18 @@ const voices: VoiceOption[] = [
 ]
 
 describe('TtsVoiceField', () => {
-  it('is a select labelled Voice listing the voices and showing the value', () => {
+  it('is a drop-down labelled Voice listing the voices and showing the value', () => {
     render(<TtsVoiceField value="es_MX-claude-high" voices={voices} onChange={vi.fn()} />)
 
-    const select = screen.getByLabelText<HTMLSelectElement>('Voice')
-    expect(select.value).toBe('es_MX-claude-high')
-    expect(screen.getByRole('option', { name: 'Marta (Spain)' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Voice' })).toHaveTextContent('Claude (Mexico)')
+    expect(optionLabels('Voice')).toEqual(['Marta (Spain)', 'Claude (Mexico)'])
   })
 
   it('calls onChange with the chosen voice', () => {
     const onChange = vi.fn()
     render(<TtsVoiceField value="es_ES-mls-medium" voices={voices} onChange={onChange} />)
 
-    fireEvent.change(screen.getByLabelText('Voice'), { target: { value: 'es_MX-claude-high' } })
+    chooseOption('Voice', 'Claude (Mexico)')
 
     expect(onChange).toHaveBeenCalledWith('es_MX-claude-high')
   })

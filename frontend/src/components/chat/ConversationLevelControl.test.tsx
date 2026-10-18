@@ -1,6 +1,7 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as api from '../../services/api'
+import { chooseOption, optionLabels } from '../shared/themedSelect.test.utils'
 import ConversationLevelControl from './ConversationLevelControl'
 
 vi.mock('../../services/api')
@@ -32,7 +33,7 @@ const levels: api.ConversationLevelOption[] = [
   },
 ]
 
-const levelSelect = () => screen.findByRole<HTMLSelectElement>('combobox', { name: 'Level' })
+const levelSelect = () => screen.findByRole('combobox', { name: 'Level' })
 
 beforeEach(() => {
   vi.resetAllMocks()
@@ -43,17 +44,17 @@ beforeEach(() => {
 })
 
 describe('ConversationLevelControl', () => {
-  it('is a native select named Level', async () => {
+  it('is a themed drop-down named Level', async () => {
     render(<ConversationLevelControl />)
 
-    expect((await levelSelect()).tagName).toBe('SELECT')
+    expect(await levelSelect()).toHaveAttribute('aria-haspopup', 'listbox')
   })
 
   it('reads each option as its label and CEFR level, and Natural alone', async () => {
     render(<ConversationLevelControl />)
 
-    const options = within(await levelSelect()).getAllByRole('option')
-    expect(options.map((option) => option.textContent)).toEqual([
+    await levelSelect()
+    expect(optionLabels('Level')).toEqual([
       'Beginner (A1)',
       'Elementary (A2)',
       'Intermediate (B1)',
@@ -64,7 +65,7 @@ describe('ConversationLevelControl', () => {
   it('shows the stored level', async () => {
     render(<ConversationLevelControl />)
 
-    await waitFor(async () => expect((await levelSelect()).value).toBe('intermediate'))
+    await waitFor(async () => expect(await levelSelect()).toHaveTextContent('Intermediate (B1)'))
   })
 
   it("is described by the selected level's description, which follows the selection", async () => {
@@ -73,7 +74,7 @@ describe('ConversationLevelControl', () => {
     const select = await levelSelect()
     await waitFor(() => expect(select).toHaveAccessibleDescription(levels[2].description))
 
-    fireEvent.change(select, { target: { value: 'beginner' } })
+    chooseOption('Level', 'Beginner (A1)')
 
     expect(select).toHaveAccessibleDescription(levels[0].description)
   })
@@ -84,7 +85,7 @@ describe('ConversationLevelControl', () => {
     render(<ConversationLevelControl />)
     const select = await levelSelect()
 
-    fireEvent.change(select, { target: { value: 'beginner' } })
+    chooseOption('Level', 'Beginner (A1)')
     expect(select).toBeDisabled()
     finish({} as api.AppSettings)
 
@@ -97,12 +98,12 @@ describe('ConversationLevelControl', () => {
     vi.mocked(api.updateSettings).mockRejectedValue(new Error('HTTP 500'))
     render(<ConversationLevelControl />)
     const select = await levelSelect()
-    await waitFor(() => expect(select.value).toBe('intermediate'))
+    await waitFor(() => expect(select).toHaveTextContent('Intermediate (B1)'))
 
-    fireEvent.change(select, { target: { value: 'beginner' } })
+    chooseOption('Level', 'Beginner (A1)')
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/level was not changed/i)
-    expect(select.value).toBe('intermediate')
+    expect(select).toHaveTextContent('Intermediate (B1)')
   })
 
   it('renders nothing until the level list loads', () => {

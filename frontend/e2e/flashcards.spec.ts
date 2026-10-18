@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import {
+  chooseOption,
   isDeckCollection,
   mockGermanWords,
   mockHomeApis,
@@ -163,8 +164,8 @@ test.describe('Flashcards word list', () => {
   test('sort dropdown changes word order', async ({ page }) => {
     const sortSelect = page.getByRole('combobox', { name: /sort/i })
     await expect(sortSelect).toBeVisible()
-    await sortSelect.selectOption('word_asc')
-    await expect(sortSelect).toHaveValue('word_asc')
+    await chooseOption(page, 'Sort words', 'Word A→Z')
+    await expect(sortSelect).toHaveText('Word A→Z')
   })
 
   test('This week chip sets date filter', async ({ page }) => {

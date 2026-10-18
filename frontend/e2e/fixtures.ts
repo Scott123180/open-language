@@ -947,3 +947,41 @@ export async function mockSeriesApis(page: Page, options: SeriesRouteOptions = {
   })
   return { waitRequests, release: () => release() }
 }
+
+// ── Themed drop-downs (010 research R11) ──────────────────────────────────────
+
+type Name = string | RegExp
+
+/** The themed drop-down named `label`. A string name matches exactly. */
+export const combobox = (page: Page, label: Name) =>
+  page.getByRole('combobox', { name: label, exact: typeof label === 'string' })
+
+/** Open the themed drop-down named `label` and choose the option named `optionName`. */
+export async function chooseOption(page: Page, label: Name, optionName: Name) {
+  await combobox(page, label).click()
+  await page.getByRole('listbox').getByRole('option', { name: optionName, exact: typeof optionName === 'string' }).click()
+}
+
+/** The option labels of the themed drop-down named `label`, read by opening and closing it. */
+export async function optionLabels(page: Page, label: Name): Promise<string[]> {
+  await combobox(page, label).click()
+  const labels = await page.getByRole('listbox').getByRole('option').allTextContents()
+  await page.keyboard.press('Escape')
+  return labels
+}
+
+const channels = (rgb: string): number[] => (rgb.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number)
+
+const luminance = (rgb: string): number => {
+  const [r, g, b] = channels(rgb).map((value) => {
+    const c = value / 255
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/** The WCAG 2 contrast ratio of two computed `rgb()` colours (1 to 21). */
+export function contrastRatio(foreground: string, background: string): number {
+  const [lighter, darker] = [luminance(foreground), luminance(background)].sort((a, b) => b - a)
+  return (lighter + 0.05) / (darker + 0.05)
+}

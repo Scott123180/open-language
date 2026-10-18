@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { ConversationLevelId, ConversationLevelOption } from '../../services/api'
+import ThemedSelect from '../shared/ThemedSelect'
 import { useConversationLevelSetting } from './useConversationLevelSetting'
 import type { ConversationLevelSetting } from './useConversationLevelSetting'
 
@@ -72,29 +73,19 @@ interface LevelSelectProps {
 
 function LevelSelect({ setting, selected }: LevelSelectProps) {
   return (
-    <>
-      <label htmlFor={SELECT_ID} style={visuallyHidden}>
-        Level
-      </label>
-      <select
-        id={SELECT_ID}
-        value={selected.level_id}
-        disabled={setting.isSaving}
-        aria-describedby={DESCRIPTION_ID}
-        onChange={(e) => setting.changeLevel(e.target.value as ConversationLevelId)}
-        style={selectStyle}
-      >
-        {setting.levels.map(levelOption)}
-      </select>
-    </>
+    <ThemedSelect
+      id={SELECT_ID}
+      label="Level"
+      value={selected.level_id}
+      options={setting.levels.map((option) => ({ value: option.level_id, label: optionText(option) }))}
+      onChange={(level) => setting.changeLevel(level as ConversationLevelId)}
+      describedBy={DESCRIPTION_ID}
+      disabled={setting.isSaving}
+      style={selectStyle}
+      isCompact
+    />
   )
 }
-
-const levelOption = (option: ConversationLevelOption) => (
-  <option key={option.level_id} value={option.level_id}>
-    {optionText(option)}
-  </option>
-)
 
 function LevelFeedback({
   announcement,

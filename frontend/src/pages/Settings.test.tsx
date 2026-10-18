@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import Settings from './Settings'
+import { chooseOption, optionLabels } from '../components/shared/themedSelect.test.utils'
 import * as api from '../services/api'
 
 vi.mock('../services/api')
@@ -132,8 +133,7 @@ describe('Settings page', () => {
   it('shows model selector with current llm_model value', async () => {
     vi.mocked(api.getSettings).mockResolvedValue(mockSettings)
     renderSettings()
-    const select = await screen.findByLabelText<HTMLSelectElement>('Model')
-    expect(select.value).toBe('llama3.1')
+    expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent('llama3.1')
   })
 
   it('shows suggestion count input with current value', async () => {
@@ -148,8 +148,8 @@ describe('Settings page', () => {
     vi.mocked(api.updateSettings).mockResolvedValue({ ...mockSettings, llm_model: 'llama3.2', suggestion_count: 5 })
     renderSettings()
 
-    const select = await screen.findByLabelText<HTMLSelectElement>('Model')
-    fireEvent.change(select, { target: { value: 'llama3.2' } })
+    await screen.findByRole('combobox', { name: 'Model' })
+    chooseOption('Model', 'llama3.2')
 
     const input = screen.getByLabelText<HTMLInputElement>(/suggestion count/i)
     fireEvent.change(input, { target: { value: '5' } })
@@ -202,9 +202,8 @@ describe('Settings page — language model provider', () => {
     vi.mocked(api.getSettings).mockResolvedValue(mockSettings)
     renderSettings()
 
-    const select = await screen.findByLabelText('Model')
-    const options = Array.from(select.querySelectorAll('option')).map((o) => o.textContent)
-    expect(options).not.toContain('mistral')
+    await screen.findByRole('combobox', { name: 'Model' })
+    expect(optionLabels('Model')).not.toContain('mistral')
   })
 
   it('saves the provider, model, and effort together', async () => {

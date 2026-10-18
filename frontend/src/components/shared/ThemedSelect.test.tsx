@@ -77,6 +77,16 @@ describe('ThemedSelect', () => {
     expect(activeOption()).toHaveTextContent('Enthusiast')
   })
 
+  it('opens on the first or last option with Home or End', async () => {
+    render(<Controlled />)
+    trigger().focus()
+
+    await userEvent.keyboard('{End}')
+
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    expect(activeOption()).toHaveTextContent('Curious interviewer')
+  })
+
   it('jumps to the next option starting with the typed letters', async () => {
     render(<Controlled />)
     trigger().focus()

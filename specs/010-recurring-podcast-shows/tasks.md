@@ -733,8 +733,8 @@ before T090, or after it, never at the same time.
 
 ### Tests for User Story 6 (write first, see them fail)
 
-- [ ] T093 [US6] Add `chooseOption(page, label, optionName)` to `frontend/e2e/fixtures.ts`: it opens the combobox named `label` and clicks the option named `optionName`. Also add `contrastRatio(foreground, background)` (the WCAG relative-luminance formula over computed `rgb()` strings).
-- [ ] T094 [P] [US6] Write `frontend/e2e/themed-select.spec.ts`. Open each drop-down below in light, dark and system-dark themes (`page.emulateMedia({ colorScheme })` plus the app's theme setting):
+- [X] T093 [US6] Add `chooseOption(page, label, optionName)` to `frontend/e2e/fixtures.ts`: it opens the combobox named `label` and clicks the option named `optionName`. Also add `contrastRatio(foreground, background)` (the WCAG relative-luminance formula over computed `rgb()` strings).
+- [X] T094 [P] [US6] Write `frontend/e2e/themed-select.spec.ts`. Open each drop-down below in light, dark and system-dark themes (`page.emulateMedia({ colorScheme })` plus the app's theme setting):
   - the podcast setup personality drop-down;
   - Settings' `SelectField`s;
   - the chat Level control;
@@ -746,24 +746,24 @@ before T090, or after it, never at the same time.
   - `contrastRatio` is ≥ 4.5 for normal, selected and focused options;
   - the focused option's outline differs from the other options';
   - keyboard navigation (↓, Enter, Escape) works.
-- [ ] T095 [P] [US6] Update the Settings Vitest tests to open the combobox and click an option instead of `selectOptions`, and to assert the combobox roles: `frontend/src/components/settings/LlmProviderFields.test.tsx`, `ConversationLevelSection.test.tsx` and `frontend/src/pages/Settings.test.tsx`.
-- [ ] T096 [P] [US6] Update the same way `frontend/src/components/chat/ConversationLevelControl.test.tsx` and `frontend/src/pages/Chat.test.tsx`.
-- [ ] T097 [P] [US6] Update the same way `frontend/src/components/flashcards/WordFilterBar.test.tsx` and the flashcards page tests that drive the filter (`frontend/src/pages/Flashcards.test.tsx`, `FlashcardDecks.test.tsx`).
-- [ ] T098 [P] [US6] Update the same way `frontend/src/components/podcasts/HostCard.test.tsx` and the personality cases in `frontend/src/pages/PodcastSetup.test.tsx`.
+- [X] T095 [P] [US6] Update the Settings Vitest tests to open the combobox and click an option instead of `selectOptions`, and to assert the combobox roles: `frontend/src/components/settings/LlmProviderFields.test.tsx`, `ConversationLevelSection.test.tsx` and `frontend/src/pages/Settings.test.tsx`.
+- [X] T096 [P] [US6] Update the same way `frontend/src/components/chat/ConversationLevelControl.test.tsx` and `frontend/src/pages/Chat.test.tsx`.
+- [X] T097 [P] [US6] Update the same way `frontend/src/components/flashcards/WordFilterBar.test.tsx` and the flashcards page tests that drive the filter (`frontend/src/pages/Flashcards.test.tsx`, `FlashcardDecks.test.tsx`).
+- [X] T098 [P] [US6] Update the same way `frontend/src/components/podcasts/HostCard.test.tsx` and the personality cases in `frontend/src/pages/PodcastSetup.test.tsx`.
 
 ### Implementation for User Story 6
 
-- [ ] T099 [P] [US6] Replace the `<select>` in `frontend/src/components/settings/SelectField.tsx` with `ThemedSelect`, keeping the props unchanged.
-- [ ] T100 [P] [US6] Replace the `<select>`s in `frontend/src/components/settings/LlmProviderFields.tsx` with `ThemedSelect`.
-- [ ] T101 [P] [US6] Replace the `<select>` in `frontend/src/components/chat/ConversationLevelControl.tsx` with `ThemedSelect`.
-- [ ] T102 [P] [US6] Bring `WordFilterBar` under the function-length limit, then replace its `<select>` (Constitution I: a modified function longer than 20 lines is brought within the limit):
+- [X] T099 [P] [US6] Replace the `<select>` in `frontend/src/components/settings/SelectField.tsx` with `ThemedSelect`, keeping the props unchanged.
+- [X] T100 [P] [US6] Replace the `<select>`s in `frontend/src/components/settings/LlmProviderFields.tsx` with `ThemedSelect`.
+- [X] T101 [P] [US6] Replace the `<select>` in `frontend/src/components/chat/ConversationLevelControl.tsx` with `ThemedSelect`.
+- [X] T102 [P] [US6] Bring `WordFilterBar` under the function-length limit, then replace its `<select>` (Constitution I: a modified function longer than 20 lines is brought within the limit):
   - **Refactor first**, with `WordFilterBar.test.tsx` and `flashcards.spec.ts` green before and after. Split `frontend/src/components/flashcards/WordFilterBar.tsx` (197 lines, with inner arrow functions of 40 and 27) into colocated components, `ClassificationPills.tsx`, `WordSortSelect.tsx` and `DatePresetChips.tsx`, and move the inline style objects to module-level constants. Every function ends ≤ 20 lines, and the behaviour and accessible names are unchanged;
   - replace the `<select>` inside `WordSortSelect` with `ThemedSelect`;
   - add `src/components/flashcards/WordFilterBar.tsx`, `ClassificationPills.tsx`, `WordSortSelect.tsx` and `DatePresetChips.tsx` to the `max-lines-per-function` override in `frontend/.eslintrc.json`. `npm run lint` is green.
-- [ ] T103 [P] [US6] Replace the personality `<select>` in `frontend/src/components/podcasts/HostCard.tsx` with `ThemedSelect` (≈ 15 lines). The rule that two hosts never share a personality is unchanged.
-- [ ] T104 [US6] Move the existing E2E specs from `selectOption()` to `chooseOption()`: `frontend/e2e/settings.spec.ts`, `conversation-level.spec.ts`, `practice-language.spec.ts`, `flashcards.spec.ts` and `podcasts.spec.ts`.
-- [ ] T105 [US6] Delete the `option { … }` rule and its comment from `frontend/src/index.css` (around line 225). Confirm that `grep -rn "<select\|<option" frontend/src --include=*.tsx` returns nothing.
-- [ ] T106 [US6] US6 checkpoint: `npm run lint`, `npm test` and `npm run test:e2e` are green, including T094; then quickstart §4 step 9.
+- [X] T103 [P] [US6] Replace the personality `<select>` in `frontend/src/components/podcasts/HostCard.tsx` with `ThemedSelect` (≈ 15 lines). The rule that two hosts never share a personality is unchanged.
+- [X] T104 [US6] Move the existing E2E specs from `selectOption()` to `chooseOption()`: `frontend/e2e/settings.spec.ts`, `conversation-level.spec.ts`, `practice-language.spec.ts`, `flashcards.spec.ts` and `podcasts.spec.ts`.
+- [X] T105 [US6] Delete the `option { … }` rule and its comment from `frontend/src/index.css` (around line 225). Confirm that `grep -rn "<select\|<option" frontend/src --include=*.tsx` returns nothing.
+- [X] T106 [US6] US6 checkpoint: `npm run lint`, `npm test` and `npm run test:e2e` are green, including T094; then quickstart §4 step 9.
 
 **Checkpoint**: every drop-down is themed and checked automatically in both themes.
 

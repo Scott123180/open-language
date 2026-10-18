@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { LlmProviderOption } from '../../services/api'
+import ThemedSelect from '../shared/ThemedSelect'
 
 export interface LlmSelectionValue {
   provider: string
@@ -187,13 +188,14 @@ function LabelledSelect({ id, label, value, choices, onPick }: LabelledSelectPro
       <label htmlFor={id} style={labelStyle}>
         {label}
       </label>
-      <select id={id} value={value} onChange={(e) => onPick(e.target.value)} style={selectStyle}>
-        {choices.map((choice) => (
-          <option key={choice.id} value={choice.id}>
-            {choice.label}
-          </option>
-        ))}
-      </select>
+      <ThemedSelect
+        id={id}
+        label={label}
+        value={value}
+        options={choices.map((choice) => ({ value: choice.id, label: choice.label }))}
+        onChange={onPick}
+        style={selectStyle}
+      />
     </div>
   )
 }

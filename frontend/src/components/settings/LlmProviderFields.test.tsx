@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+import { chooseOption, optionLabels } from '../shared/themedSelect.test.utils'
 import LlmProviderFields, { type LlmSelectionValue } from './LlmProviderFields'
 import type { LlmProviderOption } from '../../services/api'
 
@@ -50,10 +51,6 @@ function renderFields(value: LlmSelectionValue, providers = [OLLAMA, CLAUDE]) {
   return onChange
 }
 
-const optionTexts = (select: HTMLElement) =>
-  within(select)
-    .getAllByRole('option')
-    .map((option) => option.textContent)
 
 describe('LlmProviderFields', () => {
   it('renders a labelled radio group with one radio per provider', () => {
@@ -67,7 +64,7 @@ describe('LlmProviderFields', () => {
   it("lists only the selected provider's models", () => {
     renderFields(ON_CLAUDE)
 
-    expect(optionTexts(screen.getByLabelText('Model'))).toEqual([
+    expect(optionLabels('Model')).toEqual([
       'Claude Sonnet',
       'Claude Haiku (fastest)',
     ])
@@ -84,7 +81,7 @@ describe('LlmProviderFields', () => {
   it('choosing a model reports it', () => {
     const onChange = renderFields(ON_OLLAMA)
 
-    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'llama3.2' } })
+    chooseOption('Model', 'llama3.2')
 
     expect(onChange).toHaveBeenCalledWith({ ...ON_OLLAMA, model: 'llama3.2' })
   })
@@ -92,9 +89,8 @@ describe('LlmProviderFields', () => {
   it('keeps a saved model that is missing from the list', () => {
     renderFields({ ...ON_OLLAMA, model: 'llama3.1' })
 
-    const select = screen.getByLabelText<HTMLSelectElement>('Model')
-    expect(select.value).toBe('llama3.1')
-    expect(optionTexts(select)).toContain('llama3.1')
+    expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent('llama3.1')
+    expect(optionLabels('Model')).toContain('llama3.1')
   })
 
   it('shows effort only for a provider with effort levels', () => {
@@ -105,10 +101,8 @@ describe('LlmProviderFields', () => {
 
   it('offers the catalogue effort labels for Claude', () => {
     const onChange = renderFields(ON_CLAUDE)
-    const effort = screen.getByLabelText<HTMLSelectElement>('Effort')
-
-    expect(optionTexts(effort)).toEqual(['Low — fastest replies', 'High — deeper, slower replies'])
-    fireEvent.change(effort, { target: { value: 'high' } })
+    expect(optionLabels('Effort')).toEqual(['Low — fastest replies', 'High — deeper, slower replies'])
+    chooseOption('Effort', 'High — deeper, slower replies')
     expect(onChange).toHaveBeenCalledWith({ ...ON_CLAUDE, effort: 'high' })
   })
 

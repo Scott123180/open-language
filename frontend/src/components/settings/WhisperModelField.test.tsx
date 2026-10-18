@@ -1,27 +1,25 @@
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+import { chooseOption, optionLabels } from '../shared/themedSelect.test.utils'
 import WhisperModelField from './WhisperModelField'
 
 describe('WhisperModelField', () => {
-  it('is a select labelled Speech Recognition Model showing the value', () => {
+  it('is a drop-down labelled Speech Recognition Model showing the value', () => {
     render(<WhisperModelField value="small" onChange={vi.fn()} />)
 
-    const select = screen.getByLabelText<HTMLSelectElement>('Speech Recognition Model')
-    expect(select.value).toBe('small')
-    expect(
-      within(select)
-        .getAllByRole('option')
-        .map((o) => o.getAttribute('value'))
-    ).toEqual(['base', 'small', 'medium'])
+    expect(screen.getByRole('combobox', { name: 'Speech Recognition Model' })).toHaveTextContent('Small — balanced')
+    expect(optionLabels('Speech Recognition Model')).toEqual([
+      'Base — fast, lower accuracy',
+      'Small — balanced',
+      'Medium — slower, higher accuracy',
+    ])
   })
 
   it('calls onChange with the chosen model', () => {
     const onChange = vi.fn()
     render(<WhisperModelField value="base" onChange={onChange} />)
 
-    fireEvent.change(screen.getByLabelText('Speech Recognition Model'), {
-      target: { value: 'medium' },
-    })
+    chooseOption('Speech Recognition Model', 'Medium — slower, higher accuracy')
 
     expect(onChange).toHaveBeenCalledWith('medium')
   })
