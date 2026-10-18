@@ -22,10 +22,10 @@ test.describe('Podcasts', () => {
     await page.getByRole('link', { name: 'Podcasts' }).click()
 
     await expect(page.getByRole('heading', { name: 'Podcasts' })).toBeVisible()
-    const cards = page.getByRole('list').getByRole('button')
+    const cards = page.getByRole('list').getByRole('button', { name: /^(?!Favourite )/ })
     await expect(cards).toHaveCount(mockPodcastCatalog.shows.length)
     expect(mockPodcastCatalog.shows.length).toBeGreaterThanOrEqual(6)
-    const food = page.getByRole('button', { name: 'Weekend Food Talk' })
+    const food = page.getByRole('button', { name: 'Weekend Food Talk', exact: true })
     await expect(food).toContainText('Topic: food')
     await expect(food).toContainText('Lucía (Enthusiast) & Marco (Dry sceptic)')
     await expect(food).toContainText("You're the guest")
@@ -33,12 +33,12 @@ test.describe('Podcasts', () => {
 
   test('show cards sit side by side on a wide screen and stack on a phone', async ({ page }) => {
     const firstTwo = async () => {
-      const cards = page.getByRole('list').getByRole('button')
+      const cards = page.getByRole('list').getByRole('button', { name: /^(?!Favourite )/ })
       return Promise.all([cards.nth(0).boundingBox(), cards.nth(1).boundingBox()])
     }
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/podcasts')
-    await expect(page.getByRole('button', { name: 'Weekend Food Talk' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Weekend Food Talk', exact: true })).toBeVisible()
 
     const [wideFirst, wideSecond] = await firstTwo()
     expect(wideSecond!.y).toBe(wideFirst!.y)
@@ -52,7 +52,7 @@ test.describe('Podcasts', () => {
 
   test('choosing a show opens its setup on One host and Medium', async ({ page }) => {
     await page.goto('/podcasts')
-    await page.getByRole('button', { name: 'Weekend Food Talk' }).click()
+    await page.getByRole('button', { name: 'Weekend Food Talk', exact: true }).click()
 
     await expect(page).toHaveURL(/\/podcasts\/setup\?show=weekend-food-talk/)
     await expect(page.getByRole('heading', { name: 'Weekend Food Talk' })).toBeVisible()

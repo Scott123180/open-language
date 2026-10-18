@@ -1,17 +1,22 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import type { PersonalityOption, SeriesSummary, ShowDraft } from '../../services/podcastsApi'
 import { roleText } from './learnerRole'
 import RoleBadge from './RoleBadge'
+import FavouriteToggle from './FavouriteToggle'
 import ShowCast from './ShowCast'
 import { cardStyle, visuallyHiddenStyle } from './styles'
 
 /** A show as a card shows it: a draft, with its series once it has one (010). */
-type CardShow = ShowDraft & { series?: SeriesSummary | null }
+type CardShow = ShowDraft & { series?: SeriesSummary | null; is_favourite?: boolean }
 
 interface ShowCardProps {
   show: CardShow
   personalities: PersonalityOption[]
   onChoose: (show: CardShow) => void
+  /** With it, the card is a group: the choose button, then the favourite toggle (010 US4). */
+  onToggleFavourite?: (show: CardShow) => void
+  /** Another secondary action beside the toggle, such as Remove. */
+  extraAction?: ReactNode
 }
 
 const showCardStyle: CSSProperties = { ...cardStyle, gap: 'var(--space-4)', height: '100%', padding: 'var(--space-5)' }
@@ -34,6 +39,9 @@ const footerStyle: CSSProperties = {
   paddingTop: 'var(--space-3)',
   borderTop: '1px solid var(--color-border-subtle)',
 }
+
+const groupStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', width: '100%' }
+const actionsStyle: CSSProperties = { display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }
 
 const seriesBadgeStyle: CSSProperties = {
   fontSize: 'var(--text-sm)',
@@ -58,9 +66,25 @@ function describeShow(show: CardShow, labelOf: (id: string) => string): string {
   return `Topic: ${show.topic}. ${hosts}. ${roleText(show.learner_role)}.${series ? ` ${series}.` : ''}`
 }
 
-/** One ready-made show: a button named by its title. The topic sits over the title, the hosts
- * under it and the learner's role at the foot; screen readers get the same as one sentence. */
-export default function ShowCard({ show, personalities, onChoose }: ShowCardProps) {
+/** A show card. With a favourite toggle it is a group, the toggle beside the choose button and
+ * never inside it, so each is its own control. */
+export default function ShowCard(props: ShowCardProps) {
+  if (!props.onToggleFavourite) return <ShowCardButton {...props} />
+  const { show, onToggleFavourite, extraAction } = props
+  return (
+    <div role="group" aria-label={show.title} style={groupStyle}>
+      <ShowCardButton {...props} />
+      <div style={actionsStyle}>
+        <FavouriteToggle title={show.title} isFavourite={show.is_favourite ?? false} onToggle={() => onToggleFavourite(show)} />
+        {extraAction}
+      </div>
+    </div>
+  )
+}
+
+/** One show: a button named by its title. The topic sits over the title, the hosts under it and
+ * the learner's role at the foot; screen readers get the same as one sentence. */
+function ShowCardButton({ show, personalities, onChoose }: ShowCardProps) {
   const labelOf = (id: string) => personalities.find((p) => p.personality_id === id)?.label ?? id
   const detailsId = `show-${show.show_id ?? show.title}-details`
   return (

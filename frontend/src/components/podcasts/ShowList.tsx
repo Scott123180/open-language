@@ -4,6 +4,7 @@ import ShowCard from './ShowCard'
 interface ShowListProps {
   catalog: PodcastCatalog
   onChoose: (show: ShowDraft) => void
+  onToggleFavourite?: (show: ShowDraft) => void
 }
 
 /** As many columns as fit at 280px or more each: three on a wide screen, one on a phone. */
@@ -17,12 +18,12 @@ const listStyle = {
 }
 
 /** The ready-made shows, each a card whose choice is the screen's one primary action. */
-export default function ShowList({ catalog, onChoose }: ShowListProps) {
+export default function ShowList({ catalog, onChoose, onToggleFavourite }: ShowListProps) {
   return (
     <ul style={listStyle}>
       {catalog.shows.map((show) => (
         <li key={show.show_id ?? show.title} style={{ display: 'flex' }}>
-          <ShowCard show={show} personalities={catalog.personalities} onChoose={onChoose} />
+          <ShowCard show={show} personalities={catalog.personalities} onChoose={onChoose} onToggleFavourite={onToggleFavourite} />
         </li>
       ))}
     </ul>

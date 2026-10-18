@@ -110,3 +110,25 @@ describe('Podcasts page — generator and Surprise me (US4)', () => {
     await waitFor(() => expect(podcasts.updatePodcastPreferences).toHaveBeenCalledWith({ interests: ['football', 'cooking'] }))
   })
 })
+
+describe('Podcasts page — My shows (010 US4)', () => {
+  it('lists My shows above the ready-made shows', async () => {
+    const mine = { ...catalog.shows[0], show_id: 'game-day', title: 'Game Day', is_favourite: true }
+    vi.mocked(podcasts.getPodcastCatalog).mockResolvedValue({ ...catalog, my_shows: [mine] })
+    renderPodcasts()
+
+    const region = await screen.findByRole('region', { name: 'My shows' })
+    const readyMade = screen.getByRole('button', { name: 'Weekend Food Talk' })
+    expect(region.compareDocumentPosition(readyMade) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('opens a kept learner-made show by its saved id', async () => {
+    const kept = { ...generatedShow, saved_show_id: 9, is_favourite: true, series: null }
+    vi.mocked(podcasts.getPodcastCatalog).mockResolvedValue({ ...catalog, my_shows: [kept] })
+    renderPodcasts()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Night Shift Abroad' }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/podcasts/setup?saved=9')
+  })
+})

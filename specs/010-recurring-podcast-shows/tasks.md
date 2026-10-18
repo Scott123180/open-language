@@ -800,14 +800,14 @@ ready-made list is unchanged (spec US4).
   - a played generated show appears without a favourite, and its next series episode keeps the same hosts (US4-3);
   - `POST /episodes` with a stale `saved_show_id` returns 404;
   - with no favourites, series or kept shows, `my_shows == []` (US4-4).
-- [ ] T109 [P] [US4] Write the US4 Vitest tests:
+- [X] T109 [P] [US4] Write the US4 Vitest tests:
   - `frontend/src/hooks/podcasts/useFavourite.test.tsx`: optimistic toggle, rollback with a message on failure;
   - `frontend/src/components/podcasts/FavouriteToggle.test.tsx`: a separate `button` with `aria-pressed`, named "Favourite {title}";
   - `MyShows.test.tsx`: a labelled region, hidden when empty, with "Episode N next" per show; a kept learner-made show has a secondary **Remove** button named "Remove {title}", which opens a `ConfirmDialog`; Cancel sends nothing, Confirm calls `removeShow` and the show leaves the list; ready-made shows have no Remove;
   - `ShowCard.test.tsx` (extended): the card is a group with the choose button and the toggle side by side, never nested;
   - `frontend/src/pages/Podcasts.test.tsx`: My shows sits above the ready-made list;
   - `frontend/src/hooks/podcasts/useShowDraft.test.tsx` or a new `useSetupShow.test.tsx`: `?saved=<id>` finds the show in `my_shows`.
-- [ ] T110 [P] [US4] Write `frontend/e2e/podcast-favourites.spec.ts`:
+- [X] T110 [P] [US4] Write `frontend/e2e/podcast-favourites.spec.ts`:
   - favourite and unfavourite: the request body and the toggle state;
   - My shows appears and hides;
   - a series show stays after unfavouriting;
@@ -829,13 +829,13 @@ ready-made list is unchanged (spec US4).
   - in `get_catalog` in `backend/app/podcasts/routes.py`: still ≤ 11 lines.
 
   T108 passes.
-- [ ] T114 [P] [US4] Add `setFavourite(show, isFavourite)` and `removeShow(savedShowId)` to `frontend/src/services/podcastsApi.ts`.
-- [ ] T115 [US4] Implement `frontend/src/hooks/podcasts/useFavourite.ts`: optimistic update of the catalogue query, rolled back with a plain message on failure.
-- [ ] T116 [US4] Implement the US4 components in `frontend/src/components/podcasts/`:
+- [X] T114 [P] [US4] Add `setFavourite(show, isFavourite)` and `removeShow(savedShowId)` to `frontend/src/services/podcastsApi.ts`.
+- [X] T115 [US4] Implement `frontend/src/hooks/podcasts/useFavourite.ts`: optimistic update of the catalogue query, rolled back with a plain message on failure.
+- [X] T116 [US4] Implement the US4 components in `frontend/src/components/podcasts/`:
   - `FavouriteToggle.tsx`;
   - `ShowCard.tsx` as a group, ≈ 18 lines;
   - `MyShows.tsx`, with the **Remove** button and its `ConfirmDialog` on kept learner-made shows (extract a `RemoveShowButton.tsx` if `MyShows` would pass 20 lines); removing invalidates the catalogue query.
-- [ ] T117 [US4] Integrate My shows:
+- [X] T117 [US4] Integrate My shows:
   - `frontend/src/pages/Podcasts.tsx` adds `<MyShows>` above `ShowList`;
   - `frontend/src/hooks/podcasts/useSetupShow.ts` accepts `?saved=`, with the lookup moved to `findShow(catalog, params)`;
   - `ShowList.tsx` passes the toggle through.

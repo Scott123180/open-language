@@ -27,7 +27,7 @@ test.describe('Podcast series (010 US1)', () => {
     await mockSeriesApis(page)
     await page.goto('/podcasts')
 
-    const card = page.getByRole('button', { name: 'Big Little Questions' })
+    const card = page.getByRole('button', { name: 'Big Little Questions', exact: true })
     await expect(card).toContainText('Episode 2 next')
     await card.click()
 
@@ -212,6 +212,6 @@ test.describe('Podcast series — a one-off beside it (010 US2)', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Big Little Questions · One-off')
 
     await page.goto('/podcasts')
-    await expect(page.getByRole('button', { name: 'Big Little Questions' })).toContainText('Episode 2 next')
+    await expect(page.getByRole('button', { name: 'Big Little Questions', exact: true })).toContainText('Episode 2 next')
   })
 })

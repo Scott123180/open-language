@@ -72,3 +72,16 @@ describe('ShowCard with a series (010)', () => {
     expect(screen.getByRole('button', { name: 'Weekend Food Talk' })).not.toHaveAccessibleDescription(/Episode/)
   })
 })
+
+describe('ShowCard with a favourite toggle (010 US4)', () => {
+  it('groups the choose button and the toggle side by side, never nested', () => {
+    render(<ShowCard show={seriesListing} personalities={personalities} onChoose={vi.fn()} onToggleFavourite={vi.fn()} />)
+
+    const group = screen.getByRole('group', { name: 'Big Little Questions' })
+    const choose = screen.getByRole('button', { name: 'Big Little Questions' })
+    const toggle = screen.getByRole('button', { name: 'Favourite Big Little Questions' })
+    expect(group).toContainElement(choose)
+    expect(group).toContainElement(toggle)
+    expect(choose).not.toContainElement(toggle)
+  })
+})

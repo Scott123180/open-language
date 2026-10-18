@@ -325,3 +325,14 @@ describe('PodcastSetup page — a one-off beside the series (010 US2)', () => {
     expect(podcasts.catchUpSeriesMemory).not.toHaveBeenCalledWith(4, { wait: true })
   })
 })
+
+describe('PodcastSetup page — a kept show (010 US4)', () => {
+  it('finds a kept learner-made show by ?saved=', async () => {
+    const kept = { ...generatedShow, saved_show_id: 9, is_favourite: true, series: null }
+    vi.mocked(podcasts.getPodcastCatalog).mockResolvedValue({ ...catalog, my_shows: [kept] })
+
+    renderSetup('?saved=9')
+
+    expect(await screen.findByRole('heading', { name: 'Night Shift Abroad' })).toBeInTheDocument()
+  })
+})

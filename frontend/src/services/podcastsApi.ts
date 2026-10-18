@@ -317,6 +317,23 @@ export const resetSeries = async (seriesId: number): Promise<void> => {
   if (!res.ok) throw new Error(await readError(res))
 }
 
+/** Mark or unmark a show as a favourite. Null when unfavouriting left nothing to keep (§3). */
+export const setFavourite = async (show: ShowDraft, isFavourite: boolean): Promise<ShowListing | null> => {
+  const res = await fetch(`${BASE}/favourites`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ show, is_favourite: isFavourite }),
+  })
+  if (!res.ok) throw new Error(await readError(res))
+  return res.status === 204 ? null : ((await res.json()) as ShowListing)
+}
+
+/** Remove a kept learner-made show; its episodes stay in Past Chats (FR-024). */
+export const removeShow = async (savedShowId: number): Promise<void> => {
+  const res = await fetch(`${BASE}/shows/${savedShowId}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(await readError(res))
+}
+
 export const getEpisodeSuggestions = (conversationId: number): Promise<{ suggestions: string[] }> =>
   podcastFetch(`/episodes/${conversationId}/suggestions`, { method: 'POST' })
 
