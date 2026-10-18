@@ -42,7 +42,7 @@ _OPEN, _GREET, _LEAD = "open", "greet", "lead"
 _SERIES_RULES = (
     "Series rules:",
     "- Choose a subject within the show's topic that is not in the covered list.",
-    "- Never claim to remember anything that is not listed here.",
+    "- Never claim to remember anything not listed here, such as earlier advice or guests.",
 )
 _REFER_BACK_RULE = "- Where it fits, refer back to one of these points, accurately."
 
@@ -350,8 +350,8 @@ def _already_remembered(remembered: Sequence[str]) -> str:
 def _memory_rules(target: str) -> str:
     rules = (
         "Rules:",
-        "- topic: the subject of this part of the episode, as one short phrase. Leave both "
-        "texts empty if there is none.",
+        "- topic: what this part of the episode was mostly about, as one short phrase of at "
+        "most six words. Always fill it in.",
         f"- about_learner: at most {MAX_POINTS_PER_EPISODE} things the learner said about "
         "themselves (likes, plans, experiences, opinions), only from lines labelled "
         f"{LEARNER_SPEAKER}.",
