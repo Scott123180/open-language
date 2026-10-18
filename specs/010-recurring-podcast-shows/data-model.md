@@ -26,6 +26,7 @@ podcast_shows ──< podcast_series   (unique per show × target_language)
 | `MAX_REMEMBERED_ABOUT_LEARNER` | new: `8` |
 | `MAX_POINTS_PER_EPISODE` | new: `3` learner points per memory reply |
 | `REMEMBERED_POINT_MAX_LENGTH` | new: `160` characters |
+| `REMEMBERED_TEXT_BUDGET` | new: `1200` characters, the most conversation-language text a series' points may hold together, so the stored list always fits the series section whole (research R7) |
 | `SERIES_SECTION_MAX_LENGTH` | new: `1800` characters, the budget the series prompt section is tested against |
 | `MIN_LINES_TO_REMEMBER` | new: `2` |
 | `MEMORY_CHUNK_CHARACTERS` | new: `6000` (the summariser's budget, 007 R14) |
@@ -60,7 +61,8 @@ podcast_shows ──< podcast_series   (unique per show × target_language)
   learner-made one (`template_id` NULL, every content column set), never both;
 - a ready-made row exists only while it is a favourite or has a series;
 - a learner-made row exists only while it is a favourite, has been played, or has a series
-  (FR-019).
+  (FR-019), and until the learner removes it (FR-024). Removing deletes the row, and the cascade
+  deletes its series in every language.
 
 ### 2.2 `podcast_series`: one show in one practice language (research R2)
 
@@ -121,8 +123,11 @@ Rules:
 - at most one `topic` row per (`series_id`, `conversation_id`): a re-read episode replaces its
   topic;
 - after every write, at most `MAX_REMEMBERED_TOPICS` topic rows and
-  `MAX_REMEMBERED_ABOUT_LEARNER` learner rows remain per series, keeping the newest. The pruning
-  happens in the same transaction as the write.
+  `MAX_REMEMBERED_ABOUT_LEARNER` learner rows remain per series, keeping the newest;
+- then, while the series' `conversation_language` texts total more than
+  `REMEMBERED_TEXT_BUDGET` characters, the oldest row of either kind is deleted (ties broken by
+  `id`);
+- the pruning happens in the same transaction as the write.
 
 ---
 
@@ -160,7 +165,9 @@ implemented by SQLite classes in `services/`:
 - `set_favourite(ref_or_content, is_favourite) -> KeptShow | None`: returns None when unfavouriting
   deleted the row (§2.1);
 - `touch_played(show_row_id)`;
-- `list_mine(language) -> list[ShelfEntry]`: research R9's union and order.
+- `list_mine(language) -> list[ShelfEntry]`: research R9's union and order;
+- `forget(saved_show_id) -> bool`: deletes a learner-made row and, by cascade, its series; False
+  for an unknown id or a ready-made row (FR-024).
 
 **`SeriesStorage`**
 - `find(show_row_id, language) -> SeriesRecord | None`;
@@ -191,6 +198,8 @@ ready-made, no state ──favourite──► kept (favourite) ──unfavourite
                                  reset ──► kept only if favourite, else no state
 
 learner-made draft (unsaved) ──favourite or any episode──► kept ──unfavourite──► kept if played or series, else deleted
+                                                            │ ──reset──────► kept (a learner-made kept show has been played)
+                                                            └──remove (confirmed)──► deleted, with its series in every language
 ```
 
 ### 5.2 A series
@@ -202,7 +211,13 @@ learner-made draft (unsaved) ──favourite or any episode──► kept ──
 ```
 
 **Start, kind=series** on show S in language L:
-1. **Validate**: `validate_draft` as in 007, with the series name-clash wording (research R8).
+1. **Validate**: for the series' first episode, `validate_draft` as in 007, with the series
+   name-clash wording (research R8). After the first, `show_problem` (the show-level checks), the
+   host match of step 3 and the series name clash only: the series' hosts were checked when the
+   series was created, and 007's pair rules must not refuse them later (for example two hosts
+   sharing the one voice installed when the series began, after a second voice is installed). A
+   series host whose voice is no longer installed still starts; the episode runs as text with
+   007's missing-voice notice.
 2. **Keep the show**: `keep(draft)`, then `touch_played`.
 3. **Find the series** for (S, L). If there is none, create it from the draft's two hosts
    (`joined_after_episodes = 0`). Otherwise the draft's hosts must match the series' hosts, or the
@@ -249,3 +264,4 @@ is not `up_to_date`, showing a "catching up" message. `POST /episodes` itself ne
 | Recast / series in another language | `series.language == settings.target_language` | 422 `LANGUAGE_CHANGED` |
 | `discover.avoid_titles` | ≤ 50 entries, each ≤ 200 characters | 422 |
 | Unknown `series_id` | | 404 "That series isn't there any more. Open the show again." |
+| Remove: unknown or ready-made `saved_show_id` | | 404 "That show isn't kept any more. Pick another one." |

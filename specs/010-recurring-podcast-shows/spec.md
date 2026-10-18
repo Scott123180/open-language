@@ -64,7 +64,7 @@ topic not already covered.
    continuing show.
 3. **Given** a previous episode in which the learner shared something about themselves, **When** the
    next episode runs, **Then** at least one host line within the episode refers back to a specific point
-   from an earlier episode, and the hosts do not repeat an earlier episode's topic.
+   from an earlier episode, and the hosts do not repeat a topic they remember from an earlier episode.
 4. **Given** a series in Spanish with Hugo as host, **When** the learner switches the practice language
    to German and opens the same show, **Then** it starts the German series of that show (episode 1 if
    none yet), with hosts whose names suit German; the Spanish series and its hosts are unchanged.
@@ -140,7 +140,9 @@ already works without them by choosing the show from the full list.
 
 **Independent Test**: Favourite a ready-made show and a generated show that has an episode; reload the
 app. Verify both appear in My shows with their next episode numbers, that unfavouriting removes a show
-from the group unless it has a series in progress, and that the ready-made list is unchanged.
+from the group unless it has a series in progress or is a learner-made show that has been played, that
+removing the played generated show takes it out of the group, and that the ready-made list is
+unchanged.
 
 **Acceptance Scenarios**:
 
@@ -152,6 +154,9 @@ from the group unless it has a series in progress, and that the ready-made list 
    Podcasts, **Then** it appears in My shows and its next episode keeps the same hosts.
 4. **Given** the learner has no favourites and no series, **When** they open Podcasts, **Then** My
    shows is not shown and the screen looks as it does today.
+5. **Given** a learner-made show in My shows, **When** the learner removes it and confirms, **Then** it
+   leaves My shows, its series in every language end, and its past episodes stay in Past Chats;
+   cancelling changes nothing.
 
 ---
 
@@ -254,7 +259,8 @@ contrast, and the selected and focused options are distinguishable.
 - **FR-004**: The system MUST keep, per series, a short record of what is worth remembering: topics
   covered, and things the learner shared about themselves (likes, plans, experiences, opinions).
 - **FR-005**: In a series episode, the hosts MUST acknowledge the show is continuing, MUST be able to
-  refer back to remembered points, and MUST choose a topic not already covered in that series.
+  refer back to remembered points, and MUST choose a topic not among the series' remembered topics
+  (which FR-006 bounds to the most recent ones).
 - **FR-006**: The remembered record MUST stay bounded in size regardless of the number of episodes, so
   starting a later episode does not take noticeably longer than starting the first.
 - **FR-007**: A one-off episode MUST NOT read from or add to any series' record or episode count, and
@@ -278,12 +284,15 @@ contrast, and the selected and focused options are distinguishable.
 - **FR-012**: Learners MUST be able to mark and unmark any show as a favourite; favourites MUST persist
   across restarts.
 - **FR-013**: The Podcasts screen MUST show a "My shows" group above the ready-made list, containing
-  favourites and shows with a series in progress in the current practice language, each with its next
-  episode number. The group MUST be hidden when empty.
+  favourites, shows with a series in progress in the current practice language, and learner-made shows
+  that have been played (FR-014), each with its next episode number. The group MUST be hidden when
+  empty.
 - **FR-014**: A generated or surprise show MUST be kept as one of the learner's shows once it is
   favourited or an episode of it is played, and MUST be startable again with the same title, premise and
   hosts.
 - **FR-015**: The ready-made show list MUST stay the same, in the same order, on every visit.
+- **FR-024**: Learners MUST be able to remove a kept learner-made show from My shows after a
+  confirmation. Removing it MUST end its series in every language and MUST NOT delete past episodes.
 
 **Find a new show**
 
@@ -336,8 +345,8 @@ contrast, and the selected and focused options are distinguishable.
 - **SC-002**: In a review of at least 20 second-or-later series episodes on the default local setup,
   at least 80% contain a host line that correctly refers to a specific point from an earlier episode,
   and none presents an invented memory as fact.
-- **SC-003**: In the same review, at least 90% of series episodes choose a topic not already covered in
-  that series.
+- **SC-003**: In the same review, at least 90% of series episodes choose a topic not among that
+  series' remembered topics.
 - **SC-004**: In a review of at least 20 one-off episodes of shows with a series in progress, 0 host
   lines refer to earlier episodes.
 - **SC-005**: From opening the Podcasts screen, the learner can start the next episode of a favourite

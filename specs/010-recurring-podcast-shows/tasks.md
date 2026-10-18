@@ -12,12 +12,12 @@ description: "Task list for 010 — Recurring Podcast Shows"
 **Tests**: Test tasks are MANDATORY under the TDD constitution (Principle III). Write each test task
 first, and watch it FAIL before the implementation task that follows it. Each test sits at the
 level that the guarantee tables in [contracts/api.md](contracts/api.md) name: unit, contract,
-integration, Vitest or Playwright. Two pins are exceptions to "watch it fail", because they record
-today's behaviour on purpose:
-- the one-off golden prompt test (T006);
-- the frozen-schema upgrade test (T005).
+integration, Vitest or Playwright. One pin is an exception to "watch it fail", because it records
+today's behaviour on purpose: the one-off golden prompt test (T006). It must pass **before** any
+010 code exists, and must keep passing unedited.
 
-Both must pass **before** any 010 code exists, and must keep passing unedited.
+The frozen-schema upgrade test (T005) is an ordinary red test: it fails until T019 adds the five
+tables, and must then keep passing unedited, except for T043's API-level additions.
 
 **Organization**: Tasks are grouped by user story, in the order of plan.md § "Suggested phase
 order":
@@ -103,7 +103,11 @@ order":
   - `sqlite3 <file> .schema > backend/tests/fixtures/schema_007.sql`, then `git worktree remove "$SCRATCH/wt-pre010"`;
   - check the dump: `podcast_episodes`, `podcast_hosts`, `podcast_host_lines` and `podcast_preferences` are present, and no `podcast_shows` or `podcast_series*` table exists;
   - add a header comment naming the source commit and "Do not edit", as in `schema_006.sql`.
-- [ ] T004 [P] Add `src/components/shared/ThemedSelect.tsx` and `src/components/shared/ConfirmDialog.tsx` to the `max-lines-per-function: 20` override's `files` list in `frontend/.eslintrc.json`. Also confirm that `src/components/podcasts/**` and `src/hooks/podcasts/**` are already covered, and add them if not.
+- [ ] T004 [P] Extend the `max-lines-per-function: 20` override's `files` list in `frontend/.eslintrc.json` (Constitution I):
+  - the new shared files: `src/components/shared/ThemedSelect.tsx`, `src/components/shared/useListboxNavigation.ts` and `src/components/shared/ConfirmDialog.tsx`;
+  - the non-podcast components this feature modifies that are already within the limit: `src/components/settings/SelectField.tsx`, `src/components/settings/LlmProviderFields.tsx` and `src/components/chat/ConversationLevelControl.tsx`. `npm run lint` must stay green;
+  - **not** `src/components/flashcards/WordFilterBar.tsx` yet: it is 197 lines today, and T102 adds it once it is split;
+  - `src/components/podcasts/**` and `src/hooks/podcasts/**` are already covered.
 
 ---
 
@@ -138,17 +142,17 @@ order":
     - the five new tables exist;
     - `podcast_series_episodes` is empty.
 
-  This test pins today's behaviour. It passes as soon as T019 adds the models, and it must not be edited after that, except by T043's API-level additions.
+  This test fails until T019 adds the models, because the five tables don't exist yet. From then on it pins the upgrade, and it must not be edited, except by T043's API-level additions.
 - [ ] T006 [P] Write the one-off golden test `backend/tests/unit/podcasts/test_one_off_golden.py` (FR-007, contracts §9). Write it **before** any change to `prompts.py`:
   - generate `backend/tests/unit/podcasts/golden/one_off_prompts.json` from the current code with a small script kept in the test module (`python -m tests.unit.podcasts.test_one_off_golden --write`). It holds:
     - `build_standing_prompt(...)` for every format (`one_host`, `panel`, `listen`), each with a learner name and with `learner_name=None`, at Natural and at Beginner;
     - `render_cue(...)` for every cue intent (`open`, `greet`, `discuss`, `reply`, `wrap_up`, `sign_off`), plus the settle and after-pass variants;
-  - the test asserts that each call **without** a `series` argument equals the stored text;
-  - a second test calls with an explicit `series=None` and must equal the same text. It fails, with a `TypeError`, until T048 adds the parameter.
+  - the test asserts that each call **without** a `series` argument equals the stored text. It passes on today's code;
+  - the explicit `series=None` case belongs to T033, so that every checkpoint stays green.
 - [ ] T007 [P] Extend `backend/tests/unit/podcasts/test_catalog.py` (data-model §1):
   - `"suggested" in SHOW_SOURCES`;
   - `EPISODE_KINDS == ("one_off", "series")`;
-  - `MAX_REMEMBERED_TOPICS == 10`, `MAX_REMEMBERED_ABOUT_LEARNER == 8`, `MAX_POINTS_PER_EPISODE == 3`, `REMEMBERED_POINT_MAX_LENGTH == 160`, `SERIES_SECTION_MAX_LENGTH == 1800`, `MIN_LINES_TO_REMEMBER == 2`, `MEMORY_CHUNK_CHARACTERS == 6000`, `MEMORY_WAIT_SECONDS == 30`, `SUGGESTION_SEEDS == 5`, `MIN_SUGGESTIONS == 3`, `INTEREST_SEEDS == 3`;
+  - `MAX_REMEMBERED_TOPICS == 10`, `MAX_REMEMBERED_ABOUT_LEARNER == 8`, `MAX_POINTS_PER_EPISODE == 3`, `REMEMBERED_POINT_MAX_LENGTH == 160`, `REMEMBERED_TEXT_BUDGET == 1200`, `SERIES_SECTION_MAX_LENGTH == 1800`, `MIN_LINES_TO_REMEMBER == 2`, `MEMORY_CHUNK_CHARACTERS == 6000`, `MEMORY_WAIT_SECONDS == 30`, `SUGGESTION_SEEDS == 5`, `MIN_SUGGESTIONS == 3`, `INTEREST_SEEDS == 3`;
   - FR-015: `list(SHOW_TEMPLATES)` equals a literal list of today's eight template ids, in today's order, copied from the current catalogue.
 - [ ] T008 [P] Extend `backend/tests/unit/test_database.py`: after `init_db()` the five tables exist with exactly the columns, types, nullability and constraints of data-model §2.1–§2.5:
   - `podcast_shows.template_id` is UNIQUE;
@@ -159,7 +163,7 @@ order":
   - every foreign key is `ON DELETE CASCADE`;
   - running `init_db()` twice is idempotent.
 - [ ] T009 [P] Write `backend/tests/contract/service_interfaces/test_series_storage_provider.py` (data-model §4, ISP):
-  - `ShowLibraryStorage` is an ABC declaring exactly `keep`, `get`, `set_favourite`, `touch_played` and `list_mine`;
+  - `ShowLibraryStorage` is an ABC declaring exactly `keep`, `get`, `set_favourite`, `touch_played`, `list_mine` and `forget`;
   - `SeriesStorage` is an ABC declaring exactly `find`, `get`, `create`, `recast`, `reset`, `remembered`, `pending_episodes` and `remember`;
   - `EpisodeEndings` is an ABC with exactly one abstract method, `episode_finished(conversation_id)`;
   - the SQLite classes implement every method;
@@ -175,7 +179,8 @@ order":
   - `set_favourite(..., False)` keeps the row otherwise;
   - `touch_played` sets `last_played_at`;
   - `list_mine(language)` returns the favourites, the shows with a series in `language`, and the played learner-made shows, ordered by the latest of `last_played_at` and `favourited_at`, newest first (research R9);
-  - a show with a series in another language only is not listed, unless it is a favourite or a played learner-made show.
+  - a show with a series in another language only is not listed, unless it is a favourite or a played learner-made show;
+  - `forget(saved_show_id)` deletes a learner-made row and returns `True`; its series in every language cascade away (hosts, links, memories), while the `conversations` and `podcast_episodes` rows stay; an unknown id, or the id of a ready-made row, returns `False` (FR-024).
 - [ ] T011 [P] Write `backend/tests/unit/podcasts/test_sqlite_series_storage.py` against an in-memory database (data-model §2.2–§2.5, §4):
   - `create(show_row_id, language, hosts)` stores both slots, each with `joined_after_episodes = 0`, and a second `create` for the same (show, language) is rejected;
   - `find` and `get` return a `SeriesRecord` with:
@@ -187,6 +192,7 @@ order":
     - writes the topic and learner points;
     - replaces the episode's earlier topic, keeping at most one `topic` row per (series, conversation);
     - prunes to `MAX_REMEMBERED_TOPICS` topic rows and `MAX_REMEMBERED_ABOUT_LEARNER` learner rows, keeping the newest by `created_at`;
+    - then deletes the oldest row of either kind (ties by `id`) while the series' `conversation_language` texts total more than `REMEMBERED_TEXT_BUDGET`. Assert which rows go for a series at the caps with 160-character points;
     - moves `remembered_up_to_message_id`;
     - does all of this in one transaction: a forced failure leaves neither points nor marker changed;
   - `pending_episodes(series_id)` returns only link rows with at least `MIN_LINES_TO_REMEMBER` messages after the marker;
@@ -239,7 +245,7 @@ order":
 
 ### Implementation for the foundation
 
-- [ ] T018 Add the data-model §1 constants to `backend/app/podcasts/catalog.py`: `"suggested"` in `SHOW_SOURCES`, `EPISODE_KINDS`, the memory caps and budgets, `MEMORY_WAIT_SECONDS`, `SUGGESTION_SEEDS`, `MIN_SUGGESTIONS` and `INTEREST_SEEDS`. Leave `SHOW_TEMPLATES` untouched. T007 passes.
+- [ ] T018 Add the data-model §1 constants to `backend/app/podcasts/catalog.py`: `"suggested"` in `SHOW_SOURCES`, `EPISODE_KINDS`, the memory caps and budgets (including `REMEMBERED_TEXT_BUDGET`), `MEMORY_WAIT_SECONDS`, `SUGGESTION_SEEDS`, `MIN_SUGGESTIONS` and `INTEREST_SEEDS`. Leave `SHOW_TEMPLATES` untouched. T007 passes.
 - [ ] T019 Add the five models to `backend/app/podcasts/models.py`, exactly as specified in data-model §2.1–§2.5:
   - `podcast_shows`:
     - `id`; `template_id` VARCHAR(100) NULL UNIQUE; `source` VARCHAR(12) NOT NULL;
@@ -296,14 +302,15 @@ order":
   - keep by template id, or by learner-made content;
   - read ready-made content from `SHOW_TEMPLATES`;
   - enforce the row-lifetime invariants of data-model §2.1 inside `set_favourite`;
-  - implement `list_mine` with research R9's union and order.
+  - implement `list_mine` with research R9's union and order;
+  - implement `forget`, deleting learner-made rows only.
 
   T010 passes.
 - [ ] T025 Implement `SQLiteSeriesStorage` in `backend/app/podcasts/services/sqlite_series_storage.py`:
   - `find` and `get`, with the count and the unfinished episode;
   - `create`, `recast` and `reset`;
   - `remembered`, `pending_episodes`;
-  - `remember`: write, replace the topic, prune to the caps and move the marker in one transaction.
+  - `remember`: write, replace the topic, prune to the caps and then to `REMEMBERED_TEXT_BUDGET`, and move the marker, in one transaction.
 
   T011 passes.
 - [ ] T026 Wire the storages in `backend/app/services/factory.py`: `get_show_library_storage` and `get_series_storage`, built over the request's `get_db` session, like `get_podcast_storage`. T009 and T015 pass.
@@ -331,7 +338,7 @@ order":
   - touch targets are ≥ 44px.
 
   T017 passes.
-- [ ] T031 Foundation checkpoint. Run the full backend suite, `ruff`, `black --check`, `npm run lint`, `npm test` and `npm run test:e2e`. All are green, except the deliberately red `series=None` case of T006. Nothing user-visible has changed.
+- [ ] T031 Foundation checkpoint. Run the full backend suite, `ruff`, `black --check`, `npm run lint`, `npm test` and `npm run test:e2e`. All are green. Nothing user-visible has changed.
 
 **Checkpoint**: Foundation ready. US1 can start, and so can US6 in parallel.
 
@@ -359,6 +366,7 @@ is still `one_off`.
   - `kind=series` with a series whose hosts match gives episode `count + 1`, with a snapshot built from `remembered()`;
   - the participating hosts come from the series for the format's slots: One host gives the lead only, and Panel or Listen gives both;
   - hosts that differ in any of slot, name, personality or voice raise `SeriesHostsChanged`, and nothing is written;
+  - after episode 1, the draft is checked with `show_problem` and the host match only, never 007's pair rules: a series whose two hosts share one voice starts its next episode with two voices now installed, and a series host whose voice is no longer installed still starts (data-model §5.2 step 1);
   - the show is kept: `keep(draft)` then `touch_played` for a ready-made show and for a learner-made show (`generated`, `surprise`, `suggested`). The `PreparedStart` carries the `saved_show_id`;
   - an unknown `saved_show_id` raises `ShowNoLongerKept`;
   - the language is `settings.target_language`, never the draft's;
@@ -369,11 +377,11 @@ is still `one_off`.
     - lists "Earlier episodes covered: …" and "What {label} has told you before: …";
     - holds the rules: refer back where it fits; choose a subject within the show's topic that is not in the covered list; never claim to remember anything not listed;
   - the section names languages, never codes;
-  - the section is ≤ `SERIES_SECTION_MAX_LENGTH` for a snapshot holding 10 topics and 8 learner points of 160 characters each. The renderer lists newest points first and drops the oldest that do not fit; assert which ones are dropped;
+  - the section is ≤ `SERIES_SECTION_MAX_LENGTH` for the worst stored set: 10 topics and 8 learner points whose texts total `REMEMBERED_TEXT_BUDGET`, the longest host names and label, and a new host (with T067's wording once T073 lands). The renderer lists every point, newest first, and drops nothing; assert that every point appears;
   - empty lists render no "covered" or "told you" line;
   - the `open` cue for N > 1 asks the lead to welcome {label} back by name, say the show is continuing, and bring up one remembered point. With N = 1, the `open` cue equals 007's;
   - rendering the same brief twice is byte-identical;
-  - with `series=None`, both functions still match the golden file (T006).
+  - called with an explicit `series=None`, both functions equal T006's golden text for every stored case. This fails, with a `TypeError`, until T048 adds the parameter.
 - [ ] T034 [P] [US1] Write `backend/tests/unit/podcasts/test_series_memory.py` (research R6, contracts §8–§9):
   - parser:
     - a valid reply gives a `MemoryReply` with a topic and ≤ 3 learner points, each with `conversation_language` and `english`, trimmed and cut to `REMEMBERED_POINT_MAX_LENGTH`;
@@ -391,16 +399,18 @@ is still `one_off`.
     - uses `MEMORY_JSON_SCHEMA`, with `maxItems: 3`.
 - [ ] T035 [P] [US1] Write `backend/tests/unit/podcasts/test_series_memory_properties.py`: 200 seeded random catch-up sequences against an in-memory `SQLiteSeriesStorage`, with random episodes, chunk counts, point counts and lengths. After every `remember`:
   - topics ≤ 10 and learner points ≤ 8;
+  - the points' conversation-language texts total ≤ `REMEMBERED_TEXT_BUDGET`;
   - at most one topic per episode;
   - the newest points are kept;
-  - the series section rendered from a snapshot of the result is ≤ 1,800 characters (FR-006).
-- [ ] T036 [P] [US1] Write `backend/tests/unit/podcasts/test_memory_catch_ups.py`, with an injected synchronous executor and a fake keeper:
-  - `start(series_id)` returns `started`, and a second call while running returns `running`; only one catch-up runs;
+  - the series section rendered from a snapshot of the result is ≤ 1,800 characters and contains every stored point (FR-006, FR-011).
+- [ ] T036 [P] [US1] Write `backend/tests/unit/podcasts/test_memory_catch_ups.py`, with an injected synchronous executor and fake keepers:
+  - `start(series_id, keeper)` returns `started`, and a second call while running returns `running`; only one catch-up runs;
+  - the catch-up runs on the keeper passed to its `start`: two successive starts given different keepers each call their own, and `MemoryCatchUps` keeps no keeper or provider between calls (Principle VI, research R6);
   - `status(series_id)` is `running` while held. Otherwise it is `pending` when `pending_episodes` is non-empty, and `up_to_date` when not;
-  - `wait(series_id, limit)` returns `up_to_date` when the catch-up finishes;
+  - `wait(series_id, keeper, limit)` returns `up_to_date` when the catch-up finishes;
   - `wait` returns `failed` with the provider's message when the keeper raises `LLMError`, and the failure is logged;
   - `wait` returns `timed_out` at the limit while the catch-up keeps running;
-  - `KeeperEndings.episode_finished(conversation_id)` starts a catch-up for a series episode's series, and does nothing for a one-off.
+  - `KeeperEndings.episode_finished(conversation_id)` starts a catch-up, with the keeper it was built with, for a series episode's series, and does nothing for a one-off.
 - [ ] T037 [P] [US1] Write `backend/tests/unit/podcasts/test_library.py` for `ShowLibrary`, with a fake `ShowLibraryStorage`:
   - `keep(draft)` returns the kept show for ready-made and learner-made drafts;
   - `played(kept)` touches `last_played_at`;
@@ -427,13 +437,17 @@ is still `one_off`.
   - US1-5: an unfinished episode is reported as `unfinished_episode`; starting a new one while it is unfinished counts both, and the first stays resumable;
   - an abandoned episode with two lines counts as an episode;
   - switching the provider setting between episodes keeps the hosts, numbers and memory;
-  - deleting a series episode's `conversations` row lowers the count and removes the memories drawn from it.
+  - deleting a series episode's `conversations` row lowers the count and removes the memories drawn from it;
+  - a series host whose voice is no longer installed keeps their name, personality and `voice_key`; the next episode still starts, and its lines are stored as text with 007's missing-voice notice (spec edge case);
+  - a series cast while only one voice was installed (both hosts share it) still starts its next episode after a second voice is installed, with the shared voice kept (data-model §5.2 step 1);
+  - changing the name the hosts call the learner between episodes: the next episode's standing prompt and `open` cue use the new name (spec edge case).
 - [ ] T041 [P] [US1] Write `backend/tests/integration/podcasts/test_series_memory_catch_up.py`, with the scripted memory provider (T028) and a synchronous executor:
   - a series sign-off triggers `EpisodeEndings`, which runs a catch-up that writes the topic and learner points and moves the marker;
   - a one-off sign-off triggers nothing;
   - a second catch-up reads only the lines after the marker;
   - a Listen episode adds a topic and no learner points;
   - a provider failure leaves the memory and the marker unchanged and logs the error;
+  - switching the provider setting after a sign-off: the next `POST /series/{id}/memory` catch-up calls the newly selected provider's fake, and the previous one receives no call (Principle VI);
   - `POST /series/{id}/memory?wait=true` returns `up_to_date`, and the next series start's snapshot contains the new points;
   - with a provider blocked on an event and a 0.2 s limit, `?wait=true` returns `timed_out` without blocking the event loop. A concurrent `GET /catalog` completes meanwhile.
 - [ ] T042 [P] [US1] Write `backend/tests/integration/podcasts/test_series_resume.py`: start series episode 2, add lines, and record its standing prompt and cue history. Then let the series gain new memories through a catch-up of episode 1's later lines. On resuming episode 2:
@@ -452,7 +466,7 @@ is still `one_off`.
     - on `failed` or `timed_out`, it exposes the message, `retry()` and `startWithoutUpdate()`.
 - [ ] T045 [P] [US1] Write the component tests:
   - `frontend/src/components/podcasts/ShowCard.test.tsx` (extended): the choose button's description includes "Episode 2 next", or "Episode 1 unfinished" when unfinished, and has no series text without a series;
-  - `SeriesHostCard.test.tsx`: name, personality label and a ▶ sample button; no Shuffle and no personality control;
+  - `SeriesHostCard.test.tsx`: name, personality label and a ▶ sample button; no Shuffle and no personality control; when the host's voice is not installed, the sample button is disabled and 007's plain missing-voice message is shown, with the name and personality unchanged;
   - `ContinueEpisode.test.tsx`: **Continue episode N** primary, with "Start a new episode instead" as a secondary text button;
   - `StartActions.test.tsx`:
     - **Start episode N**;
@@ -474,10 +488,10 @@ is still `one_off`.
 
 - [ ] T048 [US1] Add the series section and cue variants to `backend/app/podcasts/prompts.py`:
   - `build_standing_prompt(show, cast, label, languages, level, series: SeriesBrief | None = None)`: the sections tuple gains `_series_section(series, cast, label)`, filtered out when it is None (→ 14 lines);
-  - `_series_section` renders the snapshot newest-first and drops the oldest points that would take it over `SERIES_SECTION_MAX_LENGTH`;
+  - `_series_section` renders every point of the snapshot, newest first. It never drops points: the stored set fits by construction (`REMEMBERED_TEXT_BUDGET`, T025);
   - `render_cue(cue, cast, label, series=None)`: the instruction lookup moves to `_instruction(cue, cast, label, series)` (≈ 10 lines), and adds the series `open` variant for N > 1.
 
-  T033 and T006 (including its `series=None` case) pass. **Leave the new-host wording to T073.**
+  T033 (including its `series=None` case) and T006 pass. **Leave the new-host wording to T073.**
 - [ ] T049 [US1] Add `MEMORY_JSON_SCHEMA` and `memory_prompt(chunk, names, remembered, languages)` to `backend/app/podcasts/prompts.py` (contracts §9).
 - [ ] T050 [US1] Pass the brief through the episode pipeline:
   - `LoadedEpisode.series_brief` in `backend/app/podcasts/services/episodes.py`: `SeriesBrief.of(record.series.snapshot, cast)`, or `None`; `standing_prompt` passes it (5 lines);
@@ -486,10 +500,12 @@ is still `one_off`.
 - [ ] T051 [US1] Report finished episodes:
   - add `endings: EpisodeEndings` to `EpisodeDependencies` in `backend/app/podcasts/services/episode_turns.py`;
   - `_after` calls `self._deps.endings.episode_finished(conversation_id)` once the `sign_off` line is stored (+1 line → 8);
-  - `_episode_turns` in `backend/app/podcasts/routes.py` takes the endings from `get_episode_endings` (T056).
+  - add `get_episode_endings` to `backend/app/services/factory.py`, returning `NoEpisodeEndings()` for now; T056 replaces it with `KeeperEndings`;
+  - `_episode_turns` in `backend/app/podcasts/routes.py` takes the endings from `get_episode_endings` (16 → 17 lines).
 - [ ] T052 [US1] Implement `ShowLibrary` in `backend/app/podcasts/services/library.py`: `keep(draft)`, `played(kept)` and `resolve(draft)`, raising `ShowNoLongerKept`. T037 passes.
 - [ ] T053 [US1] Implement `SeriesService` in the new `backend/app/podcasts/services/series.py`:
-  - `prepare(req, settings) -> PreparedStart`: validate, keep the show, find or create the series, check the hosts (`SeriesHostsChanged`), take the snapshot, and build the participating hosts from the series for the format's slots;
+  - extract the show-level checks of `validate_draft` (language, learner role, slots) into `show_problem(draft, language)` in `backend/app/podcasts/schemas.py`, and have `validate_draft` call it (14 → ≈ 10 lines, 007 behaviour unchanged);
+  - `prepare(req, settings) -> PreparedStart`: validate (`validate_draft` for the series' first episode, `show_problem` after it), keep the show, find or create the series, check the hosts (`SeriesHostsChanged`), take the snapshot, and build the participating hosts from the series for the format's slots;
   - move `_new_episode` from `routes.py` into it, taking a `PreparedStart` (≈ 18 lines);
   - `start_episode` in `backend/app/podcasts/routes.py` delegates for `kind=series` (≈ 14 lines), and maps `SeriesHostsChanged` → 409 and `ShowNoLongerKept` → 404 with the data-model §6 messages.
 
@@ -505,14 +521,14 @@ is still `one_off`.
 
   T034 and T035 pass.
 - [ ] T055 [US1] Implement `MemoryCatchUps` and `KeeperEndings` in `backend/app/podcasts/services/series_memory.py`:
-  - `MemoryCatchUps`, with an injected executor and a per-series guard plus a completion `threading.Event`, provides `start`, `status` and `wait(series_id, limit)`, which waits in the executor so the event loop is never blocked;
-  - `KeeperEndings(EpisodeEndings)` looks up the link row and starts a catch-up for series episodes only.
+  - `MemoryCatchUps`, with an injected executor and a per-series guard plus a completion `threading.Event`, provides `start(series_id, keeper)`, `status(series_id)` and `wait(series_id, keeper, limit)`, which waits in the executor so the event loop is never blocked. It stores no keeper or provider: each catch-up runs on the keeper it was started with;
+  - `KeeperEndings(EpisodeEndings)`, built per request with the catch-ups, the series storage and that request's keeper, looks up the link row and starts a catch-up for series episodes only.
 
   T036 passes.
 - [ ] T056 [US1] Wire the memory pieces in `backend/app/services/factory.py`:
-  - `get_series_memory_keeper`: the selected `StructuredLLMProvider`, plus its own `SessionLocal` session factory;
-  - `get_memory_catch_ups`: one process-wide instance over a `ThreadPoolExecutor(max_workers=1)`;
-  - `get_episode_endings`: a `KeeperEndings`.
+  - `get_series_memory_keeper`: per request, over `get_structured_llm` (the provider selected at that moment), plus its own `SessionLocal` session factory;
+  - `get_memory_catch_ups`: one process-wide instance over a `ThreadPoolExecutor(max_workers=1)`, holding no keeper or provider;
+  - `get_episode_endings`: replace T051's `NoEpisodeEndings()` with a `KeeperEndings` over the catch-ups, the series storage and the request's keeper.
 - [ ] T057 [US1] Add the series fields to the responses:
   - in `backend/app/podcasts/responses.py`:
     - `catalog_listings` lists a show that has a series in the current language with the series' hosts and its `SeriesSummaryModel`;
@@ -523,7 +539,7 @@ is still `one_off`.
   T039 and T043 pass.
 - [ ] T058 [US1] Create `backend/app/podcasts/series_routes.py` with:
   - `GET /series/{series_id}`: the `SeriesDetailResponse`, including `memory_status` from `MemoryCatchUps.status` and English remembered texts;
-  - `POST /series/{series_id}/memory` returning 202, with `?wait=true` returning 200 through `get_memory_wait_seconds` (default `MEMORY_WAIT_SECONDS`).
+  - `POST /series/{series_id}/memory` returning 202, with `?wait=true` returning 200 through `get_memory_wait_seconds` (default `MEMORY_WAIT_SECONDS`). Both pass the request's `get_series_memory_keeper` to `MemoryCatchUps`.
 
   Include it from `backend/app/podcasts/routes.py`, as `show_routes.py` is included. T038, T040, T041 and T042 pass.
 - [ ] T059 [P] [US1] Add `getSeries`, `catchUpSeriesMemory(id, options?)` and the `kind` argument of `startEpisode` to `frontend/src/services/podcastsApi.ts`.
@@ -583,8 +599,10 @@ that episode 3 keeps the new host while the other host and the count are unchang
     - the other slot, the count and the memories are unchanged;
   - the other host's personality raises `PersonalityTaken` ("{other} already has that personality. Pick another one.");
   - a series in another language than `settings.target_language` raises `LanguageChanged`;
-  - `reset(series_id)` deletes the series; the show row stays only if it is a favourite;
+  - `reset(series_id)` deletes the series; the show row stays if it is a favourite, or if it is a learner-made show (which has been played), and is deleted otherwise (data-model §2.1, §5.1);
   - a series host's name equal to `learner_name` (casefold) raises the clash with "{name} has the same name as you. Change the name the hosts call you.", and **no** Shuffle advice.
+
+  Extend `backend/tests/unit/podcasts/test_casting.py` too: `HostCaster.recast(..., personality_id="joker")` gives that personality; without `personality_id` it behaves exactly as today (007's Shuffle).
 - [ ] T067 [P] [US3] Extend `backend/tests/unit/podcasts/test_series_prompts.py` with new hosts:
   - with `new_host_slots=("second",)`, the section tells the hosts to introduce {name} as new to the show, someone who does not know the earlier episodes;
   - that host's `greet` cue asks them to introduce themselves as new to the show;
@@ -628,8 +646,12 @@ that episode 3 keeps the new host while the other host and the count are unchang
 ### Implementation for User Story 3
 
 - [ ] T073 [US3] Add the new-host wording to `_series_section` and `_instruction` in `backend/app/podcasts/prompts.py` (contracts §9). T067 passes, and T006 stays green.
-- [ ] T074 [US3] Add `recast(...)` and `reset(...)` to `SeriesService` in `backend/app/podcasts/services/series.py`, with `PersonalityTaken` and `LanguageChanged`, and the series name-clash check in `prepare`. T066 passes.
-- [ ] T075 [US3] Give `validate_draft` and `_host_problem` in `backend/app/podcasts/schemas.py` a `clash_message` argument (14 and 10 lines), so that series starts use the data-model §6 wording, while one-offs keep 007's.
+- [ ] T074 [US3] Recast and reset:
+  - give `HostCaster.recast` in `backend/app/podcasts/services/casting.py` an optional keyword `personality_id: str | None = None`, used instead of the random choice when given (11 → ≈ 12 lines). 007's Shuffle calls it without one and is unchanged;
+  - add `recast(...)` and `reset(...)` to `SeriesService` in `backend/app/podcasts/services/series.py`, with `PersonalityTaken` and `LanguageChanged`, and the series name-clash check in `prepare` (for every series episode, including after the first).
+
+  T066 passes.
+- [ ] T075 [US3] Give `validate_draft` and `_host_problem` in `backend/app/podcasts/schemas.py` a `clash_message` argument (≈ 10 and 10 lines after T053's `show_problem` split), so that series starts use the data-model §6 wording, while one-offs keep 007's.
 - [ ] T076 [US3] Add `POST /series/{series_id}/hosts/{slot}/recast` and `DELETE /series/{series_id}` to `backend/app/podcasts/series_routes.py`, mapping the errors as in data-model §6. T068 and T069 pass.
 - [ ] T077 [P] [US3] Add `recastHost(seriesId, slot, body)` and `resetSeries(seriesId)` to `frontend/src/services/podcastsApi.ts`.
 - [ ] T078 [P] [US3] Implement `frontend/src/components/shared/ConfirmDialog.tsx`: an `alertdialog` with a focus trap and focus return, tokens only, and a `--color-error` confirm style for destructive actions. T070 passes.
@@ -734,7 +756,10 @@ before T090, or after it, never at the same time.
 - [ ] T099 [P] [US6] Replace the `<select>` in `frontend/src/components/settings/SelectField.tsx` with `ThemedSelect`, keeping the props unchanged.
 - [ ] T100 [P] [US6] Replace the `<select>`s in `frontend/src/components/settings/LlmProviderFields.tsx` with `ThemedSelect`.
 - [ ] T101 [P] [US6] Replace the `<select>` in `frontend/src/components/chat/ConversationLevelControl.tsx` with `ThemedSelect`.
-- [ ] T102 [P] [US6] Replace the `<select>` in `frontend/src/components/flashcards/WordFilterBar.tsx` with `ThemedSelect`.
+- [ ] T102 [P] [US6] Bring `WordFilterBar` under the function-length limit, then replace its `<select>` (Constitution I: a modified function longer than 20 lines is brought within the limit):
+  - **Refactor first**, with `WordFilterBar.test.tsx` and `flashcards.spec.ts` green before and after. Split `frontend/src/components/flashcards/WordFilterBar.tsx` (197 lines, with inner arrow functions of 40 and 27) into colocated components, `ClassificationPills.tsx`, `WordSortSelect.tsx` and `DatePresetChips.tsx`, and move the inline style objects to module-level constants. Every function ends ≤ 20 lines, and the behaviour and accessible names are unchanged;
+  - replace the `<select>` inside `WordSortSelect` with `ThemedSelect`;
+  - add `src/components/flashcards/WordFilterBar.tsx`, `ClassificationPills.tsx`, `WordSortSelect.tsx` and `DatePresetChips.tsx` to the `max-lines-per-function` override in `frontend/.eslintrc.json`. `npm run lint` is green.
 - [ ] T103 [P] [US6] Replace the personality `<select>` in `frontend/src/components/podcasts/HostCard.tsx` with `ThemedSelect` (≈ 15 lines). The rule that two hosts never share a personality is unchanged.
 - [ ] T104 [US6] Move the existing E2E specs from `selectOption()` to `chooseOption()`: `frontend/e2e/settings.spec.ts`, `conversation-level.spec.ts`, `practice-language.spec.ts`, `flashcards.spec.ts` and `podcasts.spec.ts`.
 - [ ] T105 [US6] Delete the `option { … }` rule and its comment from `frontend/src/index.css` (around line 225). Confirm that `grep -rn "<select\|<option" frontend/src --include=*.tsx` returns nothing.
@@ -749,24 +774,28 @@ before T090, or after it, never at the same time.
 **Goal**:
 - any show can be favourited, and the favourite is the same in every language;
 - **My shows** lists the favourites, the series in this language and the played learner-made shows, each with its next episode number;
-- a kept learner-made show reopens with the same title, premise and hosts.
+- a kept learner-made show reopens with the same title, premise and hosts;
+- a kept learner-made show can be removed from My shows after a confirmation (FR-024).
 
 **Independent Test**: favourite a ready-made show and a generated show with an episode, then reload.
 Both appear in My shows with their next episode numbers. Unfavouriting removes a show unless it
-has a series, and the ready-made list is unchanged (spec US4).
+has a series or is a played learner-made show; Remove takes the played generated show out; the
+ready-made list is unchanged (spec US4).
 
 ### Tests for User Story 4 (write first, see them fail)
 
 - [ ] T107 [P] [US4] Write `backend/tests/contract/test_podcast_favourites_api.py` (contracts §3):
   - `PUT /favourites {show, is_favourite: true}` returns 200 with the updated `ShowListing` (`is_favourite: true`), and an unsaved learner-made draft gains `saved_show_id`;
   - unfavouriting returns 204 when the row was deleted (a ready-made show with no series, or a learner-made show never played and with no series), and 200 otherwise;
-  - a bad draft returns 422.
+  - a bad draft returns 422;
+  - `DELETE /shows/{saved_show_id}` returns 204 for a kept learner-made show, and 404 "That show isn't kept any more. Pick another one." for an unknown id or a ready-made row (contracts §3, FR-024).
 - [ ] T108 [P] [US4] Write `backend/tests/integration/podcasts/test_my_shows.py` (contracts §1, §3, research R9):
   - `my_shows` is exactly the favourites, the shows with a series in this language and the played learner-made shows, newest activity first;
   - a ready-made show in `my_shows` equals its entry in `shows`;
   - a favourite made in `es` appears in `de` too, while the series and hosts stay per language;
   - a favourite survives a restart (a new engine over the same file);
-  - unfavouriting a show with a series keeps it in `my_shows`;
+  - unfavouriting a show with a series keeps it in `my_shows`, and so does unfavouriting a played learner-made show;
+  - removing a played learner-made show with series in `es` and `de` takes it out of `my_shows` in both languages and deletes both series; its episodes stay in `GET /episodes` with `episode_number: null` (FR-024);
   - favouriting the same unsaved draft twice keeps one show;
   - a played generated show appears without a favourite, and its next series episode keeps the same hosts (US4-3);
   - `POST /episodes` with a stale `saved_show_id` returns 404;
@@ -774,7 +803,7 @@ has a series, and the ready-made list is unchanged (spec US4).
 - [ ] T109 [P] [US4] Write the US4 Vitest tests:
   - `frontend/src/hooks/podcasts/useFavourite.test.tsx`: optimistic toggle, rollback with a message on failure;
   - `frontend/src/components/podcasts/FavouriteToggle.test.tsx`: a separate `button` with `aria-pressed`, named "Favourite {title}";
-  - `MyShows.test.tsx`: a labelled region, hidden when empty, with "Episode N next" per show;
+  - `MyShows.test.tsx`: a labelled region, hidden when empty, with "Episode N next" per show; a kept learner-made show has a secondary **Remove** button named "Remove {title}", which opens a `ConfirmDialog`; Cancel sends nothing, Confirm calls `removeShow` and the show leaves the list; ready-made shows have no Remove;
   - `ShowCard.test.tsx` (extended): the card is a group with the choose button and the toggle side by side, never nested;
   - `frontend/src/pages/Podcasts.test.tsx`: My shows sits above the ready-made list;
   - `frontend/src/hooks/podcasts/useShowDraft.test.tsx` or a new `useSetupShow.test.tsx`: `?saved=<id>` finds the show in `my_shows`.
@@ -783,23 +812,29 @@ has a series, and the ready-made list is unchanged (spec US4).
   - My shows appears and hides;
   - a series show stays after unfavouriting;
   - after a reload, the mocked catalogue lists the favourite;
-  - choosing a kept learner-made show opens `/podcasts/setup?saved=<id>` with its title and hosts.
+  - choosing a kept learner-made show opens `/podcasts/setup?saved=<id>` with its title and hosts;
+  - **Remove** on a kept learner-made show: Cancel sends no request; Confirm sends `DELETE /api/podcasts/shows/<id>` and the show leaves My shows;
+  - SC-005: from `/podcasts`, choosing a favourite in My shows and then **Start episode N** sends the `POST /episodes` request, which is two choices.
 
 ### Implementation for User Story 4
 
-- [ ] T111 [US4] Add `favourite(draft, is_favourite)` and `mine(language)` to `ShowLibrary` in `backend/app/podcasts/services/library.py`, delegating to `set_favourite` and `list_mine`.
-- [ ] T112 [US4] Add `PUT /favourites` to `backend/app/podcasts/series_routes.py`, returning 200 with a `ShowListing`, or 204 when the row was deleted. T107 passes.
+- [ ] T111 [US4] Add `favourite(draft, is_favourite)`, `mine(language)` and `remove(saved_show_id)` to `ShowLibrary` in `backend/app/podcasts/services/library.py`, delegating to `set_favourite`, `list_mine` and `forget`; `remove` raises `ShowNoLongerKept` when `forget` returns `False`.
+- [ ] T112 [US4] Add to `backend/app/podcasts/series_routes.py`:
+  - `PUT /favourites`, returning 200 with a `ShowListing`, or 204 when the row was deleted;
+  - `DELETE /shows/{saved_show_id}`, returning 204, or 404 with the data-model §6 message for `ShowNoLongerKept`.
+
+  T107 passes.
 - [ ] T113 [US4] Fill `my_shows` and `is_favourite`:
   - in `backend/app/podcasts/responses.py`: `catalog_listings` and a new `my_show_listings(entries, ...)`;
   - in `get_catalog` in `backend/app/podcasts/routes.py`: still ≤ 11 lines.
 
   T108 passes.
-- [ ] T114 [P] [US4] Add `setFavourite(show, isFavourite)` to `frontend/src/services/podcastsApi.ts`.
+- [ ] T114 [P] [US4] Add `setFavourite(show, isFavourite)` and `removeShow(savedShowId)` to `frontend/src/services/podcastsApi.ts`.
 - [ ] T115 [US4] Implement `frontend/src/hooks/podcasts/useFavourite.ts`: optimistic update of the catalogue query, rolled back with a plain message on failure.
 - [ ] T116 [US4] Implement the US4 components in `frontend/src/components/podcasts/`:
   - `FavouriteToggle.tsx`;
   - `ShowCard.tsx` as a group, ≈ 18 lines;
-  - `MyShows.tsx`.
+  - `MyShows.tsx`, with the **Remove** button and its `ConfirmDialog` on kept learner-made shows (extract a `RemoveShowButton.tsx` if `MyShows` would pass 20 lines); removing invalidates the catalogue query.
 - [ ] T117 [US4] Integrate My shows:
   - `frontend/src/pages/Podcasts.tsx` adds `<MyShows>` above `ShowList`;
   - `frontend/src/hooks/podcasts/useSetupShow.ts` accepts `?saved=`, with the lookup moved to `findShow(catalog, params)`;
@@ -951,8 +986,8 @@ from the other; starting one opens setup; the ready-made list is unchanged (spec
 
 ### Within the Foundational phase
 
-- The tests T005–T017 run in parallel. T005 must pass once T019 is in, since it is a pin; every
-  other test fails first.
+- The tests T005–T017 run in parallel. T006 passes on today's code, since it is a pin; every
+  other test fails first, T005 until T019 adds the tables.
 - Backend chain:
   - T018 → T019 → T020;
   - T021 and T022 in parallel after T020;
@@ -976,6 +1011,10 @@ from the other; starting one opens setup; the ready-made list is unchanged (spec
 - `backend/app/podcasts/routes.py`: T027, T051, T053, T058, T088, T113, T129.
 - `backend/app/podcasts/series_routes.py`: T058, T076, T112.
 - `backend/app/podcasts/services/series.py`: T053, T074, T088.
+- `backend/app/podcasts/schemas.py`: T020, T053, T075.
+- `backend/app/podcasts/services/sqlite_series_storage.py`: T024, T025.
+- `backend/app/services/factory.py`: T026, T051, T056.
+- `frontend/.eslintrc.json`: T004, T102.
 - `backend/app/podcasts/responses.py`: T027, T057, T113.
 - `frontend/src/services/podcastsApi.ts`: T029, T059, T077, T114, T130.
 - `frontend/src/pages/PodcastSetup.tsx`: T062, T082, T090.
@@ -1005,7 +1044,7 @@ from the other; starting one opens setup; the ready-made list is unchanged (spec
 ## Parallel Example: Foundational tests
 
 ```bash
-# All foundation tests together (T005 and the first T006 case are pins and pass on today's code; the others fail first):
+# All foundation tests together (T006 is a pin and passes on today's code; the others, T005 included, fail first):
 Task: "T005 upgrade pin — backend/tests/integration/podcasts/test_series_upgrade_preserves_data.py"
 Task: "T006 one-off golden — backend/tests/unit/podcasts/test_one_off_golden.py"
 Task: "T010 show library storage — backend/tests/unit/podcasts/test_sqlite_show_library.py"
@@ -1072,13 +1111,12 @@ Task: "T103 HostCard.tsx → ThemedSelect"
   the same file.
 - Every test must be seen failing before its implementation (Red → Green → Refactor). The
   exceptions are the T005 and T006 pins, which record today's behaviour.
-- **Budget versus caps** (T033, T048): 10 topics and 8 learner points at 160 characters each come
-  to 2,880 characters, which exceeds the 1,800-character series section. These tasks therefore
-  have the renderer drop the oldest points that do not fit. Plan interpretation 11 ("the learner
-  never sees a list that differs from what the hosts get") does not hold in that worst case. It
-  should be revisited in `/speckit-analyze`: either lower the point length, or accept the drop.
-- `services/series_snapshot.py` (T022) is one module more than plan.md lists. It keeps
-  `prompts.py` from depending on `SeriesService`.
+- **Budget versus caps** (T011, T025, T033, T048): 10 topics and 8 learner points at 160
+  characters each would come to 2,880 characters, more than the 1,800-character series section.
+  `remember` therefore also prunes to `REMEMBERED_TEXT_BUDGET` (1,200 characters) when it writes,
+  so the renderer never drops a point, and plan interpretation 11 ("the learner never sees a list
+  that differs from what the hosts get") holds in every case (research R7).
+- `services/series_snapshot.py` (T022) keeps `prompts.py` from depending on `SeriesService`.
 - Benchmarks are **deselected** by the existing `-m 'not benchmark and not claude_live'` addopts,
   never skipped. Results below a bar go to `docs/architecture.md` § "Open items".
 - Commit after each task or logical group, ending commit messages with the attribution line the

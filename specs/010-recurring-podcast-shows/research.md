@@ -209,6 +209,12 @@ The keeper's input and output:
 Concurrency: one catch-up per series at a time (a per-series in-process guard, like
 `EpisodeLocks`). A second request while one runs returns `{"status": "running"}`.
 
+Provider: `MemoryCatchUps` is one process-wide instance, because the guard must outlive a request,
+but it holds no keeper or provider. Every `start` and `wait` is handed a `SeriesMemoryKeeper` built
+for that request from `get_structured_llm`, which reads the learner's current selection. A provider
+switched on Settings (004, no restart) therefore applies to the next catch-up, and a catch-up
+already running finishes with the provider that was selected when it started (Principle VI).
+
 **Start waits for memory, and says so** (spec clarification, 2026-10-17). The series detail
 reports `memory_status`:
 - `up_to_date`: no episode has unread lines;
@@ -270,14 +276,23 @@ whatever memory exists at that moment.
 ## R7. Memory stays bounded: newest points win, within fixed caps
 
 **Decision**: Each series remembers at most **10 topics covered** and **8 things about the
-learner**, each point at most 160 characters. When a write would exceed a cap, the oldest points
-of that kind are deleted in the same transaction. What is stored is exactly what is remembered,
-shown and sent (FR-011), with no hidden archive. A unit test bounds the rendered series section
-at **1,800 characters** whatever the number of episodes (FR-006, SC-006).
+learner**, each point at most 160 characters, and the conversation-language text of all of a
+series' points together is at most **1,200 characters** (`REMEMBERED_TEXT_BUDGET`). When a write
+would exceed a cap, the oldest points of that kind are deleted; then, while the total text is over
+the budget, the oldest point of either kind is deleted. Both happen in the same transaction as
+the write. The caps alone would allow 2,880 characters, which the prompt section could not hold;
+enforcing the budget at write time means the renderer never drops anything, so what is stored is
+exactly what is remembered, shown and sent (FR-011), with no hidden archive. A unit test bounds
+the rendered series section at **1,800 characters** for any stored set within the budget,
+whatever the number of episodes (FR-006, SC-006).
+
+Because the topics are bounded too, "a topic not already covered" means a topic not among the
+remembered ones (FR-005 as amended). From roughly the eleventh episode, a topic from the earliest
+episodes may come back.
 
 **Rationale**: Recency is a cheap, predictable proxy for "most useful", and the learner can see
 and reset the list. A fixed cap makes FR-006 a property of the code rather than of the model.
-About 18 points at 160 characters is roughly 500–600 tokens of extra prompt. At local prefill
+The 1,200-character budget is roughly 300–400 tokens of extra prompt. At local prefill
 speeds that costs well under a second, which SC-006's benchmark measures (quickstart §3).
 
 **Alternatives considered**: *Ask the model to consolidate the list after each episode*: one more
@@ -297,7 +312,8 @@ which nothing measures reliably.
   choice ("Any", or one of the personalities the other host does not have).
 - **Confirming** calls `POST /series/{id}/hosts/{slot}/recast`, which applies at once to the
   series: `HostCaster.recast` gives the slot a new name, a new personality (the chosen one, or a
-  random free one) and a voice by 007's interpretation 6. The slot's `joined_after_episodes` is
+  random free one) and a voice by 007's interpretation 6. `recast` gains an optional
+  `personality_id` for this; 007's Shuffle calls it without one and is unchanged. The slot's `joined_after_episodes` is
   set to the current count. **Cancelling** sends nothing.
 - With two installed voices per language, the recast host usually keeps the slot's voice
   (interpretation 6 of 007). The dialog says so when that is the case.
@@ -338,6 +354,13 @@ Unfavouriting a **learner-made show** that has never been played and has no seri
 it was kept only by the favourite (FR-019). A ready-made row without a favourite or a series is
 also deleted, which keeps `podcast_shows` free of rows that mean nothing.
 
+A played learner-made show would otherwise stay in My shows for ever, and every played Surprise me
+show would pile up there. **Remove** (FR-024) is a secondary action on a kept learner-made show's
+card in My shows. After a `ConfirmDialog` it calls `DELETE /api/podcasts/shows/{saved_show_id}`,
+which deletes the row. The cascade ends its series in every language (hosts, links, memories),
+while the episodes stay in Past Chats with `episode_number: null`. Ready-made shows need no Remove,
+since unfavouriting and Start over already empty their row.
+
 **Rationale**: US4-3 needs a played generated show to appear in My shows even without a series or
 a favourite, because it has nowhere else to live. One response serves the screen, so My shows and
 the ready-made list cannot disagree.
@@ -354,8 +377,10 @@ favourite change. *Keep every learner-made draft ever generated*: contradicts FR
 `ShowDiscovery`:
 1. **Seeds**: draws 5 distinct (topic, angle) seeds with the existing `SurpriseTopics` vocabulary
    and a fixed quota. With saved interests, 3 of the 5 seeds come from interests, which meets
-   US5-4's "most" exactly. Without interests, all 5 come from the built-in topics (varied
-   everyday topics).
+   US5-4's "most" for the seeds. Without interests, all 5 come from the built-in topics (varied
+   everyday topics). The quota governs the seeds, not the response: if filtering drops
+   interest-seeded shows, a returned set can hold fewer than 3 that relate to the interests. This
+   is accepted, as making it certain would cost extra calls against SC-007's 30 s.
 2. **One call**: a single structured call with a schema for an array of 5 shows, each with the 007
    generator's fields and its own `is_suitable` judgement (FR-018). The prompt lists the seeds,
    one show per seed, and the titles to avoid.
@@ -363,7 +388,9 @@ favourite change. *Keep every learner-made draft ever generated*: contradicts FR
    copied). Unsuitable and unreadable shows are dropped, and so is any whose normalised title
    (casefolded, punctuation stripped) matches a ready-made show, one of the learner's shows, or a
    title in `avoid_titles` (FR-017). The hosts are cast by `HostCaster.cast_personalities`, as for
-   generated shows.
+   generated shows. A duplicate means the same normalised title. A show with a new title and a
+   premise close to an existing one is not caught; this is accepted, since judging premise
+   similarity would need another model call.
 4. **Shortfall**: if fewer than 3 survive, one top-up call is made for the shortfall with fresh
    seeds. If there are still fewer than 3, the response is 503 with a plain message: "Find a new
    show didn't come up with enough shows this time. Please try again." (FR-020). Provider errors

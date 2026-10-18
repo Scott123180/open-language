@@ -135,7 +135,24 @@ with no series, or a ready-made show with no series (data-model §2.1).
 | A favourite is the same in every practice language | integration |
 | It persists across a restart (a new engine over the same file) | integration |
 | Unfavouriting a show with a series keeps it in `my_shows` (US4 independent test) | integration |
+| Unfavouriting a played learner-made show keeps it in `my_shows` (US4-3) | integration |
 | Favouriting the same unsaved draft twice keeps one show | integration |
+
+### `DELETE /api/podcasts/shows/{saved_show_id}` (Remove from My shows)
+
+Removes a kept learner-made show (FR-024). The client asks for confirmation first.
+
+**204**: the show row is deleted. The cascade deletes its series in every language (hosts, links,
+memories). Its episodes stay in Past Chats with `episode_number: null`.
+
+**404** "That show isn't kept any more. Pick another one." for an unknown id or a ready-made row
+(ready-made shows leave My shows by unfavouriting and Start over).
+
+| Guarantee | Test |
+|---|---|
+| The show leaves `my_shows` in every language, and its series are gone | integration |
+| Its episodes stay in `GET /episodes`, with `episode_number: null` | integration |
+| Unknown or ready-made id → 404 | contract |
 
 ---
 
@@ -250,6 +267,8 @@ A catch-up that times out keeps running in the background. **404** for an unknow
 | The caps hold after any number of catch-ups (FR-006) | property test, seeded, 200 random catch-up sequences |
 | A provider failure leaves the memory and the marker unchanged, and is logged | integration |
 | Two concurrent requests start one catch-up | unit (`MemoryCatchUps`) |
+| A catch-up uses the keeper (and so the provider) of the request that started it; `MemoryCatchUps` holds none of its own, so a provider switch applies to the next catch-up | unit + integration |
+| After any write, the series' points stay within the caps and `REMEMBERED_TEXT_BUDGET` | unit + property test |
 | `?wait=true` returns `up_to_date` once the running catch-up finishes, and a later series start's snapshot includes its points | integration |
 | `?wait=true` returns `failed` with the provider's message, or `timed_out` at the limit, without blocking the event loop | integration with a blocking fake and a short injected limit |
 | A series sign-off schedules a catch-up through `EpisodeEndings`; a one-off sign-off does not | integration |
@@ -271,7 +290,9 @@ line rules. It contains:
 - the rules (FR-005): refer back to these points where it fits; choose a subject within the show's
   topic that is not in the covered list; never claim to remember anything not listed; introduce
   {new host} as new to the show, who does not know the earlier episodes;
-- at most `SERIES_SECTION_MAX_LENGTH` characters, whatever the snapshot holds.
+- at most `SERIES_SECTION_MAX_LENGTH` characters for any snapshot within the caps and
+  `REMEMBERED_TEXT_BUDGET`. The budget is enforced when points are written (data-model §2.5), so
+  the renderer lists every remembered point, newest first, and drops nothing.
 
 The cues change in two places:
 - **`open`** in a series episode with N > 1: welcome {label} back, say the show is continuing, and
@@ -303,12 +324,13 @@ field rules.
 is internal.
 
 New internal modules:
-- `series_routes.py`: §3, §5–§8;
+- `series_routes.py`: §3 (favourites and Remove), §5–§8;
 - `discovery_routes.py`: §4;
 - `services/library.py`: `ShowLibrary`, `ShowRef`;
 - `services/series.py`: `SeriesService`, covering start resolution, recast and reset;
-- `services/series_memory.py`: `SeriesMemoryKeeper`, `MemoryCatchUps`, the memory prompt and
-  parser;
+- `services/series_snapshot.py`: `SeriesSnapshot`, `SeriesBrief` (imported by `prompts.py`);
+- `services/series_memory.py`: `SeriesMemoryKeeper`, `MemoryCatchUps` (which holds no keeper:
+  `start` and `wait` take one), `KeeperEndings`, and the memory parser;
 - `services/discovery.py`: `ShowDiscovery`, `SuggestionSeeds`;
 - `services/series_storage.py`: the `ShowLibraryStorage` and `SeriesStorage` ABCs and their
   records;
@@ -326,7 +348,8 @@ New internal modules:
 |---|---|
 | `catalog.py` | the §1 constants of the data model; `SHOW_SOURCES` + `suggested` |
 | `models.py` | five new tables |
-| `schemas.py` | `ShowListing`, `SeriesSummaryModel`, `SeriesDetailResponse`, `RecastRequest`, `FavouriteRequest`, `DiscoverRequest`; `kind` on `StartEpisodeRequest`; `saved_show_id` on `ShowDraftModel`; `series` on `EpisodeResponse`; `episode_number` on `EpisodeSummaryRow` |
+| `schemas.py` | `ShowListing`, `SeriesSummaryModel`, `SeriesDetailResponse`, `RecastRequest`, `FavouriteRequest`, `DiscoverRequest`; `kind` on `StartEpisodeRequest`; `saved_show_id` on `ShowDraftModel`; `series` on `EpisodeResponse`; `episode_number` on `EpisodeSummaryRow`; `show_problem` split out of `validate_draft`, and a `clash_message` argument |
+| `services/casting.py` | `HostCaster.recast` gains an optional `personality_id`; called without it, it behaves as in 007 |
 | `prompts.py` | an optional `series` argument on `build_standing_prompt` and `render_cue`; the memory and discovery prompts and schemas |
 | `routes.py` | `get_catalog` adds the listings; `start_episode` delegates to `SeriesService`; the new routers are included |
 | `services/storage.py`, `sqlite_storage.py` | `NewEpisode.series`, `EpisodeRecord.series`; the link row in `create_episode`'s transaction |
@@ -340,7 +363,7 @@ New internal modules:
 
 | Module | Change |
 |---|---|
-| `services/factory.py` | `get_show_library`, `get_series_storage`, `get_series_memory_keeper`, `get_memory_catch_ups`, `get_episode_endings` |
+| `services/factory.py` | `get_show_library_storage`, `get_series_storage`, `get_series_memory_keeper` (per request, over `get_structured_llm`), `get_memory_catch_ups` (process-wide, no provider), `get_episode_endings` |
 | `database.py` | nothing: the new models are in `app/podcasts/models.py`, which is already imported |
 
 No change to `prompts/templates.py`, `conversation_levels`, `conversation_summary`,
@@ -353,14 +376,14 @@ No change to `prompts/templates.py`, `conversation_levels`, `conversation_summar
 
 | Screen | Primary action | Secondary | Accessibility |
 |---|---|---|---|
-| Podcasts (`/podcasts`) | Choose a show card | Favourite toggle per card; **Find a new show**; Generate; Surprise me | **My shows** is a labelled section, shown only when non-empty. Cards are groups: the choose button is named by the title and described by its details, including "Episode 2 next" or "Episode 1 unfinished". The favourite toggle is a separate button, `aria-pressed`, named "Favourite Big Little Questions". Suggestions arrive in an `aria-live="polite"` region |
+| Podcasts (`/podcasts`) | Choose a show card | Favourite toggle per card; **Remove** on a kept learner-made show in My shows (through `ConfirmDialog`); **Find a new show**; Generate; Surprise me | **My shows** is a labelled section, shown only when non-empty. Cards are groups: the choose button is named by the title and described by its details, including "Episode 2 next" or "Episode 1 unfinished". The favourite toggle is a separate button, `aria-pressed`, named "Favourite Big Little Questions". Suggestions arrive in an `aria-live="polite"` region |
 | Setup, series | **Continue episode N** if unfinished, otherwise **Start episode N** | One-off choice tile; per host: ▶ sample and **Recast…**; "What the hosts remember" disclosure with **Start over**; while catching up after a failure or timeout: **Try again** (primary) and **Start without it** | Series hosts are read-only text, with no Shuffle and no personality control. While memory catches up, Start is `aria-busy`, and a `role="status"` message says "Hugo and Inés are catching up on episode 3. This takes a few seconds."; the episode then starts on its own. Recast and Start over use `ConfirmDialog` (`role="alertdialog"`, focus trapped and returned, Escape cancels). A name clash is a `role="status"` hint linked to the name field |
 | Setup, one-off or series episode 1 | **Start episode 1** / **Start one-off episode** | 007's Shuffle and personality control (now `ThemedSelect`) | As 007 |
 | Episode | Unchanged | Unchanged | The header names the episode ("Episode 2" or "One-off") |
 | Every drop-down | n/a | n/a | `ThemedSelect` follows the APG select-only combobox. Options use theme tokens; the selected option is marked with colour and a check; the focused option has an outline; contrast ≥ 4.5:1 (FR-021) |
 
 New shared components:
-- `ThemedSelect`;
+- `ThemedSelect` (with its `useListboxNavigation` hook);
 - `ConfirmDialog`.
 
 New podcast components:
@@ -372,7 +395,8 @@ New podcast components:
 - `RecastDialog`;
 - `RememberedPoints`;
 - `EpisodeKindFieldset`;
-- `ContinueEpisode`.
+- `ContinueEpisode`;
+- `StartActions`.
 
 New hooks:
 - `useFavourite`;
@@ -401,6 +425,9 @@ New hooks:
   - favourite and unfavourite;
   - the My shows group appears and hides;
   - a series show stays after unfavouriting;
+  - Remove a kept learner-made show: Cancel sends nothing, Confirm sends `DELETE` and the show
+    leaves My shows;
+  - a favourite's next episode starts in two choices from the Podcasts screen (SC-005);
   - reload persistence (mocked).
 - `podcast-discovery.spec.ts` (new):
   - Find a new show;

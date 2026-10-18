@@ -36,7 +36,8 @@ The design rests on five decisions from [research.md](research.md):
    `SeriesMemoryKeeper` makes one structured call per episode chunk, after a series sign-off and
    when the setup screen opens a series:
    - it writes at most 3 points about the learner per episode and keeps the newest 10 topics and
-     8 learner points (FR-006, SC-006);
+     8 learner points, within a 1,200-character text budget, so the stored list always fits the
+     prompt section whole (FR-006, SC-006);
    - learner points are only taken from chunks that contain learner lines, so a Listen episode
      remembers topics only;
    - if the learner presses Start while memory is still catching up, the setup screen says so
@@ -54,10 +55,10 @@ The design rests on five decisions from [research.md](research.md):
 
 What is new:
 - five tables, all additive, in `app/podcasts/models.py`;
-- seven endpoints (favourites, discover, series detail, recast, reset, memory catch-up) and new
-  fields on the catalogue and episode responses, all additive;
-- two shared frontend components (`ThemedSelect`, `ConfirmDialog`), about nine podcast
-  components and four hooks.
+- seven endpoints (favourites, remove a kept show, discover, series detail, recast, reset, memory
+  catch-up) and new fields on the catalogue and episode responses, all additive;
+- two shared frontend components (`ThemedSelect`, `ConfirmDialog`) and one shared hook
+  (`useListboxNavigation`), ten podcast components and four hooks.
 
 No new dependency, voice or per-language data is needed.
 
@@ -118,7 +119,10 @@ No `_ADDITIVE_COLUMNS` entry, no existing column, and no existing row is updated
 - FR-015: `SHOW_TEMPLATES` is untouched.
 - FR-022 and SC-009: there is no data migration; pre-feature episodes have no link row.
 - Principle VI:
-  - the memory keeper and discovery use the selected provider through the factory;
+  - the memory keeper and discovery use the selected provider through the factory. The
+    process-wide `MemoryCatchUps` holds no keeper or provider: each `start` and `wait` is given a
+    keeper built from the request's `get_structured_llm`, so a provider switch (004, no restart)
+    applies to the next catch-up;
   - a failure is reported (discovery) or logged and retried at the next trigger (memory), never
     redirected to another provider;
   - memory goes to a cloud provider only inside the episode context the existing Claude notice
@@ -129,10 +133,11 @@ No `_ADDITIVE_COLUMNS` entry, no existing column, and no existing row is updated
 - one learner, 3 languages, 8 ready-made shows;
 - per series, at most 10 topics and 8 learner points;
 - 7 new endpoints, plus additive fields on 3 existing ones;
-- about 9 new backend modules inside `app/podcasts/`, and 14 existing backend files touched
-  (listed under *Function-length plan* and contracts §10);
-- frontend: 2 shared and 9 podcast components, 4 hooks, 3 pages touched (Podcasts, PodcastSetup,
-  PodcastEpisode header), and 4 non-podcast components moved to `ThemedSelect`.
+- about 10 new backend modules inside `app/podcasts/` (including `services/series_snapshot.py`),
+  and 15 existing backend files touched (listed under *Function-length plan* and contracts §10);
+- frontend: 2 shared components and 1 shared hook, 10 podcast components, 4 hooks (plus the pure
+  `catchUpState.ts` reducer), 3 pages touched (Podcasts, PodcastSetup, PodcastEpisode header),
+  and 4 non-podcast components moved to `ThemedSelect`.
 
 *No NEEDS CLARIFICATION items remain. The design questions are settled in research R1–R13.*
 
@@ -152,7 +157,8 @@ reviewed.
    Episode 1 of a series keeps Shuffle and the personality choice. Its hosts at Start become the
    series' hosts.
 4. **FR-009, choosing the new host**: Recast draws a new name and voice by 007's rules. The dialog
-   lets the learner choose the personality ("Any" by default). With two installed voices, the
+   lets the learner choose the personality ("Any" by default), so `HostCaster.recast` gains an
+   optional `personality_id`; 007's Shuffle calls it without one. With two installed voices, the
    recast host usually keeps the slot's voice (007 interpretation 6), and the dialog says so.
 5. **FR-010 and the learner's name**: an unstarted ready-made show's hosts are stable *for a given
    language and learner name*. 007's clash avoidance stays for shows with no series, since no
@@ -164,7 +170,9 @@ reviewed.
 7. **FR-014 and one-off episodes**: playing a one-off of a generated, surprise or suggested show
    also keeps it. "An episode of it is played" covers both kinds.
 8. **FR-019 and unfavouriting**: a learner-made show kept only by its favourite (never played, no
-   series) is discarded when unfavourited (R9).
+   series) is discarded when unfavourited (R9). A played learner-made show stays until the learner
+   removes it (FR-024), which deletes the show row and, by cascade, its series in every language;
+   the episodes stay in Past Chats.
 9. **FR-004, what is remembered**:
    - one topic per episode (the episode's subject);
    - up to three things the learner said about themselves (likes, plans, experiences, opinions),
@@ -175,16 +183,20 @@ reviewed.
 10. **FR-005, "acknowledge the show is continuing"** is asked for in the series `open` cue, which
     also asks the host to bring up one remembered point. US1's example has the opener do it. The
     standing prompt permits further references (R5).
-11. **FR-006, "bounded"**: newest wins, within fixed caps of 10 topics and 8 learner points (R7).
-    What is stored is exactly what is remembered and shown: the learner never sees a list that
-    differs from what the hosts get.
+11. **FR-006, "bounded"**: newest wins, within fixed caps of 10 topics and 8 learner points and a
+    1,200-character budget on the points' text (R7). The budget is enforced when points are
+    written, so the stored list always fits the 1,800-character series section whole. What is
+    stored is exactly what is remembered and shown: the learner never sees a list that differs
+    from what the hosts get.
 12. **"Episode deleted from Past Chats"**: the app has no delete today. Every new row cascades from
     `conversations`, so if a conversation is removed, its link and the memories drawn from it go
     with it, and the count follows (R3). No delete feature is added.
 13. **FR-016, "at least three"**: the system asks for five and returns three to five after
     filtering (R10).
 14. **FR-017, "favour the learner's saved interests"**: with interests, 3 of 5 seeds come from them
-    (a deterministic quota, seeded-testable); without, 5 built-in everyday topics.
+    (a deterministic quota, seeded-testable); without, 5 built-in everyday topics. The quota
+    governs the seeds, not the response: filtering can leave a set where fewer than 3 relate to
+    the interests. This is accepted (research R10).
 15. **FR-021, "every drop-down"** means every `<select>` in `frontend/src`. There are five today,
     and `ThemedSelect` replaces them all (R11).
 16. **Memory timing** (clarified 2026-10-17): memory is written after a series sign-off and when
@@ -203,7 +215,7 @@ bottom of this section.*
 
 | Principle | Status | How this design satisfies it |
 |---|---|---|
-| **I. Clean Code**: ≤ 20-line functions, intention-revealing names, no magic values | ✅ | Every cap and budget is a named catalogue constant (data-model §1). New code is written to the limit. The existing functions this feature touches, and their lengths, are listed under *Function-length plan*; none ends over 20. The frontend's ESLint `max-lines-per-function: 20` override is extended to the two new shared components. |
+| **I. Clean Code**: ≤ 20-line functions, intention-revealing names, no magic values | ✅ | Every cap and budget is a named catalogue constant (data-model §1). New code is written to the limit. The existing functions this feature touches, and their lengths, are listed under *Function-length plan*; none ends over 20. `WordFilterBar` (197 lines today) is split before its select is replaced (Boy Scout). The frontend's ESLint `max-lines-per-function: 20` override is extended to the new shared files and to the four non-podcast components this feature modifies. |
 | **II. SOLID: SRP** | ✅ | Each piece answers one question: <br>• `ShowLibrary`: which shows are the learner's; <br>• `SeriesService`: which hosts and snapshot an episode starts with, and recast and reset; <br>• `SeriesMemoryKeeper`: what to remember from lines; <br>• `MemoryCatchUps`: whether a catch-up is running; <br>• `ShowDiscovery`: which new shows to suggest; <br>• `SuggestionSeeds`: which ideas to try. <br>The routers only sequence them. |
 | **II. SOLID: OCP** | ✅ | The 007 episode pipeline is extended through an optional `series` brief and one injected listener. No existing branch changes behaviour for one-off episodes, and a golden test proves it. New caps and sources are catalogue entries. |
 | **II. SOLID: LSP** | ✅ | No provider or storage subclass changes contract. `SQLitePodcastStorage.create_episode` keeps its all-or-nothing contract, now with one more row. |
@@ -228,7 +240,8 @@ bottom of this section.*
 ### Function-length plan (Boy Scout, quality gate)
 
 Measured on `010-recurring-podcast-shows` @ `335baa8`. Every existing function this feature
-modifies is ≤ 20 lines today and stays ≤ 20 after the change.
+modifies is ≤ 20 lines after the change. All are ≤ 20 today except `WordFilterBar`, which is
+brought under the limit when it is touched (constitution Quality Gates).
 
 | Function | Today | Change |
 |---|---|---|
@@ -243,13 +256,16 @@ modifies is ≤ 20 lines today and stays ≤ 20 after the change.
 | `LoadedEpisode.standing_prompt` ([episodes.py](../../backend/app/podcasts/services/episodes.py)) | 5 | + `self.series_brief` → 5 |
 | `episode_history` / `next_turn_history` / `_cue_turn` ([cues.py](../../backend/app/podcasts/services/cues.py)) | 11 / 4 / 4 | + `series` argument passed through → 11 / 4 / 4 |
 | `EpisodeTurns.warm` / `_request` / `_after` ([episode_turns.py](../../backend/app/podcasts/services/episode_turns.py)) | 8 / 4 / 7 | Pass the brief; `_after` + 1 line (`self._deps.endings.episode_finished(...)`) → 8 / 4 / 8 |
-| `validate_draft` / `_host_problem` ([schemas.py](../../backend/app/podcasts/schemas.py)) | 14 / 10 | Name-clash wording is chosen by a `clash_message` argument → 14 / 10 |
+| `validate_draft` / `_host_problem` ([schemas.py](../../backend/app/podcasts/schemas.py)) | 14 / 10 | The show-level checks move to `show_problem(draft, language)`, which series starts after episode 1 use alone, with `SeriesRecord.matches` and the series name clash, so 007's pair rules never refuse a series' fixed hosts. Name-clash wording is chosen by a `clash_message` argument → ≈ 10 / 10 |
+| `HostCaster.recast` ([casting.py](../../backend/app/podcasts/services/casting.py)) | 11 | + optional `personality_id`, used instead of the random choice when given → ≈ 12 |
+| `_episode_turns` (routes.py) | 16 | + `endings = Depends(get_episode_endings)`, passed to `EpisodeDependencies` → 17 |
 | `show_draft` / `_episode_fields` / `summary_row` / `_show_model` ([responses.py](../../backend/app/podcasts/responses.py)) | 12 / 14 / 11 / 8 | + 1 field each → 13 / 15 / 12 / 9 |
 | `ShowGenerator.generate`, `_parse_reply`, `_show_reply` ([generator.py](../../backend/app/podcasts/services/generator.py)) | 8 / 9 / 13 | `_show_reply` becomes the public `parse_show`, shared with discovery; no length change |
 | `HostCard` ([HostCard.tsx](../../frontend/src/components/podcasts/HostCard.tsx)) | 15 | `<select>` → `<ThemedSelect>` → ≈ 15 |
 | `ShowCard` (ShowCard.tsx) | 14 | The card becomes a group: the choose button plus `FavouriteToggle`, with series text in the description → ≈ 18 |
 | `ShowList`, `Podcasts`, `PodcastSetup`, `SetupForm`, `useSetupShow` | 9 / 15 / 14 / 18 / 16 | `Podcasts` + `<MyShows>`, `<FindNewShow>`. `SetupForm` gains `kind` and moves its Start button into `StartActions` to stay ≤ 20. `useSetupShow` gains `?saved=`, with lookup moved to `findShow(catalog, params)` |
-| `SelectField`, `ConversationLevelControl`, `WordFilterBar`, `LlmProviderFields` | all ≤ 20 | `<select>` → `<ThemedSelect>`, with the props unchanged |
+| `SelectField`, `ConversationLevelControl`, `LlmProviderFields` | all ≤ 20 | `<select>` → `<ThemedSelect>`, with the props unchanged |
+| `WordFilterBar` ([WordFilterBar.tsx](../../frontend/src/components/flashcards/WordFilterBar.tsx)) | **197**, with inner arrow functions of 40 and 27 | First a behaviour-preserving split into colocated components (`ClassificationPills`, `WordSortSelect`, `DatePresetChips`) with module-level style constants, each function ≤ 20; then `<select>` → `<ThemedSelect>` inside `WordSortSelect` |
 
 ### Post-Phase-1 re-evaluation: **PASS**
 
@@ -300,11 +316,13 @@ backend/
 │   │   │                                   #   discovery prompts + schemas
 │   │   ├── responses.py                    # + listings and series fields
 │   │   ├── routes.py                       # catalogue listings; start delegates to SeriesService
-│   │   ├── series_routes.py                # NEW: favourites, series detail, recast, reset, memory
+│   │   ├── series_routes.py                # NEW: favourites, remove a kept show, series detail,
+│   │   │                                   #   recast, reset, memory
 │   │   ├── discovery_routes.py             # NEW: Find a new show
 │   │   └── services/
 │   │       ├── library.py                  # NEW: ShowLibrary, ShowRef
 │   │       ├── series.py                   # NEW: SeriesService (prepare start, recast, reset)
+│   │       ├── series_snapshot.py          # NEW: SeriesSnapshot, SeriesBrief (imported by prompts.py)
 │   │       ├── series_memory.py            # NEW: SeriesMemoryKeeper, MemoryCatchUps, parser
 │   │       ├── discovery.py                # NEW: ShowDiscovery, SuggestionSeeds
 │   │       ├── episode_endings.py          # NEW: EpisodeEndings ABC
@@ -314,6 +332,7 @@ backend/
 │   │       ├── episodes.py                 # LoadedEpisode.series_brief
 │   │       ├── cues.py                     # brief passed to render_cue
 │   │       ├── episode_turns.py            # EpisodeDependencies.endings; _after reports finish
+│   │       ├── casting.py                  # HostCaster.recast takes an optional personality_id
 │   │       └── generator.py                # parse_show shared with discovery
 │   └── services/factory.py                 # + library, series storage, keeper, catch-ups, endings
 │   # NOT modified: prompts/templates.py, conversation_levels/*, conversation_summary/*,
@@ -335,20 +354,23 @@ backend/
     └── fixtures/schema_007.sql             # NEW: frozen pre-010 schema
 
 frontend/
-├── .eslintrc.json                          # function-length override + shared ThemedSelect, ConfirmDialog
+├── .eslintrc.json                          # function-length override + the shared files and the four
+│                                           #   non-podcast components moved to ThemedSelect
 ├── src/
 │   ├── index.css                           # the `option` rule removed once no native option remains
-│   ├── services/podcastsApi.ts             # + listings, series, favourites, discover, recast, reset
-│   ├── hooks/podcasts/                     # NEW: useFavourite, useSeries, useShowDiscovery, useRecast;
+│   ├── services/podcastsApi.ts             # + listings, series, favourites, remove, discover, recast, reset
+│   ├── hooks/podcasts/                     # NEW: useFavourite, useSeries, useShowDiscovery, useRecast,
+│   │                                       #   catchUpState.ts (pure reducer);
 │   │                                       #   usePodcastCatalog, useSetupShow, useStartEpisode extended
-│   ├── components/shared/                  # NEW: ThemedSelect, ConfirmDialog
+│   ├── components/shared/                  # NEW: ThemedSelect, useListboxNavigation, ConfirmDialog
 │   ├── components/podcasts/                # NEW: FavouriteToggle, MyShows, FindNewShow, SeriesHosts,
 │   │                                       #   SeriesHostCard, RecastDialog, RememberedPoints,
-│   │                                       #   EpisodeKindFieldset, ContinueEpisode;
+│   │                                       #   EpisodeKindFieldset, ContinueEpisode, StartActions;
 │   │                                       #   ShowCard, ShowList, HostCard, SetupForm, EpisodeHeader changed
 │   ├── components/settings/SelectField.tsx, LlmProviderFields.tsx   # → ThemedSelect
 │   ├── components/chat/ConversationLevelControl.tsx                 # → ThemedSelect
-│   ├── components/flashcards/WordFilterBar.tsx                      # → ThemedSelect
+│   ├── components/flashcards/WordFilterBar.tsx                      # split, then → ThemedSelect
+│   │                                       #   (+ ClassificationPills, WordSortSelect, DatePresetChips)
 │   └── pages/Podcasts.tsx, PodcastSetup.tsx                         # My shows, discovery, series setup
 └── e2e/
     ├── podcast-series.spec.ts, podcast-favourites.spec.ts,
@@ -415,6 +437,7 @@ frontend/
    - removing the `option` CSS rule.
 5. **US4 (P2): favourites and My shows**:
    - `PUT /favourites`;
+   - `DELETE /shows/{saved_show_id}` and the confirmed **Remove** on kept learner-made shows (FR-024);
    - `my_shows` in the catalogue;
    - `?saved=` setup;
    - `FavouriteToggle`, `MyShows`;

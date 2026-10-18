@@ -39,8 +39,9 @@ cd frontend && npm run lint && npm run build && npm test && npm run test:e2e
   link row or memory.
 - **Consistent hosts (SC-001)**: across 10 scripted series episodes, the per-episode
   `podcast_hosts` rows equal the series hosts every time, except the recast slot after a recast.
-- **Bounded memory (FR-006)**: over 200 seeded random catch-up sequences, the caps hold and the
-  rendered series section stays ≤ 1,800 characters.
+- **Bounded memory (FR-006)**: over 200 seeded random catch-up sequences, the caps and the
+  1,200-character text budget hold, and the rendered series section stays ≤ 1,800 characters
+  with every stored point in it.
 - **Snapshot stability**: resuming a series episode after its series gained new memories rebuilds
   the same standing prompt and cue history byte-for-byte.
 - **Theme (FR-021)**: `themed-select.spec.ts` passes in light, dark and system-dark themes, with
@@ -126,6 +127,10 @@ Use the default local setup, Spanish, in dark mode. Set the name the hosts use t
      numbers, and the ready-made list is unchanged.
    - Unfavourite Game Day. Expected: it leaves My shows (no series).
    - Unfavourite Big Little Questions. Expected: it stays (series in progress).
+   - Favourite the generated show, then unfavourite it. Expected: it stays (played). Press
+     **Remove**, then Cancel.
+     Expected: nothing changes. Press **Remove** and confirm. Expected: it leaves My shows, and
+     its episode is still in Past Chats.
 8. **US5, Find a new show**:
    - Press **Find a new show**. Expected: 3–5 cards, none already listed. Press **Show me others**.
      Expected: no repeats.
