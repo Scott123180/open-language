@@ -711,7 +711,7 @@ reference to earlier episodes, and leaves the series' count and memory unchanged
   - `frontend/src/pages/PodcastSetup.tsx` shows `SetupHosts` for one-offs.
 
   T086 and T087 pass, and `npm run test:e2e` is green.
-- [ ] T091 [P] [US2] Write `backend/tests/integration/podcasts/test_one_off_isolation_benchmark.py` (`@pytest.mark.benchmark`, SC-004, research R12): 20 one-off episodes of shows with a series in progress. It lists every host line mentioning "last time", "last episode" or the known facts in `series-review-sheet.md`.
+- [X] T091 [P] [US2] Write `backend/tests/integration/podcasts/test_one_off_isolation_benchmark.py` (`@pytest.mark.benchmark`, SC-004, research R12): 20 one-off episodes of shows with a series in progress. It lists every host line mentioning "last time", "last episode" or the known facts in `series-review-sheet.md`.
 - [ ] T092 [US2] US2 checkpoint: run the full suites, then quickstart §4 step 5.
 
 **Checkpoint**: the series and the quick one-off sit side by side.
@@ -939,19 +939,19 @@ from the other; starting one opens setup; the ready-made list is unchanged (spec
   - SC-006: episode 10 within 20% of episode 1;
   - the catch-up wait: p90 ≤ 15 s;
   - SC-007: ≥ 3 suggestions within 30 s.
-- [ ] T135 If SC-002 or SC-003 is missed, ship series as **experimental**, as 003 and 005 did:
+- [X] T135 If SC-002 or SC-003 is missed, ship series as **experimental**, as 003 and 005 did:
   - add a note on the series setup screen, in a small component in `frontend/src/components/podcasts/`, with a Vitest test and an E2E assertion in `podcast-series.spec.ts`;
   - record it in `docs/architecture.md` § "Open items".
 
   Record any other missed bar there too.
-- [ ] T136 [P] Update `docs/architecture.md`:
+- [X] T136 [P] Update `docs/architecture.md`:
   - series beside episodes: the link table, the snapshot, copying hosts per episode;
   - the memory keeper, the catch-ups and the Start wait;
   - My shows and discovery;
   - `ThemedSelect` replacing the native selects;
   - the extended composition-root exception.
-- [ ] T137 [P] Document `ThemedSelect` and `ConfirmDialog` in the component patterns and do/don't guide of `docs/design-system.md`.
-- [ ] T138 Update `CLAUDE.md`:
+- [X] T137 [P] Document `ThemedSelect` and `ConfirmDialog` in the component patterns and do/don't guide of `docs/design-system.md`.
+- [X] T138 Update `CLAUDE.md`:
   - add the 010 domain-module note (series code inside `app/podcasts/`, the new factory imports) and a "Recent Changes" entry;
   - list 010 in the overview's shipped features.
 

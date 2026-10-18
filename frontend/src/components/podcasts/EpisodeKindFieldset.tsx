@@ -1,5 +1,6 @@
 import type { EpisodeKind } from '../../services/podcastsApi'
 import ChoiceTile from './ChoiceTile'
+import SeriesExperimentalNote from './SeriesExperimentalNote'
 import { choiceGroupStyle, choiceLegendStyle } from './styles'
 
 interface EpisodeKindFieldsetProps {
@@ -22,6 +23,7 @@ export default function EpisodeKindFieldset({ nextEpisodeNumber, value, onChange
         option={{ value: 'series', label: `Episode ${nextEpisodeNumber}`, detail: seriesDetail }} />
       <ChoiceTile group="podcast-episode-kind" isChecked={value === 'one_off'} onChoose={() => onChange('one_off')}
         option={{ value: 'one_off', label: 'One-off episode', detail: ONE_OFF_DETAIL }} />
+      {value === 'series' && <SeriesExperimentalNote />}
     </fieldset>
   )
 }

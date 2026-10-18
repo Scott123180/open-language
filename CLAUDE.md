@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Open-Language** is a locally-run language learning application built using **SpecKit** (v1.0.1, skills-based integration), a specification-driven development (SDD) framework. All feature work goes through the SDD workflow below.
 
-The application is implemented and running: a FastAPI backend in [backend/app/](backend/app/) and a Vite/React frontend in [frontend/src/](frontend/src/). Features shipped so far: roleplay chat (001), vocabulary flashcards (002), corrective feedback mode (003, experimental), LLM provider selection with conversation sessions (004), conversation difficulty levels (005, experimental), German as a second practice language (006), podcast mode with a two-language conversation Summary (007), and the language onboarding kit, which added Italian as a third practice language by data alone (008). Every AI capability sits behind a provider interface, and the app is local by default: Ollama for the LLM, Piper for TTS, faster-whisper for STT, SQLite for storage. Cloud providers are opt-in — today, Claude as the conversation partner through the learner's signed-in Claude Code. STT and TTS are always local.
+The application is implemented and running: a FastAPI backend in [backend/app/](backend/app/) and a Vite/React frontend in [frontend/src/](frontend/src/). Features shipped so far: roleplay chat (001), vocabulary flashcards (002), corrective feedback mode (003, experimental), LLM provider selection with conversation sessions (004), conversation difficulty levels (005, experimental), German as a second practice language (006), podcast mode with a two-language conversation Summary (007), the language onboarding kit, which added Italian as a third practice language by data alone (008), and recurring podcast shows: series with the same hosts and a bounded memory, favourites, My shows, Find a new show, and themed drop-downs (010, series experimental). Every AI capability sits behind a provider interface, and the app is local by default: Ollama for the LLM, Piper for TTS, faster-whisper for STT, SQLite for storage. Cloud providers are opt-in — today, Claude as the conversation partner through the learner's signed-in Claude Code. STT and TTS are always local.
 
 Speech-to-text is implemented in [backend/app/services/stt/whisper.py](backend/app/services/stt/whisper.py); see [reference/TRANSCRIPTION_INTEGRATION.md](reference/TRANSCRIPTION_INTEGRATION.md) for the underlying `faster-whisper` + CUDA integration patterns.
 
@@ -295,12 +295,28 @@ Per-host voices reach the audio router through `MessageVoiceLookup` (`services/t
 `backend/app/language_data/` (008) is a leaf package: it imports nothing from the app and is the only
 place language data lives. A strict loader turns the TOML files into records; `practice_languages/catalog.py`
 and `services/tts/voices.py` adapt them to `PracticeLanguage` and `VoiceInfo`.
+Series (010) live inside `backend/app/podcasts/`: `services/series.py` (`SeriesService`: start, recast,
+reset), `services/library.py` (`ShowLibrary`, `ShowShelf`), `services/series_memory.py` (keeper,
+`MemoryCatchUps`, `KeeperEndings`), `services/discovery.py`, `series_routes.py` and `discovery_routes.py`.
+`EpisodeTurns` reports a sign-off through the one-method `EpisodeEndings`, never the keeper; the factory is
+the only outside importer of `series_storage`, `sqlite_series_storage`, `series_memory` and
+`episode_endings` (a unit test enforces it). A series episode's prompt and cues come from its stored
+`SeriesSnapshot` only. On the frontend, every drop-down is `components/shared/ThemedSelect.tsx`; never add a
+native `<select>`.
 `backend/language_kit/` (008) is developer tooling beside `app/`, run as `.claude/skills/language-kit/kit.sh`.
 It is never imported by the app (a unit test enforces it) and reaches the app only through package roots.
 One registry of requirements drives its pack template, validation, `check`, `backfill` and the canonical
 file layout; commands are small `Command` objects wired in `composition.py`.
 
 ## Recent Changes
+- **010-recurring-podcast-shows**: a show can be a series per practice language — the same two hosts each
+  episode (checked at Start; changed only by a confirmed Recast), a bounded memory of topics and what the
+  learner said (≤ 10 + 8 points, 1,200 characters) frozen into each episode's snapshot, written in the
+  background after a sign-off and when setup opens, with a visible "catching up" wait before Start. One-off
+  episodes stay 007's (pinned by a golden prompt test). Adds favourites, My shows, Remove, Find a new show,
+  `ThemedSelect` for every drop-down and `ConfirmDialog`. Five additive tables, no data migration.
+  **Series ship as experimental**: on `llama3.1:8b` 6/20 second episodes invent a memory and 8/20 pick a
+  new topic, and episode 10 opens +0.47 s slower (docs/architecture.md § "Open items")
 - **008-language-onboarding-kit**: language data moves from Python literals into generated TOML files
   (Spanish and German values pinned unchanged), and a tested CLI kit behind the `language-kit` skill
   onboards a language: `prereq` → `scaffold` → fill one `pack.toml` → `validate` → `finish` (apply,

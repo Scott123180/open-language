@@ -857,6 +857,55 @@ the only import surface outside the package besides `services/factory.py`; a uni
   the episode's lock (`EpisodeLocks`, process-wide) before checking the turn state; a second action is a
   plain 409.
 
+#### Recurring shows (feature 010)
+
+A show can be a **series**: the same two hosts, episode after episode, in one practice language,
+remembering the topics covered and what the learner shared. The quick **one-off** episode is 007's,
+unchanged. All of it lives inside `app/podcasts/`; the package root is unchanged.
+
+- **A series sits beside episodes, not inside them.** Five additive tables: `podcast_shows` (a show the
+  learner has state for: a ready-made template id, or a learner-made show's content), `podcast_series`
+  (one per show and language), `podcast_series_hosts` (both slots, always), `podcast_series_episodes`
+  (the link that makes an episode part of a series) and `podcast_series_memories`. Starting a series
+  episode copies the series' hosts into the episode's `podcast_hosts`, exactly as 007 copies a draft's,
+  so the whole episode pipeline runs unchanged. One-off and pre-010 episodes simply have no link row.
+  Start over deletes the series row and the cascade does the rest; the episodes stay in Past Chats.
+- **The series' hosts are checked, never trusted.** `SeriesService.prepare` (`services/series.py`) creates
+  the series from episode 1's draft (after any Shuffle). A later episode must arrive with the series'
+  hosts or it is refused with a plain 409; the only way to change one is **Recast…**, a confirmed
+  server action (`HostCaster.recast` with an optional chosen personality). A recast host is introduced
+  as new in the next episode.
+- **Memory reaches the model as a snapshot taken at the start.** Each link row stores a `SeriesSnapshot`
+  (episode number, topics covered, what the learner said, new hosts). The standing prompt's series
+  section and the series `open`/`greet` cues are rendered from it only, so a resumed episode keeps its
+  fingerprint and its cue history byte for byte. A one-off's prompt and cues are pinned to 007's by a
+  golden test (`tests/unit/podcasts/test_one_off_golden.py`).
+- **Memory is written in the background.** `SeriesMemoryKeeper` (`services/series_memory.py`) reads each
+  series episode's unread lines (after `remembered_up_to_message_id`) in chunks of 6,000 characters,
+  one structured call per chunk, and keeps learner points only from chunks with learner lines (so a
+  Listen episode adds topics only). It runs after a series sign-off (`EpisodeTurns` reports through the
+  one-method `EpisodeEndings`, wired in the factory; the turn code never imports the keeper) and when
+  the setup screen opens a series (`POST /series/{id}/memory`, 202). `MemoryCatchUps` runs one catch-up
+  per series at a time, process-wide, on a one-thread executor; it holds no keeper or provider, so each
+  catch-up runs on the provider selected by the request that started it (Principle VI).
+- **Memory stays bounded.** At most 10 topics and 8 learner points, each ≤ 160 characters, and ≤ 1,200
+  characters of point text in all, pruned newest-wins in the write's transaction. The renderer lists
+  every stored point, and a unit test bounds the series section at 1,800 characters; a 200-sequence
+  property test checks the caps against a reference model.
+- **Start waits for memory, visibly.** When a series' memory is not up to date, Start shows "Hugo and Inés
+  are catching up on episode N" and calls `?wait=true` (up to 30 s, in FastAPI's thread pool), then
+  starts on its own; a failure or timeout offers Try again or Start without it. `POST /episodes` itself
+  never calls the model.
+- **My shows and Find a new show.** `ShowShelf` (`services/library.py`) lists shows with the hosts they
+  open with: the series' hosts once there is one, the card's (or a stable stand-in cast for a kept
+  learner-made show) before. `my_shows` holds the favourites, the series in this language and the played
+  learner-made shows. `ShowDiscovery` (`services/discovery.py`) draws five seeds in code (three from the
+  learner's interests when there are some), asks for one show per seed in one structured call, drops
+  unsuitable, unreadable and duplicate titles, and makes at most one top-up call. Nothing is stored
+  until a suggestion is favourited or played.
+- **Composition root.** `services/factory.py` is the only outside importer of `series_storage`,
+  `sqlite_series_storage`, `series_memory` and `episode_endings` (`tests/unit/test_module_boundaries.py`).
+
 #### Conversation summary (feature 007)
 
 `app/conversation_summary/` serves `GET /api/conversations/{id}/summary` for roleplay and podcasts alike.
@@ -1191,6 +1240,14 @@ Dark mode is driven by a `data-theme` attribute on `<html>`, applied by `initThe
 so there is no flash of the wrong theme. Three states: `light`, `dark`, and `system` (attribute removed,
 `prefers-color-scheme` decides).
 
+**Drop-downs are drawn by the app (010).** A native `<select>`'s open list is drawn by the browser and the
+OS, ignores the theme, and cannot be inspected by Playwright. Every drop-down is therefore
+`components/shared/ThemedSelect.tsx`, the WAI-ARIA select-only combobox (keyboard model in
+`useListboxNavigation.ts`), styled with tokens only; `e2e/themed-select.spec.ts` checks each one in light,
+dark and system-dark for theme colours, 4.5:1 contrast and a distinct focus outline. Confirmations that
+lose something use `components/shared/ConfirmDialog.tsx` (an `alertdialog` with a focus trap and focus
+return).
+
 ---
 
 ## 8. Testing strategy
@@ -1401,6 +1458,7 @@ open-language/
 | `006-german-language-support` | German as a second practice language: catalogue, per-language voices, conversations that keep their language, flashcards per language | In progress |
 | `007-podcast-mode` | Podcast episodes (One host, Panel, Listen) with code-chosen turns, cast hosts and per-host voices; ready-made, generated and Surprise me shows; a two-language Summary for every conversation | In progress |
 | `008-language-onboarding-kit` | Language data as generated TOML files, the language kit (registry, pack, apply, backfill, verify, bench, report) behind the `language-kit` skill, language-independent benchmarks, Spanish's evaluation set, Italian as a third practice language | In progress |
+| `010-recurring-podcast-shows` | Series of a show with the same hosts and a bounded memory, Recast and Start over, one-off episodes beside them, favourites and My shows, Find a new show, themed drop-downs everywhere; series experimental | In progress |
 
 `master` is the release branch; `develop` is the integration branch; feature branches are numbered and
 created by `.specify/scripts/bash/create-new-feature.sh`.
@@ -1463,6 +1521,8 @@ Collected from the sections above so they are findable in one place:
 | **Two lint backlogs outside the gates** — `mypy app` reports 232 errors in 53 files and `prettier --check src` flags 132 files (both checked 2026-10-06) | `backend/app`, `frontend/src` | Found while planning 008; none in files 008 touches. `kit verify` therefore type-checks only `language_kit` and `app/language_data` (mypy follows the rest silently) and uses ESLint as the frontend lint gate. Clearing them is its own piece of work |
 | **Italian misses both benchmarks on the default stack** (008): adherence 46/50 (target ≥ 95%; at least one of the 4 flags is false), transcription on Whisper `base` 6/20 (Paola) and 5/20 (Riccardo, x_low) against 18/20 | `specs/008-language-onboarding-kit/languages/it/` | Real `base` errors on Piper speech, plus number words that come back as digits. Italian ships like German did: usable in text and voice, with transcription weak on `base`. Re-run `kit.sh bench it` on Whisper `small` before recommending a size; judge the review sheet |
 | German transcription re-measured through the kit (008): Whisper `base`, **17/20** with Thorsten and **12/20** with Kerstin (target 18/20); adherence **50/50** | `specs/008-language-onboarding-kit/languages/de/` | Same evaluation data and format as 006, now one table per voice. Confirms the 006 open item above |
+| **Series recall is not reliable enough on an 8B model** (010): 19/20 second episodes refer back correctly (target ≥ 16), but 6/20 invent a memory (target 0) and 8/20 choose a new topic (target ≥ 18) | `app/podcasts/prompts.py`, `services/series_memory.py` | Shipped with an in-app "Series are experimental" note (T135). Two prompt fixes during the benchmark made topics reliable and learner points cleaner; inventions and broad topics remain. Figures and lines in `specs/010-recurring-podcast-shows/series-review-sheet.md`. Claude not yet benchmarked |
+| **A long series opens about half a second slower** (010, SC-006): median first line 1.06 s for episode 1, 1.53 s at episode 10 with full memory (target within 20%) | `app/podcasts/prompts.py` | The full series section (≤ 1,800 characters) is read once when the episode's session opens. A smaller text budget or a shorter section would close the gap at the cost of what the hosts remember. The catch-up wait before Start is p90 6.5 s (target ≤ 15 s) |
 | The integration suite runs the app lifespan's `init_db()` against the learner's real `~/.open-language/app.db` | `tests/integration/` | Found in 006. Additive migrations only, but a test run should never touch learner data; 006 redirected the TTS cache writes (`isolated_tts_cache`), the database is still shared |
 
 #### German on the default stack (006)

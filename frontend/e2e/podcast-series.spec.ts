@@ -215,3 +215,14 @@ test.describe('Podcast series — a one-off beside it (010 US2)', () => {
     await expect(page.getByRole('button', { name: 'Big Little Questions', exact: true })).toContainText('Episode 2 next')
   })
 })
+
+test('a series setup says series are experimental; a one-off does not (010 T135)', async ({ page }) => {
+  await mockHomeApis(page)
+  await mockPodcastApis(page, { catalog: catalogWithSeries(), episode: seriesEpisodeFixture() })
+  await mockSeriesApis(page)
+  await page.goto(SETUP)
+
+  await expect(page.getByRole('note', { name: 'Series are experimental' })).toBeVisible()
+  await page.getByRole('radio', { name: /One-off episode/ }).check()
+  await expect(page.getByRole('note', { name: 'Series are experimental' })).toHaveCount(0)
+})

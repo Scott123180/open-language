@@ -548,6 +548,34 @@ font-size: var(--text-base);
 ```
 Focus: `outline: 2px solid var(--color-primary); outline-offset: 2px;`
 
+### Drop-downs: `ThemedSelect`
+
+Never use a native `<select>`. Its open list is drawn by the browser and the OS: it ignores the theme
+(a light list in dark mode), its highlight colours differ between browsers, and Playwright cannot see it
+to check contrast. Use `components/shared/ThemedSelect.tsx` instead (010):
+
+```tsx
+<label htmlFor="voice" style={labelStyle}>Voice</label>
+<ThemedSelect id="voice" label="Voice" value={value} options={options} onChange={setValue} describedBy={hintId} />
+```
+
+- It is the WAI-ARIA **select-only combobox**: Enter, Space, Alt+↓, Home or End open it; ↑/↓/Home/End move;
+  letters jump; Enter or Tab chooses; Escape closes without a change. Focus stays on the trigger.
+- The list sits on `--color-surface` with `--color-text`, `--radius-lg` and `--shadow-md`. The chosen
+  option is tinted (`--color-primary-subtle` / `--color-primary-text`) and checked; the active option has
+  a 2px `--color-primary` outline, so both can show on the same option.
+- Options are at least 44px tall. `isCompact` sizes it to its content for a header control.
+- Prefer selection tiles for a small set with descriptions; use `ThemedSelect` when the list is long or the
+  control is secondary.
+
+### Confirmations: `ConfirmDialog`
+
+Ask before anything the learner would lose (Recast, Start over, Remove) with
+`components/shared/ConfirmDialog.tsx`: an `alertdialog` named by its title and described by its message,
+with focus moved in, trapped, and returned to the opener. Escape and Cancel change nothing. Say exactly
+what is lost and what is kept ("Your past episodes stay in Past Chats"). Pass `isDestructive` to draw the
+confirm button in `--color-error` with `--color-text-on-primary`.
+
 ---
 
 ## Brand Mark & Favicon
@@ -880,3 +908,5 @@ Key rules:
 | Use a modal with blurred backdrop for creation/configuration flows | Expand inline panels that leave existing content visible and competing for attention |
 | Use stepped wizards for flows with ≥ 3 independent decisions | Put all options in one dense form when choices benefit from focused attention |
 | Use selection tile cards for small option sets (2–6) with descriptions | Use `<select>` dropdowns that hide options until clicked (the one exception is a secondary header switcher for a setting also offered as tiles elsewhere — see Selection Tile Cards) |
+| Use `ThemedSelect` for every drop-down | Use a native `<select>`, whose open list ignores the theme and cannot be tested |
+| Confirm a destructive action with `ConfirmDialog`, saying what is kept | Delete or replace something on a single click, or use `window.confirm()` |
