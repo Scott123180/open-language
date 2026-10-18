@@ -79,7 +79,7 @@ describe('PodcastEpisode page — One host', () => {
 
   it('keeps the episode on screen when a new line scrolls in and the browser returns a promise from the scroll', async () => {
     Element.prototype.scrollIntoView = vi.fn(() => Promise.resolve()) as unknown as Element['scrollIntoView']
-    vi.mocked(podcasts.streamEpisodeMessage).mockImplementation(async (_id, _body, handlers) => handlers.onUserSaved(90))
+    vi.mocked(podcasts.streamEpisodeMessage).mockImplementation(async (_id, _body, handlers) => handlers.onUserSaved?.(90))
     renderEpisode()
     fireEvent.change(await screen.findByLabelText('Type a message'), { target: { value: 'Paella' } })
 

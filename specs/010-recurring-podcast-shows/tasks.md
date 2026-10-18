@@ -956,7 +956,7 @@ from the other; starting one opens setup; the ready-made list is unchanged (spec
   - list 010 in the overview's shipped features.
 
   `CLAUDE.md` has uncommitted local edits: read it first, and change only these lines.
-- [ ] T139 Run the full quality gate:
+- [X] T139 Run the full quality gate:
   - backend: `backend/.venv/bin/pytest` (≥ 90% coverage, zero skips), including `test_function_length.py`, `test_module_boundaries.py` and `test_no_language_literals.py`;
   - `ruff check .` and `black --check .`;
   - frontend: `npm run lint`, `npm run build`, `npm test` and `npm run test:e2e`.
