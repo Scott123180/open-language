@@ -14,12 +14,12 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.podcasts.services.series_memory import MemoryCatchUps, SeriesMemoryKeeper
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.database import get_db
 from app.main import app
+from app.podcasts.services.series_memory import MemoryCatchUps, SeriesMemoryKeeper
 from app.podcasts.services.sqlite_series_storage import SQLiteSeriesStorage
 from app.podcasts.services.sqlite_storage import SQLitePodcastStorage
 from app.services.conversation import ConversationEngine

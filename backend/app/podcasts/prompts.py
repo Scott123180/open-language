@@ -309,7 +309,7 @@ _POINT_SCHEMA = {
 MEMORY_JSON_SCHEMA = {
     "type": "object",
     "properties": {
-        "topic": {"anyOf": [_POINT_SCHEMA, {"type": "null"}]},
+        "topic": _POINT_SCHEMA,
         "about_learner": {
             "type": "array",
             "maxItems": MAX_POINTS_PER_EPISODE,
@@ -350,12 +350,13 @@ def _already_remembered(remembered: Sequence[str]) -> str:
 def _memory_rules(target: str) -> str:
     rules = (
         "Rules:",
-        "- topic: the subject of this part of the episode, as one short phrase. null if there "
-        "is none.",
+        "- topic: the subject of this part of the episode, as one short phrase. Leave both "
+        "texts empty if there is none.",
         f"- about_learner: at most {MAX_POINTS_PER_EPISODE} things the learner said about "
         "themselves (likes, plans, experiences, opinions), only from lines labelled "
         f"{LEARNER_SPEAKER}.",
-        "- Never note anything a host said about themselves.",
+        "- Never note anything a host said, nor the learner agreeing, greeting, reacting or "
+        "asking a question: only facts about the learner's own life.",
         "- No guesses: note only what was clearly said. Use an empty list when there is "
         "nothing.",
         f"- Write every point twice: conversation_language in {target}, about the learner in "

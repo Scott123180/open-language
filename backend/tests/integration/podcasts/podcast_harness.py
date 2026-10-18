@@ -134,6 +134,7 @@ class RealPodcastHarness:
 def real_podcast_app(
     tmp_path: Path, language: str, level: str = "natural"
 ) -> Iterator[RealPodcastHarness]:
+    tmp_path.mkdir(parents=True, exist_ok=True)
     sessions = make_sessions(tmp_path / "benchmark.db")
     opened: list[Session] = []
     serve_sessions(sessions, opened)

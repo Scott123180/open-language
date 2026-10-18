@@ -221,7 +221,7 @@ def test_the_prompt_states_the_rules_and_names_languages(session, series, keeper
 
     prompt = llm.last_prompt
     assert "only from lines labelled Learner" in prompt
-    assert "a host said about themselves" in prompt
+    assert "Never note anything a host said" in prompt
     assert "No guesses" in prompt
     assert "empty list" in prompt
     assert "one short phrase" in prompt
