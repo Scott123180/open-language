@@ -242,7 +242,7 @@ fails until the record field and the requirement match. `run.sh` downloads every
 
 ## Active Technologies
 
-**Backend** — Python (`requires-python = ">=3.11"`; the `backend/.venv` runs 3.12.3): FastAPI,
+**Backend** — Python (`requires-python = ">=3.11"`; the `backend/.venv` runs 3.14.4): FastAPI,
 Uvicorn, SQLAlchemy 2.0 over SQLite, `faster-whisper` 1.2.1 (STT), Piper (TTS), the `ollama` client
 (llama3.1), ffmpeg/pydub for audio conversion. Tested with pytest + pytest-cov. Dev-only: `tomli-w`
 (the language kit writes canonical TOML), `wordfreq` (benchmarks).
