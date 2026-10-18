@@ -21,6 +21,7 @@ export const catalog: PodcastCatalog = {
     {
       source: 'ready_made',
       show_id: 'weekend-food-talk',
+      saved_show_id: null,
       title: 'Weekend Food Talk',
       premise: 'Two food lovers swap weekend cooking wins and disasters.',
       topic: 'food',
@@ -30,8 +31,11 @@ export const catalog: PodcastCatalog = {
         { slot: 'lead', name: 'Lucía', personality_id: 'enthusiast', voice_key: 'es_AR-daniela-high', show_role: 'host', angle: null },
         { slot: 'second', name: 'Marco', personality_id: 'dry_sceptic', voice_key: 'es_ES-davefx-medium', show_role: 'co_host', angle: null },
       ],
+      is_favourite: false,
+      series: null,
     },
   ],
+  my_shows: [],
   voices: { installed_count: 2, shared_voice_notice: null, unavailable_message: null },
 }
 

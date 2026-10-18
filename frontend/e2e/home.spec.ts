@@ -34,7 +34,7 @@ test.describe('Home page', () => {
 
   test('shows navigation links for Past Chats and Settings', async ({ page }) => {
     await expect(page.getByRole('link', { name: 'Past Chats' })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Settings', exact: true })).toBeVisible()
   })
 
   test('navigates to History page via Past Chats link', async ({ page }) => {

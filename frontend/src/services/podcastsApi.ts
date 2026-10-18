@@ -1,12 +1,17 @@
 // ---------------------------------------------------------------------------
-// Podcast API types (mirror specs/007-podcast-mode/contracts/api.md §1, §2, §6)
+// Podcast API types (mirror specs/007-podcast-mode/contracts/api.md §1, §2, §6 and
+// specs/010-recurring-podcast-shows/contracts/api.md §1–§8)
 // ---------------------------------------------------------------------------
 
 export type PodcastFormatId = 'one_host' | 'panel' | 'listen'
 export type EpisodeLengthId = 'short' | 'medium' | 'long'
 export type HostSlot = 'lead' | 'second'
 export type LearnerRole = 'guest' | 'co_host' | 'caller'
-export type ShowSource = 'ready_made' | 'generated' | 'surprise'
+export type ShowSource = 'ready_made' | 'generated' | 'surprise' | 'suggested'
+/** A one-off episode stands alone; a series episode continues its show (010). */
+export type EpisodeKind = 'one_off' | 'series'
+/** Whether the hosts have caught up on every series episode (010 contracts §5). */
+export type MemoryStatus = 'up_to_date' | 'pending' | 'running'
 export type LineIntent = 'open' | 'greet' | 'discuss' | 'wrap_up' | 'sign_off'
 
 /** Whose turn it is: the hosts', the learner's, or nobody's once the episode has finished. */
@@ -47,12 +52,33 @@ export interface HostDraft {
 export interface ShowDraft {
   source: ShowSource
   show_id: string | null
+  /** A kept learner-made show's id; null for a ready-made or unsaved show (010). */
+  saved_show_id?: number | null
   title: string
   premise: string
   topic: string
   learner_role: LearnerRole
   language: string
   hosts: HostDraft[]
+}
+
+export interface UnfinishedEpisode {
+  conversation_id: number
+  episode_number: number
+}
+
+export interface SeriesSummary {
+  series_id: number
+  episode_count: number
+  next_episode_number: number
+  unfinished_episode: UnfinishedEpisode | null
+}
+
+/** A show as the catalogue lists it: a draft plus the learner's state (010 contracts §1). */
+export interface ShowListing extends ShowDraft {
+  saved_show_id: number | null
+  is_favourite: boolean
+  series: SeriesSummary | null
 }
 
 export interface CatalogVoices {
@@ -67,7 +93,8 @@ export interface PodcastCatalog {
   formats: PodcastFormatOption[]
   lengths: EpisodeLengthOption[]
   personalities: PersonalityOption[]
-  shows: ShowDraft[]
+  shows: ShowListing[]
+  my_shows: ShowListing[]
   voices: CatalogVoices
 }
 
@@ -108,6 +135,12 @@ export interface EpisodeShow {
   learner_role: LearnerRole
   source: ShowSource
   show_id: string | null
+  saved_show_id?: number | null
+}
+
+export interface EpisodeSeries {
+  series_id: number
+  episode_number: number
 }
 
 export interface Episode {
@@ -129,6 +162,8 @@ export interface Episode {
   can_jump_in: boolean
   can_pass: boolean
   lines: EpisodeLine[]
+  /** The series and episode number, or null for a one-off (010 contracts §2). */
+  series?: EpisodeSeries | null
 }
 
 /** One row of `GET /api/podcasts/episodes`, for labelling Past Chats. */
@@ -141,6 +176,46 @@ export interface EpisodeSummaryRow {
   language: string
   language_name: string
   status: 'active' | 'completed'
+  episode_number?: number | null
+}
+
+export interface SeriesHostView {
+  slot: HostSlot
+  name: string
+  personality_id: string
+  personality_label: string
+  voice_key: string
+  show_role: string
+  has_history: boolean
+  is_new_next_episode: boolean
+  is_voice_available: boolean
+  voice_unavailable_message: string | null
+}
+
+export interface RememberedPoint {
+  point_id: number
+  /** The English version; the hosts get the conversation-language one. */
+  text: string
+  episode_number: number
+}
+
+/** `GET /api/podcasts/series/{id}`: who the hosts are and what they remember (010 §5). */
+export interface SeriesDetail {
+  series_id: number
+  language: string
+  show: ShowListing
+  episode_count: number
+  next_episode_number: number
+  unfinished_episode: UnfinishedEpisode | null
+  memory_status: MemoryStatus
+  hosts: SeriesHostView[]
+  remembered: { topics: RememberedPoint[]; about_learner: RememberedPoint[] }
+}
+
+/** What a memory catch-up answers (010 contracts §8). */
+export interface CatchUpResult {
+  status: 'started' | 'running' | 'up_to_date' | 'failed' | 'timed_out'
+  detail?: string | null
 }
 
 // ---------------------------------------------------------------------------

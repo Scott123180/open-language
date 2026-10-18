@@ -229,6 +229,46 @@ option {
   color: var(--color-text);
 }
 
+/* ThemedSelect's open list (010 research R11): drawn by the app, so it follows the theme. The
+   chosen option is tinted and checked; the active one has an outline, so both can show at once */
+.themed-select-list {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  margin-top: var(--space-1);
+  padding: var(--space-1);
+  list-style: none;
+  max-height: 288px;
+  overflow-y: auto;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+.themed-select-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.themed-select-option:hover:not([aria-selected='true']) { background: var(--color-surface-raised); }
+.themed-select-option[aria-selected='true'] {
+  background: var(--color-primary-subtle);
+  color: var(--color-primary-text);
+  font-weight: var(--weight-semibold);
+}
+.themed-select-option--active {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 /* Keyboard focus ring — never hidden for non-mouse interactions */
 *:focus-visible {
   outline: 2px solid var(--color-primary);

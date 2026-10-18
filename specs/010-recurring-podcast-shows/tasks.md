@@ -230,7 +230,7 @@ order":
   - `my_shows == []`;
   - `shows` holds the eight ready-made shows in catalogue order on two consecutive calls (FR-015);
   - every 007 field is unchanged.
-- [ ] T017 [P] Write `frontend/src/components/shared/ThemedSelect.test.tsx` (research R11, contracts §11), with Vitest and Testing Library. The props mirror a controlled select: `label`, `value`, `options: {value, label}[]`, `onChange`, and optional `id`/`describedBy`/`disabled`. Assert:
+- [X] T017 [P] Write `frontend/src/components/shared/ThemedSelect.test.tsx` (research R11, contracts §11), with Vitest and Testing Library. The props mirror a controlled select: `label`, `value`, `options: {value, label}[]`, `onChange`, and optional `id`/`describedBy`/`disabled`. Assert:
   - the trigger has `role="combobox"`, `aria-expanded`, `aria-controls` and the accessible name of its label;
   - the open list has `role="listbox"`, and its items have `role="option"` with `aria-selected` on the current value;
   - Enter, Space and Alt+↓ open the list;
@@ -323,13 +323,13 @@ order":
   - a `StructuredLLMProvider` fake that returns queued JSON replies for the memory and discovery schemas, and records every prompt;
   - it can raise a queued `LLMError`;
   - it can block on a `threading.Event`, for the timeout tests.
-- [ ] T029 [P] Add the frontend types and fixtures:
+- [X] T029 [P] Add the frontend types and fixtures:
   - in `frontend/src/services/podcastsApi.ts`: `ShowListing`, `SeriesSummary`, `UnfinishedEpisode`, `SeriesDetail`, `SeriesHostView`, `RememberedPoint`, `MemoryStatus`, `EpisodeKind`, `EpisodeSeries`; `saved_show_id` on `ShowDraft`; `series` on the episode response; `episode_number` on the Past Chats row; `my_shows` on the catalogue;
   - in `frontend/e2e/fixtures.ts`: `showListingFixture`, `seriesSummaryFixture`, `seriesDetailFixture` and `suggestionsFixture`, shaped exactly as contracts §1, §4 and §5;
   - update the existing catalogue mocks in `frontend/e2e/fixtures.ts` and `frontend/src/pages/podcastPageFixtures.test.utils.ts` to return `my_shows: []` and listing-shaped shows.
 
   `npm test` and `npm run test:e2e` stay green.
-- [ ] T030 Implement `frontend/src/components/shared/ThemedSelect.tsx` (research R11):
+- [X] T030 Implement `frontend/src/components/shared/ThemedSelect.tsx` (research R11):
   - follow the WAI-ARIA APG select-only combobox, with every function ≤ 20 lines. Extract the keyboard map and type-ahead into a colocated `useListboxNavigation` hook in `frontend/src/components/shared/useListboxNavigation.ts`;
   - styling uses tokens only:
     - the list sits on `--color-surface` with `--color-text`, `--radius-lg` and `--shadow-md`;
@@ -338,7 +338,7 @@ order":
   - touch targets are ≥ 44px.
 
   T017 passes.
-- [ ] T031 Foundation checkpoint. Run the full backend suite, `ruff`, `black --check`, `npm run lint`, `npm test` and `npm run test:e2e`. All are green. Nothing user-visible has changed.
+- [X] T031 Foundation checkpoint. Run the full backend suite, `ruff`, `black --check`, `npm run lint`, `npm test` and `npm run test:e2e`. All are green. Nothing user-visible has changed.
 
 **Checkpoint**: Foundation ready. US1 can start, and so can US6 in parallel.
 
