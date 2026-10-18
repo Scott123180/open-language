@@ -132,3 +132,16 @@ describe('Podcasts page — My shows (010 US4)', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/podcasts/setup?saved=9')
   })
 })
+
+describe('Podcasts page — Find a new show (010 US5)', () => {
+  it('opens a suggestion in setup with its draft', async () => {
+    const suggestion = { ...generatedShow, source: 'suggested' as const, title: 'Plant Parents' }
+    vi.mocked(podcasts.discoverShows).mockResolvedValue([suggestion, { ...suggestion, title: 'B' }, { ...suggestion, title: 'C' }])
+    renderPodcasts()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Find a new show' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Plant Parents' }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/podcasts/setup', { state: { draft: suggestion, idea: null, previousTitles: [] } })
+  })
+})

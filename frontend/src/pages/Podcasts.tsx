@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import ErrorBanner from '../components/shared/ErrorBanner'
 import PageShell from '../components/podcasts/PageShell'
 import PlainNotice from '../components/podcasts/PlainNotice'
+import FindNewShow from '../components/podcasts/FindNewShow'
 import MyShows from '../components/podcasts/MyShows'
 import NewShowSection from '../components/podcasts/NewShowSection'
 import ShowList from '../components/podcasts/ShowList'
@@ -21,6 +22,7 @@ export default function Podcasts() {
   const { catalog, error } = usePodcastCatalog()
   const favourite = useFavourite()
   const choose = (show: ShowDraft) => navigate(setupPath(show))
+  const openSuggestion = (draft: ShowDraft) => navigate('/podcasts/setup', { state: { draft, idea: null, previousTitles: [] } })
   return (
     <PageShell title="Podcasts" backTo="/" backLabel="Back to Home" maxWidth="var(--width-grid)">
       <PlainNotice message={notice} />
@@ -28,6 +30,7 @@ export default function Podcasts() {
       {!catalog && !error && <p aria-live="polite">Loading shows…</p>}
       {catalog && <MyShows catalog={catalog} onChoose={choose} onToggleFavourite={favourite.toggle} />}
       {catalog && <ShowList catalog={catalog} onChoose={choose} onToggleFavourite={favourite.toggle} />}
+      {catalog && <FindNewShow catalog={catalog} onChoose={openSuggestion} onToggleFavourite={favourite.toggle} />}
       <NewShowSection />
     </PageShell>
   )

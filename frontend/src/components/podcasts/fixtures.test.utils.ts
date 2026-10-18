@@ -96,3 +96,9 @@ export const seriesDetail = (overrides: Partial<SeriesDetail> = {}): SeriesDetai
   },
   ...overrides,
 })
+
+export const suggestions: ShowDraft[] = [
+  { ...generatedShow, source: 'suggested', title: 'Night Trains of Europe', topic: 'night trains' },
+  { ...generatedShow, source: 'suggested', title: 'Plant Parents', topic: 'houseplants' },
+  { ...generatedShow, source: 'suggested', title: 'Board Game Night', topic: 'board games' },
+]

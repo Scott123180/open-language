@@ -334,6 +334,10 @@ export const removeShow = async (savedShowId: number): Promise<void> => {
   if (!res.ok) throw new Error(await readError(res))
 }
 
+/** Find a new show: three to five fresh suggestions, never one of `avoidTitles` (010 §4). */
+export const discoverShows = async (avoidTitles: string[]): Promise<ShowDraft[]> =>
+  (await podcastFetch<{ suggestions: ShowDraft[] }>('/shows/discover', jsonBody('POST', { avoid_titles: avoidTitles }))).suggestions
+
 export const getEpisodeSuggestions = (conversationId: number): Promise<{ suggestions: string[] }> =>
   podcastFetch(`/episodes/${conversationId}/suggestions`, { method: 'POST' })
 

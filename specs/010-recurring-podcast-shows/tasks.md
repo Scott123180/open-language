@@ -886,7 +886,7 @@ from the other; starting one opens setup; the ready-made list is unchanged (spec
   - a suggestion started as an episode is kept;
   - ignored suggestions leave nothing behind (FR-019);
   - `shows` is identical before and after (FR-015).
-- [ ] T124 [P] [US5] Write the US5 Vitest tests:
+- [X] T124 [P] [US5] Write the US5 Vitest tests:
   - `frontend/src/hooks/podcasts/useShowDiscovery.test.tsx`: it sends every title shown this visit as `avoid_titles` on "Show me others", and exposes the plain error message;
   - `frontend/src/components/podcasts/FindNewShow.test.tsx`:
     - the button and the progress text, in an `aria-live="polite"` region;
@@ -894,7 +894,7 @@ from the other; starting one opens setup; the ready-made list is unchanged (spec
     - choosing a card navigates to setup with the draft in router state;
     - on error, the plain message shows and the rest of the screen still works;
   - `frontend/src/pages/Podcasts.test.tsx` (extended).
-- [ ] T125 [P] [US5] Write `frontend/e2e/podcast-discovery.spec.ts`:
+- [X] T125 [P] [US5] Write `frontend/e2e/podcast-discovery.spec.ts`:
   - **Find a new show** shows the mocked suggestions;
   - **Show me others** sends `avoid_titles` holding the first set;
   - favouriting a suggestion sends `PUT /favourites` with `source: "suggested"`;
@@ -914,8 +914,8 @@ from the other; starting one opens setup; the ready-made list is unchanged (spec
   - map `NotEnoughSuggestions` to the plain 503.
 
   Include it from `backend/app/podcasts/routes.py`. T122 and T123 pass.
-- [ ] T130 [P] [US5] Add `discoverShows(avoidTitles)` to `frontend/src/services/podcastsApi.ts`.
-- [ ] T131 [US5] Implement and integrate discovery:
+- [X] T130 [P] [US5] Add `discoverShows(avoidTitles)` to `frontend/src/services/podcastsApi.ts`.
+- [X] T131 [US5] Implement and integrate discovery:
   - `frontend/src/hooks/podcasts/useShowDiscovery.ts`;
   - `frontend/src/components/podcasts/FindNewShow.tsx`, reusing `ShowCard` and `FavouriteToggle`;
   - `frontend/src/pages/Podcasts.tsx` adds `<FindNewShow>` as a secondary action.

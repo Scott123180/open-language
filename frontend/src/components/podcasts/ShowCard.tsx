@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import { useId, type CSSProperties, type ReactNode } from 'react'
 import type { PersonalityOption, SeriesSummary, ShowDraft } from '../../services/podcastsApi'
 import { roleText } from './learnerRole'
 import RoleBadge from './RoleBadge'
@@ -86,7 +86,7 @@ export default function ShowCard(props: ShowCardProps) {
  * the learner's role at the foot; screen readers get the same as one sentence. */
 function ShowCardButton({ show, personalities, onChoose }: ShowCardProps) {
   const labelOf = (id: string) => personalities.find((p) => p.personality_id === id)?.label ?? id
-  const detailsId = `show-${show.show_id ?? show.title}-details`
+  const detailsId = `${useId()}-details`
   return (
     <button type="button" aria-label={show.title} aria-describedby={detailsId} onClick={() => onChoose(show)} style={showCardStyle}>
       <span id={detailsId} style={visuallyHiddenStyle}>{describeShow(show, labelOf)}</span>
