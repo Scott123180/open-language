@@ -226,3 +226,35 @@ describe('podcast line streams', () => {
     expect(cbs.onError).not.toHaveBeenCalled()
   })
 })
+
+describe('series endpoints (010)', () => {
+  it('starts an episode of the requested kind', async () => {
+    const mock = stubJson({ conversation_id: 81 })
+
+    await podcasts.startEpisode({ show: {} as podcasts.ShowDraft, format: 'panel', length: 'short', kind: 'series' })
+
+    expect(call(mock).body.kind).toBe('series')
+  })
+
+  it('reads a series', async () => {
+    const mock = stubJson({ series_id: 4 })
+
+    await expect(podcasts.getSeries(4)).resolves.toEqual({ series_id: 4 })
+    expect(call(mock).url).toBe(`${BASE}/series/4`)
+  })
+
+  it('starts a memory catch-up without waiting', async () => {
+    const mock = stubJson({ status: 'started' }, { status: 202 })
+
+    await expect(podcasts.catchUpSeriesMemory(4)).resolves.toEqual({ status: 'started' })
+    expect(call(mock).url).toBe(`${BASE}/series/4/memory`)
+    expect(call(mock).init?.method).toBe('POST')
+  })
+
+  it('waits for a memory catch-up when asked', async () => {
+    const mock = stubJson({ status: 'failed', detail: 'Ollama is not running.' })
+
+    await expect(podcasts.catchUpSeriesMemory(4, { wait: true })).resolves.toEqual({ status: 'failed', detail: 'Ollama is not running.' })
+    expect(call(mock).url).toBe(`${BASE}/series/4/memory?wait=true`)
+  })
+})

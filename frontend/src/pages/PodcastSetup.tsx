@@ -4,22 +4,25 @@ import PageShell from '../components/podcasts/PageShell'
 import SetupForm from '../components/podcasts/SetupForm'
 import { usePodcastCatalog } from '../hooks/podcasts/usePodcastCatalog'
 import { usePodcastPreferences } from '../hooks/podcasts/usePodcastPreferences'
+import { useSeries } from '../hooks/podcasts/useSeries'
 import { useSetupForm } from '../hooks/podcasts/useSetupForm'
 import { useSetupShow } from '../hooks/podcasts/useSetupShow'
 import { useStartEpisode } from '../hooks/podcasts/useStartEpisode'
 
-/** The setup screen: the show, its hosts, format, length and name, then Start episode. */
+/** The setup screen: the show, its hosts, format, length and name, then Start episode N, or
+ * Continue episode N when one is unfinished (010 research R4). */
 export default function PodcastSetup() {
   const { catalog, error } = usePodcastCatalog()
   const { preferences } = usePodcastPreferences()
   const { show, draft, replaceDraft } = useSetupShow(catalog)
   const form = useSetupForm(catalog, preferences)
   const starting = useStartEpisode()
+  const { detail } = useSeries(show?.series?.series_id ?? null)
   return (
     <PageShell title={show?.title ?? 'Set up your episode'} backTo="/podcasts" backLabel="Back to Podcasts">
       {error && <ErrorBanner message={error} />}
       {draft?.draft.source === 'generated' && <AnotherVersion current={draft} onMade={replaceDraft} />}
-      {show && catalog ? <SetupForm key={show.title} show={show} catalog={catalog} form={form} starting={starting} /> : !error && <p aria-live="polite">Loading…</p>}
+      {show && catalog ? <SetupForm key={show.title} show={show} catalog={catalog} form={form} starting={starting} series={detail} /> : !error && <p aria-live="polite">Loading…</p>}
     </PageShell>
   )
 }

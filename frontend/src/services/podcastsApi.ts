@@ -229,6 +229,8 @@ export interface StartEpisodeBody {
   format: PodcastFormatId
   length: EpisodeLengthId
   learner_name?: string
+  /** A series episode continues the show; a one-off (the server's default) stands alone. */
+  kind?: EpisodeKind
 }
 
 export type PreferencesUpdate = Partial<Pick<PodcastPreferences, 'is_show_text_on' | 'interests' | 'learner_name'>>
@@ -289,6 +291,14 @@ export const listEpisodes = (): Promise<EpisodeSummaryRow[]> => podcastFetch('/e
 
 export const getEpisode = (conversationId: number): Promise<Episode> =>
   podcastFetch(`/episodes/${conversationId}`)
+
+/** A series' hosts and what they remember (010 contracts §5). */
+export const getSeries = (seriesId: number): Promise<SeriesDetail> => podcastFetch(`/series/${seriesId}`)
+
+/** Start the hosts catching up on the series' last episodes; with `wait`, hold until they
+ * have, or the server's limit passes (010 contracts §8). */
+export const catchUpSeriesMemory = (seriesId: number, options: { wait?: boolean } = {}): Promise<CatchUpResult> =>
+  podcastFetch(`/series/${seriesId}/memory${options.wait ? '?wait=true' : ''}`, { method: 'POST' })
 
 export const getEpisodeSuggestions = (conversationId: number): Promise<{ suggestions: string[] }> =>
   podcastFetch(`/episodes/${conversationId}/suggestions`, { method: 'POST' })

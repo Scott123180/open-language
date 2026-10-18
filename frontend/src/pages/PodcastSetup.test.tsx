@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import PodcastSetup from './PodcastSetup'
 import * as podcasts from '../services/podcastsApi'
 import { catalog, episode, preferences } from './podcastPageFixtures.test.utils'
-import { generatedShow } from '../components/podcasts/fixtures.test.utils'
+import { generatedShow, seriesDetail, seriesListing } from '../components/podcasts/fixtures.test.utils'
 
 vi.mock('../services/podcastsApi')
 
@@ -68,7 +68,7 @@ describe('PodcastSetup page', () => {
     fireEvent.click(screen.getByRole('radio', { name: /One host/ }))
     fireEvent.click(screen.getByRole('radio', { name: /Short/ }))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start episode' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start episode 1' }))
 
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/podcasts/episodes/57'))
     expect(podcasts.startEpisode).toHaveBeenCalledWith({
@@ -76,6 +76,7 @@ describe('PodcastSetup page', () => {
       format: 'one_host',
       length: 'short',
       learner_name: 'Sam',
+      kind: 'series',
     })
   })
 
@@ -84,7 +85,7 @@ describe('PodcastSetup page', () => {
     renderSetup()
     await screen.findByRole('heading', { name: 'Weekend Food Talk' })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start episode' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start episode 1' }))
 
     expect(await screen.findByText('The practice language changed. Pick the show again.')).toBeInTheDocument()
   })
@@ -136,7 +137,7 @@ describe('PodcastSetup page — generated drafts (US4)', () => {
   it('starts the episode with the generated draft', async () => {
     renderWithDraft(generated)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Start episode' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Start episode 1' }))
 
     await waitFor(() => expect(podcasts.startEpisode).toHaveBeenCalledWith(expect.objectContaining({ show: generatedShow })))
   })
@@ -213,7 +214,7 @@ describe('PodcastSetup page — shaping the hosts (US5)', () => {
     await screen.findByText('Pablo')
     fireEvent.change(screen.getByLabelText("Lucía's personality"), { target: { value: 'dry_sceptic' } })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start episode' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start episode 1' }))
 
     await waitFor(() => expect(podcasts.startEpisode).toHaveBeenCalled())
     const { show } = vi.mocked(podcasts.startEpisode).mock.calls[0][0]
@@ -239,5 +240,53 @@ describe('PodcastSetup page — shaping the hosts (US5)', () => {
 
     expect(podcasts.voiceSampleUrl).toHaveBeenCalledWith(catalog.shows[0].hosts[0].voice_key, 'Lucía')
     expect(play).toHaveBeenCalled()
+  })
+})
+
+describe('PodcastSetup page — a series (010 US1)', () => {
+  const withSeries = (listing = seriesListing) => ({ ...catalog, shows: [...catalog.shows, listing] })
+  const unfinished = { ...seriesListing, series: { ...seriesListing.series!, unfinished_episode: { conversation_id: 81, episode_number: 1 } } }
+
+  beforeEach(() => {
+    vi.mocked(podcasts.getPodcastCatalog).mockResolvedValue(withSeries())
+    vi.mocked(podcasts.getSeries).mockResolvedValue(seriesDetail())
+    vi.mocked(podcasts.catchUpSeriesMemory).mockResolvedValue({ status: 'up_to_date' })
+  })
+
+  it('shows the series hosts read-only with Start episode 2 as the one primary action', async () => {
+    renderSetup('?show=big-little-questions')
+
+    expect(await screen.findByRole('button', { name: 'Start episode 2' })).toBeInTheDocument()
+    expect(screen.getByText('Hugo')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Shuffle/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Continue episode/ })).not.toBeInTheDocument()
+  })
+
+  it('offers to continue an unfinished episode first', async () => {
+    vi.mocked(podcasts.getPodcastCatalog).mockResolvedValue(withSeries(unfinished))
+    vi.mocked(podcasts.getSeries).mockResolvedValue(seriesDetail({ unfinished_episode: { conversation_id: 81, episode_number: 1 } }))
+    renderSetup('?show=big-little-questions')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue episode 1' }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/podcasts/episodes/81')
+    expect(screen.queryByRole('button', { name: 'Start episode 2' })).not.toBeInTheDocument()
+  })
+
+  it('waits for the hosts to catch up, then starts the next episode', async () => {
+    vi.mocked(podcasts.getSeries).mockResolvedValue(seriesDetail({ memory_status: 'pending' }))
+    let finish: (value: podcasts.CatchUpResult) => void = () => undefined
+    vi.mocked(podcasts.catchUpSeriesMemory).mockImplementation((_id, options) =>
+      options?.wait ? new Promise((resolve) => { finish = resolve }) : Promise.resolve({ status: 'started' }),
+    )
+    renderSetup('?show=big-little-questions')
+    await waitFor(() => expect(podcasts.getSeries).toHaveBeenCalled())
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Start episode 2' }))
+
+    expect(await screen.findByText('Hugo and Inés are catching up on episode 1. This takes a few seconds.')).toBeInTheDocument()
+    finish({ status: 'up_to_date' })
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/podcasts/episodes/57'))
+    expect(podcasts.startEpisode).toHaveBeenCalledWith(expect.objectContaining({ kind: 'series', show: expect.objectContaining({ show_id: 'big-little-questions' }) }))
   })
 })

@@ -457,14 +457,14 @@ is still `one_off`.
   - `GET /episodes` lists both pre-010 episodes with `episode_number: null`;
   - `GET /catalog` lists every show with `series: null`;
   - a `kind=series` start of a show that a pre-010 episode used becomes episode 1.
-- [ ] T044 [P] [US1] Write Vitest tests for the client and hooks:
+- [X] T044 [P] [US1] Write Vitest tests for the client and hooks:
   - `frontend/src/services/podcastsApi.test.ts`: `getSeries(id)`, `catchUpSeriesMemory(id)` (202) and `catchUpSeriesMemory(id, {wait: true})`; `startEpisode` sends `kind`;
   - `frontend/src/hooks/podcasts/useSeries.test.tsx`: fetches the series detail and fires the catch-up once when the setup opens;
   - `frontend/src/hooks/podcasts/useStartEpisode.test.tsx`:
     - with `memory_status = up_to_date`, it starts at once;
     - otherwise it enters `catchingUp`, calls the wait, then starts;
     - on `failed` or `timed_out`, it exposes the message, `retry()` and `startWithoutUpdate()`.
-- [ ] T045 [P] [US1] Write the component tests:
+- [X] T045 [P] [US1] Write the component tests:
   - `frontend/src/components/podcasts/ShowCard.test.tsx` (extended): the choose button's description includes "Episode 2 next", or "Episode 1 unfinished" when unfinished, and has no series text without a series;
   - `SeriesHostCard.test.tsx`: name, personality label and a ▶ sample button; no Shuffle and no personality control; when the host's voice is not installed, the sample button is disabled and 007's plain missing-voice message is shown, with the name and personality unchanged;
   - `ContinueEpisode.test.tsx`: **Continue episode N** primary, with "Start a new episode instead" as a secondary text button;
@@ -473,11 +473,11 @@ is still `one_off`.
     - while catching up, the button is `aria-busy` and a `role="status"` message reads "Hugo and Inés are catching up on episode 3. This takes a few seconds.";
     - on failure, "The hosts couldn't catch up on episode 3. {detail}" with **Try again** (primary) and **Start without it**;
   - `EpisodeHeader.test.tsx`: "Big Little Questions · Episode 2".
-- [ ] T046 [P] [US1] Extend `frontend/src/pages/PodcastSetup.test.tsx`:
+- [X] T046 [P] [US1] Extend `frontend/src/pages/PodcastSetup.test.tsx`:
   - a show with a series renders `SeriesHosts`, with **Start episode 2** as the single primary action;
   - with an unfinished episode, **Continue episode 1** navigates to that episode;
   - starting while memory is pending shows the catching-up status, then navigates to the new episode.
-- [ ] T047 [P] [US1] Write `frontend/e2e/podcast-series.spec.ts` (US1 part), with every call mocked through `page.route()`:
+- [X] T047 [P] [US1] Write `frontend/e2e/podcast-series.spec.ts` (US1 part), with every call mocked through `page.route()`:
   - the card shows "Episode 2 next", and choosing it opens setup with **Start episode 2** and read-only hosts;
   - Start sends `kind: "series"` and the listing's hosts, and the episode header reads "· Episode 2";
   - with `unfinished_episode` set, **Continue episode 1** is first;
@@ -542,13 +542,13 @@ is still `one_off`.
   - `POST /series/{series_id}/memory` returning 202, with `?wait=true` returning 200 through `get_memory_wait_seconds` (default `MEMORY_WAIT_SECONDS`). Both pass the request's `get_series_memory_keeper` to `MemoryCatchUps`.
 
   Include it from `backend/app/podcasts/routes.py`, as `show_routes.py` is included. T038, T040, T041 and T042 pass.
-- [ ] T059 [P] [US1] Add `getSeries`, `catchUpSeriesMemory(id, options?)` and the `kind` argument of `startEpisode` to `frontend/src/services/podcastsApi.ts`.
-- [ ] T060 [US1] Implement the hooks:
+- [X] T059 [P] [US1] Add `getSeries`, `catchUpSeriesMemory(id, options?)` and the `kind` argument of `startEpisode` to `frontend/src/services/podcastsApi.ts`.
+- [X] T060 [US1] Implement the hooks:
   - `frontend/src/hooks/podcasts/useSeries.ts` (TanStack Query; fires the catch-up once on mount);
   - extend `frontend/src/hooks/podcasts/useStartEpisode.ts` with the catch-up state machine (`idle → catchingUp → failed | timedOut`, `retry`, `startWithoutUpdate`). Put the transitions in a pure reducer in `frontend/src/hooks/podcasts/catchUpState.ts`, so each function stays ≤ 20 lines.
 
   T044 passes.
-- [ ] T061 [P] [US1] Implement the components in `frontend/src/components/podcasts/`:
+- [X] T061 [P] [US1] Implement the components in `frontend/src/components/podcasts/`:
   - `ShowCard.tsx`: the series text goes in the description;
   - `SeriesHosts.tsx` and `SeriesHostCard.tsx`: read-only, with a voice sample through the existing sample player;
   - `ContinueEpisode.tsx`;
@@ -556,7 +556,7 @@ is still `one_off`.
   - `EpisodeHeader.tsx`: "· Episode N" when `series` is set.
 
   T045 passes.
-- [ ] T062 [US1] Integrate the series setup:
+- [X] T062 [US1] Integrate the series setup:
   - `frontend/src/components/podcasts/SetupForm.tsx` moves its Start button into `StartActions` (≤ 20 lines);
   - `frontend/src/hooks/podcasts/useSetupShow.ts` reads the listing's `series`;
   - `frontend/src/pages/PodcastSetup.tsx` renders `ContinueEpisode` or `StartActions`, and `SeriesHosts` instead of `SetupHosts` when `series.episode_count ≥ 1`.

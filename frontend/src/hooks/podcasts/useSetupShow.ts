@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import type { PodcastCatalog, ShowDraft } from '../../services/podcastsApi'
+import type { PodcastCatalog, SeriesSummary, ShowDraft } from '../../services/podcastsApi'
 import type { SetupDraft } from './useShowDraft'
 
 export const SHOW_UNAVAILABLE = "That show isn't available any more. Pick another one."
 export const DRAFT_GONE = "That show wasn't kept. Generate it again, or pick another one."
 
+/** A show on the setup screen: a draft, with its series and favourite once it is listed. */
+export type SetupShowDraft = ShowDraft & { series?: SeriesSummary | null; is_favourite?: boolean }
+
 export interface SetupShow {
-  show: ShowDraft | undefined
+  show: SetupShowDraft | undefined
   /** A generated or surprise show passed in router state; null for a ready-made one. */
   draft: SetupDraft | null
   replaceDraft: (next: SetupDraft) => void

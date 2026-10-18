@@ -63,7 +63,7 @@ test.describe('Podcasts', () => {
     await page.goto('/podcasts/setup?show=weekend-food-talk')
     const started = page.waitForRequest((request) => request.url().endsWith('/api/podcasts/episodes') && request.method() === 'POST')
 
-    await page.getByRole('button', { name: 'Start episode' }).click()
+    await page.getByRole('button', { name: 'Start episode 1' }).click()
 
     const body = (await started).postDataJSON()
     expect(body).toMatchObject({ format: 'one_host', length: 'medium', show: { show_id: 'weekend-food-talk' } })
@@ -209,7 +209,7 @@ test.describe('Podcasts — shaping the hosts (US5)', () => {
     await expect(page.getByText('Hugo', { exact: true })).toBeVisible()
     await page.getByLabel("Hugo's personality").selectOption('dry_sceptic')
     const started = page.waitForRequest((request) => request.url().endsWith('/api/podcasts/episodes') && request.method() === 'POST')
-    await page.getByRole('button', { name: 'Start episode' }).click()
+    await page.getByRole('button', { name: 'Start episode 1' }).click()
 
     const { show } = (await started).postDataJSON()
     expect(show.hosts).toEqual([shuffled.lead, { ...shuffled.second, personality_id: 'dry_sceptic' }])

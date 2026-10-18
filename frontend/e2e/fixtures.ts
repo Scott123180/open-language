@@ -908,3 +908,42 @@ export const suggestionsFixture = {
     ['Board Game Night', 'board games', 'Rules, rivalries and the games worth buying.'],
   ].map(([title, topic, premise]) => ({ ...showDraftFixture, source: 'suggested', show_id: null, title, topic, premise })),
 }
+
+/** Episode 2 of Big Little Questions' series, as `POST /api/podcasts/episodes` returns it. */
+export function seriesEpisodeFixture(episodeNumber = 2, format: 'one_host' | 'panel' | 'listen' = 'one_host') {
+  const base = episodeFixture(format)
+  return {
+    ...base,
+    show: { ...base.show, title: seriesShowFixture.title, premise: seriesShowFixture.premise, show_id: seriesShowFixture.show_id },
+    series: { series_id: 4, episode_number: episodeNumber } as { series_id: number; episode_number: number } | null,
+  }
+}
+
+/** The catalogue with Big Little Questions' series listed after the ready-made shows. */
+export function catalogWithSeries(show: ReturnType<typeof showListingFixture> = seriesShowFixture) {
+  return { ...mockPodcastCatalog, shows: [...mockPodcastCatalog.shows, show] }
+}
+
+export interface SeriesRouteOptions {
+  detail?: ReturnType<typeof seriesDetailFixture>
+  /** What `?wait=true` answers, in order; the last repeats. */
+  waits?: { status: string; detail?: string }[]
+  /** Hold every wait until the returned function is called. */
+  holdWaits?: boolean
+}
+
+/** Mock `GET /series/4` and its memory catch-ups; returns the wait requests made. */
+export async function mockSeriesApis(page: Page, options: SeriesRouteOptions = {}) {
+  const waitRequests: string[] = []
+  let release: () => void = () => undefined
+  const held = options.holdWaits ? new Promise<void>((resolve) => { release = resolve }) : Promise.resolve()
+  await page.route('/api/podcasts/series/4', (route) => route.fulfill({ json: options.detail ?? seriesDetailFixture() }))
+  await page.route('/api/podcasts/series/4/memory**', async (route) => {
+    if (!route.request().url().includes('wait=true')) return route.fulfill({ status: 202, json: { status: 'started' } })
+    waitRequests.push(route.request().url())
+    await held
+    const waits = options.waits ?? [{ status: 'up_to_date' }]
+    return route.fulfill({ json: waits[Math.min(waitRequests.length, waits.length) - 1] })
+  })
+  return { waitRequests, release: () => release() }
+}

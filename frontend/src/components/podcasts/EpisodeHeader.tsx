@@ -13,6 +13,11 @@ const headerStyle = {
   background: 'var(--color-surface)',
 }
 
+/** "Big Little Questions · Episode 2" for a series episode; the show's title otherwise. */
+function episodeTitle(episode: Episode): string {
+  return episode.series ? `${episode.show.title} · Episode ${episode.series.episode_number}` : episode.show.title
+}
+
 /** The episode header: back to Podcasts, the show and its hosts, and the level control. */
 export default function EpisodeHeader({ episode }: { episode: Episode }) {
   const hostNames = episode.hosts.map((host) => host.name)
@@ -20,7 +25,7 @@ export default function EpisodeHeader({ episode }: { episode: Episode }) {
     <header style={headerStyle}>
       <Link to="/podcasts" className="back-link">Podcasts</Link>
       <div style={{ minWidth: 0 }}>
-        <h1 style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--color-text)' }}>{episode.show.title}</h1>
+        <h1 style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--color-text)' }}>{episodeTitle(episode)}</h1>
         <PodcastLabel formatLabel={episode.format_label} hostNames={hostNames} />
       </div>
       <ConversationLevelControl />

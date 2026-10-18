@@ -8,7 +8,7 @@ export interface SetupHosts {
   error: string | null
   shuffle: (slot: HostSlot) => Promise<void>
   setPersonality: (slot: HostSlot, personalityId: string) => void
-  playSample: (host: HostDraft) => void
+  playSample: (host: Pick<HostDraft, 'voice_key' | 'name'>) => void
 }
 
 const SHUFFLE_FAILED = 'That host could not be shuffled. Please try again.'
@@ -30,6 +30,6 @@ export function useSetupHosts(show: ShowDraft, learnerName: string): SetupHosts 
   }
   const setPersonality = (slot: HostSlot, personalityId: string) =>
     setHosts((current) => current.map((host) => (host.slot === slot ? { ...host, personality_id: personalityId } : host)))
-  const playSample = (host: HostDraft) => void new Audio(podcasts.voiceSampleUrl(host.voice_key, host.name)).play().catch(() => undefined)
+  const playSample = (host: Pick<HostDraft, 'voice_key' | 'name'>) => void new Audio(podcasts.voiceSampleUrl(host.voice_key, host.name)).play().catch(() => undefined)
   return { hosts, shufflingSlot, error, shuffle, setPersonality, playSample }
 }

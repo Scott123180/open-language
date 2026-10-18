@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import ShowCard from './ShowCard'
-import { personalities, show } from './fixtures.test.utils'
+import { personalities, seriesListing, show } from './fixtures.test.utils'
 
 describe('ShowCard', () => {
   it('is a button named by the show title', () => {
@@ -48,5 +48,27 @@ describe('ShowCard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Weekend Food Talk' }))
 
     expect(onChoose).toHaveBeenCalledWith(show)
+  })
+})
+
+describe('ShowCard with a series (010)', () => {
+  it('says which episode is next', () => {
+    render(<ShowCard show={seriesListing} personalities={personalities} onChoose={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: 'Big Little Questions' })).toHaveAccessibleDescription(/Episode 2 next\./)
+    expect(screen.getByText('Episode 2 next')).toBeInTheDocument()
+  })
+
+  it('says when an episode is unfinished', () => {
+    const unfinished = { ...seriesListing, series: { ...seriesListing.series!, unfinished_episode: { conversation_id: 81, episode_number: 1 } } }
+    render(<ShowCard show={unfinished} personalities={personalities} onChoose={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: 'Big Little Questions' })).toHaveAccessibleDescription(/Episode 1 unfinished\./)
+  })
+
+  it('says nothing about episodes without a series', () => {
+    render(<ShowCard show={show} personalities={personalities} onChoose={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: 'Weekend Food Talk' })).not.toHaveAccessibleDescription(/Episode/)
   })
 })
