@@ -1,5 +1,7 @@
 import random
-from collections.abc import Mapping
+from collections.abc import Callable, Iterator, Mapping
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache, partial
 
@@ -15,11 +17,19 @@ from app.corrections.services.evaluator import LlmCorrectionEvaluator
 from app.corrections.services.sqlite_storage import SQLiteCorrectionStorageProvider
 from app.corrections.services.storage import CorrectionStorageProvider
 from app.corrections.services.strategies import CorrectionStrategy
-from app.database import get_db
+from app.database import SessionLocal, get_db
 from app.flashcards.services.sqlite_storage import SQLiteFlashcardStorageProvider
 from app.flashcards.services.storage import FlashcardStorageProvider
 from app.podcasts.services.casting import HostCaster
+from app.podcasts.services.episode_endings import EpisodeEndings
 from app.podcasts.services.episode_lock import EpisodeLocks
+from app.podcasts.services.series_memory import (
+    KeeperEndings,
+    MemoryCatchUps,
+    MemoryStores,
+    SeriesMemoryKeeper,
+    StoresFactory,
+)
 from app.podcasts.services.series_storage import SeriesStorage, ShowLibraryStorage
 from app.podcasts.services.speaker_views import PodcastMessageVoices, PodcastSpeakerNames
 from app.podcasts.services.sqlite_series_storage import (
@@ -221,6 +231,48 @@ def get_host_caster(
     installation: VoiceInstallation = Depends(get_voice_installation),
 ) -> HostCaster:
     return HostCaster(installation, random.Random())
+
+
+def get_memory_sessions() -> Callable[[], Session]:
+    """Where the memory keeper opens its own sessions: it outlives the request (R6)."""
+    return SessionLocal
+
+
+def memory_stores(sessions: Callable[[], Session]) -> StoresFactory:
+    """The keeper's storage, over a session of its own that it closes when done."""
+
+    @contextmanager
+    def open_stores() -> Iterator[MemoryStores]:
+        session = sessions()
+        try:
+            yield MemoryStores(SQLitePodcastStorage(session), SQLiteSeriesStorage(session))
+        finally:
+            session.close()
+
+    return open_stores
+
+
+def get_series_memory_keeper(
+    structured_llm: StructuredLLMProvider = Depends(get_structured_llm),
+    sessions: Callable[[], Session] = Depends(get_memory_sessions),
+) -> SeriesMemoryKeeper:
+    """Per request, over the provider selected at that moment (Principle VI)."""
+    return SeriesMemoryKeeper(structured_llm, memory_stores(sessions))
+
+
+@lru_cache
+def get_memory_catch_ups() -> MemoryCatchUps:
+    """One per process, holding no keeper or provider: a catch-up's guard outlives requests."""
+    return MemoryCatchUps(ThreadPoolExecutor(max_workers=1))
+
+
+def get_episode_endings(
+    catch_ups: MemoryCatchUps = Depends(get_memory_catch_ups),
+    podcasts: PodcastStorage = Depends(get_podcast_storage),
+    keeper: SeriesMemoryKeeper = Depends(get_series_memory_keeper),
+) -> EpisodeEndings:
+    """A series episode's sign-off starts its series' catch-up; the turn code never knows."""
+    return KeeperEndings(catch_ups, podcasts, keeper)
 
 
 def get_correction_strategy(

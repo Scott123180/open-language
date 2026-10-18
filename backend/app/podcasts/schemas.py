@@ -17,14 +17,17 @@ from app.podcasts.catalog import (
     ONE_OFF_KIND,
     PERSONALITIES,
     PODCAST_FORMATS,
+    READY_MADE_SOURCE,
     SHOW_ROLES,
     SHOW_SOURCES,
+    SHOW_TEMPLATES,
     TITLE_MAX_LENGTH,
 )
 from app.practice_languages import language_name
 from app.services.tts.voices import AVAILABLE_VOICES
 
 LANGUAGE_CHANGED = "The practice language changed. Pick the show again."
+UNKNOWN_SHOW = "That show isn't in the list any more. Pick one of the listed shows."
 MAX_INTERESTS = 10
 MAX_AVOID_TITLES = 50
 AVOID_TITLE_MAX_LENGTH = 200
@@ -371,17 +374,27 @@ def validate_draft(
     draft: ShowDraftModel, language: str, learner_name: str | None, installed_count: int
 ) -> str | None:
     """The first reason the draft cannot start an episode, or None when it can."""
-    if draft.language != language:
-        return LANGUAGE_CHANGED
-    if draft.learner_role not in LEARNER_ROLES:
-        return "The show's learner role must be guest, co_host or caller."
-    if sorted(host.slot for host in draft.hosts) != sorted(HOST_SLOTS):
-        return "A show needs a lead host and a second host."
+    problem = show_problem(draft, language)
+    if problem is not None:
+        return problem
     for host in draft.hosts:
         problem = _host_problem(host, language, learner_name)
         if problem is not None:
             return problem
     return _pair_problem(*draft.hosts, installed_count=installed_count)
+
+
+def show_problem(draft: ShowDraftModel, language: str) -> str | None:
+    """The show-level checks: what a series' later episodes are held to (010 data-model §5.2)."""
+    if draft.language != language:
+        return LANGUAGE_CHANGED
+    if draft.source == READY_MADE_SOURCE and draft.show_id not in SHOW_TEMPLATES:
+        return UNKNOWN_SHOW
+    if draft.learner_role not in LEARNER_ROLES:
+        return "The show's learner role must be guest, co_host or caller."
+    if sorted(host.slot for host in draft.hosts) != sorted(HOST_SLOTS):
+        return "A show needs a lead host and a second host."
+    return None
 
 
 def _host_problem(host: HostDraftModel, language: str, learner_name: str | None) -> str | None:

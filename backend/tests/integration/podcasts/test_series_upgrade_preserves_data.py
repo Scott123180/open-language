@@ -9,9 +9,12 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, event
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app import database
 from tests.integration.conftest import _configure_sqlite
+from tests.support.podcast_harness import podcast_harness_on
 
 SCHEMA_007 = Path(__file__).resolve().parents[2] / "fixtures" / "schema_007.sql"
 NOW = "2026-10-10 10:00:00.000000"
@@ -146,3 +149,37 @@ def test_no_pre_010_episode_belongs_to_a_series(upgraded):
         count = conn.execute("SELECT count(*) FROM podcast_series_episodes").fetchone()
 
     assert count == (0,)
+
+
+# --- T043: the upgraded data through the API (FR-022) ---------------------------------------
+
+
+@pytest.fixture
+def upgraded_app(upgraded, tmp_path):
+    db_file, _before = upgraded
+    engine = create_engine(
+        f"sqlite:///{db_file}", connect_args={"check_same_thread": False}, poolclass=NullPool
+    )
+    event.listen(engine, "connect", _configure_sqlite)
+    with podcast_harness_on(sessionmaker(bind=engine), tmp_path) as harness:
+        yield harness
+    engine.dispose()
+
+
+def test_pre_010_episodes_are_listed_with_no_episode_number(upgraded_app):
+    rows = upgraded_app.client.get("/api/podcasts/episodes").json()
+
+    assert sorted(row["conversation_id"] for row in rows) == [1, 2]
+    assert all(row["episode_number"] is None for row in rows)
+
+
+def test_every_show_opens_with_no_series(upgraded_app):
+    shows = upgraded_app.client.get("/api/podcasts/catalog").json()["shows"]
+
+    assert all(show["series"] is None for show in shows)
+
+
+def test_a_show_a_pre_010_episode_used_starts_its_series_at_episode_1(upgraded_app):
+    episode = upgraded_app.start_series(show_id="big-little-questions")
+
+    assert episode["series"]["episode_number"] == 1

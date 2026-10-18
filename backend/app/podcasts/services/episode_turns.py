@@ -23,6 +23,7 @@ from app.conversation_turns import (
 )
 from app.corrections.services.storage import CorrectionStorageProvider
 from app.podcasts.services.cues import episode_history, line_turn_id, next_turn_history
+from app.podcasts.services.episode_endings import EpisodeEndings
 from app.podcasts.services.episodes import LoadedEpisode, load_episode, turn_actions
 from app.podcasts.services.sanitiser import LineSanitiser, SanitisedLine
 from app.podcasts.services.speaker_views import host_voice_unavailable_message
@@ -61,6 +62,8 @@ class EpisodeDependencies:
     speech: SpeechForLanguage
     policy: TurnPolicy
     level: ConversationLevel
+    endings: EpisodeEndings
+    """Told when an episode signs off, so a series can remember it (010 research R6)."""
 
 
 @dataclass(frozen=True)
@@ -89,7 +92,9 @@ class EpisodeTurns:
         """Start the episode's session in the background, unless it is already live."""
         if self._deps.engine.is_live(episode.key):
             return SESSION_LIVE
-        history = episode_history(episode.facts, episode.cast, episode.learner_label)
+        history = episode_history(
+            episode.facts, episode.cast, episode.learner_label, episode.series_brief
+        )
         prompt = episode.standing_prompt(self._deps.level)
         start_warming(self._deps.engine, self._deps.provider, episode.key, prompt, history)
         return SESSION_WARMING
@@ -158,7 +163,8 @@ class EpisodeTurns:
         raise EmptyLineError()
 
     def _request(self, episode: LoadedEpisode, cue: LineCue, guidance: str | None) -> TurnRequest:
-        history = next_turn_history(episode.facts, episode.cast, episode.learner_label, cue)
+        labels = (episode.cast, episode.learner_label)
+        history = next_turn_history(episode.facts, *labels, cue, episode.series_brief)
         prompt = episode.standing_prompt(self._deps.level)
         return TurnRequest(episode.key, prompt, history, guidance, opening_instruction=None)
 
@@ -194,6 +200,7 @@ class EpisodeTurns:
             return after
         self._deps.conversations.complete_conversation(episode.conversation_id)
         self._deps.engine.end(episode.key)
+        self._deps.endings.episode_finished(episode.conversation_id)
         return after.finished()
 
     def _speak(self, episode: LoadedEpisode, line: LineRecord) -> None:

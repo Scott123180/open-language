@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.main import app
 from app.podcasts.catalog import SHOW_TEMPLATES
 from app.podcasts.services.sqlite_storage import SQLitePodcastStorage
+from app.services.factory import get_memory_sessions
 from tests.support.podcast_harness import EPISODES, parse_sse, serve_sessions
 from tests.support.scratch_database import make_sessions
 
@@ -136,6 +137,7 @@ def real_podcast_app(
     sessions = make_sessions(tmp_path / "benchmark.db")
     opened: list[Session] = []
     serve_sessions(sessions, opened)
+    app.dependency_overrides[get_memory_sessions] = lambda: sessions
     try:
         with TestClient(app) as client:
             client.put(

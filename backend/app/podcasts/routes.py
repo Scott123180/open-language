@@ -17,15 +17,12 @@ from app.conversation_levels import ConversationLevel
 from app.conversation_turns import Corrections, LearnerMessageRequest
 from app.corrections.services.storage import CorrectionStorageProvider
 from app.corrections.services.strategies import CorrectionStrategy
-from app.podcasts.catalog import LEAD_SLOT, PODCAST_FORMATS, SHOW_TEMPLATES
 from app.podcasts.host_routes import host_router
 from app.podcasts.responses import (
-    READY_MADE_SOURCE,
     catalog_listings,
     catalog_response,
     episode_response,
     preferences_response,
-    show_draft,
     summary_row,
 )
 from app.podcasts.schemas import (
@@ -36,13 +33,20 @@ from app.podcasts.schemas import (
     PreferencesResponse,
     StartEpisodeRequest,
     UpdatePreferencesRequest,
-    validate_draft,
 )
-from app.podcasts.services.casting import HostCaster
+from app.podcasts.series_routes import (
+    get_series_service,
+    get_show_shelf,
+    installed_count,
+    series_router,
+)
+from app.podcasts.services.episode_endings import EpisodeEndings
 from app.podcasts.services.episode_lock import EpisodeLocks, HeldEpisode
 from app.podcasts.services.episode_turns import EpisodeDependencies, EpisodeTurns
 from app.podcasts.services.episodes import LoadedEpisode, load_episode
-from app.podcasts.services.storage import NewEpisode, NewHost, PodcastStorage, PreferencesRecord
+from app.podcasts.services.library import ShowNoLongerKept, ShowShelf
+from app.podcasts.services.series import SeriesHostsChanged, SeriesService, StartRefused
+from app.podcasts.services.storage import PodcastStorage, PreferencesRecord
 from app.podcasts.services.suggestions import parse_suggestions, suggestion_prompt
 from app.podcasts.services.turn_policy import (
     AWAITING_CONTINUE,
@@ -58,10 +62,11 @@ from app.services.factory import (
     get_conversation_engine,
     get_correction_storage,
     get_correction_strategy,
+    get_episode_endings,
     get_episode_locks,
-    get_host_caster,
     get_llm,
     get_podcast_storage,
+    get_series_storage,
     get_session_provider,
     get_speech_for_language,
     get_storage,
@@ -71,7 +76,6 @@ from app.services.llm.base import ChatMessage, LLMProvider
 from app.services.storage.base import AppSettingsRecord, StorageProvider
 from app.services.tts.base import VoiceInstallation
 from app.services.tts.selection import SpeechForLanguage
-from app.services.tts.voices import voices_for
 
 router = APIRouter(prefix="/api/podcasts", tags=["podcasts"])
 
@@ -87,6 +91,7 @@ WAIT_FOR_HOSTS = "Wait for the hosts' line, then reply."
 USER_ROLE = "user"
 
 TurnCheck = Callable[[EpisodeTurns, LoadedEpisode], None]
+_REFUSAL_STATUS = {StartRefused: 422, SeriesHostsChanged: 409, ShowNoLongerKept: 404}
 
 
 def get_turn_policy() -> TurnPolicy:
@@ -101,19 +106,14 @@ def get_turn_policy() -> TurnPolicy:
 def get_catalog(
     app_settings: AppSettingsRecord = Depends(get_app_settings),
     podcasts: PodcastStorage = Depends(get_podcast_storage),
-    caster: HostCaster = Depends(get_host_caster),
+    shelf: ShowShelf = Depends(get_show_shelf),
     installation: VoiceInstallation = Depends(get_voice_installation),
 ):
     language = app_settings.target_language
     learner_name = podcasts.get_preferences().learner_name
-    drafts = [
-        show_draft(
-            show, caster.cast_template(show, language, learner_name), language, READY_MADE_SOURCE
-        )
-        for show in SHOW_TEMPLATES.values()
-    ]
+    shows = catalog_listings(shelf.ready_made(language, learner_name), language)
     voices = _catalog_voices(language, installation)
-    return catalog_response(language, catalog_listings(drafts), voices, my_shows=[])
+    return catalog_response(language, shows, voices, my_shows=[])
 
 
 @router.get("/preferences", response_model=PreferencesResponse)
@@ -142,12 +142,8 @@ def _apply_preferences(
     return replace(stored, **changes)
 
 
-def _installed_count(language: str, installation: VoiceInstallation) -> int:
-    return sum(1 for voice in voices_for(language) if installation.is_installed(voice.key))
-
-
 def _catalog_voices(language: str, installation: VoiceInstallation) -> CatalogVoices:
-    count = _installed_count(language, installation)
+    count = installed_count(language, installation)
     return CatalogVoices(installed_count=count, **catalogue_notices(language, count))
 
 
@@ -161,46 +157,18 @@ def start_episode(
     app_settings: AppSettingsRecord = Depends(get_app_settings),
     installation: VoiceInstallation = Depends(get_voice_installation),
     policy: TurnPolicy = Depends(get_turn_policy),
+    series: SeriesService = Depends(get_series_service),
 ):
-    language = app_settings.target_language
-    installed = _installed_count(language, installation)
-    problem = validate_draft(req.show, language, req.learner_name, installed)
-    if problem is not None:
-        raise HTTPException(status_code=422, detail=problem)
-    record = podcasts.create_episode(_new_episode(req, app_settings))
+    try:
+        prepared = series.prepare(req, app_settings)
+    except tuple(_REFUSAL_STATUS) as refusal:
+        raise HTTPException(_REFUSAL_STATUS[type(refusal)], str(refusal)) from refusal
+    record = podcasts.create_episode(series.new_episode(prepared, app_settings))
     _remember_start(podcasts, req)
     episode = load_episode(podcasts, record.conversation_id)
+    turn = policy.turn(episode.state)
     notice = episode_voice_notice(episode)
-    return episode_response(episode, policy.turn(episode.state), installation, notice)
-
-
-def _new_episode(req: StartEpisodeRequest, app_settings: AppSettingsRecord) -> NewEpisode:
-    show = req.show
-    return NewEpisode(
-        show_source=show.source,
-        show_id=show.show_id,
-        title=show.title,
-        premise=show.premise,
-        topic=show.topic,
-        learner_role=show.learner_role,
-        format=req.format,
-        length=req.length,
-        learner_name=req.learner_name,
-        target_language=app_settings.target_language,
-        native_language=app_settings.native_language,
-        llm_model=app_settings.llm_model,
-        hosts=_participating_hosts(req),
-    )
-
-
-def _participating_hosts(req: StartEpisodeRequest) -> tuple[NewHost, ...]:
-    """Every host of the draft, or only the lead in a one-host format (FR-003)."""
-    hosts = sorted(req.show.hosts, key=lambda host: host.slot != LEAD_SLOT)
-    count = PODCAST_FORMATS[req.format].host_count
-    return tuple(
-        NewHost(h.slot, h.name.strip(), h.personality_id, h.voice_key, h.show_role, h.angle)
-        for h in hosts[:count]
-    )
+    return episode_response(episode, turn, installation, notice, prepared.saved_show_id)
 
 
 def _remember_start(podcasts: PodcastStorage, req: StartEpisodeRequest) -> None:
@@ -229,11 +197,11 @@ def _episode_turns(
     speech: SpeechForLanguage = Depends(get_speech_for_language),
     policy: TurnPolicy = Depends(get_turn_policy),
     app_settings: AppSettingsRecord = Depends(get_app_settings),
+    endings: EpisodeEndings = Depends(get_episode_endings),
 ) -> EpisodeTurns:
     level = ConversationLevel(app_settings.conversation_level)
-    deps = EpisodeDependencies(
-        podcasts, conversations, correction_storage, engine, provider, speech, policy, level
-    )
+    stores = (podcasts, conversations, correction_storage)
+    deps = EpisodeDependencies(*stores, engine, provider, speech, policy, level, endings)
     return EpisodeTurns(deps, conversation_id)
 
 
@@ -248,11 +216,19 @@ def _require_episode(turns: EpisodeTurns) -> LoadedEpisode:
 def get_episode(
     turns: EpisodeTurns = Depends(_episode_turns),
     installation: VoiceInstallation = Depends(get_voice_installation),
+    series_storage=Depends(get_series_storage),
 ):
     episode = _require_episode(turns)
-    return episode_response(
-        episode, turns.turn(episode), installation, episode_voice_notice(episode)
-    )
+    saved_show_id = _saved_show_id(episode, series_storage)
+    notice = episode_voice_notice(episode)
+    return episode_response(episode, turns.turn(episode), installation, notice, saved_show_id)
+
+
+def _saved_show_id(episode: LoadedEpisode, series_storage) -> int | None:
+    """A series episode of a kept learner-made show names that show (010 contracts §2)."""
+    facts = episode.record.series
+    series = series_storage.get(facts.series_id) if facts is not None else None
+    return series.show.ref.saved_show_id if series is not None else None
 
 
 # --- line-producing actions (contracts §7) ----------------------------------------------
@@ -394,3 +370,4 @@ async def get_suggestions(
 
 router.include_router(show_router)
 router.include_router(host_router)
+router.include_router(series_router)

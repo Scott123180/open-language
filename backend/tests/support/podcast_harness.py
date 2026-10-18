@@ -3,7 +3,8 @@
 Every request gets its own database session, as `get_db` gives it in production, because host
 lines are spoken on a worker thread. Settings are read from storage, so a PUT to settings reaches
 the next line. The turn policy draws from a seeded random source, so every run takes the same
-turns.
+turns. Series memory (010) is always kept by a scripted structured provider, on the harness's
+own database, with catch-ups run at once on the request's thread.
 """
 
 import json
@@ -13,22 +14,34 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.podcasts.services.series_memory import MemoryCatchUps, SeriesMemoryKeeper
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.database import get_db
 from app.main import app
+from app.podcasts.services.sqlite_series_storage import SQLiteSeriesStorage
 from app.podcasts.services.sqlite_storage import SQLitePodcastStorage
 from app.services.conversation import ConversationEngine
+from app.services.factory import (
+    get_memory_catch_ups,
+    get_memory_sessions,
+    get_series_memory_keeper,
+    memory_stores,
+)
 from app.services.storage.sqlite import SQLiteStorageProvider
 from tests.support.engine_overrides import install_session_provider
 from tests.support.fake_speech import RecordingTtsBuilder, override_speech
 from tests.support.scratch_database import make_sessions
 from tests.support.scripted_line_writer import ScriptedLineWriter
+from tests.support.scripted_memory_llm import ScriptedMemoryLLM
+from tests.support.synchronous_executor import SynchronousExecutor
 
 POLICY_SEED = 7
 READY_MADE_SHOW = "weekend-food-talk"
+SERIES_SHOW = "big-little-questions"
 EPISODES = "/api/podcasts/episodes"
+CATALOG = "/api/podcasts/catalog"
 
 
 @dataclass
@@ -38,6 +51,8 @@ class PodcastHarness:
     engine: ConversationEngine
     speech: RecordingTtsBuilder
     sessions: sessionmaker
+    memory: ScriptedMemoryLLM
+    catch_ups: MemoryCatchUps
 
     def session(self) -> Session:
         """A fresh session for the test's own reads, never shared with a request."""
@@ -64,6 +79,33 @@ class PodcastHarness:
 
     def episode(self, conversation_id: int) -> dict:
         return self.client.get(f"{EPISODES}/{conversation_id}").json()
+
+    @property
+    def series_storage(self) -> SQLiteSeriesStorage:
+        return SQLiteSeriesStorage(self.session())
+
+    def listing(self, show_id: str = SERIES_SHOW) -> dict:
+        """The show as the catalogue lists it now: with its series' hosts once it has one."""
+        return next(s for s in self.client.get(CATALOG).json()["shows"] if s["show_id"] == show_id)
+
+    def start_series(self, format: str = "one_host", show_id: str = SERIES_SHOW, **body) -> dict:
+        """Start the next series episode of the listed show; return the new episode."""
+        payload = {"show": self.listing(show_id), "format": format, "length": "short", **body}
+        response = self.client.post(EPISODES, json={**payload, "kind": "series"})
+        assert response.status_code == 201, response.text
+        return response.json()
+
+    def play_through(self, conversation_id: int) -> None:
+        """Ask for host lines, replying when invited, until the episode has signed off."""
+        for _step in range(60):
+            state = self.episode(conversation_id)
+            if state["turn"] == "finished":
+                return
+            if state["turn"] == "learner":
+                self.say(conversation_id, "Me encanta este tema.")
+            else:
+                self.stream(conversation_id, "next")
+        raise AssertionError("the episode never finished")
 
 
 def install_seeded_policy(seed: int = POLICY_SEED) -> None:
@@ -93,10 +135,31 @@ def serve_sessions(sessions: sessionmaker, opened: list[Session]) -> None:
     app.dependency_overrides[get_db] = scratch_db
 
 
+def install_series_memory(sessions: sessionmaker) -> tuple[ScriptedMemoryLLM, MemoryCatchUps]:
+    """Keep series memory with a scripted provider on the harness database, synchronously."""
+    memory = ScriptedMemoryLLM()
+    catch_ups = MemoryCatchUps(SynchronousExecutor())
+    app.dependency_overrides[get_memory_sessions] = lambda: sessions
+    app.dependency_overrides[get_memory_catch_ups] = lambda: catch_ups
+    app.dependency_overrides[get_series_memory_keeper] = lambda: SeriesMemoryKeeper(
+        memory, memory_stores(sessions)
+    )
+    return memory, catch_ups
+
+
 @contextmanager
 def podcast_harness(tmp_path: Path, installed: set[str] | None = None) -> Iterator[PodcastHarness]:
     """The harness on a new database. `installed` limits the installed voices (None: all)."""
     sessions = make_sessions(tmp_path / "podcasts.db")
+    with podcast_harness_on(sessions, tmp_path, installed) as harness:
+        yield harness
+
+
+@contextmanager
+def podcast_harness_on(
+    sessions: sessionmaker, tmp_path: Path, installed: set[str] | None = None
+) -> Iterator[PodcastHarness]:
+    """The harness on an existing database, such as an upgraded one."""
     opened: list[Session] = []
     serve_sessions(sessions, opened)
     writer = ScriptedLineWriter()
@@ -104,9 +167,10 @@ def podcast_harness(tmp_path: Path, installed: set[str] | None = None) -> Iterat
     speech = override_speech(app, installed=installed)
     install_seeded_policy()
     install_sample_cache(tmp_path / "voice_samples")
+    memory, catch_ups = install_series_memory(sessions)
     try:
         with TestClient(app) as client:
-            yield PodcastHarness(client, writer, engine, speech, sessions)
+            yield PodcastHarness(client, writer, engine, speech, sessions, memory, catch_ups)
     finally:
         app.dependency_overrides.clear()
         for session in opened:

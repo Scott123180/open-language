@@ -361,7 +361,7 @@ is still `one_off`.
 
 ### Tests for User Story 1 (write first, see them fail)
 
-- [ ] T032 [P] [US1] Write `backend/tests/unit/podcasts/test_series_service.py` for `SeriesService.prepare(req, settings) -> PreparedStart`, with fake `ShowLibraryStorage` and `SeriesStorage` (data-model §5.2):
+- [X] T032 [P] [US1] Write `backend/tests/unit/podcasts/test_series_service.py` for `SeriesService.prepare(req, settings) -> PreparedStart`, with fake `ShowLibraryStorage` and `SeriesStorage` (data-model §5.2):
   - `kind=series` with no series for (show, language) creates the series from the draft's two hosts. The result is episode 1, with a snapshot of `episode_number=1`, empty lists and no new hosts;
   - `kind=series` with a series whose hosts match gives episode `count + 1`, with a snapshot built from `remembered()`;
   - the participating hosts come from the series for the format's slots: One host gives the lead only, and Panel or Listen gives both;
@@ -371,7 +371,7 @@ is still `one_off`.
   - an unknown `saved_show_id` raises `ShowNoLongerKept`;
   - the language is `settings.target_language`, never the draft's;
   - `new_host_slots` holds the slots with `joined_after_episodes == count` when `count ≥ 1`.
-- [ ] T033 [P] [US1] Write `backend/tests/unit/podcasts/test_series_prompts.py` (contracts §9, research R5, R7):
+- [X] T033 [P] [US1] Write `backend/tests/unit/podcasts/test_series_prompts.py` (contracts §9, research R5, R7):
   - with a `SeriesBrief`, the standing prompt has one extra section before the line rules. The section:
     - opens with "This is episode N of a continuing show." (or "the first episode of a continuing show" when N = 1);
     - lists "Earlier episodes covered: …" and "What {label} has told you before: …";
@@ -382,7 +382,7 @@ is still `one_off`.
   - the `open` cue for N > 1 asks the lead to welcome {label} back by name, say the show is continuing, and bring up one remembered point. With N = 1, the `open` cue equals 007's;
   - rendering the same brief twice is byte-identical;
   - called with an explicit `series=None`, both functions equal T006's golden text for every stored case. This fails, with a `TypeError`, until T048 adds the parameter.
-- [ ] T034 [P] [US1] Write `backend/tests/unit/podcasts/test_series_memory.py` (research R6, contracts §8–§9):
+- [X] T034 [P] [US1] Write `backend/tests/unit/podcasts/test_series_memory.py` (research R6, contracts §8–§9):
   - parser:
     - a valid reply gives a `MemoryReply` with a topic and ≤ 3 learner points, each with `conversation_language` and `english`, trimmed and cut to `REMEMBERED_POINT_MAX_LENGTH`;
     - `topic: null` and `about_learner: []` are accepted;
@@ -397,13 +397,13 @@ is still `one_off`.
     - states the rules (about the learner only from Learner lines; nothing a host said about themselves; no guesses; an empty list when there is nothing; the subject as one short phrase);
     - names languages, never codes;
     - uses `MEMORY_JSON_SCHEMA`, with `maxItems: 3`.
-- [ ] T035 [P] [US1] Write `backend/tests/unit/podcasts/test_series_memory_properties.py`: 200 seeded random catch-up sequences against an in-memory `SQLiteSeriesStorage`, with random episodes, chunk counts, point counts and lengths. After every `remember`:
+- [X] T035 [P] [US1] Write `backend/tests/unit/podcasts/test_series_memory_properties.py`: 200 seeded random catch-up sequences against an in-memory `SQLiteSeriesStorage`, with random episodes, chunk counts, point counts and lengths. After every `remember`:
   - topics ≤ 10 and learner points ≤ 8;
   - the points' conversation-language texts total ≤ `REMEMBERED_TEXT_BUDGET`;
   - at most one topic per episode;
   - the newest points are kept;
   - the series section rendered from a snapshot of the result is ≤ 1,800 characters and contains every stored point (FR-006, FR-011).
-- [ ] T036 [P] [US1] Write `backend/tests/unit/podcasts/test_memory_catch_ups.py`, with an injected synchronous executor and fake keepers:
+- [X] T036 [P] [US1] Write `backend/tests/unit/podcasts/test_memory_catch_ups.py`, with an injected synchronous executor and fake keepers:
   - `start(series_id, keeper)` returns `started`, and a second call while running returns `running`; only one catch-up runs;
   - the catch-up runs on the keeper passed to its `start`: two successive starts given different keepers each call their own, and `MemoryCatchUps` keeps no keeper or provider between calls (Principle VI, research R6);
   - `status(series_id)` is `running` while held. Otherwise it is `pending` when `pending_episodes` is non-empty, and `up_to_date` when not;
@@ -411,17 +411,17 @@ is still `one_off`.
   - `wait` returns `failed` with the provider's message when the keeper raises `LLMError`, and the failure is logged;
   - `wait` returns `timed_out` at the limit while the catch-up keeps running;
   - `KeeperEndings.episode_finished(conversation_id)` starts a catch-up, with the keeper it was built with, for a series episode's series, and does nothing for a one-off.
-- [ ] T037 [P] [US1] Write `backend/tests/unit/podcasts/test_library.py` for `ShowLibrary`, with a fake `ShowLibraryStorage`:
+- [X] T037 [P] [US1] Write `backend/tests/unit/podcasts/test_library.py` for `ShowLibrary`, with a fake `ShowLibraryStorage`:
   - `keep(draft)` returns the kept show for ready-made and learner-made drafts;
   - `played(kept)` touches `last_played_at`;
   - `resolve(draft)` raises `ShowNoLongerKept` for an unknown `saved_show_id`.
-- [ ] T038 [P] [US1] Write `backend/tests/contract/test_podcast_series_api.py` (contracts §5, §8):
+- [X] T038 [P] [US1] Write `backend/tests/contract/test_podcast_series_api.py` (contracts §5, §8):
   - `GET /api/podcasts/series/{id}` returns 200 with exactly the §5 shape: `remembered.topics` and `about_learner` items carry `point_id`, the English `text` and `episode_number`; `memory_status` is `up_to_date`, `pending` or `running`;
   - an unknown id returns 404 "That series isn't there any more. Open the show again.";
   - `POST /series/{id}/memory` returns 202 with `started`, `running` or `up_to_date`;
   - `?wait=true` returns 200 with `up_to_date`, `failed` and its `detail`, or `timed_out` with "It's taking longer than usual.". Use a short wait limit injected through the `get_memory_wait_seconds` dependency;
   - an unknown series returns 404.
-- [ ] T039 [P] [US1] Write `backend/tests/contract/test_podcast_series_episodes_api.py` (contracts §1–§2):
+- [X] T039 [P] [US1] Write `backend/tests/contract/test_podcast_series_episodes_api.py` (contracts §1–§2):
   - `POST /episodes` with `kind=series` and no series: 201, `series == {"series_id": …, "episode_number": 1}`;
   - the second start with matching hosts: 201, `episode_number == 2`;
   - differing hosts: 409 "This show's hosts changed. Open the show again.";
@@ -430,7 +430,7 @@ is still `one_off`.
   - `GET /episodes/{id}` returns the same `series`;
   - `GET /episodes` rows carry `episode_number`, which is null for a one-off;
   - after one series episode, `GET /catalog` lists that show with the series' hosts and `series == {series_id, episode_count: 1, next_episode_number: 2, unfinished_episode: …}`. `unfinished_episode` is set while the episode is active and null once it has finished.
-- [ ] T040 [P] [US1] Write `backend/tests/integration/podcasts/test_series_lifecycle.py` over the podcast harness and the scripted line writer:
+- [X] T040 [P] [US1] Write `backend/tests/integration/podcasts/test_series_lifecycle.py` over the podcast harness and the scripted line writer:
   - SC-001: across 10 scripted series episodes, mixing One host, Panel and Listen, each episode's `podcast_hosts` rows equal the series' hosts for the format's slots, and the second host keeps its place through One-host episodes;
   - episode numbers 1…10;
   - US1-4: the same show in `de` starts its own series at episode 1 with German-bank names, and the `es` series and hosts are unchanged;
@@ -441,7 +441,7 @@ is still `one_off`.
   - a series host whose voice is no longer installed keeps their name, personality and `voice_key`; the next episode still starts, and its lines are stored as text with 007's missing-voice notice (spec edge case);
   - a series cast while only one voice was installed (both hosts share it) still starts its next episode after a second voice is installed, with the shared voice kept (data-model §5.2 step 1);
   - changing the name the hosts call the learner between episodes: the next episode's standing prompt and `open` cue use the new name (spec edge case).
-- [ ] T041 [P] [US1] Write `backend/tests/integration/podcasts/test_series_memory_catch_up.py`, with the scripted memory provider (T028) and a synchronous executor:
+- [X] T041 [P] [US1] Write `backend/tests/integration/podcasts/test_series_memory_catch_up.py`, with the scripted memory provider (T028) and a synchronous executor:
   - a series sign-off triggers `EpisodeEndings`, which runs a catch-up that writes the topic and learner points and moves the marker;
   - a one-off sign-off triggers nothing;
   - a second catch-up reads only the lines after the marker;
@@ -450,10 +450,10 @@ is still `one_off`.
   - switching the provider setting after a sign-off: the next `POST /series/{id}/memory` catch-up calls the newly selected provider's fake, and the previous one receives no call (Principle VI);
   - `POST /series/{id}/memory?wait=true` returns `up_to_date`, and the next series start's snapshot contains the new points;
   - with a provider blocked on an event and a 0.2 s limit, `?wait=true` returns `timed_out` without blocking the event loop. A concurrent `GET /catalog` completes meanwhile.
-- [ ] T042 [P] [US1] Write `backend/tests/integration/podcasts/test_series_resume.py`: start series episode 2, add lines, and record its standing prompt and cue history. Then let the series gain new memories through a catch-up of episode 1's later lines. On resuming episode 2:
+- [X] T042 [P] [US1] Write `backend/tests/integration/podcasts/test_series_resume.py`: start series episode 2, add lines, and record its standing prompt and cue history. Then let the series gain new memories through a catch-up of episode 1's later lines. On resuming episode 2:
   - the standing prompt and cue history are byte-identical (snapshot stability);
   - the conversation session is not rebuilt, because the fingerprint is unchanged.
-- [ ] T043 [P] [US1] Extend `backend/tests/integration/podcasts/test_series_upgrade_preserves_data.py` (T005) for FR-022. After the upgrade, through the API:
+- [X] T043 [P] [US1] Extend `backend/tests/integration/podcasts/test_series_upgrade_preserves_data.py` (T005) for FR-022. After the upgrade, through the API:
   - `GET /episodes` lists both pre-010 episodes with `episode_number: null`;
   - `GET /catalog` lists every show with `series: null`;
   - a `kind=series` start of a show that a pre-010 episode used becomes episode 1.
@@ -486,31 +486,31 @@ is still `one_off`.
 
 ### Implementation for User Story 1
 
-- [ ] T048 [US1] Add the series section and cue variants to `backend/app/podcasts/prompts.py`:
+- [X] T048 [US1] Add the series section and cue variants to `backend/app/podcasts/prompts.py`:
   - `build_standing_prompt(show, cast, label, languages, level, series: SeriesBrief | None = None)`: the sections tuple gains `_series_section(series, cast, label)`, filtered out when it is None (→ 14 lines);
   - `_series_section` renders every point of the snapshot, newest first. It never drops points: the stored set fits by construction (`REMEMBERED_TEXT_BUDGET`, T025);
   - `render_cue(cue, cast, label, series=None)`: the instruction lookup moves to `_instruction(cue, cast, label, series)` (≈ 10 lines), and adds the series `open` variant for N > 1.
 
   T033 (including its `series=None` case) and T006 pass. **Leave the new-host wording to T073.**
-- [ ] T049 [US1] Add `MEMORY_JSON_SCHEMA` and `memory_prompt(chunk, names, remembered, languages)` to `backend/app/podcasts/prompts.py` (contracts §9).
-- [ ] T050 [US1] Pass the brief through the episode pipeline:
+- [X] T049 [US1] Add `MEMORY_JSON_SCHEMA` and `memory_prompt(chunk, names, remembered, languages)` to `backend/app/podcasts/prompts.py` (contracts §9).
+- [X] T050 [US1] Pass the brief through the episode pipeline:
   - `LoadedEpisode.series_brief` in `backend/app/podcasts/services/episodes.py`: `SeriesBrief.of(record.series.snapshot, cast)`, or `None`; `standing_prompt` passes it (5 lines);
   - `episode_history`, `next_turn_history` and `_cue_turn` in `backend/app/podcasts/services/cues.py` take and forward `series`;
   - `EpisodeTurns.warm` and `_request` in `backend/app/podcasts/services/episode_turns.py` pass `episode.series_brief`.
-- [ ] T051 [US1] Report finished episodes:
+- [X] T051 [US1] Report finished episodes:
   - add `endings: EpisodeEndings` to `EpisodeDependencies` in `backend/app/podcasts/services/episode_turns.py`;
   - `_after` calls `self._deps.endings.episode_finished(conversation_id)` once the `sign_off` line is stored (+1 line → 8);
   - add `get_episode_endings` to `backend/app/services/factory.py`, returning `NoEpisodeEndings()` for now; T056 replaces it with `KeeperEndings`;
   - `_episode_turns` in `backend/app/podcasts/routes.py` takes the endings from `get_episode_endings` (16 → 17 lines).
-- [ ] T052 [US1] Implement `ShowLibrary` in `backend/app/podcasts/services/library.py`: `keep(draft)`, `played(kept)` and `resolve(draft)`, raising `ShowNoLongerKept`. T037 passes.
-- [ ] T053 [US1] Implement `SeriesService` in the new `backend/app/podcasts/services/series.py`:
+- [X] T052 [US1] Implement `ShowLibrary` in `backend/app/podcasts/services/library.py`: `keep(draft)`, `played(kept)` and `resolve(draft)`, raising `ShowNoLongerKept`. T037 passes.
+- [X] T053 [US1] Implement `SeriesService` in the new `backend/app/podcasts/services/series.py`:
   - extract the show-level checks of `validate_draft` (language, learner role, slots) into `show_problem(draft, language)` in `backend/app/podcasts/schemas.py`, and have `validate_draft` call it (14 → ≈ 10 lines, 007 behaviour unchanged);
   - `prepare(req, settings) -> PreparedStart`: validate (`validate_draft` for the series' first episode, `show_problem` after it), keep the show, find or create the series, check the hosts (`SeriesHostsChanged`), take the snapshot, and build the participating hosts from the series for the format's slots;
   - move `_new_episode` from `routes.py` into it, taking a `PreparedStart` (≈ 18 lines);
   - `start_episode` in `backend/app/podcasts/routes.py` delegates for `kind=series` (≈ 14 lines), and maps `SeriesHostsChanged` → 409 and `ShowNoLongerKept` → 404 with the data-model §6 messages.
 
   For `kind=one_off`, 007's path runs unchanged; US2 adds keeping the show for one-offs. T032 passes.
-- [ ] T054 [US1] Implement the parser and `SeriesMemoryKeeper` in the new `backend/app/podcasts/services/series_memory.py`:
+- [X] T054 [US1] Implement the parser and `SeriesMemoryKeeper` in the new `backend/app/podcasts/services/series_memory.py`:
   - `parse_memory_reply(raw) -> MemoryReply`;
   - `SeriesMemoryKeeper(structured_provider, session_factory, languages)`, whose `catch_up(series_id)` does the following:
     - for each pending episode, build the labelled chunks of `MEMORY_CHUNK_CHARACTERS` from the lines after the marker;
@@ -520,16 +520,16 @@ is still `one_off`.
     - log and re-raise on `LLMError`, leaving the marker unchanged.
 
   T034 and T035 pass.
-- [ ] T055 [US1] Implement `MemoryCatchUps` and `KeeperEndings` in `backend/app/podcasts/services/series_memory.py`:
+- [X] T055 [US1] Implement `MemoryCatchUps` and `KeeperEndings` in `backend/app/podcasts/services/series_memory.py`:
   - `MemoryCatchUps`, with an injected executor and a per-series guard plus a completion `threading.Event`, provides `start(series_id, keeper)`, `status(series_id)` and `wait(series_id, keeper, limit)`, which waits in the executor so the event loop is never blocked. It stores no keeper or provider: each catch-up runs on the keeper it was started with;
   - `KeeperEndings(EpisodeEndings)`, built per request with the catch-ups, the series storage and that request's keeper, looks up the link row and starts a catch-up for series episodes only.
 
   T036 passes.
-- [ ] T056 [US1] Wire the memory pieces in `backend/app/services/factory.py`:
+- [X] T056 [US1] Wire the memory pieces in `backend/app/services/factory.py`:
   - `get_series_memory_keeper`: per request, over `get_structured_llm` (the provider selected at that moment), plus its own `SessionLocal` session factory;
   - `get_memory_catch_ups`: one process-wide instance over a `ThreadPoolExecutor(max_workers=1)`, holding no keeper or provider;
   - `get_episode_endings`: replace T051's `NoEpisodeEndings()` with a `KeeperEndings` over the catch-ups, the series storage and the request's keeper.
-- [ ] T057 [US1] Add the series fields to the responses:
+- [X] T057 [US1] Add the series fields to the responses:
   - in `backend/app/podcasts/responses.py`:
     - `catalog_listings` lists a show that has a series in the current language with the series' hosts and its `SeriesSummaryModel`;
     - `_episode_fields` adds `series` and `show.saved_show_id` (+1 field → 15);
@@ -537,7 +537,7 @@ is still `one_off`.
   - `list_episodes` in `backend/app/podcasts/services/sqlite_storage.py` left-joins `podcast_series_episodes` for the number.
 
   T039 and T043 pass.
-- [ ] T058 [US1] Create `backend/app/podcasts/series_routes.py` with:
+- [X] T058 [US1] Create `backend/app/podcasts/series_routes.py` with:
   - `GET /series/{series_id}`: the `SeriesDetailResponse`, including `memory_status` from `MemoryCatchUps.status` and English remembered texts;
   - `POST /series/{series_id}/memory` returning 202, with `?wait=true` returning 200 through `get_memory_wait_seconds` (default `MEMORY_WAIT_SECONDS`). Both pass the request's `get_series_memory_keeper` to `MemoryCatchUps`.
 

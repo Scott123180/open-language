@@ -9,6 +9,7 @@ from collections.abc import Sequence
 
 from app.podcasts.prompts import render_cue
 from app.podcasts.services.casting import Cast
+from app.podcasts.services.series_snapshot import SeriesBrief
 from app.podcasts.services.turn_policy import LineCue, LineFacts, follows_pass, is_settle_moment
 from app.services.conversation import SavedTurn
 
@@ -35,12 +36,16 @@ def stored_cue(lines: Sequence[LineFacts], index: int) -> LineCue:
 
 
 def episode_history(
-    lines: Sequence[LineFacts], cast: Cast, learner_label: str
+    lines: Sequence[LineFacts],
+    cast: Cast,
+    learner_label: str,
+    series: SeriesBrief | None = None,
 ) -> tuple[SavedTurn, ...]:
     turns: list[SavedTurn] = []
     for index, line in enumerate(lines):
         if line.is_host:
-            turns.append(_cue_turn(index, stored_cue(lines, index), cast, learner_label))
+            cue = stored_cue(lines, index)
+            turns.append(_cue_turn(index, cue, cast, learner_label, series))
             turns.append(SavedTurn(line_turn_id(line.message_id), ASSISTANT_ROLE, line.text))
         else:
             text = f"{learner_label}: {line.text}"
@@ -49,14 +54,19 @@ def episode_history(
 
 
 def next_turn_history(
-    lines: Sequence[LineFacts], cast: Cast, learner_label: str, cue: LineCue
+    lines: Sequence[LineFacts],
+    cast: Cast,
+    learner_label: str,
+    cue: LineCue,
+    series: SeriesBrief | None = None,
 ) -> tuple[SavedTurn, ...]:
     """The saved history, ending with a fresh cue for the next line (a user turn)."""
-    fresh = _cue_turn(len(lines), cue, cast, learner_label)
-    return (*episode_history(lines, cast, learner_label), fresh)
+    fresh = _cue_turn(len(lines), cue, cast, learner_label, series)
+    return (*episode_history(lines, cast, learner_label, series), fresh)
 
 
-def _cue_turn(position: int, cue: LineCue, cast: Cast, learner_label: str) -> SavedTurn:
-    return SavedTurn(
-        f"{CUE_TURN_PREFIX}{position}", USER_ROLE, render_cue(cue, cast, learner_label)
-    )
+def _cue_turn(
+    position: int, cue: LineCue, cast: Cast, learner_label: str, series: SeriesBrief | None
+) -> SavedTurn:
+    rendered = render_cue(cue, cast, learner_label, series)
+    return SavedTurn(f"{CUE_TURN_PREFIX}{position}", USER_ROLE, rendered)

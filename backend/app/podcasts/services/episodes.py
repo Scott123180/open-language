@@ -6,6 +6,7 @@ from app.conversation_levels import ConversationLevel
 from app.podcasts.catalog import EPISODE_LENGTHS, PODCAST_FORMATS, EpisodeLength, PodcastFormat
 from app.podcasts.prompts import ShowBrief, build_standing_prompt, learner_label_for
 from app.podcasts.services.casting import Cast, Host
+from app.podcasts.services.series_snapshot import SeriesBrief
 from app.podcasts.services.storage import (
     EpisodeRecord,
     HostRecord,
@@ -81,11 +82,17 @@ class LoadedEpisode:
     def host_by_id(self, host_id: int) -> HostRecord:
         return next(host for host in self.hosts if host.host_id == host_id)
 
+    @property
+    def series_brief(self) -> SeriesBrief | None:
+        """What a series episode knows of its series, from its snapshot. None for a one-off."""
+        series = self.record.series
+        return SeriesBrief.of(series.snapshot, self.cast) if series is not None else None
+
     def standing_prompt(self, level: ConversationLevel) -> str:
-        show = ShowBrief(
-            self.record.title, self.record.premise, self.record.topic, self.record.learner_role
-        )
-        return build_standing_prompt(show, self.cast, self.learner_label, self.languages, level)
+        record = self.record
+        show = ShowBrief(record.title, record.premise, record.topic, record.learner_role)
+        labels = (self.cast, self.learner_label, self.languages, level)
+        return build_standing_prompt(show, *labels, series=self.series_brief)
 
     def with_line(self, line: LineRecord) -> "LoadedEpisode":
         return replace(self, lines=(*self.lines, line))
