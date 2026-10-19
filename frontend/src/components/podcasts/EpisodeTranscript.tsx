@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useKeepLatestInView } from '../../hooks/podcasts/useKeepLatestInView'
 import MessageBubble from '../chat/MessageBubble'
 import FeedbackNote from '../chat/FeedbackNote'
 import type { FeedbackNoteData } from '../../services/api'
@@ -39,13 +40,14 @@ function TranscriptLine({ line, props }: { line: EpisodeLine; props: EpisodeTran
 /** Every line of the episode in order: hosts under their names, the learner as in chat. */
 export default function EpisodeTranscript(props: EpisodeTranscriptProps) {
   const endRef = useRef<HTMLDivElement>(null)
+  const regionRef = useKeepLatestInView<HTMLElement>()
   useEffect(() => {
     // A braced body: newer browsers return a promise from a smooth scroll, which React would
     // otherwise take for the effect's clean-up and crash the episode.
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [props.lines.length])
   return (
-    <section aria-label="Episode lines" style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-4)' }}>
+    <section ref={regionRef} aria-label="Episode lines" style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-4)' }}>
       {props.lines.map((line) => (
         <TranscriptLine key={line.message_id} line={line} props={props} />
       ))}

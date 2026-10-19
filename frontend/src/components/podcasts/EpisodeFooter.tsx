@@ -35,7 +35,7 @@ export default function EpisodeFooter({ state, continueRef }: EpisodeFooterProps
     <>
       <ControlsRow state={state} continueRef={continueRef} />
       {isComposing && state.episode && (
-        <LearnerComposer episode={state.episode} isPending={state.isPending} isAwaitingRetry={state.isAwaitingRetry} onSend={state.send} />
+        <LearnerComposer episode={state.episode} isPending={state.isPending} isAwaitingRetry={state.isAwaitingRetry} lastMessageId={state.lines[state.lines.length - 1]?.message_id} onSend={state.send} />
       )}
     </>
   )

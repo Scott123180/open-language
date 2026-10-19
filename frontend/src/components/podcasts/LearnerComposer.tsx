@@ -11,17 +11,18 @@ interface LearnerComposerProps {
   episode: Episode
   isPending: boolean
   isAwaitingRetry: boolean
+  lastMessageId: number | undefined
   onSend: (text: string, source: 'voice' | 'keyboard', confidence?: number) => void
 }
 
 /** At the learner's turn: suggestions, the expression helper and the input bar (FR-027). */
-export default function LearnerComposer({ episode, isPending, isAwaitingRetry, onSend }: LearnerComposerProps) {
+export default function LearnerComposer({ episode, isPending, isAwaitingRetry, lastMessageId, onSend }: LearnerComposerProps) {
   const [isHelperOpen, setIsHelperOpen] = useState(false)
   const input = useLearnerInput(episode.language, onSend)
   const id = episode.conversation_id
   return (
     <footer style={{ borderTop: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
-      <SuggestedResponsePanel conversationId={id} isDisabled={isPending} fetchSuggestions={getEpisodeSuggestions} />
+      <SuggestedResponsePanel conversationId={id} isDisabled={isPending} lastMessageId={lastMessageId} fetchSuggestions={getEpisodeSuggestions} />
       {isHelperOpen && <ExpressionHelperPanel conversationId={id} targetName={episode.language_name} nativeName={episode.native_language_name} onClose={() => setIsHelperOpen(false)} />}
       {input.error && <ErrorBanner message={input.error} onDismiss={input.clearError} />}
       <div style={{ padding: 'var(--space-3) var(--space-4)' }}>

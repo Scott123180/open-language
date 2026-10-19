@@ -76,6 +76,64 @@ describe('SuggestedResponsePanel', () => {
     resolve!({ suggestions: [] })
   })
 
+  it('reopening shows the same suggestions while nothing new has been said', async () => {
+    vi.mocked(api.getSuggestions).mockResolvedValue({ suggestions: ['Try saying hello'] })
+    render(<SuggestedResponsePanel conversationId={1} lastMessageId={5} />)
+    fireEvent.click(screen.getByRole('button', { name: /suggestions/i }))
+    await screen.findByText('Try saying hello')
+
+    fireEvent.click(screen.getByRole('button', { name: /collapse/i }))
+    fireEvent.click(screen.getByRole('button', { name: /suggestions/i }))
+
+    expect(await screen.findByText('Try saying hello')).toBeInTheDocument()
+    expect(api.getSuggestions).toHaveBeenCalledTimes(1)
+  })
+
+  it('reopening after a new message asks for fresh suggestions', async () => {
+    vi.mocked(api.getSuggestions)
+      .mockResolvedValueOnce({ suggestions: ['First answer'] })
+      .mockResolvedValueOnce({ suggestions: ['Second answer'] })
+    const { rerender } = render(<SuggestedResponsePanel conversationId={1} lastMessageId={5} />)
+    fireEvent.click(screen.getByRole('button', { name: /suggestions/i }))
+    await screen.findByText('First answer')
+    fireEvent.click(screen.getByRole('button', { name: /collapse/i }))
+
+    rerender(<SuggestedResponsePanel conversationId={1} lastMessageId={7} />)
+    fireEvent.click(screen.getByRole('button', { name: /suggestions/i }))
+
+    expect(await screen.findByText('Second answer')).toBeInTheDocument()
+    expect(screen.queryByText('First answer')).not.toBeInTheDocument()
+  })
+
+  it('an open panel refreshes itself when a new message arrives', async () => {
+    vi.mocked(api.getSuggestions)
+      .mockResolvedValueOnce({ suggestions: ['First answer'] })
+      .mockResolvedValueOnce({ suggestions: ['Second answer'] })
+    const { rerender } = render(<SuggestedResponsePanel conversationId={1} lastMessageId={5} />)
+    fireEvent.click(screen.getByRole('button', { name: /suggestions/i }))
+    await screen.findByText('First answer')
+
+    rerender(<SuggestedResponsePanel conversationId={1} lastMessageId={7} />)
+
+    expect(await screen.findByText('Second answer')).toBeInTheDocument()
+  })
+
+  it('an open panel waits for the reply to finish before refreshing', async () => {
+    vi.mocked(api.getSuggestions)
+      .mockResolvedValueOnce({ suggestions: ['First answer'] })
+      .mockResolvedValueOnce({ suggestions: ['Second answer'] })
+    const { rerender } = render(<SuggestedResponsePanel conversationId={1} lastMessageId={5} />)
+    fireEvent.click(screen.getByRole('button', { name: /suggestions/i }))
+    await screen.findByText('First answer')
+
+    rerender(<SuggestedResponsePanel conversationId={1} lastMessageId={6} isDisabled />)
+    expect(api.getSuggestions).toHaveBeenCalledTimes(1)
+    rerender(<SuggestedResponsePanel conversationId={1} lastMessageId={7} />)
+
+    expect(await screen.findByText('Second answer')).toBeInTheDocument()
+    expect(api.getSuggestions).toHaveBeenCalledTimes(2)
+  })
+
   it("asks a screen's own source when one is given (007 episodes)", async () => {
     const fetchSuggestions = vi.fn().mockResolvedValue({ suggestions: ['¡Me encanta!'] })
 

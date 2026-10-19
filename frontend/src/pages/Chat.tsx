@@ -416,7 +416,7 @@ export default function Chat() {
         <div ref={listEndRef} />
       </section>
 
-      <SuggestedResponsePanel conversationId={convId} isDisabled={isStreaming} />
+      <SuggestedResponsePanel conversationId={convId} isDisabled={isStreaming} lastMessageId={messages[messages.length - 1]?.id} />
 
       {helperExpanded && (
         <ExpressionHelperPanel

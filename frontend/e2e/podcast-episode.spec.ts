@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import {
   episodeFixture,
+  lineFixture,
   lineFrame,
   makeLineSseBody,
   mockLineStream,
@@ -83,6 +84,81 @@ test.describe('Podcast episode — One host', () => {
 
     await expect(page.getByText(silent.voice_unavailable_message)).toBeVisible()
     await expect(page.getByText(OPENING.content)).toBeVisible()
+  })
+})
+
+test.describe('Podcast episode — the latest line and its suggestions', () => {
+  const LONG_REPLY = { message_id: 931, host_id: 11, content: 'Una respuesta larga del anfitrión que ocupa varias líneas en pantalla, para que el final quede escondido si la lista no baja hasta abajo. ¿Y tú qué opinas?', intent: 'discuss', invites_learner: true }
+
+  function earlierLines(count: number) {
+    return Array.from({ length: count }, (_, index) =>
+      lineFixture({ message_id: 900 + index, host_id: index % 2 === 0 ? 11 : null, content: `Línea anterior número ${index + 1} de la conversación, bastante larga para llenar la pantalla.` }),
+    )
+  }
+
+  function episodeWith(lines: unknown[], turn: string, awaiting: string | null) {
+    return { ...episodeFixture('one_host'), lines, turn, awaiting }
+  }
+
+  async function expectFullyShown(page: import('@playwright/test').Page, text: string) {
+    const transcript = page.getByRole('region', { name: 'Episode lines' })
+    const line = transcript.getByText(text)
+    await expect
+      .poll(async () => {
+        const [lineBox, transcriptBox] = [await line.boundingBox(), await transcript.boundingBox()]
+        return lineBox && transcriptBox ? lineBox.y + lineBox.height <= transcriptBox.y + transcriptBox.height : false
+      })
+      .toBe(true)
+  }
+
+  async function mockSuggestions(page: import('@playwright/test').Page, sets: string[][]) {
+    let calls = 0
+    await page.route('/api/podcasts/episodes/57/suggestions', (route) => {
+      calls += 1
+      return route.fulfill({ json: { suggestions: sets[Math.min(calls - 1, sets.length - 1)] } })
+    })
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 600 })
+  })
+
+  test('the reply that hands the learner the turn is shown in full above the input bar', async ({ page }) => {
+    await mockPodcastApis(page, { episode: episodeWith(earlierLines(8), 'hosts', 'reply') })
+    await mockLineStream(page, 'next', [makeLineSseBody(lineFrame(LONG_REPLY, 'learner'))])
+    await page.goto('/podcasts/episodes/57')
+
+    await expect(page.getByLabel('Type a message')).toBeVisible()
+    await expectFullyShown(page, LONG_REPLY.content)
+  })
+
+  test('opening the suggestions keeps the latest line in full view', async ({ page }) => {
+    const lines = [...earlierLines(8), lineFixture(LONG_REPLY)]
+    await mockPodcastApis(page, { episode: episodeWith(lines, 'learner', null) })
+    await mockSuggestions(page, [['Me parece bien.', 'No estoy seguro.', 'Prefiero la paella.']])
+    await page.goto('/podcasts/episodes/57')
+
+    await page.getByRole('button', { name: 'Show suggestions' }).click()
+
+    await expect(page.getByText('Prefiero la paella.')).toBeVisible()
+    await expectFullyShown(page, LONG_REPLY.content)
+  })
+
+  test('the suggestions follow the conversation after each reply', async ({ page }) => {
+    await mockPodcastApis(page)
+    await mockLineStream(page, 'next', [makeLineSseBody(lineFrame(OPENING, 'learner'))])
+    const saved = { event: 'user_message_saved', message_id: 902 }
+    await mockLineStream(page, 'message', [makeLineSseBody([saved, ...lineFrame(REPLY, 'learner')])])
+    await mockSuggestions(page, [['Hice una paella.'], ['Sí, con gambas.']])
+    await page.goto('/podcasts/episodes/57')
+
+    await page.getByRole('button', { name: 'Show suggestions' }).click()
+    await expect(page.getByText('Hice una paella.', { exact: true }).last()).toBeVisible()
+    await page.getByLabel('Type a message').fill('Hice una paella.')
+    await page.getByRole('button', { name: 'Send message' }).click()
+    await expect(page.getByText(REPLY.content)).toBeVisible()
+
+    await expect(page.getByText('Sí, con gambas.')).toBeVisible()
   })
 })
 
