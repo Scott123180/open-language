@@ -29,6 +29,16 @@ settings** so the learner can shape how a podcast sounds, and lets the learner *
 settings for just the next episode or from now on**: for example, bringing an expert into Big Little
 Questions for one episode, or for every episode after it.
 
+## Clarifications
+
+### Session 2026-10-18
+
+- Q: When several settings of one series episode are changed, is the scope (Just this episode / This and later episodes) chosen once for all changes or per change? → A: Per change: each changed setting gets its own scope, asked when that setting is first changed, and the setup marks each one "this episode" or "from now on".
+- Q: In a One host series switched to Panel for Just this episode, is the show's expert who joins a one-episode guest or a standing second host? → A: A one-episode guest, cast fresh each time, introduced as joining today, never part of the series' cast; only a This-and-later-episodes switch to Panel casts a regular second host.
+- Q: Does 007 SC-009's target (next host line starts playing within 5 s of Continue, 90% of cases) still hold for Medium and Long lines? → A: Yes, the same 5 s target for every length, measured to the line's first sentence starting to play; later sentences may arrive while it speaks.
+- Q: Outside a series, does Your role start on the show's own role or on the role used last? → A: Always on the show's own role; Style, Host lines and How often you're asked carry over from last time.
+- Q: After a guest episode, how does the regular host who was away treat what the series remembers from it? → A: That episode's remembered points are marked as from an episode the host missed; the host may mention them as heard secondhand, never as having been there.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Hosts talk like podcast hosts, at the learner's level (Priority: P1)
@@ -83,8 +93,9 @@ sometimes"). Opening it offers:
 - **Today's subject** (optional): a short free-text subject for this episode, such as "why do we yawn",
   kept within the show's topic.
 
-The learner can start without touching any of it. The settings they used last are offered next time,
-as the format is today.
+The learner can start without touching any of it. The Style, Host lines and How often you're asked
+they used last are offered next time, as the format is today; Your role always starts on the show's
+own role.
 
 **Why this priority**: "Make the podcast more configurable" is the second part of the request, and the
 fix in Story 1 needs somewhere to live: a learner who liked the old quick back-and-forth can choose
@@ -93,7 +104,8 @@ Conversation and Often to get it back.
 **Independent Test**: Start two episodes of the same show, one with Presented · Long · Rarely and one
 with Conversation · Short · Often. Verify the first has longer lines, more explaining and fewer
 invitations than the second, that each episode keeps its settings when resumed, and that the next
-setup offers the last settings used.
+setup offers the last Style, Host lines and How often you're asked used, with Your role on the show's
+own role.
 
 **Acceptance Scenarios**:
 
@@ -120,9 +132,11 @@ setup offers the last settings used.
 The learner has a Big Little Questions series in One host with Hugo. On the setup screen for Episode 4
 they open Episode settings and switch the format to Panel, so the show's expert joins as the second
 host. Because this is a series, changing a setting asks one question: **Just this episode** or **This
-and later episodes**. They choose Just this episode. Episode 4 runs with Hugo and the expert; Episode 5
-opens in One host again with the series' usual settings. Later they make Presented their series'
-default by choosing This and later episodes.
+and later episodes**. They choose Just this episode, and the format is marked "this episode". Episode 4
+runs with Hugo and the expert, who joins as a guest for today; Episode 5 opens in One host again with
+the series' usual settings. Later they make Presented their series' default by choosing This and later
+episodes; on the same setup they can still switch the format for just that episode, because each
+changed setting has its own scope.
 
 **Why this priority**: This is the third part of the request, and its example ("change Big Little
 Questions so that there is an expert, for an episode or more"). It builds on the settings of Story 2,
@@ -139,8 +153,8 @@ hosts' memory are unaffected by either change.
    (format, length, the Episode settings and the hosts) starts on the series' own settings, not on the
    last settings used elsewhere.
 2. **Given** the learner changes a series setting, **When** they start the episode, **Then** they have
-   chosen, for the change, Just this episode or This and later episodes, and the setup screen shows
-   which settings differ from the series' usual ones.
+   chosen, for each changed setting, Just this episode or This and later episodes, and the setup
+   screen marks each changed setting "this episode" or "from now on".
 3. **Given** a change made for Just this episode, **When** the next episode's setup opens, **Then** it
    shows the series' usual settings again.
 4. **Given** a change made for This and later episodes, **When** the next episodes' setups open,
@@ -158,18 +172,20 @@ hosts' memory are unaffected by either change.
 The learner's Big Little Questions series has two regular hosts, Hugo and Clara. For Episode 6 they
 want a different expert's view, so they choose **Invite a guest for this episode** on one host's chair
 and pick a personality (Expert). The guest gets a name and a voice like any host. In the episode, Hugo
-introduces the guest as joining for today, and Clara is said to be away. In Episode 7, Clara is back,
-and she does not claim to remember what the guest said, while Hugo does. Recasting a host for good
+introduces the guest as joining for today, and Clara is said to be away. In Episode 7, Clara is back;
+she may say she heard what Episode 6 was about ("Hugo told me you talked about yawning") but never that
+she was there, while Hugo remembers it as any episode. Recasting a host for good
 works as today: it applies to this and later episodes.
 
 **Why this priority**: It completes "for an episode or more" for hosts, the most personal setting of a
 series, so a one-time change never replaces a regular host. Story 3 already covers adding the show's
-expert by changing the format; this adds a different person for one episode.
+expert by changing the format for one episode, and that expert is a guest under the same rules; this
+story adds a guest in a regular host's place.
 
 **Independent Test**: In a two-host series, invite a guest in place of the second host for one
 episode. Verify the guest is introduced as a guest, the regular host is said to be away, and the next
-episode returns to the regular host, who does not claim to remember the guest episode, while the
-series' count and the other host's memory include it.
+episode returns to the regular host, who never claims to have been in the guest episode (mentioning it
+as heard secondhand is fine), while the series' count and the other host's memory include it.
 
 **Acceptance Scenarios**:
 
@@ -182,7 +198,9 @@ series' count and the other host's memory include it.
 4. **Given** a guest episode has been played, **When** the next episode opens, **Then** the regular
    host is back with the same name, personality and voice, and the guest does not reappear unless
    invited again.
-5. **Given** a guest episode in a One host series, **When** the learner invites the guest, **Then** the
+5. **Given** the returning host mentions the guest episode, **When** they speak of it, **Then** they
+   speak of it as something they heard about, never as something they were there for.
+6. **Given** a guest episode in a One host series, **When** the learner invites the guest, **Then** the
    guest takes the one host's place for that episode, or, if the learner switches to Panel for that
    episode, joins as the second host beside the regular host.
 
@@ -199,6 +217,9 @@ series' count and the other host's memory include it.
   keep the quick back-and-forth if they prefer it.
 - **A long line in Listen with Show text off**: the words stay hidden until tapped, whatever the length.
 - **Replay and Slower on a long line**: replay the whole line, as today.
+- **A long line still arriving**: its first sentence starts playing before the rest has arrived, and the
+  remaining sentences follow without a gap the learner must wait through; Replay and Slower are offered
+  once the whole line has arrived.
 - **The learner asks two questions at once**: the next host line answers at least one and says the
   other will come; the other is answered within the next two host lines.
 - **The learner answers instead of asking**: the host reacts and carries on in the episode's style.
@@ -211,7 +232,8 @@ series' count and the other host's memory include it.
 - **A guest whose voice is missing**: handled as for any host (007 FR-031): the learner is told plainly,
   and the guest's lines can be read as text.
 - **One host series and a guest**: the regular host is away for that episode; the series' memory still
-  records the topic and what the learner said.
+  records the topic and what the learner said, marked as missed by that host (FR-022).
+- **A host misses two guest episodes in a row**: every point from both is marked as missed by them.
 - **Series settings in another language**: each language's series has its own settings, as its hosts
   and memory are per language (010).
 - **Episodes and series that existed before this feature**: they keep working; series start on the
@@ -234,6 +256,8 @@ series' count and the other host's memory include it.
   007 FR-026's reply cap for podcast host lines only; the roleplay partner is unchanged.
 - **FR-002**: Host lines MUST be: Short, at most 2 sentences; Medium, 3 to 5 sentences; Long, 5 to 8
   sentences. Medium MUST be the default.
+- **FR-002a**: A host line of any length MUST start playing as quickly as a Short line does today
+  (007 SC-009): playback MUST NOT wait for the whole line when its first sentence is ready.
 - **FR-003**: In One host as in Panel, a host line MUST invite the learner only as often as the How
   often you're asked setting allows: Often, every host line; Sometimes (the default), one host line in
   two on average; Rarely, one in four on average. In every case the learner MUST be invited at the
@@ -262,8 +286,9 @@ series' count and the other host's memory include it.
 - **FR-011**: In the Listen format, How often you're asked and Your role MUST NOT be offered.
 - **FR-012**: An episode MUST keep the settings it started with for its whole life, including when
   resumed.
-- **FR-013**: Outside a series, the setup screen MUST start on the episode settings the learner used
-  last, or on the defaults the first time. Today's subject MUST NOT be carried over.
+- **FR-013**: Outside a series, the setup screen MUST start Style, Host lines and How often you're
+  asked on the values the learner used last, or on the defaults the first time. Your role MUST start on
+  the show's own role, and Today's subject MUST NOT be carried over.
 
 **Series settings**
 
@@ -271,11 +296,13 @@ series' count and the other host's memory include it.
   (except Today's subject) and its hosts. A series' first episode MUST set them from that episode's
   choices.
 - **FR-015**: A series episode's setup MUST start on the series' usual settings.
-- **FR-016**: When the learner changes any setting of a series episode, they MUST choose Just this
-  episode or This and later episodes for the change before starting. The setup screen MUST show which
-  settings differ from the series' usual ones.
-- **FR-017**: A Just-this-episode change MUST apply to that episode only; the series' usual settings
-  MUST be unchanged. A This-and-later-episodes change MUST become the series' usual settings.
+- **FR-016**: When the learner changes a setting of a series episode, they MUST choose Just this
+  episode or This and later episodes for that setting, asked when it is first changed on this setup;
+  changing it again keeps its scope. Each changed setting has its own scope, so one setup can mix
+  both. The setup screen MUST mark each changed setting "this episode" or "from now on".
+- **FR-017**: A Just-this-episode change MUST apply to that episode only; that setting's series value
+  MUST be unchanged. A This-and-later-episodes change MUST become that setting's series value. Both
+  take effect when the episode starts; leaving the setup without starting discards them.
 - **FR-018**: A series episode with changed settings MUST count as the series' next episode and MUST
   read and update the series' memory as any series episode does (010 FR-004, FR-005).
 - **FR-019**: Learners MUST be able to return a series' usual settings to the show's standard settings
@@ -288,13 +315,20 @@ series' count and the other host's memory include it.
   same rules as any host (007 FR-006 to FR-008).
 - **FR-021**: A guest MUST be introduced as joining for this episode, and the regular host they replace
   MUST be referred to as away, never as having left the show.
-- **FR-022**: A guest MUST NOT become a series host: the next episode MUST return to the regular hosts,
-  and the regular host who was away MUST NOT claim to remember the guest episode. The series' memory
-  MUST still record the guest episode's topic and what the learner said.
+- **FR-022**: A guest MUST NOT become a series host: the next episode MUST return to the regular hosts.
+  The series' memory MUST still record the guest episode's topic and what the learner said, and each
+  point from it MUST be marked as from an episode the away host missed. That host MAY mention such a
+  point as heard secondhand, and MUST NOT claim to have been in that episode or to have heard the
+  learner say it.
 - **FR-023**: Recasting a host for good MUST work as in 010 FR-009, offered beside the guest option, so
   the learner chooses between this episode and from now on.
 - **FR-024**: The number of people in an episode MUST still not exceed three, the learner included
-  (007 FR-004). A guest takes a host's place; it never adds a fourth person.
+  (007 FR-004). A guest takes a host's place or Panel's empty second chair; it never adds a fourth
+  person.
+- **FR-024a**: When a One host series switches to Panel for Just this episode, the second host MUST be
+  a guest under FR-020 to FR-022, cast for the show's second role (for Big Little Questions, the
+  expert) and cast afresh each time; no regular host is away. When the switch to Panel is This and
+  later episodes, the second host MUST be cast as a regular series host (010 FR-009).
 
 **Compatibility**
 
@@ -315,13 +349,14 @@ series' count and the other host's memory include it.
 - **Series settings**: a series' usual format, length, Episode settings (without Today's subject) and
   hosts. Set by the first episode, changed by a This-and-later-episodes change, reset on request.
 - **Episode override**: the settings of one series episode that differ from the series' usual ones,
-  for that episode only.
-- **Guest host**: a host who appears in one series episode in place of a regular host: personality,
-  name, voice, and the host they replace. Never part of the series' cast.
+  each with its own scope (this episode, or from now on).
+- **Guest host**: a host who appears in one series episode, either in place of a regular host or as the
+  second host of a one-episode switch to Panel: personality, name, voice, and the host they replace (if
+  any). Cast afresh for each episode; never part of the series' cast.
 - **Line kind**: what a host line does: react, explain, tell a story or example, invite the learner,
   answer the learner's question, open, wrap up or sign off.
-- **Last-used settings**: the Episode settings the learner used last outside a series, offered on the
-  next setup.
+- **Last-used settings**: the Style, Host lines and How often you're asked the learner used last
+  outside a series, offered on the next setup (not Your role or Today's subject).
 
 ## Success Criteria *(mandatory)*
 
@@ -346,9 +381,12 @@ series' count and the other host's memory include it.
 - **SC-008**: A learner can start an episode with the defaults in the same number of choices as today
   (Episode settings never has to be opened).
 - **SC-009**: In a review of at least 10 guest episodes, 100% introduce the guest as a guest, and in the
-  following episodes 0 lines from the returning host claim to remember the guest episode.
+  following episodes 0 lines from the returning host claim to have been in the guest episode or to have
+  heard the learner say something from it (mentions as heard secondhand are allowed).
 - **SC-010**: All episodes, series, memories, conversations, vocabulary and settings that existed before
   the change are still present and usable afterwards.
+- **SC-011**: After Continue, the next host line's first sentence starts playing within 5 seconds in 90%
+  of cases with the default local setup, for Short, Medium and Long lines alike (007 SC-009 kept).
 
 ## Assumptions
 
