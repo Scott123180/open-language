@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     claude_workdir: Path = Path.home() / ".open-language" / "claude-workdir"
     claude_log_dir: Path = Path.home() / ".open-language" / "claude-logs"
     claude_request_timeout_seconds: float = 120.0
+    # Summaries, show ideas and series memory read whole transcripts; corrections get their
+    # own provider whose structured deadline is correction_timeout_seconds instead.
+    claude_structured_timeout_seconds: float = 120.0
     session_max_live: int = 3
     session_idle_ttl_minutes: int = 30
     host: str = "127.0.0.1"

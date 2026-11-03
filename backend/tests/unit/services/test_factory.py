@@ -43,6 +43,24 @@ def test_dependency_delegates_to_the_registry(registry_calls, dependency):
     assert settings is factory.get_settings()
 
 
+def test_correction_llm_has_the_correction_budget_as_its_structured_deadline(registry_calls):
+    factory.get_correction_llm(_RECORD)
+
+    [(selection, settings, effort)] = registry_calls
+    assert selection == LLMSelection("claude", "haiku")
+    assert effort == "medium"
+    budget = factory.get_settings().correction_timeout_seconds
+    assert settings.claude_structured_timeout_seconds == budget
+
+
+def test_correction_llm_leaves_the_shared_settings_untouched(registry_calls):
+    before = factory.get_settings().claude_structured_timeout_seconds
+
+    factory.get_correction_llm(_RECORD)
+
+    assert factory.get_settings().claude_structured_timeout_seconds == before
+
+
 # --- 006: speech for a language (T033) ------------------------------------------------
 
 

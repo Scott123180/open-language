@@ -40,6 +40,10 @@ def test_claude_request_timeout_defaults_to_two_minutes(settings):
     assert settings.claude_request_timeout_seconds == 120.0
 
 
+def test_claude_structured_timeout_defaults_to_two_minutes(settings):
+    assert settings.claude_structured_timeout_seconds == 120.0
+
+
 def test_session_max_live_defaults_to_three(settings):
     assert settings.session_max_live == 3
 

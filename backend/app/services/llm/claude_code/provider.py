@@ -90,9 +90,7 @@ class ClaudeCodeLLMProvider(LLMProvider, StructuredLLMProvider, SessionCapablePr
             return parse_result(lines)
 
     def chat_json(self, messages: list[ChatMessage], schema: dict) -> str:
-        # The structured deadline is the correction budget: its only client is corrections,
-        # so a correction that runs out of time has its process killed, not left running.
-        timeout = self._settings.correction_timeout_seconds
+        timeout = self._settings.claude_structured_timeout_seconds
         call = _OneShot(OutputMode.SCHEMA, STRUCTURED_EFFORT, timeout, schema)
         with closing(self._run(messages, call)) as lines:
             return parse_result(lines)

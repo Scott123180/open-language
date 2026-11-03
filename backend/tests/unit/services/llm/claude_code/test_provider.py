@@ -29,6 +29,7 @@ def settings() -> Settings:
         _env_file=None,
         claude_executable="/opt/claude",
         claude_request_timeout_seconds=90.0,
+        claude_structured_timeout_seconds=75.0,
         correction_timeout_seconds=6.5,
     )
 
@@ -100,10 +101,10 @@ def test_conversational_calls_use_the_request_deadline(provider, runner, method)
     assert runner.prompt_calls[0].timeout_seconds == 90.0
 
 
-def test_structured_calls_use_the_correction_budget(provider, runner):
+def test_structured_calls_use_the_structured_deadline(provider, runner):
     provider.chat_json(MESSAGES, SCHEMA)
 
-    assert runner.prompt_calls[0].timeout_seconds == 6.5
+    assert runner.prompt_calls[0].timeout_seconds == 75.0
 
 
 @pytest.mark.parametrize("method", sorted(CALLS))

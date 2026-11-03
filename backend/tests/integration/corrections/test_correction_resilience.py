@@ -138,26 +138,26 @@ class TestClaudeCorrections:
 
     SENTENCE = "Yo es muy cansado hoy"
 
-    def _claude_structured(self, runner, settings):
+    def _use_claude(self, runner, monkeypatch) -> None:
+        """The registry builds Claude over `runner`, with whatever settings the factory passes."""
+        from app.services import factory
         from app.services.llm.claude_code import ClaudeCodeLLMProvider
         from tests.support.fake_availability import FakeAvailability
 
-        return ClaudeCodeLLMProvider(runner, FakeAvailability(), settings, "sonnet", "low")
+        def build(_selection, settings, _effort):
+            return ClaudeCodeLLMProvider(runner, FakeAvailability(), settings, "sonnet", "low")
 
-    def _use_structured(self, provider) -> None:
-        from app.main import app
-        from app.services.factory import get_structured_llm
+        monkeypatch.setattr(factory, "build_llm_provider", build)
 
-        app.dependency_overrides[get_structured_llm] = lambda: provider
-
-    def test_a_usage_limit_during_evaluation_gives_an_uncorrected_reply(self, make_harness):
-        from app.config import Settings
+    def test_a_usage_limit_during_evaluation_gives_an_uncorrected_reply(
+        self, make_harness, monkeypatch
+    ):
         from tests.support.scripted_claude_runner import ScriptedClaudeCodeRunner
 
         runner = ScriptedClaudeCodeRunner()
         runner.fixtures["schema"] = "rate_limit_rejected.ndjson"
         harness = make_harness(mode="gentle")
-        self._use_structured(self._claude_structured(runner, Settings(_env_file=None)))
+        self._use_claude(runner, monkeypatch)
         conv_id = harness.create_conversation()
 
         events = harness.send(conv_id, self.SENTENCE)
@@ -172,7 +172,7 @@ class TestClaudeCorrections:
         monkeypatch.setattr(get_settings(), "correction_timeout_seconds", budget, raising=False)
         runner = BlockingUntilKilledRunner()
         harness = make_harness(mode="gentle")
-        self._use_structured(self._claude_structured(runner, get_settings()))
+        self._use_claude(runner, monkeypatch)
         conv_id = harness.create_conversation()
 
         started = time.monotonic()

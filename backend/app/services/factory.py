@@ -8,7 +8,7 @@ from functools import lru_cache, partial
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.conversation_summary import SpeakerNames
 from app.conversation_summary.services.sqlite_storage import SQLiteSummaryStorage
 from app.conversation_summary.services.storage import SummaryStorage
@@ -109,25 +109,37 @@ def get_app_settings(storage: StorageProvider = Depends(get_storage)) -> AppSett
     return storage.get_settings()
 
 
-def _configured_provider(app_settings: AppSettingsRecord) -> ConfiguredLLMProvider:
+def _configured_provider(
+    app_settings: AppSettingsRecord, settings: Settings
+) -> ConfiguredLLMProvider:
     selection = LLMSelection(app_settings.llm_provider, app_settings.llm_model)
-    return build_llm_provider(selection, get_settings(), app_settings.llm_effort)
+    return build_llm_provider(selection, settings, app_settings.llm_effort)
 
 
 def get_llm(app_settings: AppSettingsRecord = Depends(get_app_settings)) -> LLMProvider:
-    return _configured_provider(app_settings)
+    return _configured_provider(app_settings, get_settings())
 
 
 def get_structured_llm(
     app_settings: AppSettingsRecord = Depends(get_app_settings),
 ) -> StructuredLLMProvider:
-    return _configured_provider(app_settings)
+    return _configured_provider(app_settings, get_settings())
+
+
+def get_correction_llm(
+    app_settings: AppSettingsRecord = Depends(get_app_settings),
+) -> StructuredLLMProvider:
+    """The turn abandons a correction after its budget, so the call's own deadline matches it
+    and a late process is killed rather than left running."""
+    settings = get_settings()
+    budget = {"claude_structured_timeout_seconds": settings.correction_timeout_seconds}
+    return _configured_provider(app_settings, settings.model_copy(update=budget))
 
 
 def get_session_provider(
     app_settings: AppSettingsRecord = Depends(get_app_settings),
 ) -> SessionCapableProvider:
-    return _configured_provider(app_settings)
+    return _configured_provider(app_settings, get_settings())
 
 
 def get_availability_checkers() -> Mapping[str, ProviderAvailabilityChecker]:
@@ -277,7 +289,7 @@ def get_episode_endings(
 
 def get_correction_strategy(
     app_settings: AppSettingsRecord = Depends(get_app_settings),
-    structured_llm: StructuredLLMProvider = Depends(get_structured_llm),
+    structured_llm: StructuredLLMProvider = Depends(get_correction_llm),
     correction_storage: CorrectionStorageProvider = Depends(get_correction_storage),
 ) -> CorrectionStrategy:
     return build_correction_strategy(

@@ -18,6 +18,7 @@ from app.main import app
 from app.services.factory import (
     get_availability_checkers,
     get_conversation_engine,
+    get_correction_llm,
     get_correction_storage,
     get_helper_sessions,
     get_llm,
@@ -145,6 +146,7 @@ def _install_overrides(harness: LanguageHarness) -> None:
     overrides[get_session_provider] = lambda: provider
     overrides[get_llm] = lambda: harness.llm
     overrides[get_structured_llm] = lambda: harness.structured
+    overrides[get_correction_llm] = lambda: harness.structured
     overrides[get_scenario_provider] = lambda: harness.scenarios
     overrides[get_storage] = harness.storage
     overrides[get_correction_storage] = lambda: SQLiteCorrectionStorageProvider(
