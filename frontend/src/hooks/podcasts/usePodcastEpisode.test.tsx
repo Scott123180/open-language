@@ -213,3 +213,24 @@ describe('usePodcastEpisode', () => {
     expect(result.current.lines).toHaveLength(2)
   })
 })
+
+describe('usePodcastEpisode with streamed lines (011)', () => {
+  it('shows a line arriving part by part, then the stored line', async () => {
+    vi.mocked(podcasts.getEpisode).mockResolvedValue(episode())
+    let finish: () => void = () => undefined
+    vi.mocked(podcasts.streamEpisodeNext).mockImplementation(async (_id, handlers) => {
+      handlers.onLineStarted?.({ event: 'line_started', stream_id: 's1', host_id: 11 })
+      handlers.onLinePart?.({ event: 'line_part', stream_id: 's1', index: 0, text: 'Hola.', audio_url: '/p/0' })
+      await new Promise<void>((resolve) => { finish = resolve })
+      handlers.onLine({ event: 'line', line: hostLine(1), turn: 'learner', awaiting: null })
+      handlers.onDone({ done: true, turn: 'learner', awaiting: null })
+    })
+
+    const { result } = renderHook(() => usePodcastEpisode(57))
+
+    await waitFor(() => expect(result.current.arriving?.parts.map((p) => p.text)).toEqual(['Hola.']))
+    await act(async () => finish())
+    expect(result.current.arriving).toBeNull()
+    expect(result.current.streamedIds).toEqual([1])
+  })
+})

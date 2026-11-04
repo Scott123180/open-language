@@ -15,8 +15,8 @@ interface EpisodeControlsProps {
   continueRef?: Ref<HTMLButtonElement>
 }
 
-/** Continue is the primary action at the hosts' turn. End episode, and in a Panel Jump in and
- * Pass, are secondary (FR-017, Principle IV). */
+/** Continue is the primary action at the hosts' turn. End episode, Jump in (One host and Panel)
+ * and Pass (Panel) are secondary, each shown as the server allows it (FR-017, 011 R15). */
 export default function EpisodeControls(props: EpisodeControlsProps) {
   const { turn, awaiting, isPending } = props
   if (turn === 'finished') return null

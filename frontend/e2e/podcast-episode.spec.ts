@@ -5,7 +5,10 @@ import {
   lineFrame,
   makeLineSseBody,
   mockLineStream,
+  mockPartAudio,
   mockPodcastApis,
+  silentWav,
+  streamedLineFrames,
 } from './fixtures'
 
 const OPENING = { message_id: 901, host_id: 11, content: '¡Bienvenidos a Weekend Food Talk! ¿Qué cocinaste?', intent: 'open', invites_learner: true }
@@ -331,5 +334,76 @@ test.describe('Podcast episode — Panel', () => {
       `xpath=//span[normalize-space()="Marco"]/following-sibling::*[1][contains(., "${MARCO_ANSWERS.content}")]`,
     )
     await expect(speakerAbove).toHaveCount(1)
+  })
+})
+
+test.describe('Podcast episode — streamed lines (011 contracts §4)', () => {
+  const PARTS = ['Hola a todos.', 'Hoy hablamos de pan.', '¡Qué rico es!']
+
+  test('the parts are played in order and the sentences appear as they come', async ({ page }) => {
+    await mockPodcastApis(page)
+    const audio = await mockPartAudio(page)
+    await mockLineStream(page, 'next', [makeLineSseBody(streamedLineFrames(PARTS))])
+    await page.goto('/podcasts/episodes/57')
+
+    await expect(page.getByText(PARTS.join(' '))).toBeVisible()
+    await expect.poll(() => audio.requested.length).toBe(3)
+    expect(audio.requested.map((path) => path.split('/').pop())).toEqual(['0', '1', '2'])
+  })
+
+  test('Replay and Slower come with the whole line, and Replay plays the line', async ({ page }) => {
+    await mockPodcastApis(page)
+    await mockPartAudio(page)
+    const replays: string[] = []
+    await page.route('/api/audio/tts/**', (route) => {
+      replays.push(new URL(route.request().url()).pathname)
+      return route.fulfill({ status: 200, headers: { 'Content-Type': 'audio/wav' }, body: silentWav() })
+    })
+    await mockLineStream(page, 'next', [makeLineSseBody(streamedLineFrames(PARTS))])
+    await page.goto('/podcasts/episodes/57')
+
+    await page.getByRole('button', { name: 'Replay' }).first().click()
+
+    await expect.poll(() => replays).toContain('/api/audio/tts/101')
+    await expect(page.getByRole('button', { name: 'Play slower' }).first()).toBeVisible()
+  })
+
+  test('a line lost part-way disappears and says to retry', async ({ page }) => {
+    await mockPodcastApis(page)
+    await mockPartAudio(page)
+    const [started, first] = streamedLineFrames(PARTS)
+    const lost = { error: 'The host lost their words. Press Retry.', stream_id: 'stream-1' }
+    await mockLineStream(page, 'next', [makeLineSseBody([started, first, lost])])
+    await page.goto('/podcasts/episodes/57')
+
+    await expect(page.getByText('The host lost their words. Press Retry.')).toBeVisible()
+    await expect(page.getByTestId('arriving-line')).toHaveCount(0)
+    await expect(page.getByText(PARTS[0])).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible()
+  })
+
+  test('One host offers Jump in at Continue, without Pass', async ({ page }) => {
+    await mockPodcastApis(page)
+    await mockPartAudio(page)
+    const frames = streamedLineFrames(PARTS).map((frame) =>
+      'done' in frame ? { ...frame, can_jump_in: true, can_pass: false } : frame,
+    )
+    await mockLineStream(page, 'next', [makeLineSseBody(frames)])
+    await page.goto('/podcasts/episodes/57')
+
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Jump in' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Pass' })).toHaveCount(0)
+  })
+
+  test('in Listen with Show text off, an arriving line keeps its words hidden', async ({ page }) => {
+    await mockPodcastApis(page, { episode: episodeFixture('listen') })
+    await mockPartAudio(page)
+    const [started, first, second] = streamedLineFrames(PARTS)
+    await mockLineStream(page, 'next', [makeLineSseBody([started, first, second])])
+    await page.goto('/podcasts/episodes/57')
+
+    await expect(page.getByText('Lucía is speaking…')).toBeVisible()
+    await expect(page.getByText(PARTS[0])).toHaveCount(0)
   })
 })

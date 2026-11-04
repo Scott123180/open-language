@@ -6,8 +6,23 @@ import type {
   EpisodeLine,
   FeedbackFrame,
   LineFrame,
+  LinePartEvent,
+  LineStartedEvent,
   Turn,
 } from '../../services/podcastsApi'
+
+/** A host line on its way, one sentence at a time (011 research R13). */
+export interface ArrivingLine {
+  streamId: string
+  hostId: number
+  parts: LinePartEvent[]
+}
+
+/** The latest streamed line's parts, kept after the line arrives so none goes unplayed. */
+export interface StreamParts {
+  streamId: string
+  parts: LinePartEvent[]
+}
 
 /** Everything the episode screen shows, derived from the server's frames (contracts §7). */
 export interface EpisodeState {
@@ -23,6 +38,12 @@ export interface EpisodeState {
   isAwaitingRetry: boolean
   /** Panel: the learner jumped in while the hosts had the floor, so the input bar is open. */
   isJumpingIn: boolean
+  arriving: ArrivingLine | null
+  streamParts: StreamParts | null
+  /** Lines that arrived as parts, whose sound was already played part by part. */
+  streamedIds: number[]
+  /** The last line lost part-way: its parts must stop playing. */
+  lostStreamId: string | null
 }
 
 export type EpisodeAction =
@@ -36,6 +57,9 @@ export type EpisodeAction =
   | { type: 'revealed'; messageId: number }
   | { type: 'jumpedIn' }
   | { type: 'error'; message: string }
+  | { type: 'lineStarted'; event: LineStartedEvent }
+  | { type: 'linePart'; event: LinePartEvent }
+  | { type: 'lineLost'; streamId: string }
 
 export const initialEpisodeState: EpisodeState = {
   episode: null,
@@ -49,6 +73,10 @@ export const initialEpisodeState: EpisodeState = {
   notes: {},
   isAwaitingRetry: false,
   isJumpingIn: false,
+  arriving: null,
+  streamParts: null,
+  streamedIds: [],
+  lostStreamId: null,
 }
 
 const learnerLine = (messageId: number, content: string): EpisodeLine => ({
@@ -86,7 +114,20 @@ function done(state: EpisodeState, frame: DoneFrame): EpisodeState {
 }
 
 function withLine(state: EpisodeState, frame: LineFrame): EpisodeState {
-  return { ...state, lines: [...state.lines, frame.line], turn: frame.turn, awaiting: frame.awaiting }
+  const streamedIds = state.arriving ? [...state.streamedIds, frame.line.message_id] : state.streamedIds
+  const lines = [...state.lines, frame.line]
+  return { ...state, lines, streamedIds, arriving: null, turn: frame.turn, awaiting: frame.awaiting }
+}
+
+function withPart(state: EpisodeState, event: LinePartEvent): EpisodeState {
+  if (state.arriving?.streamId !== event.stream_id) return state
+  const parts = [...state.arriving.parts, event]
+  return { ...state, arriving: { ...state.arriving, parts }, streamParts: { streamId: event.stream_id, parts } }
+}
+
+function started(state: EpisodeState, event: LineStartedEvent): EpisodeState {
+  const streamParts = { streamId: event.stream_id, parts: [] }
+  return { ...state, arriving: { streamId: event.stream_id, hostId: event.host_id, parts: [] }, streamParts }
 }
 
 function revealed(state: EpisodeState, messageId: number): EpisodeState {
@@ -113,5 +154,8 @@ export function episodeReducer(state: EpisodeState, action: EpisodeAction): Epis
     case 'revealed': return revealed(state, action.messageId)
     case 'jumpedIn': return { ...state, isJumpingIn: true }
     case 'error': return { ...state, error: action.message, isPending: false }
+    case 'lineStarted': return started(state, action.event)
+    case 'linePart': return withPart(state, action.event)
+    case 'lineLost': return { ...state, arriving: null, lostStreamId: action.streamId }
   }
 }

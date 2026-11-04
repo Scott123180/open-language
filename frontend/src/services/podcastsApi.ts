@@ -463,6 +463,11 @@ export interface EpisodeStreamHandlers {
   onError: (message: string) => void
   onUserSaved?: (messageId: number) => void
   onFeedback?: (data: FeedbackFrame) => void
+  /** 011: a streamed host line begins, then arrives one sentence at a time. */
+  onLineStarted?: (event: LineStartedEvent) => void
+  onLinePart?: (event: LinePartEvent) => void
+  /** 011: a streamed line failed part-way; what arrived of it must go. */
+  onLineLost?: (streamId: string) => void
 }
 
 export interface FeedbackFrame {
@@ -477,9 +482,16 @@ export interface LearnerMessageBody {
   transcription_confidence?: number
 }
 
+function dispatchError(frame: EpisodeErrorFrame, handlers: EpisodeStreamHandlers): void {
+  if (frame.stream_id !== undefined) handlers.onLineLost?.(frame.stream_id)
+  handlers.onError(frame.error)
+}
+
 function dispatchFrame(frame: Record<string, unknown>, handlers: EpisodeStreamHandlers): void {
-  if (frame.error !== undefined) handlers.onError(frame.error as string)
+  if (frame.error !== undefined) dispatchError(frame as unknown as EpisodeErrorFrame, handlers)
   else if (frame.done) handlers.onDone(frame as unknown as DoneFrame)
+  else if (frame.event === 'line_started') handlers.onLineStarted?.(frame as unknown as LineStartedEvent)
+  else if (frame.event === 'line_part') handlers.onLinePart?.(frame as unknown as LinePartEvent)
   else if (frame.event === 'line') handlers.onLine(frame as unknown as LineFrame)
   else if (frame.event === 'user_message_saved') handlers.onUserSaved?.(frame.message_id as number)
   else if (frame.event === 'feedback') handlers.onFeedback?.(frame as unknown as FeedbackFrame)
@@ -522,6 +534,10 @@ async function streamEpisodeAction(
   if (!res.ok) return handlers.onError(await readError(res))
   await readEpisodeStream(res, handlers)
 }
+
+/** Where one spoken sentence of a streamed line is served (contracts §4). */
+export const partAudioUrl = (conversationId: number, streamId: string, index: number): string =>
+  `${BASE}/episodes/${conversationId}/parts/${streamId}/${index}`
 
 export const streamEpisodeNext = (conversationId: number, handlers: EpisodeStreamHandlers) =>
   streamEpisodeAction(`/episodes/${conversationId}/next`, handlers)

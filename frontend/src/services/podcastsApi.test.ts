@@ -227,6 +227,35 @@ describe('podcast line streams', () => {
   })
 })
 
+describe('streamed host lines (011 contracts §4)', () => {
+  it('hands line_started, each line_part and a lost line to their handlers', async () => {
+    const started = { event: 'line_started', stream_id: 's1', host_id: 11 }
+    const part = { event: 'line_part', stream_id: 's1', index: 0, text: 'Hola.', audio_url: '/a/0' }
+    stubSse([sse(started), sse(part), sse({ error: 'The host lost their words. Press Retry.', stream_id: 's1' })])
+    const cbs = { ...handlers(), onLineStarted: vi.fn(), onLinePart: vi.fn(), onLineLost: vi.fn() }
+
+    await podcasts.streamEpisodeNext(57, cbs)
+
+    expect(cbs.onLineStarted).toHaveBeenCalledWith(started)
+    expect(cbs.onLinePart).toHaveBeenCalledWith(part)
+    expect(cbs.onLineLost).toHaveBeenCalledWith('s1')
+    expect(cbs.onError).toHaveBeenCalledWith('The host lost their words. Press Retry.')
+  })
+
+  it('works for a client without the new handlers', async () => {
+    stubSse([sse({ event: 'line_started', stream_id: 's1', host_id: 11 }), sse({ done: true, turn: 'hosts' })])
+    const cbs = handlers()
+
+    await podcasts.streamEpisodeNext(57, cbs)
+
+    expect(cbs.onDone).toHaveBeenCalledTimes(1)
+  })
+
+  it('builds a part address', () => {
+    expect(podcasts.partAudioUrl(57, 's1', 2)).toBe('/api/podcasts/episodes/57/parts/s1/2')
+  })
+})
+
 describe('series endpoints (010)', () => {
   it('starts an episode of the requested kind', async () => {
     const mock = stubJson({ conversation_id: 81 })

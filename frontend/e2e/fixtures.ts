@@ -816,6 +816,35 @@ export function streamedLineFrames(parts: string[], options: StreamedLineOptions
   ]
 }
 
+/** A valid, very short silent WAV, so a part plays and ends in the browser. */
+export function silentWav(): Buffer {
+  const samples = 400
+  const header = Buffer.alloc(44)
+  header.write('RIFF', 0)
+  header.writeUInt32LE(36 + samples * 2, 4)
+  header.write('WAVEfmt ', 8)
+  header.writeUInt32LE(16, 16)
+  header.writeUInt16LE(1, 20)
+  header.writeUInt16LE(1, 22)
+  header.writeUInt32LE(8000, 24)
+  header.writeUInt32LE(16000, 28)
+  header.writeUInt16LE(2, 32)
+  header.writeUInt16LE(16, 34)
+  header.write('data', 36)
+  header.writeUInt32LE(samples * 2, 40)
+  return Buffer.concat([header, Buffer.alloc(samples * 2)])
+}
+
+/** Serve every part of a streamed line as a silent WAV, recording the order they are asked for. */
+export async function mockPartAudio(page: Page, conversationId = 57) {
+  const requested: string[] = []
+  await page.route(`/api/podcasts/episodes/${conversationId}/parts/**`, (route) => {
+    requested.push(new URL(route.request().url()).pathname)
+    return route.fulfill({ status: 200, headers: { 'Content-Type': 'audio/wav' }, body: silentWav() })
+  })
+  return { requested }
+}
+
 export interface PodcastRouteOptions {
   episode?: ReturnType<typeof episodeFixture>
   preferences?: typeof mockPodcastPreferences

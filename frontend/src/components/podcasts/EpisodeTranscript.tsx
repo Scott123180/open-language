@@ -6,6 +6,8 @@ import type { FeedbackNoteData } from '../../services/api'
 import type { EpisodeHost, EpisodeLine } from '../../services/podcastsApi'
 import type { EpisodeAudio } from '../../hooks/podcasts/useEpisodeAudio'
 import HostLine from './HostLine'
+import ArrivingLine from './ArrivingLine'
+import type { ArrivingLine as Arriving } from '../../hooks/podcasts/episodeState'
 
 interface EpisodeTranscriptProps {
   conversationId: number
@@ -15,6 +17,9 @@ interface EpisodeTranscriptProps {
   audio: EpisodeAudio
   isHidden: (line: EpisodeLine) => boolean
   onReveal: (messageId: number) => void
+  /** A host line still arriving part by part (011). */
+  arriving?: Arriving | null
+  isArrivingHidden?: boolean
 }
 
 function Notes({ notes }: { notes: FeedbackNoteData[] | undefined }) {
@@ -45,12 +50,15 @@ export default function EpisodeTranscript(props: EpisodeTranscriptProps) {
     // A braced body: newer browsers return a promise from a smooth scroll, which React would
     // otherwise take for the effect's clean-up and crash the episode.
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [props.lines.length])
+  }, [props.lines.length, props.arriving?.parts.length])
   return (
     <section ref={regionRef} aria-label="Episode lines" style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-4)' }}>
       {props.lines.map((line) => (
         <TranscriptLine key={line.message_id} line={line} props={props} />
       ))}
+      {props.arriving && (
+        <ArrivingLine arriving={props.arriving} host={props.hosts.find((host) => host.host_id === props.arriving?.hostId)} isHidden={props.isArrivingHidden ?? false} />
+      )}
       <div ref={endRef} />
     </section>
   )

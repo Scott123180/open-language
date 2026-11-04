@@ -44,6 +44,9 @@ function streamHandlers(dispatch: Dispatch<EpisodeAction>, learnerText?: string)
     onError: (message) => dispatch({ type: 'error', message }),
     onUserSaved: (messageId) => dispatch({ type: 'learner', messageId, content: learnerText ?? '' }),
     onFeedback: (frame) => dispatch({ type: 'feedback', frame }),
+    onLineStarted: (event) => dispatch({ type: 'lineStarted', event }),
+    onLinePart: (event) => dispatch({ type: 'linePart', event }),
+    onLineLost: (streamId) => dispatch({ type: 'lineLost', streamId }),
   }
 }
 
