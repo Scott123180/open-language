@@ -8,6 +8,7 @@ research R1), so a pre-011 episode keeps 007's and 010's text byte for byte.
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Protocol
 
 from app.conversation_levels import ConversationLevel
 from app.podcasts.catalog import (
@@ -15,7 +16,9 @@ from app.podcasts.catalog import (
     MAX_POINTS_PER_EPISODE,
     PERSONALITIES,
     REMEMBERED_POINT_MAX_LENGTH,
+    SUBJECT_SUGGESTIONS,
     SUGGESTION_SEEDS,
+    TODAY_SUBJECT_MAX_LENGTH,
     PodcastFormat,
 )
 from app.podcasts.services.casting import Cast, Host
@@ -394,3 +397,83 @@ def discovery_prompt(
         titles = ", ".join(f'"{title}"' for title in avoid_titles)
         sections.insert(2, f"Do not reuse these titles, or anything close to them: {titles}.")
     return "\n\n".join(sections)
+
+
+# --- Today's subject (011 research R14, R20) ----------------------------------------------
+
+SUBJECT_CHECK_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "is_suitable": {"type": "boolean"},
+        "decline_reason": {"type": "string"},
+    },
+    "required": ["is_suitable", "decline_reason"],
+}
+SUBJECT_SUGGESTIONS_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "subjects": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": SUBJECT_SUGGESTIONS,
+            "items": {"type": "string"},
+        }
+    },
+    "required": ["subjects"],
+}
+_SUBJECT_SUITABILITY_RULE = (
+    "Decide whether the subject is suitable. A subject that asks for hateful, sexual or "
+    "dangerous content is not: set is_suitable to false and give a short decline_reason. "
+    "Otherwise set is_suitable to true and leave decline_reason empty."
+)
+
+
+def subject_check_prompt(subject: str, languages: ConversationLanguages) -> str:
+    """One structured request: is the learner's subject suitable for an episode (R14)?"""
+    sections = (
+        f"A learner practising {languages.target_name} chose the subject of one episode of a "
+        "podcast.",
+        f"Subject: {subject}",
+        _SUBJECT_SUITABILITY_RULE,
+    )
+    return "\n\n".join(sections)
+
+
+def subject_suggestion_prompt(request: "SubjectPromptRequest") -> str:
+    """One structured request for up to three new subjects for an episode (R20)."""
+    show, native = request.show, request.languages.native_name
+    sections = [
+        f"You suggest subjects for one episode of a podcast for a learner practising "
+        f"{request.languages.target_name}. Write each subject in {native}, at most "
+        f"{TODAY_SUBJECT_MAX_LENGTH} characters.",
+        f"Show: {show.title} — {show.premise} Topic: {show.topic}.",
+        *_subject_context(request),
+        "Every subject must be suitable: never hateful, sexual or dangerous content.",
+        f"Give up to {SUBJECT_SUGGESTIONS} subjects, each one concrete question or thing "
+        "within the show's topic.",
+    ]
+    return "\n\n".join(sections)
+
+
+def _subject_context(request: "SubjectPromptRequest") -> list[str]:
+    sections = []
+    if request.interests:
+        sections.append(
+            f"The learner is interested in: {', '.join(request.interests)}. Where it fits the "
+            "show, let a subject draw on these."
+        )
+    if request.covered:
+        sections.append(f"Earlier episodes covered (do not repeat): {'; '.join(request.covered)}.")
+    if request.avoid:
+        sections.append(f"Already suggested (do not repeat): {'; '.join(request.avoid)}.")
+    return sections
+
+
+class SubjectPromptRequest(Protocol):
+    """What a subject suggestion prompt reads; `SubjectRequest` provides it."""
+
+    show: ShowBrief
+    languages: ConversationLanguages
+    interests: tuple[str, ...]
+    covered: tuple[str, ...]
+    avoid: tuple[str, ...]

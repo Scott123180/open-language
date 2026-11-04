@@ -11,8 +11,11 @@ from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from app.podcasts.catalog import (
     EPISODE_LENGTHS,
+    EPISODE_STYLES,
+    HOST_LINE_LENGTHS,
     HOST_NAME_MAX_LENGTH,
     HOST_SLOTS,
+    INVITE_FREQUENCIES,
     LEARNER_ROLES,
     ONE_OFF_KIND,
     PERSONALITIES,
@@ -22,6 +25,7 @@ from app.podcasts.catalog import (
     SHOW_SOURCES,
     SHOW_TEMPLATES,
     TITLE_MAX_LENGTH,
+    TODAY_SUBJECT_MAX_LENGTH,
 )
 from app.practice_languages import language_name
 from app.services.tts.voices import AVAILABLE_VOICES
@@ -31,6 +35,9 @@ UNKNOWN_SHOW = "That show isn't in the list any more. Pick one of the listed sho
 ONE_OFF_CLASH = "{name} has the same name as you. Shuffle the host or change your name."
 SERIES_CLASH = "{name} has the same name as you. Change the name the hosts call you."
 """A series host never changes name, so the learner is asked to change theirs (010 R8)."""
+UNLISTED_SETTING = "That {setting} isn't in the list. Pick one of the listed ones."
+UNKNOWN_ROLE = "Your role must be guest, co-host or caller."
+SUBJECT_TOO_LONG = f"Today's subject can be at most {TODAY_SUBJECT_MAX_LENGTH} characters."
 MAX_INTERESTS = 10
 MAX_AVOID_TITLES = 50
 AVOID_TITLE_MAX_LENGTH = 200
@@ -50,6 +57,22 @@ def _trimmed_name(value: str | None) -> str | None:
     if len(trimmed) > HOST_NAME_MAX_LENGTH:
         raise ValueError(f"Your name can be at most {HOST_NAME_MAX_LENGTH} characters.")
     return trimmed
+
+
+def _listed(value: str | None, catalogue, name: str) -> str | None:
+    if value is not None and value not in catalogue:
+        raise ValueError(UNLISTED_SETTING.format(setting=name))
+    return value
+
+
+def _subject(value: str | None) -> str | None:
+    """Trimmed, with newlines folded to spaces; empty means no subject (011 FR-010)."""
+    if value is None:
+        return None
+    folded = " ".join(value.split())
+    if len(folded) > TODAY_SUBJECT_MAX_LENGTH:
+        raise ValueError(SUBJECT_TOO_LONG)
+    return folded or None
 
 
 def _clean_interests(values: list[str]) -> list[str]:
@@ -232,12 +255,50 @@ class ShuffleHostRequest(BaseModel):
 # --- episodes -----------------------------------------------------------------------------
 
 
+class EpisodeSettingsModel(BaseModel):
+    """How the episode should sound; a missing field takes its default (011 contracts §3)."""
+
+    style: str | None = None
+    line_length: str | None = None
+    invite_frequency: str | None = None
+    learner_role: str | None = None
+    today_subject: str | None = None
+
+    @field_validator("style")
+    @classmethod
+    def _known_style(cls, value: str | None) -> str | None:
+        return _listed(value, EPISODE_STYLES, "style")
+
+    @field_validator("line_length")
+    @classmethod
+    def _known_line_length(cls, value: str | None) -> str | None:
+        return _listed(value, HOST_LINE_LENGTHS, "host line length")
+
+    @field_validator("invite_frequency")
+    @classmethod
+    def _known_frequency(cls, value: str | None) -> str | None:
+        return _listed(value, INVITE_FREQUENCIES, "choice of how often you're asked")
+
+    @field_validator("learner_role")
+    @classmethod
+    def _known_role(cls, value: str | None) -> str | None:
+        if value is not None and value not in LEARNER_ROLES:
+            raise ValueError(UNKNOWN_ROLE)
+        return value
+
+    @field_validator("today_subject")
+    @classmethod
+    def _clean_subject(cls, value: str | None) -> str | None:
+        return _subject(value)
+
+
 class StartEpisodeRequest(BaseModel):
     show: ShowDraftModel
     format: str = Field(pattern=FORMAT_PATTERN)
     length: str = Field(pattern=LENGTH_PATTERN)
     learner_name: str | None = None
     kind: Literal["one_off", "series"] = ONE_OFF_KIND
+    settings: EpisodeSettingsModel | None = None
 
     @field_validator("learner_name")
     @classmethod

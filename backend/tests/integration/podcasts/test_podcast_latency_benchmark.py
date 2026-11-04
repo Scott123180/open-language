@@ -14,6 +14,7 @@ import statistics
 import time
 
 import pytest
+from sqlalchemy import text
 
 from app.config import get_settings
 from app.conversation_levels import ConversationLevel
@@ -92,3 +93,75 @@ def _prompt_eval_count(harness, episode_id: int) -> int:
         model=settings.ollama_model, messages=messages
     )
     return reply["prompt_eval_count"]
+
+
+# --- 011 T062: streamed lines, timed to their first sentence's audio (SC-011, research R18) ---
+
+
+LINE_LENGTH_PRESSES = 20
+LINE_LENGTHS = ("short", "medium", "long")
+
+
+def _with_line_length(harness, episode_id: int, line_length: str) -> int:
+    """Set a fresh episode's Host lines before its first line (the start body has no settings
+    until US2, and nothing has been said yet, so no prompt has been fingerprinted)."""
+    with harness.sessions() as session:
+        session.execute(
+            text(
+                "UPDATE podcast_episode_settings SET line_length = :length WHERE conversation_id = :id"
+            ),
+            {"length": line_length, "id": episode_id},
+        )
+        session.commit()
+    return episode_id
+
+
+def _start_listen(harness, line_length: str, length: str = "short") -> int:
+    draft = harness.client.get("/api/podcasts/catalog").json()["shows"][0]
+    body = {"show": draft, "format": "listen", "length": length}
+    episode_id = harness.client.post(EPISODES, json=body).json()["conversation_id"]
+    return _with_line_length(harness, episode_id, line_length)
+
+
+def _first_part_seconds(client, episode_id: int) -> tuple[float, bool]:
+    """Seconds from Continue to the first sentence's audio, and whether the episode finished."""
+    started, waited, is_finished = time.perf_counter(), None, False
+    with client.stream("POST", f"{EPISODES}/{episode_id}/next") as response:
+        for raw in response.iter_lines():
+            frame = parse_sse(f"{raw}\n\n")[0] if raw.startswith("data: ") else {}
+            if frame.get("event") == "line_part" and waited is None:
+                assert client.get(frame["audio_url"]).status_code == 200
+                waited = time.perf_counter() - started
+            is_finished = is_finished or frame.get("turn") == "finished"
+    return waited if waited is not None else float("inf"), is_finished
+
+
+def _first_part_timings(harness, line_length: str) -> list[float]:
+    episode_id, timings = _start_listen(harness, line_length), []
+    while len(timings) < LINE_LENGTH_PRESSES:
+        seconds, is_finished = _first_part_seconds(harness.client, episode_id)
+        timings.append(seconds)
+        if is_finished:
+            episode_id = _start_listen(harness, line_length)
+    return timings
+
+
+def test_the_first_sentence_plays_within_five_seconds_for_every_line_length(tmp_path):
+    with real_podcast_app(tmp_path, "es") as harness:
+        p90s = {
+            length: statistics.quantiles(_first_part_timings(harness, length), n=10)[
+                PERCENTILE_90 - 1
+            ]
+            for length in LINE_LENGTHS
+        }
+        long_episode = _start_listen(harness, "long", length="long")
+        for _press in range(40):
+            if _first_part_seconds(harness.client, long_episode)[1]:
+                break
+        prompt_tokens = _prompt_eval_count(harness, long_episode)
+    print(  # noqa: T201
+        "\nSC-011 p90 to the first sentence's audio: "
+        + ", ".join(f"{length} {p90:.2f}s" for length, p90 in p90s.items())
+        + f"; R18 prompt_eval_count at the end of a Long episode of Long lines: {prompt_tokens}"
+    )
+    assert all(p90 <= SC_009_P90_SECONDS for p90 in p90s.values())

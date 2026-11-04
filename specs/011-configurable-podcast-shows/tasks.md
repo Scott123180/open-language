@@ -474,7 +474,7 @@ Pre-feature episodes resume unchanged.
 - [X] T059 [US1] Create `frontend/src/hooks/podcasts/usePartQueue.ts`, which plays `audio_url`s in index order and offers `stop()`. Use it from `frontend/src/hooks/podcasts/useEpisodeAudio.ts` (≤ 20 lines per function). `useNewLineSpeech` skips lines that were streamed, so a streamed line is not played twice.
 - [X] T060 [US1] Create `frontend/src/components/podcasts/ArrivingLine.tsx` (sentences so far, `aria-busy="true"`, announced once complete). Render it from `frontend/src/components/podcasts/EpisodeTranscript.tsx` and `frontend/src/components/podcasts/HostLine.tsx`. Replay and Slower stay absent until the `line` arrives, and Listen with Show text off hides it through `HiddenLine.tsx`. Makes T039 green.
 - [X] T061 [US1] Make the episode screen's actions follow the server's flags: `frontend/src/components/podcasts/EpisodeControls.tsx` (and `TurnBanner.tsx` if it names the action) offers Jump in whenever `can_jump_in`, and Pass only when `can_pass`, so One host gets Jump in without Pass. The lost-line message shows through `EpisodeError.tsx` with Retry. Makes T040 green.
-- [ ] T062 [US1] Write the hand-run benchmarks (`@pytest.mark.benchmark`):
+- [X] T062 [US1] Write the hand-run benchmarks (`@pytest.mark.benchmark`):
   - create `backend/tests/integration/podcasts/test_host_talk_benchmark.py`: 20 Medium One host **and 20 Medium Panel** Beginner episodes of Big Little Questions with the defaults, on the selected local model, each run past the wrap-up to its sign-off. Episodes are created through the harness with `NewEpisode.settings`, so US2's API is not needed. Each episode includes scripted learner questions, one "for both of you" question in Panel, and a scripted last thought. It prints:
     - the median sentences per discussion line, and per `explain`/`answer` line (SC-013);
     - the inviting share;
@@ -513,18 +513,18 @@ Conversation · Short · Often. Check that:
 
 ### Tests for User Story 2 (write first, see them fail)
 
-- [ ] T065 [P] [US2] Write `backend/tests/unit/podcasts/test_episode_settings_schemas.py` for `EpisodeSettingsModel` and the start request (contracts §3):
+- [X] T065 [P] [US2] Write `backend/tests/unit/podcasts/test_episode_settings_schemas.py` for `EpisodeSettingsModel` and the start request (contracts §3):
   - every field of `settings` is optional, and a missing one takes its default;
   - a request without `settings` validates;
   - `today_subject` is trimmed, newlines are folded to spaces, an empty value becomes `None`, and it may be at most `TODAY_SUBJECT_MAX_LENGTH` (120) characters;
   - an unknown `style`, `line_length` or `invite_frequency` id fails with "That {setting} isn't in the list. Pick one of the listed ones.";
   - a role outside `LEARNER_ROLES` fails with "Your role must be guest, co-host or caller.".
-- [ ] T066 [P] [US2] Write `backend/tests/unit/podcasts/test_subject_check.py` for `SubjectCheck`, with `backend/tests/support/scripted_show_llm.py` or a scripted structured provider (R14):
+- [X] T066 [P] [US2] Write `backend/tests/unit/podcasts/test_subject_check.py` for `SubjectCheck`, with `backend/tests/support/scripted_show_llm.py` or a scripted structured provider (R14):
   - it makes one structured call, with 007's suitability rule worded for a subject and the schema `{is_suitable, decline_reason}`;
   - a suitable subject passes;
   - an unsuitable one raises `SubjectDeclined`, with the reason logged and never in the raised message;
   - an `LLMError` propagates unchanged.
-- [ ] T066a [P] [US2] Write `backend/tests/unit/podcasts/test_subject_suggestions.py` for `SubjectSuggester` (FR-010a, research R20), with a scripted structured provider:
+- [X] T066a [P] [US2] Write `backend/tests/unit/podcasts/test_subject_suggestions.py` for `SubjectSuggester` (FR-010a, research R20), with a scripted structured provider:
   - it makes one structured call whose prompt carries the show's title, premise and topic, the learner's interests, the covered topics, the avoided subjects, 007's suitability rule worded for subjects, and "in {native language}"; the schema is `{subjects: string[1..3]}`;
   - it trims each subject, drops any longer than 120 characters, drops any whose folded text equals a covered topic, an avoided subject or an earlier subject in the reply, and returns at most `SUBJECT_SUGGESTIONS`;
   - a reply with nothing left after filtering returns an empty tuple;
@@ -585,9 +585,9 @@ Conversation · Short · Often. Check that:
 
 ### Implementation for User Story 2
 
-- [ ] T074 [US2] Add the schemas to `backend/app/podcasts/schemas.py`: `EpisodeSettingsModel` (every field optional, `today_subject` normalised and ≤ 120 characters), `settings` on the start request, `EpisodeOptions` and its item models, the three read-only `PreferencesResponse` fields, and `settings` on `EpisodeResponse`. `PUT` preferences ignores the `last_…` fields. Makes T065 green.
-- [ ] T075 [US2] Create `backend/app/podcasts/services/subject_check.py` with `SubjectCheck` (taking a `StructuredLLMProvider`) and `SubjectDeclined`. Add the subject-check prompt and reply schema to `backend/app/podcasts/prompts.py`. Makes T066 green.
-- [ ] T075a [US2] Create `backend/app/podcasts/services/subject_suggestions.py` with `SubjectSuggester` (taking a `StructuredLLMProvider`) and `SubjectRequest` (data-model §3.7). Add `subject_suggestion_prompt(request)` and `SUBJECT_SUGGESTIONS_JSON_SCHEMA` to `backend/app/podcasts/prompts.py`, reusing `_creator_intro`, `_personal_sections`' interest sentence and the suitability rule. Filtering goes in `_kept_subjects(subjects, request)` (≤ 20 lines). Makes T066a green.
+- [X] T074 [US2] Add the schemas to `backend/app/podcasts/schemas.py`: `EpisodeSettingsModel` (every field optional, `today_subject` normalised and ≤ 120 characters), `settings` on the start request, `EpisodeOptions` and its item models, the three read-only `PreferencesResponse` fields, and `settings` on `EpisodeResponse`. `PUT` preferences ignores the `last_…` fields. Makes T065 green.
+- [X] T075 [US2] Create `backend/app/podcasts/services/subject_check.py` with `SubjectCheck` (taking a `StructuredLLMProvider`) and `SubjectDeclined`. Add the subject-check prompt and reply schema to `backend/app/podcasts/prompts.py`. Makes T066 green.
+- [X] T075a [US2] Create `backend/app/podcasts/services/subject_suggestions.py` with `SubjectSuggester` (taking a `StructuredLLMProvider`) and `SubjectRequest` (data-model §3.7). Add `subject_suggestion_prompt(request)` and `SUBJECT_SUGGESTIONS_JSON_SCHEMA` to `backend/app/podcasts/prompts.py`, reusing `_creator_intro`, `_personal_sections`' interest sentence and the suitability rule. Filtering goes in `_kept_subjects(subjects, request)` (≤ 20 lines). Makes T066a green.
 - [ ] T076 [US2] Add `get_subject_check()` and `get_subject_suggester()` to `backend/app/services/factory.py`, both built on the selected structured provider. Makes T071 green.
 - [ ] T077 [US2] Accept settings on Start in `backend/app/podcasts/routes.py` (contracts §3's order of work):
   - move preparation, the subject check and the refusal mapping into `_prepared_start(...)`, bringing `start_episode` to ≈ 15 lines;
