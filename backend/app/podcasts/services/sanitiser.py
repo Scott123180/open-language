@@ -73,6 +73,8 @@ class StreamingSanitiser:
         self._sanitiser = sanitiser
         self._address = address
         self._raw: list[str] = []
+        """The line's sentences as written, before another speaker's words began."""
+        self._is_first = True
         self._was_trimmed = False
 
     @property
@@ -81,10 +83,11 @@ class StreamingSanitiser:
 
     def clean_sentence(self, sentence: str) -> SentenceVerdict:
         spoken = sentence.strip()
-        if not self._raw:
-            spoken = self._sanitiser.without_own_label(spoken)
-        self._raw.append(sentence.strip())
+        if self._is_first:
+            spoken, self._is_first = self._sanitiser.without_own_label(spoken), False
         kept, is_cut = self._sanitiser.cut_at_other_speaker(ADDRESS_TAG.sub("", spoken))
+        if not is_cut:
+            self._raw.append(spoken)
         stripped = _STAGE_DIRECTION.sub("", kept)
         self._was_trimmed = self._was_trimmed or is_cut or stripped != kept
         return SentenceVerdict(_tidy(stripped), is_cut)

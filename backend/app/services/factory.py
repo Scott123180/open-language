@@ -1,9 +1,11 @@
 import random
+import time
 from collections.abc import Callable, Iterator, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache, partial
+from pathlib import Path
 
 from fastapi import Depends
 from sqlalchemy.orm import Session
@@ -32,6 +34,7 @@ from app.podcasts.services.series_memory import (
 )
 from app.podcasts.services.series_storage import SeriesStorage, ShowLibraryStorage
 from app.podcasts.services.speaker_views import PodcastMessageVoices, PodcastSpeakerNames
+from app.podcasts.services.spoken_parts import SpokenParts
 from app.podcasts.services.sqlite_series_storage import (
     SQLiteSeriesStorage,
     SQLiteShowLibraryStorage,
@@ -276,6 +279,17 @@ def get_series_memory_keeper(
 def get_memory_catch_ups() -> MemoryCatchUps:
     """One per process, holding no keeper or provider: a catch-up's guard outlives requests."""
     return MemoryCatchUps(ThreadPoolExecutor(max_workers=1))
+
+
+TTS_CACHE_DIR = Path.home() / ".open-language" / "tts_cache"
+"""The speech cache every spoken message lands in, as `conversation_turns` and the audio
+router use it."""
+
+
+@lru_cache
+def get_spoken_parts() -> SpokenParts:
+    """One per process, with one speaking worker, so a line's parts come out in order (R13)."""
+    return SpokenParts(ThreadPoolExecutor(max_workers=1), time.monotonic, TTS_CACHE_DIR)
 
 
 def get_episode_endings(

@@ -158,3 +158,26 @@ def test_the_podcast_package_root_is_unchanged():
     import app.podcasts
 
     assert app.podcasts.__all__ == PODCAST_ROOT_NAMES
+
+
+# --- 011: the factory-only podcast modules (contracts §10) --------------------------------
+
+FACTORY_ONLY_011_MODULES = ("app.podcasts.services.spoken_parts",)
+
+
+@pytest.mark.parametrize("module", FACTORY_ONLY_011_MODULES)
+def test_the_011_module_exists(module):
+    import importlib
+
+    assert importlib.import_module(module)
+
+
+@pytest.mark.parametrize("module", FACTORY_ONLY_011_MODULES)
+def test_only_the_factory_imports_the_011_modules_from_outside_podcasts(module):
+    importers = [
+        path.relative_to(APP_DIR)
+        for path in _python_files()
+        if _package_of(path) != "app.podcasts" and module in _imports(path) and path != FACTORY
+    ]
+
+    assert importers == []

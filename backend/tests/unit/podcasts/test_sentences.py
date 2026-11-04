@@ -33,7 +33,10 @@ def _flushed(splitter: SentenceSplitter) -> list[str]:
         ("Es la hora del té… Ahora hablamos.", ["Es la hora del té…", "Ahora hablamos."]),
         ('Ella dijo "hola a todos." Luego se fue.', ['Ella dijo "hola a todos."', "Luego se fue."]),
         ("Hay pan (mucho pan.) Luego comemos.", ["Hay pan (mucho pan.)", "Luego comemos."]),
-        ("Son las ocho de la tarde. 20 personas llegan.", ["Son las ocho de la tarde.", "20 personas llegan."]),
+        (
+            "Son las ocho de la tarde. 20 personas llegan.",
+            ["Son las ocho de la tarde.", "20 personas llegan."],
+        ),
         ('Pregunta muy buena. "Sí", dice ella.', ["Pregunta muy buena.", '"Sí", dice ella.']),
     ],
 )
@@ -50,7 +53,11 @@ def test_a_newline_always_ends_a_sentence():
 
 @pytest.mark.parametrize(
     "text",
-    ["El café cuesta 3.5 euros hoy.", "¿Sí? sí, claro que sí, amigos.", "Hola, amigos. bueno, ya está."],
+    [
+        "El café cuesta 3.5 euros hoy.",
+        "¿Sí? sí, claro que sí, amigos.",
+        "Hola, amigos. bueno, ya está.",
+    ],
 )
 def test_there_is_no_boundary_inside_a_number_or_before_a_lower_case_word(text):
     assert split_whole(text) == [text]
@@ -87,12 +94,31 @@ def test_a_sentence_waits_until_the_next_one_starts():
 
 
 SCRIPTS = {
-    "es": ("¿Qué tal, Scott?", "Hoy hablamos de pan.", "¡Qué rico es!", "Son 3.5 euros.",
-           "Sr. Pérez llega.", "El té… es bueno.", '"Sí", dice ella.'),
-    "de": ("Wie geht's, Scott?", "Heute reden wir über Brot.", "Das ist lecker!",
-           "Es kostet 3.5 Euro.", "Über Brot sprechen wir.", "Ähm, ja."),
-    "it": ("Come stai, Scott?", "Oggi parliamo del pane.", "È buonissimo!", "Ciao a tutti.",
-           "Più tardi mangiamo.", "Sì, certo."),
+    "es": (
+        "¿Qué tal, Scott?",
+        "Hoy hablamos de pan.",
+        "¡Qué rico es!",
+        "Son 3.5 euros.",
+        "Sr. Pérez llega.",
+        "El té… es bueno.",
+        '"Sí", dice ella.',
+    ),
+    "de": (
+        "Wie geht's, Scott?",
+        "Heute reden wir über Brot.",
+        "Das ist lecker!",
+        "Es kostet 3.5 Euro.",
+        "Über Brot sprechen wir.",
+        "Ähm, ja.",
+    ),
+    "it": (
+        "Come stai, Scott?",
+        "Oggi parliamo del pane.",
+        "È buonissimo!",
+        "Ciao a tutti.",
+        "Più tardi mangiamo.",
+        "Sì, certo.",
+    ),
 }
 
 

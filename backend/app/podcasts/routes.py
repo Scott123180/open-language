@@ -11,12 +11,13 @@ from collections.abc import AsyncIterator, Callable
 from dataclasses import replace
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from app.conversation_levels import ConversationLevel
 from app.conversation_turns import Corrections, LearnerMessageRequest
 from app.corrections.services.storage import CorrectionStorageProvider
 from app.corrections.services.strategies import CorrectionStrategy
+from app.podcasts.catalog import PART_WAIT_SECONDS
 from app.podcasts.discovery_routes import discovery_router
 from app.podcasts.host_routes import host_router
 from app.podcasts.responses import (
@@ -46,7 +47,9 @@ from app.podcasts.services.episode_lock import EpisodeLocks, HeldEpisode
 from app.podcasts.services.episode_turns import EpisodeDependencies, EpisodeTurns
 from app.podcasts.services.episodes import LoadedEpisode, load_episode
 from app.podcasts.services.library import ShowNoLongerKept, ShowShelf
+from app.podcasts.services.line_writer import LineWriter
 from app.podcasts.services.series import SeriesHostsChanged, SeriesService, StartRefused
+from app.podcasts.services.spoken_parts import PartNotFound, PartTimedOut, SpokenParts
 from app.podcasts.services.storage import PodcastStorage, PreferencesRecord
 from app.podcasts.services.suggestions import parse_suggestions, suggestion_prompt
 from app.podcasts.services.turn_policy import (
@@ -70,12 +73,13 @@ from app.services.factory import (
     get_series_storage,
     get_session_provider,
     get_speech_for_language,
+    get_spoken_parts,
     get_storage,
     get_voice_installation,
 )
 from app.services.llm.base import ChatMessage, LLMProvider
 from app.services.storage.base import AppSettingsRecord, StorageProvider
-from app.services.tts.base import VoiceInstallation
+from app.services.tts.base import VoiceInstallation, VoiceUnavailable
 from app.services.tts.selection import SpeechForLanguage
 
 router = APIRouter(prefix="/api/podcasts", tags=["podcasts"])
@@ -89,10 +93,18 @@ YOUR_TURN = "It's your turn. Reply, pass or end the episode."
 LISTENING_EPISODE = "This is a listening episode. Start the show in One host or Panel to speak."
 PASS_ONLY_IN_PANEL = "You can pass only when it's your turn in a Panel."
 WAIT_FOR_HOSTS = "Wait for the hosts' line, then reply."
+PART_GONE = "That part of the line isn't there any more."
+PART_LATE = "The line's audio took too long. Press Replay when the line has arrived."
+WAV_MEDIA_TYPE = "audio/wav"
 USER_ROLE = "user"
 
 TurnCheck = Callable[[EpisodeTurns, LoadedEpisode], None]
 _REFUSAL_STATUS = {StartRefused: 422, SeriesHostsChanged: 409, ShowNoLongerKept: 404}
+
+
+def get_part_wait_seconds() -> float:
+    """How long a part's audio is waited for; tests shorten it."""
+    return PART_WAIT_SECONDS
 
 
 def get_turn_policy() -> TurnPolicy:
@@ -199,11 +211,13 @@ def _episode_turns(
     policy: TurnPolicy = Depends(get_turn_policy),
     app_settings: AppSettingsRecord = Depends(get_app_settings),
     endings: EpisodeEndings = Depends(get_episode_endings),
+    spoken: SpokenParts = Depends(get_spoken_parts),
 ) -> EpisodeTurns:
     level = ConversationLevel(app_settings.conversation_level)
     stores = (podcasts, conversations, correction_storage)
-    deps = EpisodeDependencies(*stores, engine, provider, speech, policy, level, endings)
-    return EpisodeTurns(deps, conversation_id)
+    writer = LineWriter(engine, provider)
+    talk = (speech, policy, level, endings, writer, spoken)
+    return EpisodeTurns(EpisodeDependencies(*stores, engine, provider, *talk), conversation_id)
 
 
 def _require_episode(turns: EpisodeTurns) -> LoadedEpisode:
@@ -230,6 +244,26 @@ def _saved_show_id(episode: LoadedEpisode, series_storage) -> int | None:
     facts = episode.record.series
     series = series_storage.get(facts.series_id) if facts is not None else None
     return series.show.ref.saved_show_id if series is not None else None
+
+
+@router.get("/episodes/{conversation_id}/parts/{stream_id}/{index}")
+def get_line_part(
+    conversation_id: int,
+    stream_id: str,
+    index: int,
+    spoken: SpokenParts = Depends(get_spoken_parts),
+    wait_seconds: float = Depends(get_part_wait_seconds),
+):
+    """One spoken sentence of a streamed line (011 contracts §4)."""
+    try:
+        path = spoken.audio(conversation_id, stream_id, index, timeout=wait_seconds)
+    except PartNotFound as gone:
+        raise HTTPException(status_code=404, detail=PART_GONE) from gone
+    except PartTimedOut as late:
+        raise HTTPException(status_code=504, detail=PART_LATE) from late
+    except VoiceUnavailable as missing:
+        raise HTTPException(status_code=503, detail=missing.user_message) from missing
+    return FileResponse(str(path), media_type=WAV_MEDIA_TYPE)
 
 
 # --- line-producing actions (contracts §7) ----------------------------------------------

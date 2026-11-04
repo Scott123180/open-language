@@ -1,23 +1,24 @@
 """EpisodeTurns: one host line end to end, as `_RoleplayContext` does for a roleplay reply.
 
-The policy picks the speaker and the purpose; the engine asks the model for that host's line;
-the sanitiser keeps only that host's words; the line is stored before its frame is sent; and it
-is spoken in the host's own voice (research R2–R4, R7, plan interpretation 14).
+The policy picks the speaker and the purpose; the line writer streams that host's line from the
+model, sentence by sentence, keeping only that host's words; each kept sentence is sent as a
+part and spoken in the host's own voice as it comes; and the whole line is stored, with who it
+was for, before its `line` frame is sent (research R2–R4, R7; 011 research R13, R19).
 """
 
 import asyncio
 import logging
+import uuid
 from collections.abc import AsyncIterator, Callable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from functools import partial
 
 from app.conversation_levels import ConversationLevel
 from app.conversation_turns import (
     Corrections,
-    EngineTurn,
     LearnerMessageRequest,
     plan_learner_turn,
     save_learner_message,
-    schedule_speech,
     sse,
     start_warming,
 )
@@ -25,31 +26,29 @@ from app.corrections.services.storage import CorrectionStorageProvider
 from app.podcasts.services.cues import episode_history, line_turn_id, next_turn_history
 from app.podcasts.services.episode_endings import EpisodeEndings
 from app.podcasts.services.episodes import LoadedEpisode, load_episode, turn_actions
-from app.podcasts.services.sanitiser import LineSanitiser, SanitisedLine
+from app.podcasts.services.line_address import LineAddress
+from app.podcasts.services.line_writer import (
+    LineLostError,
+    LineRequest,
+    LineWriter,
+    WrittenLine,
+)
+from app.podcasts.services.sanitiser import LineSanitiser, StreamingSanitiser
 from app.podcasts.services.speaker_views import host_voice_unavailable_message
+from app.podcasts.services.spoken_parts import SpokenParts
 from app.podcasts.services.storage import LineRecord, NewHostLine, PodcastStorage
 from app.podcasts.services.turn_policy import SIGN_OFF, EpisodeState, LineCue, Turn, TurnPolicy
 from app.services.conversation import ConversationEngine, SessionCapableProvider, TurnRequest
 from app.services.llm.base import LLMError
 from app.services.storage.base import StorageProvider
-from app.services.tts.base import VoiceUnavailable
+from app.services.tts.base import TTSProvider, VoiceUnavailable
 from app.services.tts.selection import SpeechForLanguage
 
 logger = logging.getLogger(__name__)
 
-EMPTY_LINE_MESSAGE = "The host's line came out empty. Press Retry to try again."
 SESSION_WARMING, SESSION_LIVE = "warming", "live"
-LINE_WRITING_ATTEMPTS = 2
-"""An empty line is written again once (research R4)."""
 
 CueChooser = Callable[[EpisodeState], LineCue]
-
-
-class EmptyLineError(LLMError):
-    """The model's line held nothing but other speakers' words, twice."""
-
-    def __init__(self) -> None:
-        super().__init__("empty host line after sanitising", EMPTY_LINE_MESSAGE)
 
 
 @dataclass(frozen=True)
@@ -64,14 +63,19 @@ class EpisodeDependencies:
     level: ConversationLevel
     endings: EpisodeEndings
     """Told when an episode signs off, so a series can remember it (010 research R6)."""
+    writer: LineWriter
+    """Streams a host line from the model as kept sentences (011 research R13)."""
+    spoken: SpokenParts
+    """Speaks each kept sentence, and joins them into the line's audio (011 research R13)."""
 
 
-@dataclass(frozen=True)
-class _WrittenLine:
-    cue: LineCue
-    sanitised: SanitisedLine
-    addressee: str | None = None
-    """Who the written line is for (011 research R19)."""
+@dataclass
+class _LineStream:
+    """One host line on its way: its parts' stream, and the line once written."""
+
+    stream_id: str
+    has_started: bool = False
+    written: WrittenLine | None = None
 
 
 class EpisodeTurns:
@@ -135,41 +139,63 @@ class EpisodeTurns:
 
     async def _line_events(self, choose: CueChooser, guidance: str | None) -> AsyncIterator[str]:
         episode = self.load()
+        cue = choose(episode.state)
+        stream = _LineStream(uuid.uuid4().hex)
         try:
-            written = await self._write_line(episode, choose(episode.state), guidance)
+            async for frame in self._streamed_parts(episode, cue, guidance, stream):
+                yield frame
         except LLMError as exc:
-            yield sse({"error": exc.user_message})
+            yield self._lost(episode, exc)
             return
-        line = await self._store(episode, written)
-        after = self._after(episode, written.cue, line)
-        self._speak(after, line)
+        line = await self._store(episode, cue, stream.written)
+        after = self._after(episode, cue, line)
+        await self._assemble_audio(line, stream.stream_id)
         yield sse({"event": "line", "line": line_payload(line), **_turn_fields(self.turn(after))})
         yield self._done_frame(after)
 
-    async def _write_line(
-        self, episode: LoadedEpisode, cue: LineCue, guidance: str | None
-    ) -> _WrittenLine:
-        turn = EngineTurn(
-            self._deps.engine, self._deps.provider, self._request(episode, cue, guidance)
+    async def _streamed_parts(
+        self, episode: LoadedEpisode, cue: LineCue, guidance: str | None, stream: _LineStream
+    ) -> AsyncIterator[str]:
+        """`line_started` before the first kept sentence, then one `line_part` per sentence."""
+        sanitiser = partial(_streaming_sanitiser, episode, cue)
+        request = LineRequest(self._request(episode, cue, guidance), sanitiser, stream.stream_id)
+        async for event in self._deps.writer.write(request):
+            if isinstance(event, WrittenLine):
+                stream.written = event
+                continue
+            if not stream.has_started:
+                yield self._started(episode, cue, stream)
+            part = self._deps.spoken.add(stream.stream_id, event.text)
+            yield sse({"event": "line_part", **asdict(part)})
+
+    def _started(self, episode: LoadedEpisode, cue: LineCue, stream: _LineStream) -> str:
+        host = episode.host(cue.speaker_slot)
+        tts = self._host_tts(episode, host.name, host.voice_key)
+        message = host_voice_unavailable_message(host.name)
+        self._deps.spoken.begin(stream.stream_id, episode.conversation_id, tts, message)
+        stream.has_started = True
+        return sse(
+            {"event": "line_started", "stream_id": stream.stream_id, "host_id": host.host_id}
         )
-        sanitiser = _sanitiser_for(episode, cue)
-        loop = asyncio.get_running_loop()
-        for _attempt in range(LINE_WRITING_ATTEMPTS):
-            tokens = await loop.run_in_executor(None, turn.collect)
-            sanitised = sanitiser.clean("".join(tokens))
-            if sanitised.text:
-                return _WrittenLine(cue, sanitised)
+
+    def _lost(self, episode: LoadedEpisode, error: LLMError) -> str:
+        """A line lost part-way ends the session and drops its parts; nothing was stored."""
+        if not isinstance(error, LineLostError):
+            return sse({"error": error.user_message})
         self._deps.engine.end(episode.key)
-        raise EmptyLineError()
+        self._deps.spoken.discard(error.stream_id)
+        return sse({"error": error.user_message, "stream_id": error.stream_id})
 
     def _request(self, episode: LoadedEpisode, cue: LineCue, guidance: str | None) -> TurnRequest:
         history = next_turn_history(episode.facts, episode.cue_context, cue)
         prompt = episode.standing_prompt(self._deps.level)
         return TurnRequest(episode.key, prompt, history, guidance, opening_instruction=None)
 
-    async def _store(self, episode: LoadedEpisode, written: _WrittenLine) -> LineRecord:
-        line = self._deps.podcasts.save_host_line(_host_line_for(episode, written))
-        await self._acknowledge(episode, line, written.sanitised.was_trimmed)
+    async def _store(
+        self, episode: LoadedEpisode, cue: LineCue, written: WrittenLine
+    ) -> LineRecord:
+        line = self._deps.podcasts.save_host_line(_host_line_for(episode, cue, written))
+        await self._acknowledge(episode, line, written.was_trimmed)
         return line
 
     async def _acknowledge(self, episode: LoadedEpisode, line: LineRecord, was_trimmed: bool):
@@ -192,18 +218,23 @@ class EpisodeTurns:
         self._deps.endings.episode_finished(episode.conversation_id)
         return after.finished()
 
-    def _speak(self, episode: LoadedEpisode, line: LineRecord) -> None:
-        """Read the line aloud in its host's voice, or leave it as text and say why once."""
-        host = episode.host_by_id(line.host.host_id)
-        message = host_voice_unavailable_message(host.name)
+    def _host_tts(self, episode: LoadedEpisode, name: str, voice_key: str) -> TTSProvider | None:
+        """The host's own voice, or None: the line stays text, and says why once (FR-031)."""
+        message = host_voice_unavailable_message(name)
         language = episode.record.target_language
         try:
-            tts = self._deps.speech.provider_for_voice(language, host.voice_key, message)
+            return self._deps.speech.provider_for_voice(language, voice_key, message)
         except VoiceUnavailable:
-            logger.warning("%s's voice isn't installed; the line is not read aloud", host.name)
-            return
+            logger.warning("%s's voice isn't installed; the line is not read aloud", name)
+            return None
+
+    async def _assemble_audio(self, line: LineRecord, stream_id: str) -> None:
+        """The line's own WAV, joined from its parts, for Replay and Slower."""
         loop = asyncio.get_running_loop()
-        schedule_speech(loop, self._deps.conversations, tts, line.message_id, line.content)
+        spoken = self._deps.spoken
+        audio = await loop.run_in_executor(None, spoken.assemble, stream_id, line.message_id)
+        if audio is not None:
+            self._deps.conversations.set_tts_path(line.message_id, str(audio))
 
     def _done_frame(self, episode: LoadedEpisode) -> str:
         turn = self.turn(episode)
@@ -225,17 +256,17 @@ def line_payload(line: LineRecord) -> dict:
     }
 
 
-def _host_line_for(episode: LoadedEpisode, written: _WrittenLine) -> NewHostLine:
+def _host_line_for(episode: LoadedEpisode, cue: LineCue, written: WrittenLine) -> NewHostLine:
     """The line as stored: its invitation decided from the written line (011 research R19)."""
-    cue, talk, addressee = written.cue, episode.talk, written.addressee
+    talk, addressee = episode.talk, written.addressee
     ask, stored_addressee = talk.stored_addressing(cue.ask, addressee)
     return NewHostLine(
         conversation_id=episode.conversation_id,
         host_id=episode.host(cue.speaker_slot).host_id,
-        content=written.sanitised.text,
+        content=written.text,
         intent=cue.intent,
         invites_learner=talk.invitation(cue.ask, addressee),
-        was_trimmed=written.sanitised.was_trimmed,
+        was_trimmed=written.was_trimmed,
         ask=ask,
         addressee=stored_addressee,
     )
@@ -243,6 +274,15 @@ def _host_line_for(episode: LoadedEpisode, written: _WrittenLine) -> NewHostLine
 
 def _turn_fields(turn: Turn) -> dict:
     return {"turn": turn.turn, "awaiting": turn.awaiting}
+
+
+def _streaming_sanitiser(episode: LoadedEpisode, cue: LineCue) -> StreamingSanitiser:
+    is_listening = not episode.format.is_learner_speaking
+    language = episode.record.target_language
+    address = LineAddress.for_episode(
+        episode.cast, episode.learner_label, cue.speaker_slot, language, is_listening
+    )
+    return StreamingSanitiser(_sanitiser_for(episode, cue), address)
 
 
 def _sanitiser_for(episode: LoadedEpisode, cue: LineCue) -> LineSanitiser:

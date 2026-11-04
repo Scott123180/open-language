@@ -40,8 +40,13 @@ def _use_strict(findings=(FINDING,)) -> None:
     app.dependency_overrides[get_correction_strategy] = strict
 
 
+STREAMING_EVENTS = {"line_started", "line_part"}
+"""011 contracts §4: a streamed line's parts, which these corrections tests do not concern."""
+
+
 def _kinds(frames: list[dict]) -> list[str]:
-    return ["done" if f.get("done") else f.get("event", "error") for f in frames]
+    kinds = ["done" if f.get("done") else f.get("event", "error") for f in frames]
+    return [kind for kind in kinds if kind not in STREAMING_EVENTS]
 
 
 def _learners_turn(podcast_client) -> int:

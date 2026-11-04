@@ -15,11 +15,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.database import get_db
 from app.main import app
 from app.podcasts.services.series_memory import MemoryCatchUps, SeriesMemoryKeeper
+from app.podcasts.services.spoken_parts import SpokenParts
 from app.podcasts.services.sqlite_series_storage import SQLiteSeriesStorage
 from app.podcasts.services.sqlite_storage import SQLitePodcastStorage
 from app.services.conversation import ConversationEngine
@@ -27,6 +29,7 @@ from app.services.factory import (
     get_memory_catch_ups,
     get_memory_sessions,
     get_series_memory_keeper,
+    get_spoken_parts,
     memory_stores,
 )
 from app.services.storage.sqlite import SQLiteStorageProvider
@@ -53,6 +56,8 @@ class PodcastHarness:
     sessions: sessionmaker
     memory: ScriptedMemoryLLM
     catch_ups: MemoryCatchUps
+    parts: SpokenParts
+    """Streamed lines' speech, spoken at once on the request's thread (011 R13)."""
 
     def session(self) -> Session:
         """A fresh session for the test's own reads, never shared with a request."""
@@ -68,6 +73,12 @@ class PodcastHarness:
 
     def start(self, format: str, length: str = "short", learner_name: str | None = None) -> int:
         return start_episode(self.client, format, length, learner_name)["conversation_id"]
+
+    def legacy_episode(
+        self, format: str, length: str = "short", learner_name: str | None = None
+    ) -> int:
+        """An episode as one started before 011 is stored: with no settings row (R1)."""
+        return make_legacy(self, self.start(format, length, learner_name))
 
     def stream(self, conversation_id: int, action: str, **body) -> list[dict]:
         """POST an SSE action and return its frames."""
@@ -133,6 +144,23 @@ def serve_sessions(sessions: sessionmaker, opened: list[Session]) -> None:
     app.dependency_overrides[get_db] = scratch_db
 
 
+class HarnessClock:
+    """Seconds that advance only when a test says so."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def install_spoken_parts(cache_dir: Path) -> SpokenParts:
+    """Speak streamed lines' parts at once, into the test's own speech cache."""
+    parts = SpokenParts(SynchronousExecutor(), HarnessClock(), cache_dir)
+    app.dependency_overrides[get_spoken_parts] = lambda: parts
+    return parts
+
+
 def install_series_memory(sessions: sessionmaker) -> tuple[ScriptedMemoryLLM, MemoryCatchUps]:
     """Keep series memory with a scripted provider on the harness database, synchronously."""
     memory = ScriptedMemoryLLM()
@@ -166,9 +194,10 @@ def podcast_harness_on(
     install_seeded_policy()
     install_sample_cache(tmp_path / "voice_samples")
     memory, catch_ups = install_series_memory(sessions)
+    parts = install_spoken_parts(tmp_path / "tts_cache")
     try:
         with TestClient(app) as client:
-            yield PodcastHarness(client, writer, engine, speech, sessions, memory, catch_ups)
+            yield PodcastHarness(client, writer, engine, speech, sessions, memory, catch_ups, parts)
     finally:
         app.dependency_overrides.clear()
         for session in opened:
@@ -213,3 +242,14 @@ def lines_of(frames: list[dict]) -> list[dict]:
 
 def done_of(frames: list[dict]) -> dict:
     return next(frame for frame in frames if frame.get("done"))
+
+
+def make_legacy(harness: PodcastHarness, conversation_id: int) -> int:
+    """Turn a just-started episode into one from before 011: it loses its settings row."""
+    with harness.session() as session:
+        session.execute(
+            text("DELETE FROM podcast_episode_settings WHERE conversation_id = :id"),
+            {"id": conversation_id},
+        )
+        session.commit()
+    return conversation_id

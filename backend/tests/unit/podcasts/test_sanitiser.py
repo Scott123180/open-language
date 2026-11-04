@@ -221,7 +221,8 @@ def test_streamed_sentences_join_to_the_whole_line_sanitised(seed):
 @pytest.mark.parametrize("seed", range(100))
 def test_no_kept_sentence_ever_holds_a_tag(seed):
     rng = random.Random(seed)
-    line = f"{_random_line(rng)} {rng.choice(('[@Sam]', '[@Marco]', '[@all]', '\\n[@all]'))}"
+    tag = rng.choice(("[@Sam]", "[@Marco]", "[@all]", "\n[@all]"))
+    line = f"{_random_line(rng)} {tag}"
 
     kept, _sanitiser = _stream(line, _random_tokens(line, rng))
 
