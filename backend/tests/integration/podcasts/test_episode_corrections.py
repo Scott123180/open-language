@@ -50,7 +50,8 @@ def _kinds(frames: list[dict]) -> list[str]:
 
 
 def _learners_turn(podcast_client) -> int:
-    episode_id = podcast_client.start("one_host")
+    """A legacy One host episode invites on every line, so its opening hands over (011 T038)."""
+    episode_id = podcast_client.legacy_episode("one_host")
     podcast_client.stream(episode_id, "next")
     return episode_id
 

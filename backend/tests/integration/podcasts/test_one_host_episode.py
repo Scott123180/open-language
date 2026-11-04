@@ -1,4 +1,8 @@
-"""T042: a One host episode from start to sign-off (contracts §6, §7; US1-2, US1-3, US1-7)."""
+"""T042: a One host episode from start to sign-off (contracts §6, §7; US1-2, US1-3, US1-7).
+
+011 T038: the tests that pin 007's invitations and line kinds run on legacy episodes, which keep
+them (FR-025); configured episodes are covered by `test_configured_talk.py`.
+"""
 
 import copy
 
@@ -103,7 +107,7 @@ def test_a_draft_for_another_language_is_refused(podcast_client):
 
 def test_the_opening_is_the_leads_open_and_invites_the_learner(podcast_client):
     podcast_client.writer.script("¡Bienvenidos a Weekend Food Talk! ¿Qué cocinaste?")
-    episode_id = podcast_client.start("one_host")
+    episode_id = podcast_client.legacy_episode("one_host")
 
     frames = podcast_client.stream(episode_id, "next")
 
@@ -130,7 +134,7 @@ def test_the_line_is_stored_as_it_is_streamed(podcast_client):
 
 
 def test_next_at_the_learners_turn_is_refused(podcast_client):
-    episode_id = podcast_client.start("one_host")
+    episode_id = podcast_client.legacy_episode("one_host")
     podcast_client.stream(episode_id, "next")
 
     response = podcast_client.client.post(f"{EPISODES}/{episode_id}/next")
@@ -139,7 +143,7 @@ def test_next_at_the_learners_turn_is_refused(podcast_client):
 
 
 def test_a_reply_is_saved_then_answered_by_the_host(podcast_client):
-    episode_id = podcast_client.start("one_host")
+    episode_id = podcast_client.legacy_episode("one_host")
     podcast_client.stream(episode_id, "next")
 
     frames = podcast_client.say(episode_id, "Hice una paella.")
@@ -152,7 +156,7 @@ def test_a_reply_is_saved_then_answered_by_the_host(podcast_client):
 
 
 def test_a_short_episode_wraps_up_at_its_length_and_carries_on(podcast_client):
-    episode_id = podcast_client.start("one_host")
+    episode_id = podcast_client.legacy_episode("one_host")
     podcast_client.stream(episode_id, "next")
     intents = []
     for turn in range(SHORT_TARGET):

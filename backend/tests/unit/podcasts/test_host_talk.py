@@ -86,8 +86,8 @@ def test_the_line_rules_give_the_host_lines_count(line_length, count):
     rules = talk(line_length=line_length).line_rules("Sam", SPANISH, PANEL_CAST)
 
     assert (
-        f"- Each host line has {count} sentences unless the producer note says otherwise; "
-        "every sentence follows the rules at the end." in rules
+        f"- Each host line has {count} sentences unless the producer note says otherwise, "
+        "each within the rules at the end. Stay in character." in rules
     )
     assert "Keep each line to a few sentences" not in rules
 
@@ -96,10 +96,9 @@ def test_the_line_rules_give_the_host_lines_count(line_length, count):
     "rule",
     [
         "- When Sam asks a question, answer it first; never answer only with a question.",
-        "- Only ask Sam something when the producer note says so.",
-        "- A closing question to Sam comes after the line's sentences and is not one of them.",
-        "- Never ask Sam something they have already answered in this episode.",
-        "- Every episode is about one subject, named in the opening. Stay on it until the wrap-up.",
+        "- Ask Sam something only when the producer note says so, after the line's sentences, "
+        "and never what they have already answered.",
+        "- The episode has one subject, named in the opening: stay on it until the wrap-up.",
     ],
 )
 def test_the_line_rules_state_each_configured_rule(rule):
@@ -110,9 +109,8 @@ def test_a_panels_line_rules_end_with_the_address_tag_for_the_learner_a_host_or_
     last = talk().line_rules("Sam", SPANISH, PANEL_CAST).split("\n")[-1]
 
     assert last == (
-        "- End every line with who it is for, in square brackets: [@Sam], the other host "
-        "([@Hugo] or [@Julia]), or [@all] when it is for no one in particular. The brackets "
-        "are never read aloud."
+        "- End every line with who it is for: [@Sam], [@Hugo] or [@Julia] for the other host, "
+        "or [@all] for no one in particular. The brackets are never read aloud."
     )
 
 
@@ -120,8 +118,8 @@ def test_one_hosts_address_tag_offers_the_learner_and_all_only():
     last = talk().line_rules("our guest", SPANISH, ONE_HOST_CAST).split("\n")[-1]
 
     assert last == (
-        "- End every line with who it is for, in square brackets: [@our guest], or [@all] "
-        "when it is for no one in particular. The brackets are never read aloud."
+        "- End every line with who it is for: [@our guest], or [@all] for no one in "
+        "particular. The brackets are never read aloud."
     )
 
 
@@ -174,9 +172,8 @@ def test_an_answer_names_the_learner_who_asked():
     instruction = talk().instruction(cue("answer", asker=LEARNER), PANEL_CAST, "Sam", None)
 
     assert instruction == (
-        "Answer Sam's question first and clearly, step by step, in four or five sentences; "
-        "never answer only with a question. If two were asked, answer one and say the other "
-        "is coming."
+        "Answer Sam's question first, step by step, in four or five sentences; if there were "
+        "two, answer one."
     )
 
 
@@ -191,9 +188,7 @@ def test_an_answer_to_both_hosts_passes_the_question_on():
 
     instruction = talk().instruction(answer, PANEL_CAST, "Sam", None)
 
-    assert instruction.endswith(
-        "If it is for both of you, answer for yourself, then ask Julia for theirs."
-    )
+    assert instruction.endswith("If it was for you both, answer, then ask Julia too.")
 
 
 @pytest.mark.parametrize(
@@ -222,8 +217,7 @@ def test_the_opening_introduces_the_learners_subject():
 def test_the_opening_names_one_subject_when_the_learner_gave_none():
     assert talk().instruction(cue("open"), PANEL_CAST, "Sam", None) == (
         "Open the show in four or five sentences: welcome Sam, introduce the show and "
-        "yourself, and name today's one subject: one concrete question or thing within the "
-        "show's topic."
+        "yourself, and name today's subject: one concrete question within the topic."
     )
 
 
@@ -236,8 +230,7 @@ def test_a_later_series_opening_names_a_subject_not_in_the_covered_list():
 
     assert "welcome Sam back, say the show is continuing with episode 3" in instruction
     assert instruction.endswith(
-        "name today's one subject: one concrete question or thing within the show's topic, "
-        "not in the covered list."
+        "name today's subject: one concrete question within the topic, not in the covered list."
     )
 
 

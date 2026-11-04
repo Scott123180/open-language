@@ -7,7 +7,7 @@ with is frozen into its snapshot here (research R5).
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from app.podcasts.catalog import (
     LEAD_SLOT,
@@ -27,6 +27,7 @@ from app.podcasts.schemas import (
     validate_draft,
 )
 from app.podcasts.services.casting import HostCaster
+from app.podcasts.services.episode_settings import EpisodeSettings
 from app.podcasts.services.library import ShowLibrary
 from app.podcasts.services.series_snapshot import SeriesSnapshot
 from app.podcasts.services.series_storage import (
@@ -83,6 +84,8 @@ class PreparedStart:
     hosts: tuple[NewHost, ...]
     series: NewSeriesLink | None
     saved_show_id: int | None
+    settings: EpisodeSettings
+    """How the episode sounds, frozen into it at Start (011 FR-012)."""
 
 
 class SeriesService:
@@ -143,7 +146,7 @@ class SeriesService:
             title=show.title,
             premise=show.premise,
             topic=show.topic,
-            learner_role=show.learner_role,
+            learner_role=prepared.settings.learner_role,
             format=req.format,
             length=req.length,
             learner_name=req.learner_name,
@@ -152,6 +155,7 @@ class SeriesService:
             llm_model=settings.llm_model,
             hosts=prepared.hosts,
             series=prepared.series,
+            settings=prepared.settings,
         )
 
     def _series_start(self, req: StartEpisodeRequest, language: str) -> PreparedStart:
@@ -162,13 +166,15 @@ class SeriesService:
         self._library.played(kept)
         series = series or self._create(kept, req, language)
         hosts = _participating(series, req.format)
-        return PreparedStart(req, hosts, self._link(series), kept.ref.saved_show_id)
+        settings = episode_settings(req, series.hosts[1].personality_id)
+        return PreparedStart(req, hosts, self._link(series), kept.ref.saved_show_id, settings)
 
     def _one_off_start(self, req: StartEpisodeRequest, language: str) -> PreparedStart:
         """007's start, unchanged; a learner-made show is kept by playing it (FR-014)."""
         installed = self._installed_count(language)
         self._refuse(validate_draft(req.show, language, req.learner_name, installed))
-        return PreparedStart(req, _draft_hosts(req), None, self._play_one_off(req.show))
+        settings = episode_settings(req, _draft_second(req).personality_id)
+        return PreparedStart(req, _draft_hosts(req), None, self._play_one_off(req.show), settings)
 
     def _play_one_off(self, draft) -> int | None:
         """Keep a learner-made show; touch a ready-made one only if it is already kept."""
@@ -240,6 +246,17 @@ def _name_clash(series: SeriesRecord, learner_name: str | None) -> str | None:
         return None
     clashing = next((h for h in series.hosts if h.name.casefold() == learner_name.casefold()), None)
     return SERIES_CLASH.format(name=clashing.name) if clashing else None
+
+
+def episode_settings(req: StartEpisodeRequest, second_personality: str) -> EpisodeSettings:
+    """The defaults, with the show's role; One host covers the absent second host (R6)."""
+    is_one_host = PODCAST_FORMATS[req.format].host_count == 1
+    covered = second_personality if is_one_host else None
+    return replace(EpisodeSettings.defaults(req.show.learner_role), covered_personality=covered)
+
+
+def _draft_second(req: StartEpisodeRequest) -> HostDraftModel:
+    return next(host for host in req.show.hosts if host.slot != LEAD_SLOT)
 
 
 def _lead_first(hosts):

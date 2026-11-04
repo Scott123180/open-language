@@ -72,15 +72,10 @@ _CONFIGURED_INSTRUCTIONS = {
         "goodbye."
     ),
 }
-_ANSWER = (
-    "Answer {asker}'s question first and clearly, step by step, {phrase}; never answer only "
-    "with a question. If two were asked, answer one and say the other is coming."
-)
-_FOR_BOTH = " If it is for both of you, answer for yourself, then ask {other} for theirs."
+_ANSWER = "Answer {asker}'s question first, step by step, {phrase}; if there were two, answer one."
+_FOR_BOTH = " If it was for you both, answer, then ask {other} too."
 _OPEN_WITH_SUBJECT = "introduce today's subject"
-_OPEN_WITHOUT_SUBJECT = (
-    "name today's one subject: one concrete question or thing within the show's topic"
-)
+_OPEN_WITHOUT_SUBJECT = "name today's subject: one concrete question within the topic"
 _NOT_COVERED = ", not in the covered list"
 _DO_NOT_ASK = "Don't ask {label} anything this time."
 
@@ -281,9 +276,8 @@ class ConfiguredTalk(HostTalk):
             f"- Address the learner as {label}.",
             f"- If {label} writes in {native}, answer in {target} and invite them, "
             f"in character, to use {target}.",
-            f"- Each host line has {count} unless the producer note says otherwise; every "
-            "sentence follows the rules at the end.",
-            "- Stay in character and on the show's topic.",
+            f"- Each host line has {count} unless the producer note says otherwise, each "
+            "within the rules at the end. Stay in character.",
             *_question_rules(label),
             "- Producer notes are never read aloud or mentioned.",
             _address_rule(label, cast),
@@ -370,12 +364,9 @@ def _answer(cue: LineCue, cast: Cast, label: str, phrase: str) -> str:
 def _question_rules(label: str) -> tuple[str, ...]:
     return (
         f"- When {label} asks a question, answer it first; never answer only with a question.",
-        f"- Only ask {label} something when the producer note says so.",
-        f"- A closing question to {label} comes after the line's sentences and is not one of "
-        "them.",
-        f"- Never ask {label} something they have already answered in this episode.",
-        "- Every episode is about one subject, named in the opening. Stay on it until the "
-        "wrap-up.",
+        f"- Ask {label} something only when the producer note says so, after the line's "
+        "sentences, and never what they have already answered.",
+        "- The episode has one subject, named in the opening: stay on it until the wrap-up.",
     )
 
 
@@ -383,11 +374,10 @@ def _address_rule(label: str, cast: Cast) -> str:
     """The last line rule: every line ends with who it is for (research R19)."""
     hosts = ""
     if cast.second is not None:
-        hosts = f" the other host ([@{cast.lead.name}] or [@{cast.second.name}]),"
+        hosts = f" [@{cast.lead.name}] or [@{cast.second.name}] for the other host,"
     return (
-        f"- End every line with who it is for, in square brackets: [@{label}],{hosts} or "
-        f"[@{ADDRESS_ALL}] when it is for no one in particular. The brackets are never read "
-        "aloud."
+        f"- End every line with who it is for: [@{label}],{hosts} or [@{ADDRESS_ALL}] for no "
+        "one in particular. The brackets are never read aloud."
     )
 
 

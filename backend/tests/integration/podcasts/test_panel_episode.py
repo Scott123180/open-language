@@ -1,4 +1,7 @@
-"""T095: a Panel episode: Jump in, Pass, the addressed host and the settle invite (FR-013–FR-018)."""
+"""T095: a Panel episode: Jump in, Pass, the addressed host and the settle invite (FR-013–FR-018).
+
+011 T038: tests pinning 007's invitation schedule and wrap-up run on legacy episodes (FR-025).
+"""
 
 from app.podcasts.prompts import PRODUCER_NOTE_MARKER
 from tests.support.podcast_harness import EPISODES, done_of, lines_of
@@ -28,7 +31,7 @@ def test_the_lead_opens_and_the_second_host_greets(podcast_client):
 
 
 def test_the_learner_is_invited_within_four_host_lines_every_time(podcast_client):
-    episode_id = podcast_client.start("panel", length="long")
+    episode_id = podcast_client.legacy_episode("panel", length="long")
     for step in range(60):
         _advance(podcast_client, episode_id, f"Respuesta {step}.")
 
@@ -40,7 +43,7 @@ def test_the_learner_is_invited_within_four_host_lines_every_time(podcast_client
 
 
 def test_jump_in_and_pass_follow_the_turn(podcast_client):
-    episode_id = podcast_client.start("panel")
+    episode_id = podcast_client.legacy_episode("panel")
     for _step in range(12):
         frames = _advance(podcast_client, episode_id)
         done = done_of(frames)
@@ -111,7 +114,7 @@ def test_the_named_host_answers(podcast_client):
 
 
 def test_an_invitation_after_two_hosts_asks_the_learner_to_settle_it(podcast_client):
-    episode_id = podcast_client.start("panel", length="long")
+    episode_id = podcast_client.legacy_episode("panel", length="long")
     for step in range(60):
         _advance(podcast_client, episode_id, f"Respuesta {step}.")
 
@@ -121,7 +124,7 @@ def test_an_invitation_after_two_hosts_asks_the_learner_to_settle_it(podcast_cli
 
 
 def test_after_the_wrap_up_the_learner_can_still_talk_until_the_end(podcast_client):
-    episode_id = podcast_client.start("panel")
+    episode_id = podcast_client.legacy_episode("panel")
     for step in range(40):
         _advance(podcast_client, episode_id, f"Respuesta {step}.")
         if any(line["intent"] == "wrap_up" for line in podcast_client.episode(episode_id)["lines"]):
