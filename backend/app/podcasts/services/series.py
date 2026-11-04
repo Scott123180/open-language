@@ -7,9 +7,12 @@ with is frozen into its snapshot here (research R5).
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 from app.podcasts.catalog import (
+    DEFAULT_EPISODE_STYLE,
+    DEFAULT_HOST_LINE_LENGTH,
+    DEFAULT_INVITE_FREQUENCY,
     LEAD_SLOT,
     LEARNER_POINT,
     PERSONALITIES,
@@ -21,6 +24,7 @@ from app.podcasts.catalog import (
 from app.podcasts.schemas import (
     LANGUAGE_CHANGED,
     SERIES_CLASH,
+    EpisodeSettingsModel,
     HostDraftModel,
     StartEpisodeRequest,
     show_problem,
@@ -249,10 +253,22 @@ def _name_clash(series: SeriesRecord, learner_name: str | None) -> str | None:
 
 
 def episode_settings(req: StartEpisodeRequest, second_personality: str) -> EpisodeSettings:
-    """The defaults, with the show's role; One host covers the absent second host (R6)."""
-    is_one_host = PODCAST_FORMATS[req.format].host_count == 1
-    covered = second_personality if is_one_host else None
-    return replace(EpisodeSettings.defaults(req.show.learner_role), covered_personality=covered)
+    """The request's settings, each missing one at its default and the role at the show's; in
+    Listen nobody is asked and the learner only listens. One host covers the absent second
+    host (011 R6)."""
+    chosen = req.settings or EpisodeSettingsModel()
+    podcast_format = PODCAST_FORMATS[req.format]
+    is_listening = not podcast_format.is_learner_speaking
+    frequency = None if is_listening else chosen.invite_frequency
+    role = None if is_listening else chosen.learner_role
+    return EpisodeSettings.from_ids(
+        style=chosen.style or DEFAULT_EPISODE_STYLE,
+        line_length=chosen.line_length or DEFAULT_HOST_LINE_LENGTH,
+        invite_frequency=frequency or DEFAULT_INVITE_FREQUENCY,
+        learner_role=role or req.show.learner_role,
+        today_subject=chosen.today_subject,
+        covered_personality=second_personality if podcast_format.host_count == 1 else None,
+    )
 
 
 def _draft_second(req: StartEpisodeRequest) -> HostDraftModel:

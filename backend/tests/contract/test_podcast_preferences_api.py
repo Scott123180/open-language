@@ -11,6 +11,9 @@ DEFAULTS = {
     "is_show_text_on": False,
     "interests": [],
     "learner_name": None,
+    "last_style": "balanced",
+    "last_line_length": "medium",
+    "last_invite_frequency": "sometimes",
 }
 
 
@@ -108,3 +111,35 @@ def test_an_empty_list_clears_the_interests(harness):
     response = harness.client.put(PREFERENCES, json={"interests": []})
 
     assert response.json()["interests"] == []
+
+
+# --- 011 T068: the last-used episode settings (FR-013) ----------------------------------------
+
+PRESENTED = {"style": "presented", "line_length": "long", "invite_frequency": "rarely"}
+
+
+def _last_used(harness) -> tuple[str, str, str]:
+    preferences = harness.client.get(PREFERENCES).json()
+    return (
+        preferences["last_style"],
+        preferences["last_line_length"],
+        preferences["last_invite_frequency"],
+    )
+
+
+def test_a_put_cannot_change_the_last_used_settings(harness):
+    harness.client.put(PREFERENCES, json={"last_style": "presented", "is_show_text_on": True})
+
+    assert _last_used(harness) == ("balanced", "medium", "sometimes")
+
+
+def test_a_one_off_start_remembers_its_settings(harness):
+    harness.start_with(settings={**PRESENTED, "learner_role": "caller", "today_subject": "pan"})
+
+    assert _last_used(harness) == ("presented", "long", "rarely")
+
+
+def test_a_series_start_does_not_change_the_last_used_settings(harness):
+    harness.start_series(settings=PRESENTED)
+
+    assert _last_used(harness) == ("balanced", "medium", "sometimes")

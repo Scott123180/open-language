@@ -17,6 +17,7 @@ LEAD_SLOT = "lead"
 SECOND_SLOT = "second"
 HOST_SLOTS = (LEAD_SLOT, SECOND_SLOT)
 LEARNER_ROLES = ("guest", "co_host", "caller")
+LEARNER_ROLE_LABELS = MappingProxyType({"guest": "Guest", "co_host": "Co-host", "caller": "Caller"})
 SHOW_ROLES = ("host", "co_host", "guest_expert")
 READY_MADE_SOURCE = "ready_made"
 SHOW_SOURCES = (READY_MADE_SOURCE, "generated", "surprise", "suggested")

@@ -145,6 +145,9 @@ class SQLitePodcastStorage(PodcastStorage):
         row.is_show_text_on = preferences.is_show_text_on
         row.interests = json.dumps(list(preferences.interests), ensure_ascii=False)
         row.learner_name = preferences.learner_name
+        row.last_style = preferences.last_style
+        row.last_line_length = preferences.last_line_length
+        row.last_invite_frequency = preferences.last_invite_frequency
         self._db.commit()
         return _preferences_record(row)
 
@@ -328,4 +331,7 @@ def _preferences_record(row: PodcastPreferences) -> PreferencesRecord:
         is_show_text_on=row.is_show_text_on,
         interests=tuple(json.loads(row.interests)),
         learner_name=row.learner_name,
+        last_style=row.last_style,
+        last_line_length=row.last_line_length,
+        last_invite_frequency=row.last_invite_frequency,
     )

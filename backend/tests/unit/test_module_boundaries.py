@@ -162,7 +162,11 @@ def test_the_podcast_package_root_is_unchanged():
 
 # --- 011: the factory-only podcast modules (contracts §10) --------------------------------
 
-FACTORY_ONLY_011_MODULES = ("app.podcasts.services.spoken_parts",)
+FACTORY_ONLY_011_MODULES = (
+    "app.podcasts.services.spoken_parts",
+    "app.podcasts.services.subject_check",
+    "app.podcasts.services.subject_suggestions",
+)
 
 
 @pytest.mark.parametrize("module", FACTORY_ONLY_011_MODULES)

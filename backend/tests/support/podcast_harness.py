@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from httpx import Response
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -24,12 +25,16 @@ from app.podcasts.services.series_memory import MemoryCatchUps, SeriesMemoryKeep
 from app.podcasts.services.spoken_parts import SpokenParts
 from app.podcasts.services.sqlite_series_storage import SQLiteSeriesStorage
 from app.podcasts.services.sqlite_storage import SQLitePodcastStorage
+from app.podcasts.services.subject_check import SubjectCheck
+from app.podcasts.services.subject_suggestions import SubjectSuggester
 from app.services.conversation import ConversationEngine
 from app.services.factory import (
     get_memory_catch_ups,
     get_memory_sessions,
     get_series_memory_keeper,
     get_spoken_parts,
+    get_subject_check,
+    get_subject_suggester,
     memory_stores,
 )
 from app.services.storage.sqlite import SQLiteStorageProvider
@@ -38,6 +43,7 @@ from tests.support.fake_speech import RecordingTtsBuilder, override_speech
 from tests.support.scratch_database import make_sessions
 from tests.support.scripted_line_writer import ScriptedLineWriter
 from tests.support.scripted_memory_llm import ScriptedMemoryLLM
+from tests.support.scripted_show_llm import ScriptedShowLLM
 from tests.support.synchronous_executor import SynchronousExecutor
 
 POLICY_SEED = 7
@@ -58,6 +64,8 @@ class PodcastHarness:
     catch_ups: MemoryCatchUps
     parts: SpokenParts
     """Streamed lines' speech, spoken at once on the request's thread (011 R13)."""
+    subjects: ScriptedShowLLM
+    """Judges Today's subject and suggests subjects; suitable, with no subjects, by default."""
 
     def session(self) -> Session:
         """A fresh session for the test's own reads, never shared with a request."""
@@ -73,6 +81,12 @@ class PodcastHarness:
 
     def start(self, format: str, length: str = "short", learner_name: str | None = None) -> int:
         return start_episode(self.client, format, length, learner_name)["conversation_id"]
+
+    def start_with(self, format: str = "one_host", **body) -> Response:
+        """POST a one-off start of the ready-made show with extra body fields (011)."""
+        draft = ready_made_draft(self.client)
+        payload = {"show": draft, "format": format, "length": "short", **body}
+        return self.client.post(EPISODES, json=payload)
 
     def legacy_episode(
         self, format: str, length: str = "short", learner_name: str | None = None
@@ -154,6 +168,17 @@ class HarnessClock:
         return self.now
 
 
+SUITABLE_SUBJECT = {"is_suitable": True, "decline_reason": "", "subjects": []}
+
+
+def install_subject_llm() -> ScriptedShowLLM:
+    """One scripted structured provider for the subject check and Suggest subjects (011)."""
+    llm = ScriptedShowLLM(dict(SUITABLE_SUBJECT))
+    app.dependency_overrides[get_subject_check] = lambda: SubjectCheck(llm)
+    app.dependency_overrides[get_subject_suggester] = lambda: SubjectSuggester(llm)
+    return llm
+
+
 def install_spoken_parts(cache_dir: Path) -> SpokenParts:
     """Speak streamed lines' parts at once, into the test's own speech cache."""
     parts = SpokenParts(SynchronousExecutor(), HarnessClock(), cache_dir)
@@ -195,9 +220,12 @@ def podcast_harness_on(
     install_sample_cache(tmp_path / "voice_samples")
     memory, catch_ups = install_series_memory(sessions)
     parts = install_spoken_parts(tmp_path / "tts_cache")
+    subjects = install_subject_llm()
     try:
         with TestClient(app) as client:
-            yield PodcastHarness(client, writer, engine, speech, sessions, memory, catch_ups, parts)
+            yield PodcastHarness(
+                client, writer, engine, speech, sessions, memory, catch_ups, parts, subjects
+            )
     finally:
         app.dependency_overrides.clear()
         for session in opened:

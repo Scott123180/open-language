@@ -17,7 +17,7 @@ from app.conversation_levels import ConversationLevel
 from app.conversation_turns import Corrections, LearnerMessageRequest
 from app.corrections.services.storage import CorrectionStorageProvider
 from app.corrections.services.strategies import CorrectionStrategy
-from app.podcasts.catalog import PART_WAIT_SECONDS
+from app.podcasts.catalog import ONE_OFF_KIND, PART_WAIT_SECONDS, PODCAST_FORMATS
 from app.podcasts.discovery_routes import discovery_router
 from app.podcasts.host_routes import host_router
 from app.podcasts.responses import (
@@ -44,13 +44,20 @@ from app.podcasts.series_routes import (
 )
 from app.podcasts.services.episode_endings import EpisodeEndings
 from app.podcasts.services.episode_lock import EpisodeLocks, HeldEpisode
+from app.podcasts.services.episode_settings import EpisodeSettings
 from app.podcasts.services.episode_turns import EpisodeDependencies, EpisodeTurns
 from app.podcasts.services.episodes import LoadedEpisode, load_episode
 from app.podcasts.services.library import ShowNoLongerKept, ShowShelf
 from app.podcasts.services.line_writer import LineWriter
-from app.podcasts.services.series import SeriesHostsChanged, SeriesService, StartRefused
+from app.podcasts.services.series import (
+    PreparedStart,
+    SeriesHostsChanged,
+    SeriesService,
+    StartRefused,
+)
 from app.podcasts.services.spoken_parts import PartNotFound, PartTimedOut, SpokenParts
 from app.podcasts.services.storage import PodcastStorage, PreferencesRecord
+from app.podcasts.services.subject_check import SubjectCheck, SubjectDeclined
 from app.podcasts.services.suggestions import parse_suggestions, suggestion_prompt
 from app.podcasts.services.turn_policy import (
     AWAITING_CONTINUE,
@@ -60,6 +67,7 @@ from app.podcasts.services.turn_policy import (
 )
 from app.podcasts.services.voice_notices import catalogue_notices, episode_voice_notice
 from app.podcasts.show_routes import show_router
+from app.practice_languages import ConversationLanguages
 from app.services.conversation import ConversationEngine, SessionCapableProvider
 from app.services.factory import (
     get_app_settings,
@@ -75,6 +83,7 @@ from app.services.factory import (
     get_speech_for_language,
     get_spoken_parts,
     get_storage,
+    get_subject_check,
     get_voice_installation,
 )
 from app.services.llm.base import ChatMessage, LLMProvider
@@ -99,7 +108,12 @@ WAV_MEDIA_TYPE = "audio/wav"
 USER_ROLE = "user"
 
 TurnCheck = Callable[[EpisodeTurns, LoadedEpisode], None]
-_REFUSAL_STATUS = {StartRefused: 422, SeriesHostsChanged: 409, ShowNoLongerKept: 404}
+_REFUSAL_STATUS = {
+    StartRefused: 422,
+    SubjectDeclined: 422,
+    SeriesHostsChanged: 409,
+    ShowNoLongerKept: 404,
+}
 
 
 def get_part_wait_seconds() -> float:
@@ -171,25 +185,63 @@ def start_episode(
     installation: VoiceInstallation = Depends(get_voice_installation),
     policy: TurnPolicy = Depends(get_turn_policy),
     series: SeriesService = Depends(get_series_service),
+    subjects: SubjectCheck = Depends(get_subject_check),
 ):
-    try:
-        prepared = series.prepare(req, app_settings)
-    except tuple(_REFUSAL_STATUS) as refusal:
-        raise HTTPException(_REFUSAL_STATUS[type(refusal)], str(refusal)) from refusal
+    prepared = _prepared_start(req, app_settings, series, subjects)
     record = podcasts.create_episode(series.new_episode(prepared, app_settings))
-    _remember_start(podcasts, req)
+    _remember_start(podcasts, req, prepared.settings)
     episode = load_episode(podcasts, record.conversation_id)
     turn = policy.turn(episode.state)
     notice = episode_voice_notice(episode)
     return episode_response(episode, turn, installation, notice, prepared.saved_show_id)
 
 
-def _remember_start(podcasts: PodcastStorage, req: StartEpisodeRequest) -> None:
-    """FR-005: the next setup starts on this format; FR-011: and with this name."""
+def _prepared_start(
+    req: StartEpisodeRequest,
+    app_settings: AppSettingsRecord,
+    series: SeriesService,
+    subjects: SubjectCheck,
+) -> PreparedStart:
+    """The 010 checks, then Today's subject, if any (011 contracts §3's order of work). A
+    provider failure is the provider's own 503."""
+    try:
+        prepared = series.prepare(req, app_settings)
+        subject = prepared.settings.today_subject
+        if subject is not None:
+            languages = ConversationLanguages.of(
+                app_settings.target_language, app_settings.native_language
+            )
+            subjects.check(subject, languages)
+    except tuple(_REFUSAL_STATUS) as refusal:
+        raise HTTPException(_REFUSAL_STATUS[type(refusal)], str(refusal)) from refusal
+    return prepared
+
+
+def _remember_start(
+    podcasts: PodcastStorage, req: StartEpisodeRequest, settings: EpisodeSettings
+) -> None:
+    """FR-005: the next setup starts on this format; FR-011: and with this name; 011 FR-013:
+    a one-off also remembers its Episode settings."""
+    stored = podcasts.get_preferences()
     changes: dict = {"last_format": req.format}
     if req.learner_name is not None:
         changes["learner_name"] = req.learner_name
-    podcasts.save_preferences(replace(podcasts.get_preferences(), **changes))
+    if req.kind == ONE_OFF_KIND:
+        changes.update(_last_used(req, settings, stored))
+    podcasts.save_preferences(replace(stored, **changes))
+
+
+def _last_used(
+    req: StartEpisodeRequest, settings: EpisodeSettings, stored: PreferencesRecord
+) -> dict:
+    """Listen asks nobody, so it keeps the learner's last choice of how often."""
+    is_listening = not PODCAST_FORMATS[req.format].is_learner_speaking
+    frequency = settings.invite_frequency.invite_frequency_id
+    return {
+        "last_style": settings.style.style_id,
+        "last_line_length": settings.line_length.line_length_id,
+        "last_invite_frequency": stored.last_invite_frequency if is_listening else frequency,
+    }
 
 
 @router.get("/episodes", response_model=list[EpisodeSummaryRow])

@@ -24,6 +24,7 @@ from app.podcasts.catalog import (
     SHOW_ROLES,
     SHOW_SOURCES,
     SHOW_TEMPLATES,
+    SUBJECT_AVOID_MAX,
     TITLE_MAX_LENGTH,
     TODAY_SUBJECT_MAX_LENGTH,
 )
@@ -37,6 +38,7 @@ SERIES_CLASH = "{name} has the same name as you. Change the name the hosts call 
 """A series host never changes name, so the learner is asked to change theirs (010 R8)."""
 UNLISTED_SETTING = "That {setting} isn't in the list. Pick one of the listed ones."
 UNKNOWN_ROLE = "Your role must be guest, co-host or caller."
+TOO_MANY_TO_SKIP = "Too many subjects to skip. Close the suggestions and try again."
 SUBJECT_TOO_LONG = f"Today's subject can be at most {TODAY_SUBJECT_MAX_LENGTH} characters."
 MAX_INTERESTS = 10
 MAX_AVOID_TITLES = 50
@@ -165,12 +167,47 @@ class CatalogVoices(BaseModel):
     unavailable_message: str | None
 
 
+class StyleOption(BaseModel):
+    style_id: str
+    label: str
+    description: str
+    is_default: bool
+
+
+class LineLengthOption(BaseModel):
+    line_length_id: str
+    label: str
+    is_default: bool
+
+
+class InviteFrequencyOption(BaseModel):
+    invite_frequency_id: str
+    label: str
+    is_default: bool
+
+
+class LearnerRoleOption(BaseModel):
+    learner_role: str
+    label: str
+
+
+class EpisodeOptions(BaseModel):
+    """The setup's Episode settings, from the catalogues (011 contracts §1)."""
+
+    styles: list[StyleOption]
+    line_lengths: list[LineLengthOption]
+    invite_frequencies: list[InviteFrequencyOption]
+    learner_roles: list[LearnerRoleOption]
+    today_subject_max_length: int
+
+
 class CatalogResponse(BaseModel):
     language: str
     language_name: str
     formats: list[FormatOption]
     lengths: list[LengthOption]
     personalities: list[PersonalityOption]
+    episode_options: EpisodeOptions
     shows: list[ShowListing]
     my_shows: list[ShowListing] = Field(default_factory=list)
     voices: CatalogVoices
@@ -184,6 +221,9 @@ class PreferencesResponse(BaseModel):
     is_show_text_on: bool
     interests: list[str]
     learner_name: str | None
+    last_style: str
+    last_line_length: str
+    last_invite_frequency: str
 
 
 class UpdatePreferencesRequest(BaseModel):
@@ -226,6 +266,32 @@ class DiscoverRequest(BaseModel):
     """Find a new show: the titles already shown this visit are never suggested again."""
 
     avoid_titles: list[AvoidTitle] = Field(default_factory=list, max_length=MAX_AVOID_TITLES)
+
+
+class SubjectShowModel(BaseModel):
+    title: str = Field(min_length=1, max_length=TITLE_MAX_LENGTH)
+    premise: str = Field(min_length=1)
+    topic: str = Field(min_length=1, max_length=TITLE_MAX_LENGTH)
+
+
+class SubjectSuggestionsRequest(BaseModel):
+    """011 contracts §8a: the show on the setup screen, its series, and subjects already shown."""
+
+    show: SubjectShowModel
+    series_id: int | None = None
+    avoid: list[str] = Field(default_factory=list)
+
+    @field_validator("avoid")
+    @classmethod
+    def _few_enough(cls, value: list[str]) -> list[str]:
+        too_long = any(len(subject) > TODAY_SUBJECT_MAX_LENGTH for subject in value)
+        if len(value) > SUBJECT_AVOID_MAX or too_long:
+            raise ValueError(TOO_MANY_TO_SKIP)
+        return value
+
+
+class SubjectSuggestionsResponse(BaseModel):
+    subjects: list[str]
 
 
 class DiscoverResponse(BaseModel):
@@ -344,6 +410,17 @@ class EpisodeLineModel(BaseModel):
     created_at: datetime
 
 
+class EpisodeSettingsResponse(BaseModel):
+    style: str
+    style_label: str
+    line_length: str
+    line_length_label: str
+    invite_frequency: str
+    invite_frequency_label: str
+    learner_role: str
+    today_subject: str | None
+
+
 class EpisodeResponse(BaseModel):
     conversation_id: int
     status: str
@@ -364,6 +441,8 @@ class EpisodeResponse(BaseModel):
     can_pass: bool
     lines: list[EpisodeLineModel]
     series: EpisodeSeriesModel | None = None
+    settings: EpisodeSettingsResponse | None = None
+    """None for an episode started before 011 (contracts §5)."""
 
 
 class EpisodeSummaryRow(BaseModel):

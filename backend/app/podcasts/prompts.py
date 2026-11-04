@@ -98,10 +98,10 @@ def build_standing_prompt(context: PromptContext) -> str:
     cues, label = context.cues, context.cues.learner_label
     sections = (
         _language_rule(context.languages),
-        _show_section(context.show, label),
+        _show_section(context.show, label, cues.talk.today_subject),
         _hosts_section(cues.cast, cues.talk),
         _covered_role_section(cues.cast, cues.talk),
-        _series_section(cues.series, label) if cues.series is not None else None,
+        _series_section(cues.series, label, cues.talk) if cues.series is not None else None,
         cues.talk.line_rules(label, context.languages, cues.cast),
     )
     joined = "\n\n".join(section for section in sections if section is not None)
@@ -125,7 +125,7 @@ def render_cue(cue: LineCue, context: CueContext) -> str:
     return " ".join(parts)
 
 
-def _series_section(series: SeriesBrief, learner_label: str) -> str:
+def _series_section(series: SeriesBrief, learner_label: str, talk: HostTalk) -> str:
     """What the hosts remember, from the episode's snapshot only (010 research R5, R7).
 
     Every remembered point is listed, newest first: the stored points fit the section whole,
@@ -138,9 +138,20 @@ def _series_section(series: SeriesBrief, learner_label: str) -> str:
         verb = "have" if learner_label == LISTENER_LABEL else "has"
         lines.append(f"What {learner_label} {verb} told you before:")
         lines.extend(f"- {point}" for point in snapshot.about_learner)
-    lines.extend(_series_rules(bool(snapshot.topics_covered or snapshot.about_learner)))
+    rules = _series_rules(bool(snapshot.topics_covered or snapshot.about_learner))
+    lines.extend(_with_chosen_subject(rules, learner_label, talk.today_subject))
     lines.extend(_new_host_rule(name) for name in series.new_host_names)
     return "\n".join(lines)
+
+
+def _with_chosen_subject(
+    rules: tuple[str, ...], learner_label: str, subject: str | None
+) -> tuple[str, ...]:
+    """Today's subject replaces the covered-list rule: the learner chose it (011 FR-010)."""
+    if subject is None:
+        return rules
+    chosen = f"- Today's subject was chosen by {learner_label}: talk about it even if it was covered before."
+    return tuple(chosen if rule == _SERIES_RULES[1] else rule for rule in rules)
 
 
 def _new_host_rule(name: str) -> str:
@@ -171,15 +182,25 @@ def _language_rule(languages: ConversationLanguages) -> str:
     )
 
 
-def _show_section(show: ShowBrief, learner_label: str) -> str:
+def _show_section(show: ShowBrief, learner_label: str, subject: str | None) -> str:
     template = _LEARNER_ROLE_SENTENCES.get(show.learner_role, _LEARNER_ROLE_SENTENCES["guest"])
     if learner_label == LISTENER_LABEL:
         template = _LISTENER_SENTENCE
     role = template.format(label=learner_label)
-    return (
+    section = (
         "You write the lines of the hosts of a podcast, one line at a time.\n"
         f"Show: {show.title} — {show.premise} Topic: {show.topic}.\n"
         f"{role[0].upper()}{role[1:]}"
+    )
+    return section + _subject_sentence(learner_label, subject)
+
+
+def _subject_sentence(learner_label: str, subject: str | None) -> str:
+    if subject is None:
+        return ""
+    return (
+        f"\nToday's subject, chosen by {learner_label}: {subject}. Talk about it within the "
+        "show's topic."
     )
 
 

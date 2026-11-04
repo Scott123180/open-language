@@ -41,6 +41,8 @@ from app.podcasts.services.sqlite_series_storage import (
 )
 from app.podcasts.services.sqlite_storage import SQLitePodcastStorage
 from app.podcasts.services.storage import PodcastStorage
+from app.podcasts.services.subject_check import SubjectCheck
+from app.podcasts.services.subject_suggestions import SubjectSuggester
 from app.podcasts.services.surprise import RecentSurprises
 from app.practice_languages import voice_for, voice_unavailable_message
 from app.services.conversation import (
@@ -290,6 +292,19 @@ router use it."""
 def get_spoken_parts() -> SpokenParts:
     """One per process, with one speaking worker, so a line's parts come out in order (R13)."""
     return SpokenParts(ThreadPoolExecutor(max_workers=1), time.monotonic, TTS_CACHE_DIR)
+
+
+def get_subject_check(
+    structured_llm: StructuredLLMProvider = Depends(get_structured_llm),
+) -> SubjectCheck:
+    """Today's subject is judged by the provider selected at that moment (Principle VI)."""
+    return SubjectCheck(structured_llm)
+
+
+def get_subject_suggester(
+    structured_llm: StructuredLLMProvider = Depends(get_structured_llm),
+) -> SubjectSuggester:
+    return SubjectSuggester(structured_llm)
 
 
 def get_episode_endings(

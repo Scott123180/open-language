@@ -4,6 +4,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 
+from app.podcasts.catalog import (
+    DEFAULT_EPISODE_STYLE,
+    DEFAULT_HOST_LINE_LENGTH,
+    DEFAULT_INVITE_FREQUENCY,
+)
 from app.podcasts.services.episode_settings import EpisodeSettings
 from app.podcasts.services.series_snapshot import SeriesSnapshot
 
@@ -140,6 +145,10 @@ class PreferencesRecord:
     is_show_text_on: bool
     interests: tuple[str, ...]
     learner_name: str | None
+    last_style: str = DEFAULT_EPISODE_STYLE
+    last_line_length: str = DEFAULT_HOST_LINE_LENGTH
+    last_invite_frequency: str = DEFAULT_INVITE_FREQUENCY
+    """The last one-off start's Episode settings (011 FR-013)."""
 
 
 class PodcastStorage(ABC):

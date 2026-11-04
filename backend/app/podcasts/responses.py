@@ -3,11 +3,20 @@
 
 from app.podcasts.catalog import (
     DEFAULT_EPISODE_LENGTH,
+    DEFAULT_EPISODE_STYLE,
+    DEFAULT_HOST_LINE_LENGTH,
+    DEFAULT_INVITE_FREQUENCY,
     EPISODE_LENGTHS,
+    EPISODE_STYLES,
+    HOST_LINE_LENGTHS,
+    INVITE_FREQUENCIES,
     LEARNER_POINT,
+    LEARNER_ROLE_LABELS,
+    LEARNER_ROLES,
     PERSONALITIES,
     PODCAST_FORMATS,
     READY_MADE_SOURCE,
+    TODAY_SUBJECT_MAX_LENGTH,
     TOPIC_POINT,
 )
 from app.podcasts.schemas import (
@@ -15,13 +24,18 @@ from app.podcasts.schemas import (
     CatalogVoices,
     EpisodeHostModel,
     EpisodeLineModel,
+    EpisodeOptions,
     EpisodeResponse,
     EpisodeSeriesModel,
+    EpisodeSettingsResponse,
     EpisodeShowModel,
     EpisodeSummaryRow,
     FormatOption,
     HostDraftModel,
+    InviteFrequencyOption,
+    LearnerRoleOption,
     LengthOption,
+    LineLengthOption,
     PersonalityOption,
     PreferencesResponse,
     RememberedModel,
@@ -31,6 +45,7 @@ from app.podcasts.schemas import (
     SeriesSummaryModel,
     ShowDraftModel,
     ShowListing,
+    StyleOption,
     UnfinishedEpisodeModel,
 )
 from app.podcasts.services.casting import Host
@@ -46,12 +61,57 @@ from app.services.tts.base import VoiceInstallation
 
 
 def catalogue_options() -> dict:
-    """The formats, lengths and personalities, in catalogue order."""
+    """The formats, lengths, personalities and Episode settings, in catalogue order."""
     return {
         "formats": _format_options(),
         "lengths": _length_options(),
         "personalities": _personality_options(),
+        "episode_options": episode_options(),
     }
+
+
+def episode_options() -> EpisodeOptions:
+    """011 contracts §1: the choices Episode settings offers, with their defaults."""
+    return EpisodeOptions(
+        styles=[
+            StyleOption(
+                style_id=s.style_id,
+                label=s.label,
+                description=s.description,
+                is_default=s.style_id == DEFAULT_EPISODE_STYLE,
+            )
+            for s in EPISODE_STYLES.values()
+        ],
+        line_lengths=_line_length_options(),
+        invite_frequencies=_invite_frequency_options(),
+        learner_roles=[
+            LearnerRoleOption(learner_role=role, label=LEARNER_ROLE_LABELS[role])
+            for role in LEARNER_ROLES
+        ],
+        today_subject_max_length=TODAY_SUBJECT_MAX_LENGTH,
+    )
+
+
+def _line_length_options() -> list[LineLengthOption]:
+    return [
+        LineLengthOption(
+            line_length_id=key,
+            label=length.label,
+            is_default=key == DEFAULT_HOST_LINE_LENGTH,
+        )
+        for key, length in HOST_LINE_LENGTHS.items()
+    ]
+
+
+def _invite_frequency_options() -> list[InviteFrequencyOption]:
+    return [
+        InviteFrequencyOption(
+            invite_frequency_id=key,
+            label=frequency.label,
+            is_default=key == DEFAULT_INVITE_FREQUENCY,
+        )
+        for key, frequency in INVITE_FREQUENCIES.items()
+    ]
 
 
 def _format_options() -> list[FormatOption]:
@@ -176,6 +236,9 @@ def preferences_response(preferences: PreferencesRecord) -> PreferencesResponse:
         is_show_text_on=preferences.is_show_text_on,
         interests=list(preferences.interests),
         learner_name=preferences.learner_name,
+        last_style=preferences.last_style,
+        last_line_length=preferences.last_line_length,
+        last_invite_frequency=preferences.last_invite_frequency,
     )
 
 
@@ -194,6 +257,23 @@ def episode_response(
         awaiting=turn.awaiting,
         lines=[EpisodeLineModel(**line_payload(line)) for line in episode.lines],
         **turn_actions(episode.format, turn),
+        settings=_settings_model(episode.record),
+    )
+
+
+def _settings_model(record: EpisodeRecord) -> EpisodeSettingsResponse | None:
+    settings = record.settings
+    if settings is None:
+        return None
+    return EpisodeSettingsResponse(
+        style=settings.style.style_id,
+        style_label=settings.style.label,
+        line_length=settings.line_length.line_length_id,
+        line_length_label=settings.line_length.label,
+        invite_frequency=settings.invite_frequency.invite_frequency_id,
+        invite_frequency_label=settings.invite_frequency.label,
+        learner_role=settings.learner_role,
+        today_subject=settings.today_subject,
     )
 
 

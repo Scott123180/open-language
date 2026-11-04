@@ -127,3 +127,45 @@ def test_each_format_says_whether_the_learner_can_jump_in_and_pass(catalog):
     flags = {f["format_id"]: (f["has_jump_in"], f["has_pass"]) for f in catalog["formats"]}
 
     assert flags == {"one_host": (True, False), "panel": (True, True), "listen": (False, False)}
+
+
+def test_the_catalogue_offers_the_episode_settings(catalog):
+    """011 T068 (contracts §1)."""
+    options = catalog["episode_options"]
+
+    assert options["styles"] == [
+        {
+            "style_id": "conversation",
+            "label": "Conversation",
+            "description": "Lots of back-and-forth.",
+            "is_default": False,
+        },
+        {
+            "style_id": "balanced",
+            "label": "Balanced",
+            "description": "Some talk, some explaining.",
+            "is_default": True,
+        },
+        {
+            "style_id": "presented",
+            "label": "Presented",
+            "description": "The hosts mostly explain and tell stories, like a radio show.",
+            "is_default": False,
+        },
+    ]
+    assert options["line_lengths"] == [
+        {"line_length_id": "short", "label": "Short", "is_default": False},
+        {"line_length_id": "medium", "label": "Medium", "is_default": True},
+        {"line_length_id": "long", "label": "Long", "is_default": False},
+    ]
+    assert options["invite_frequencies"] == [
+        {"invite_frequency_id": "often", "label": "Often", "is_default": False},
+        {"invite_frequency_id": "sometimes", "label": "Sometimes", "is_default": True},
+        {"invite_frequency_id": "rarely", "label": "Rarely", "is_default": False},
+    ]
+    assert options["learner_roles"] == [
+        {"learner_role": "guest", "label": "Guest"},
+        {"learner_role": "co_host", "label": "Co-host"},
+        {"learner_role": "caller", "label": "Caller"},
+    ]
+    assert options["today_subject_max_length"] == 120

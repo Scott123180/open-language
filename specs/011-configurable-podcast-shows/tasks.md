@@ -529,7 +529,7 @@ Conversation · Short · Often. Check that:
   - it trims each subject, drops any longer than 120 characters, drops any whose folded text equals a covered topic, an avoided subject or an earlier subject in the reply, and returns at most `SUBJECT_SUGGESTIONS`;
   - a reply with nothing left after filtering returns an empty tuple;
   - an `LLMError` propagates unchanged.
-- [ ] T067a [P] [US2] Write `backend/tests/contract/test_podcast_subject_suggestions_api.py` (contracts §8a, data-model §5.4):
+- [X] T067a [P] [US2] Write `backend/tests/contract/test_podcast_subject_suggestions_api.py` (contracts §8a, data-model §5.4):
   - `POST /api/podcasts/subject-suggestions` with a show → 200 `{"subjects": [...]}`, from the selected structured provider;
   - with `series_id`, the series' covered topics are in the prompt and filtered out of the reply;
   - an unknown series, or one of another practice language, → 404 with 010's message;
@@ -537,7 +537,7 @@ Conversation · Short · Often. Check that:
   - a provider failure → 503 with the provider's message;
   - an all-filtered reply → 200 with `"subjects": []`;
   - nothing is written to the database.
-- [ ] T067 [P] [US2] Write `backend/tests/contract/test_podcast_episode_settings_api.py` (contracts §3, §5; data-model §5.1, §5.3):
+- [X] T067 [P] [US2] Write `backend/tests/contract/test_podcast_episode_settings_api.py` (contracts §3, §5; data-model §5.1, §5.3):
   - `POST /api/podcasts/episodes` with `settings` → 201, and `EpisodeResponse.settings` carries the ids, the labels, the role and the subject;
   - without `settings`: Balanced · Medium · Sometimes and the show's role;
   - each §5.1 refusal returns 422 with its message;
@@ -546,22 +546,22 @@ Conversation · Short · Often. Check that:
   - with no subject, the structured provider is not called;
   - in Listen, `invite_frequency` and `learner_role` are stored as the default and the show's role, whatever was sent;
   - `GET` of a pre-feature episode returns `"settings": null`.
-- [ ] T068 [P] [US2] Extend `backend/tests/contract/test_podcasts_catalog_api.py` and `backend/tests/contract/test_podcast_preferences_api.py`:
+- [X] T068 [P] [US2] Extend `backend/tests/contract/test_podcasts_catalog_api.py` and `backend/tests/contract/test_podcast_preferences_api.py`:
   - `GET /api/podcasts/catalog` returns `episode_options` exactly as contracts §1 shows (styles with descriptions and `is_default`, line lengths, invite frequencies, learner roles with labels, `today_subject_max_length: 120`);
   - `GET /api/podcasts/preferences` carries `last_style`, `last_line_length` and `last_invite_frequency`;
   - a `PUT` that includes them leaves them unchanged;
   - a one-off start writes them; a series start does not.
-- [ ] T069 [P] [US2] Extend `backend/tests/unit/podcasts/test_prompts.py` (R5, plan interpretation 13):
+- [X] T069 [P] [US2] Extend `backend/tests/unit/podcasts/test_prompts.py` (R5, plan interpretation 13):
   - with Today's subject set, the show section adds "Today's subject, chosen by {label}: {subject}. Talk about it within the show's topic.";
   - the learner's role in the show section is the episode's `learner_role`, not the show's;
   - in a series episode with a subject, the "choose a subject not in the covered list" rule becomes "Today's subject was chosen by {label}: talk about it even if it was covered before";
   - with no subject, the prompt is unchanged.
-- [ ] T070 [P] [US2] Write `backend/tests/integration/podcasts/test_episode_settings.py` (FR-012, FR-013, US2 acceptance):
+- [X] T070 [P] [US2] Write `backend/tests/integration/podcasts/test_episode_settings.py` (FR-012, FR-013, US2 acceptance):
   - an episode started with Presented · Long · Rarely resumes with the same prompt and cues after the preferences have changed to Conversation · Short · Often;
   - its prompt has the Long count, and its non-inviting cues have the "Don't ask" closing;
   - a one-off start updates the three `last_…` preferences; a series start leaves them unchanged;
   - the role and the subject are never remembered.
-- [ ] T071 [P] [US2] Extend `backend/tests/unit/test_module_boundaries.py`: `app.podcasts.services.subject_check` and `app.podcasts.services.subject_suggestions` are importable, and the factory is the only module outside `app.podcasts` that imports either.
+- [X] T071 [P] [US2] Extend `backend/tests/unit/test_module_boundaries.py`: `app.podcasts.services.subject_check` and `app.podcasts.services.subject_suggestions` are importable, and the factory is the only module outside `app.podcasts` that imports either.
 - [ ] T072 [P] [US2] Write the Vitest tests:
   - `frontend/src/components/podcasts/EpisodeSettings.test.tsx`:
     - the toggle is a `button` with `aria-expanded="false"` and the name "Episode settings: Balanced · Medium lines · Asked sometimes";
@@ -588,22 +588,22 @@ Conversation · Short · Often. Check that:
 - [X] T074 [US2] Add the schemas to `backend/app/podcasts/schemas.py`: `EpisodeSettingsModel` (every field optional, `today_subject` normalised and ≤ 120 characters), `settings` on the start request, `EpisodeOptions` and its item models, the three read-only `PreferencesResponse` fields, and `settings` on `EpisodeResponse`. `PUT` preferences ignores the `last_…` fields. Makes T065 green.
 - [X] T075 [US2] Create `backend/app/podcasts/services/subject_check.py` with `SubjectCheck` (taking a `StructuredLLMProvider`) and `SubjectDeclined`. Add the subject-check prompt and reply schema to `backend/app/podcasts/prompts.py`. Makes T066 green.
 - [X] T075a [US2] Create `backend/app/podcasts/services/subject_suggestions.py` with `SubjectSuggester` (taking a `StructuredLLMProvider`) and `SubjectRequest` (data-model §3.7). Add `subject_suggestion_prompt(request)` and `SUBJECT_SUGGESTIONS_JSON_SCHEMA` to `backend/app/podcasts/prompts.py`, reusing `_creator_intro`, `_personal_sections`' interest sentence and the suitability rule. Filtering goes in `_kept_subjects(subjects, request)` (≤ 20 lines). Makes T066a green.
-- [ ] T076 [US2] Add `get_subject_check()` and `get_subject_suggester()` to `backend/app/services/factory.py`, both built on the selected structured provider. Makes T071 green.
-- [ ] T077 [US2] Accept settings on Start in `backend/app/podcasts/routes.py` (contracts §3's order of work):
+- [X] T076 [US2] Add `get_subject_check()` and `get_subject_suggester()` to `backend/app/services/factory.py`, both built on the selected structured provider. Makes T071 green.
+- [X] T077 [US2] Accept settings on Start in `backend/app/podcasts/routes.py` (contracts §3's order of work):
   - move preparation, the subject check and the refusal mapping into `_prepared_start(...)`, bringing `start_episode` to ≈ 15 lines;
   - build `EpisodeSettings.from_ids(...)` from the request, normalised for Listen (the default frequency and the show's role), with T046's `covered_personality`;
   - run `SubjectCheck` only when a subject is set, mapping `SubjectDeclined` → 422 and `LLMError` → 503;
   - pass the settings to `SeriesService.new_episode` for series starts (`backend/app/podcasts/services/series.py`);
   - `_remember_start` (≈ 10 lines) writes the last-used values via `_last_used(req)` for one-off starts only.
-- [ ] T078 [US2] Read and write the three preference columns in `backend/app/podcasts/services/storage.py` (the preferences record) and `backend/app/podcasts/services/sqlite_storage.py`.
-- [ ] T079 [US2] Extend `backend/app/podcasts/responses.py`:
+- [X] T078 [US2] Read and write the three preference columns in `backend/app/podcasts/services/storage.py` (the preferences record) and `backend/app/podcasts/services/sqlite_storage.py`.
+- [X] T079 [US2] Extend `backend/app/podcasts/responses.py`:
   - `episode_options` in the catalogue, from the three catalogues and `LEARNER_ROLES`;
   - `settings` with labels on `EpisodeResponse`, via `_settings_model(record)`; `episode_response` stays ≈ 16 lines;
   - the `last_…` fields on preferences.
 
   With T074–T078, this makes T067, T068 and T070 green.
-- [ ] T080 [US2] Render Today's subject and the episode's role in `backend/app/podcasts/prompts.py`: `_subject_sentence(talk)` in `_show_section` (≈ 12 lines), and the series subject-rule replacement in `_series_section`. Makes T069 green.
-- [ ] T077a [US2] Add `POST /api/podcasts/subject-suggestions` to `backend/app/podcasts/discovery_routes.py` (contracts §8a): a `SubjectSuggestionsRequest` / `SubjectSuggestionsResponse` pair in `backend/app/podcasts/schemas.py` (`avoid` ≤ `SUBJECT_AVOID_MAX`, each ≤ 120 characters); the practice language and interests from the same `_context` dependency Find a new show uses; covered topics from `SeriesStorage.remembered(series_id)`, topic points only, after checking that the series exists in that language; `SeriesNotFound` → 404 and `LLMError` → 503. Makes T067a green.
+- [X] T080 [US2] Render Today's subject and the episode's role in `backend/app/podcasts/prompts.py`: `_subject_sentence(talk)` in `_show_section` (≈ 12 lines), and the series subject-rule replacement in `_series_section`. Makes T069 green.
+- [X] T077a [US2] Add `POST /api/podcasts/subject-suggestions` to `backend/app/podcasts/discovery_routes.py` (contracts §8a): a `SubjectSuggestionsRequest` / `SubjectSuggestionsResponse` pair in `backend/app/podcasts/schemas.py` (`avoid` ≤ `SUBJECT_AVOID_MAX`, each ≤ 120 characters); the practice language and interests from the same `_context` dependency Find a new show uses; covered topics from `SeriesStorage.remembered(series_id)`, topic points only, after checking that the series exists in that language; `SeriesNotFound` → 404 and `LLMError` → 503. Makes T067a green.
 - [ ] T081 [P] [US2] Extend `frontend/src/services/podcastsApi.ts`: `episode_options` on the catalogue, `settings` in the start body, the preference fields, `settings` on the episode, and `suggestSubjects(show, seriesId, avoid)`. Add `subjectSuggestions` and `noSubjectSuggestions` to `frontend/e2e/fixtures.ts`.
 - [ ] T082 [US2] Create `frontend/src/hooks/podcasts/useEpisodeSettingsForm.ts`, which holds the settings state and summary and is initialised as in T072.
 - [ ] T082a [US2] Create `frontend/src/hooks/podcasts/useSubjectSuggestions.ts`: the request state (idle, waiting, shown, empty, error), the subjects shown so far for `avoid`, and `choose(subject)`, which hands the subject to `useEpisodeSettingsForm`'s Today's subject.

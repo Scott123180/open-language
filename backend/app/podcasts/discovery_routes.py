@@ -9,8 +9,15 @@ import random
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from app.podcasts.catalog import TOPIC_POINT
+from app.podcasts.prompts import ShowBrief
 from app.podcasts.responses import show_draft
-from app.podcasts.schemas import DiscoverRequest, DiscoverResponse
+from app.podcasts.schemas import (
+    DiscoverRequest,
+    DiscoverResponse,
+    SubjectSuggestionsRequest,
+    SubjectSuggestionsResponse,
+)
 from app.podcasts.series_routes import get_show_library
 from app.podcasts.services.casting import HostCaster
 from app.podcasts.services.discovery import (
@@ -20,13 +27,18 @@ from app.podcasts.services.discovery import (
     SuggestionSeeds,
 )
 from app.podcasts.services.library import ShowLibrary
+from app.podcasts.services.series import SERIES_GONE
+from app.podcasts.services.series_storage import SeriesStorage
 from app.podcasts.services.storage import PodcastStorage
+from app.podcasts.services.subject_suggestions import SubjectRequest, SubjectSuggester
 from app.practice_languages import ConversationLanguages
 from app.services.factory import (
     get_app_settings,
     get_host_caster,
     get_podcast_storage,
+    get_series_storage,
     get_structured_llm,
+    get_subject_suggester,
 )
 from app.services.llm.base import StructuredLLMProvider
 from app.services.storage.base import AppSettingsRecord
@@ -79,3 +91,42 @@ def discover_shows(
     language = context.languages.target_code
     drafts = [show_draft(show, show.hosts, language, SUGGESTED_SOURCE) for show in shows]
     return DiscoverResponse(suggestions=drafts)
+
+
+# --- Suggest subjects (011 contracts §8a, research R20) ------------------------------------
+
+NOT_FOUND_STATUS = 404
+
+
+def _subject_request(
+    req: SubjectSuggestionsRequest,
+    app_settings: AppSettingsRecord = Depends(get_app_settings),
+    podcasts: PodcastStorage = Depends(get_podcast_storage),
+    series: SeriesStorage = Depends(get_series_storage),
+) -> SubjectRequest:
+    languages = ConversationLanguages.of(app_settings.target_language, app_settings.native_language)
+    show = ShowBrief(req.show.title, req.show.premise, req.show.topic, "guest")
+    covered = _covered_topics(series, req.series_id, app_settings.target_language)
+    interests = podcasts.get_preferences().interests
+    return SubjectRequest(show, languages, interests, covered, tuple(req.avoid))
+
+
+def _covered_topics(series: SeriesStorage, series_id: int | None, language: str) -> tuple[str, ...]:
+    """The series' covered topics; a series gone, or of another language, is a plain 404."""
+    if series_id is None:
+        return ()
+    record = series.get(series_id)
+    if record is None or record.language != language:
+        raise HTTPException(NOT_FOUND_STATUS, SERIES_GONE)
+    points = series.remembered(series_id)
+    return tuple(p.conversation_language for p in points if p.kind == TOPIC_POINT)
+
+
+@discovery_router.post("/subject-suggestions", response_model=SubjectSuggestionsResponse)
+def suggest_subjects(
+    request: SubjectRequest = Depends(_subject_request),
+    suggester: SubjectSuggester = Depends(get_subject_suggester),
+):
+    """Up to three subjects not yet covered or shown; nothing is stored. A provider failure is
+    the provider's own 503."""
+    return SubjectSuggestionsResponse(subjects=list(suggester.suggest(request)))

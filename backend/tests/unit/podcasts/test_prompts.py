@@ -9,10 +9,16 @@ from app.conversation_levels import ConversationLevel, with_partner_speech_rules
 from app.podcasts.catalog import PERSONALITIES, PODCAST_FORMATS, SHOW_TEMPLATES
 from app.podcasts.prompts import (
     PRODUCER_NOTE_MARKER,
+    CueContext,
+    PromptContext,
     ShowBrief,
+    build_standing_prompt,
     learner_label_for,
 )
 from app.podcasts.services.casting import Cast, Host
+from app.podcasts.services.episode_settings import EpisodeSettings
+from app.podcasts.services.host_talk import ConfiguredTalk
+from app.podcasts.services.series_snapshot import SeriesBrief, SeriesSnapshot
 from app.practice_languages import ConversationLanguages
 from tests.unit.podcasts.legacy_talk_calls import (
     legacy_cue,
@@ -239,3 +245,55 @@ def test_every_cue_fits_the_budget(intent, invites, after_pass, settle, label):
     )
 
     assert _tokens(rendered) <= CUE_TOKEN_BUDGET
+
+
+# --- 011 T069: Today's subject and the episode's role (research R5, plan interpretation 13) ---
+
+
+SUBJECT_SENTENCE = (
+    "Today's subject, chosen by Sam: why we yawn. Talk about it within the show's topic."
+)
+COVERED_RULE = "- Choose a subject within the show's topic that is not in the covered list."
+CHOSEN_RULE = "- Today's subject was chosen by Sam: talk about it even if it was covered before."
+
+
+def _configured(subject=None, role="guest", series=None) -> str:
+    settings = EpisodeSettings.from_ids(
+        style="balanced",
+        line_length="medium",
+        invite_frequency="sometimes",
+        learner_role=role,
+        today_subject=subject,
+    )
+    show = ShowBrief("Weekend Food Talk", "Food.", "food", role)
+    cues = CueContext(CAST, "Sam", ConfiguredTalk(settings), series)
+    return build_standing_prompt(PromptContext(show, SPANISH, ConversationLevel.NATURAL, cues))
+
+
+def _series(number: int = 3) -> SeriesBrief:
+    return SeriesBrief.of(SeriesSnapshot(number, ("el pan",), ()), CAST)
+
+
+def test_todays_subject_is_named_in_the_show_section():
+    prompt = _configured("why we yawn")
+
+    assert SUBJECT_SENTENCE in prompt
+    assert prompt.index(SUBJECT_SENTENCE) < prompt.index("Hosts:")
+
+
+def test_the_learners_role_is_the_episodes():
+    assert "Sam is a caller who has phoned in to the show." in _configured(role="caller")
+
+
+def test_a_series_episode_with_a_subject_may_talk_about_a_covered_subject():
+    prompt = _configured("el pan", series=_series())
+
+    assert CHOSEN_RULE in prompt
+    assert COVERED_RULE not in prompt
+
+
+def test_without_a_subject_the_prompt_has_no_subject_lines():
+    prompt = _configured(series=_series())
+
+    assert "Today's subject" not in prompt
+    assert COVERED_RULE in prompt
