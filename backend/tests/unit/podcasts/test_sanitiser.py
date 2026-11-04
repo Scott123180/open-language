@@ -1,8 +1,19 @@
 """T018: a host line keeps only that host's words (research R4, FR-012)."""
 
+import random
+
 import pytest
 
-from app.podcasts.services.sanitiser import LineSanitiser, SanitisedLine
+from app.podcasts.catalog import PODCAST_FORMATS
+from app.podcasts.services.casting import Cast, Host
+from app.podcasts.services.line_address import LineAddress
+from app.podcasts.services.sanitiser import (
+    LineSanitiser,
+    SanitisedLine,
+    SentenceVerdict,
+    StreamingSanitiser,
+)
+from app.podcasts.services.sentences import SentenceSplitter
 
 
 def _lucia(learner_name: str | None = "Sam") -> LineSanitiser:
@@ -91,3 +102,127 @@ def test_german_guest_labels_are_known():
     marco = LineSanitiser.for_speaker("Jonas", ("Lena",), None, "de")
 
     assert marco.clean("Gut. Gast: Hallo!").text == "Gut."
+
+
+# --- 011 T031: sanitising a streamed line one sentence at a time (research R13.4, R19.7) -----
+
+
+LUCIA = Host("lead", "Lucía", "enthusiast", "es_AR-daniela-high", "host")
+MARCO = Host("second", "Marco", "dry_sceptic", "es_ES-davefx-medium", "co_host")
+CAST = Cast.for_format(PODCAST_FORMATS["panel"], LUCIA, MARCO)
+
+
+def _streaming() -> StreamingSanitiser:
+    address = LineAddress.for_episode(CAST, "Sam", "lead", "es", is_listening=False)
+    return StreamingSanitiser(_lucia(), address)
+
+
+def _stream(text: str, tokens: list[str] | None = None) -> tuple[list[str], StreamingSanitiser]:
+    """Feed a line through the splitter and the sanitiser, as the line writer does."""
+    splitter, sanitiser, kept = SentenceSplitter(), _streaming(), []
+    for sentence in [s for t in (tokens or [text]) for s in splitter.feed(t)] + [splitter.flush()]:
+        if not sentence:
+            continue
+        verdict = sanitiser.clean_sentence(sentence)
+        if verdict.text:
+            kept.append(verdict.text)
+        if verdict.is_cut:
+            break
+    return kept, sanitiser
+
+
+def test_the_first_sentence_loses_its_own_label():
+    sanitiser = _streaming()
+
+    assert sanitiser.clean_sentence("Lucía: ¡Hola a todos!") == SentenceVerdict(
+        "¡Hola a todos!", False
+    )
+    assert sanitiser.clean_sentence("Lucía: otra vez.") == SentenceVerdict(
+        "Lucía: otra vez.", False
+    )
+    assert sanitiser.was_trimmed is False
+
+
+def test_every_sentence_loses_its_stage_directions():
+    sanitiser = _streaming()
+
+    assert sanitiser.clean_sentence("¡Qué rico! (ríe)") == SentenceVerdict("¡Qué rico!", False)
+    assert sanitiser.was_trimmed is True
+
+
+def test_a_sentence_in_another_speakers_voice_ends_the_line():
+    sanitiser = _streaming()
+    sanitiser.clean_sentence("¡Qué rica la paella!")
+
+    assert sanitiser.clean_sentence("Marco: Yo no.") == SentenceVerdict("", True)
+    assert sanitiser.was_trimmed is True
+
+
+def test_an_address_tag_is_read_and_removed_without_a_trim():
+    kept, sanitiser = _stream("Hoy hablamos de pan. ¿Y tú, comes pan? [@Sam]")
+
+    assert kept == ["Hoy hablamos de pan.", "¿Y tú, comes pan?"]
+    assert sanitiser.was_trimmed is False
+    assert sanitiser.address().addressee == "learner"
+
+
+def test_a_tag_on_its_own_line_gives_no_sentence():
+    kept, sanitiser = _stream("Hoy hablamos de pan con Marco.\n[@Marco]")
+
+    assert kept == ["Hoy hablamos de pan con Marco."]
+    assert (sanitiser.address().addressee, sanitiser.address().is_from_tag) == ("second", True)
+
+
+def test_a_tag_split_across_tokens_is_still_read():
+    kept, sanitiser = _stream("", ["Hoy hablamos de pan. ¿Qué opinas? [@Mar", "co]"])
+
+    assert kept == ["Hoy hablamos de pan.", "¿Qué opinas?"]
+    assert sanitiser.address().addressee == "second"
+
+
+SENTENCES = (
+    "¡Qué rica la paella!",
+    "Hoy hablamos de pan.",
+    "¿Y tú qué piensas, Sam?",
+    "Me encanta (ríe) la cocina.",
+    "*suspira* Es verdad.",
+    "Son 3.5 euros el kilo.",
+    "Como dice Marco, hay que probar.",
+)
+LEAKS = ("Marco: Yo no.", "Sam: ¡Claro!", "Invitado: Me gusta.")
+
+
+def _random_line(rng: random.Random) -> str:
+    parts = rng.choices(SENTENCES, k=rng.randint(1, 5))
+    if rng.random() < 0.3:
+        parts.insert(rng.randint(1, len(parts)), rng.choice(LEAKS))
+    if rng.random() < 0.3:
+        parts.insert(0, "Lucía:")
+    return " ".join(parts)
+
+
+def _random_tokens(text: str, rng: random.Random) -> list[str]:
+    cuts = sorted(rng.sample(range(1, len(text)), k=min(len(text) - 1, rng.randint(0, 10))))
+    return [text[a:b] for a, b in zip([0, *cuts], [*cuts, len(text)], strict=True)]
+
+
+@pytest.mark.parametrize("seed", range(300))
+def test_streamed_sentences_join_to_the_whole_line_sanitised(seed):
+    rng = random.Random(seed)
+    line = _random_line(rng)
+
+    kept, sanitiser = _stream(line, _random_tokens(line, rng))
+    whole = _lucia().clean(line)
+
+    assert "".join(" ".join(kept).split()) == "".join(whole.text.split())
+    assert sanitiser.was_trimmed is whole.was_trimmed
+
+
+@pytest.mark.parametrize("seed", range(100))
+def test_no_kept_sentence_ever_holds_a_tag(seed):
+    rng = random.Random(seed)
+    line = f"{_random_line(rng)} {rng.choice(('[@Sam]', '[@Marco]', '[@all]', '\\n[@all]'))}"
+
+    kept, _sanitiser = _stream(line, _random_tokens(line, rng))
+
+    assert all("[@" not in sentence for sentence in kept)

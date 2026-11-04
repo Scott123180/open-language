@@ -18,6 +18,7 @@ PUBLIC_NAMES = {
     "Corrections",
     "plan_learner_turn",
     "schedule_speech",
+    "iterate_in_thread",
 }
 
 

@@ -13,6 +13,7 @@ from app.conversation_turns.relay import (
     start_warming,
 )
 from app.conversation_turns.speech import schedule_speech
+from app.conversation_turns.streaming import iterate_in_thread
 
 __all__ = [
     "sse",
@@ -25,4 +26,5 @@ __all__ = [
     "Corrections",
     "plan_learner_turn",
     "schedule_speech",
+    "iterate_in_thread",
 ]

@@ -24,6 +24,8 @@ from app.services.llm.base import LLMError
 logger = logging.getLogger(__name__)
 
 _GENERATIONS_PER_REBUILD = 1
+_NO_TOKEN = object()
+"""A live reply that ended before its first token."""
 
 
 @dataclass
@@ -65,6 +67,25 @@ class ConversationSessionPool:
                 # An abandoned reply is never stored, so the session no longer matches storage.
                 self.end(request.key)
                 raise
+
+    def run_turn_live(
+        self, provider: SessionCapableProvider, request: TurnRequest
+    ) -> Iterator[str]:
+        """Yield the reply's tokens as the session produces them (011 research R13.1).
+
+        The key's lock is held for the generator's life. A retryable failure before the first
+        token retries once on a rebuilt session; a failure after it, or closing the generator
+        early, ends the turn as incomplete, so the next turn rebuilds from saved history."""
+        with self._key_lock(request.key):
+            session, tokens, first = self._first_token_with_one_retry(provider, request)
+            is_complete = False
+            try:
+                if first is not _NO_TOKEN:
+                    yield first
+                yield from tokens
+                is_complete = True
+            finally:
+                self._finish_turn(request.key, session, is_complete)
 
     def warm(
         self,
@@ -127,6 +148,30 @@ class ConversationSessionPool:
                 raise
             logger.info("Retrying %s on a rebuilt session after: %s", _label(request.key), exc)
             return self._complete_reply(provider, request)
+
+    def _first_token_with_one_retry(
+        self, provider: SessionCapableProvider, request: TurnRequest
+    ) -> tuple[ConversationSession, Iterator[str], str | object]:
+        try:
+            return self._start_reply(provider, request)
+        except LLMError as exc:
+            if not exc.can_retry:
+                raise
+            logger.info("Retrying %s on a rebuilt session after: %s", _label(request.key), exc)
+            return self._start_reply(provider, request)
+
+    def _start_reply(
+        self, provider: SessionCapableProvider, request: TurnRequest
+    ) -> tuple[ConversationSession, Iterator[str], str | object]:
+        """Open the reply and wait for its first token; a failure here discards the session."""
+        session, pending = self._session_for(provider, request)
+        tokens = iter(_reply(session, request, pending))
+        try:
+            first = next(tokens, _NO_TOKEN)
+        except LLMError:
+            self._finish_turn(request.key, session, is_complete=False)
+            raise
+        return session, tokens, first
 
     def _complete_reply(self, provider: SessionCapableProvider, request: TurnRequest) -> list[str]:
         """One attempt, collected in full. Delivery is batched anyway (spec Assumptions), and a

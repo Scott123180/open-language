@@ -6,8 +6,6 @@ Rules apply in priority order: run cap > addressed host > balance > hand-over > 
 """
 
 import random
-import re
-import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -21,6 +19,7 @@ from app.podcasts.catalog import (
     PodcastFormat,
 )
 from app.podcasts.services.casting import Cast
+from app.podcasts.services.names import first_mention
 
 if TYPE_CHECKING:
     from app.podcasts.services.host_talk import HostTalk
@@ -374,15 +373,5 @@ def _first_named(text: str, cast: Cast) -> str | None:
 
 def _named_hosts(text: str, cast: Cast) -> dict[str, int]:
     """Each host the text names, with where the name first appears."""
-    folded = _fold(text)
-    return {
-        host.slot: match.start()
-        for host in cast.hosts
-        if (match := re.search(rf"\b{re.escape(_fold(host.name))}\b", folded))
-    }
-
-
-def _fold(text: str) -> str:
-    """Case- and accent-insensitive form, so "lucia" names Lucía."""
-    decomposed = unicodedata.normalize("NFKD", text.casefold())
-    return "".join(char for char in decomposed if not unicodedata.combining(char))
+    positions = {host.slot: first_mention(text, host.name) for host in cast.hosts}
+    return {slot: position for slot, position in positions.items() if position is not None}

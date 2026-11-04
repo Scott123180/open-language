@@ -23,6 +23,11 @@ class ConversationEngine:
         """Yield the reply. Raises LLMError with a learner-facing message on failure."""
         return self._pool.run_turn(provider, request)
 
+    def stream_live(self, provider: SessionCapableProvider, request: TurnRequest) -> Iterator[str]:
+        """Yield the reply's tokens as they are produced, for a speaker who talks sentence by
+        sentence (011 research R13). Same error contract as `stream_turn`."""
+        return self._pool.run_turn_live(provider, request)
+
     def acknowledge(self, key: SessionKey, turn_id: str) -> None:
         """Record the saved id of the reply just produced, so the next turn lines up."""
         self._pool.acknowledge(key, turn_id)

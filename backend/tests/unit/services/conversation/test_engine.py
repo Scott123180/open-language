@@ -113,3 +113,12 @@ def test_rebuild_of_long_history_generates_exactly_once(engine, provider):
     [session] = provider.opened
     assert provider.reply_count == 1
     assert session.history == tuple(history[:-1])
+
+
+def test_stream_live_hands_on_the_pools_live_tokens(engine, provider):
+    """011 T028: the engine's live stream is the pool's live turn."""
+    tokens = engine.stream_live(provider, TurnRequest(KEY, STANDING, (ASK,), None, None))
+
+    assert next(tokens) == "Buenos"
+    assert [event for event, _ in provider.log] == ["start"]
+    assert "".join(tokens) == " días"

@@ -318,7 +318,7 @@ Pre-feature episodes resume unchanged.
     - a legacy episode's speaker choice and cues are unchanged by the addressee rule (its lines have no addressee);
     - `turn_actions` gives `can_jump_in=True, can_pass=False` at One host's Continue, and `True, True` in Panel;
   - the existing legacy expectations stay unedited.
-- [ ] T028 [P] [US1] Extend `backend/tests/unit/services/conversation/test_pool.py` and `backend/tests/unit/services/conversation/test_engine.py` (R13.1):
+- [X] T028 [P] [US1] Extend `backend/tests/unit/services/conversation/test_pool.py` and `backend/tests/unit/services/conversation/test_engine.py` (R13.1):
   - `run_turn_live` yields each token as the session produces it, before the reply has finished (use a gated session);
   - it holds the key's lock for the generator's life: a second turn on the same key waits until the first generator is exhausted or closed;
   - a retryable error before the first token retries once on a rebuilt session, like `_reply_with_one_retry`;
@@ -326,18 +326,18 @@ Pre-feature episodes resume unchanged.
   - closing the generator early finishes the turn as incomplete;
   - `run_turn` behaviour is unchanged;
   - `ConversationEngine.stream_live(provider, request)` delegates to `run_turn_live`.
-- [ ] T029 [P] [US1] Write `backend/tests/unit/conversation_turns/test_streaming.py` (R13.2), and add `iterate_in_thread` to the expected surface in `backend/tests/unit/conversation_turns/test_public_surface.py`:
+- [X] T029 [P] [US1] Write `backend/tests/unit/conversation_turns/test_streaming.py` (R13.2), and add `iterate_in_thread` to the expected surface in `backend/tests/unit/conversation_turns/test_public_surface.py`:
   - `iterate_in_thread(make_iterator)` yields the sync iterator's items in order to an `async for`;
   - an exception raised by the iterator is re-raised in the async caller;
   - `aclose()` on the async iterator closes the sync one, and the sync generator's `finally` runs on the worker thread, not the event loop's.
-- [ ] T030 [P] [US1] Write `backend/tests/unit/podcasts/test_sentences.py` for `SentenceSplitter` (R13.3):
+- [X] T030 [P] [US1] Write `backend/tests/unit/podcasts/test_sentences.py` for `SentenceSplitter` (R13.3):
   - boundaries after `.`, `!`, `?` and `…`, with or without a closing quote or bracket, when followed by whitespace and an upper-case letter, a digit, `¿`, `¡` or an opening quote;
   - a newline is always a boundary;
   - no boundary inside "3.5" or "¿Sí? sí", or before a lower-case word;
   - a sentence shorter than `MIN_SENTENCE_CHARACTERS` joins the next ("Sr. Pérez llega." stays one sentence);
   - `flush()` returns the remainder, or `""`;
   - property (seeded): for random multi-sentence texts in the three practice languages' scripts, feeding any random split of tokens gives the same sentences as feeding the whole text at once.
-- [ ] T031 [P] [US1] Extend `backend/tests/unit/podcasts/test_sanitiser.py` for `StreamingSanitiser` (R13.4):
+- [X] T031 [P] [US1] Extend `backend/tests/unit/podcasts/test_sanitiser.py` for `StreamingSanitiser` (R13.4):
   - the first sentence has its own speaker label stripped;
   - every sentence has stage directions removed;
   - a sentence starting with another speaker's label returns `SentenceVerdict(text, is_cut=True)`, drops the rest, and sets `was_trimmed`;
@@ -350,7 +350,7 @@ Pre-feature episodes resume unchanged.
   - an `LLMError` before any part keeps 007's behaviour (retry once if retryable, then raise);
   - an error after a part raises a mid-line error carrying the line's `stream_id`;
   - the finished line carries the addressee from `StreamingSanitiser.address()`, and its text has no tag.
-- [ ] T031a [P] [US1] Write `backend/tests/unit/podcasts/test_line_address.py` for `LineAddress` (research R19.3, data-model §3.7), with a Panel cast (Hugo lead, Julia second) and the learner "Scott":
+- [X] T031a [P] [US1] Write `backend/tests/unit/podcasts/test_line_address.py` for `LineAddress` (research R19.3, data-model §3.7), with a Panel cast (Hugo lead, Julia second) and the learner "Scott":
   - tags: "[@Julia]" → `second`, "[@julia]" and "[@Julía]" → `second` (folded), "[@Scott]" → `learner`, "[@all]" → `None` with `is_from_tag=True`; the last of two tags wins; every tag is removed from `text`;
   - not valid, so the fallback decides: a tag naming no participant ("[@Marco]"), naming the speaker, or longer than `ADDRESS_TAG_MAX_LENGTH`;
   - fallback: a text ending in `?` (also before a closing quote) that names participants → the **last** one named; the learner is named by their name or by `guest_labels_for(language)` when unnamed ("our guest"); a text without `?` that names the other host → that host (first named); otherwise `None`; `is_from_tag=False`;
@@ -446,17 +446,17 @@ Pre-feature episodes resume unchanged.
   - `_addressee_of_last_line(state)` (≈ 6 lines, new): the stored addressee of the last line when it is a host line and the addressee is a host slot. It goes into `_speaker`'s rule tuple between `_addressed_host` and `_balancing_host`, and never fires for legacy lines.
 
   Makes T027 green.
-- [ ] T045a [P] [US1] Create `backend/app/podcasts/services/line_address.py` with `LineAddress.for_episode(cast, learner_label, speaker_slot, language, is_listening)`, `read(text) -> LineAddressResult` and the frozen `LineAddressResult(addressee, text, is_from_tag)`. Implement the tag pattern, folding, the "not valid" cases, and the fallback of research R19.3, reusing `_fold` and `guest_labels_for` (move `_fold` from `turn_policy.py` into a small `services/names.py` that both import, rather than duplicating it). Pure, no I/O. Makes T031a green.
+- [X] T045a [P] [US1] Create `backend/app/podcasts/services/line_address.py` with `LineAddress.for_episode(cast, learner_label, speaker_slot, language, is_listening)`, `read(text) -> LineAddressResult` and the frozen `LineAddressResult(addressee, text, is_from_tag)`. Implement the tag pattern, folding, the "not valid" cases, and the fallback of research R19.3, reusing `_fold` and `guest_labels_for` (move `_fold` from `turn_policy.py` into a small `services/names.py` that both import, rather than duplicating it). Pure, no I/O. Makes T031a green.
 - [ ] T046 [US1] Start every new episode on the defaults:
   - in `backend/app/podcasts/routes.py` (one-off), build `EpisodeSettings.defaults(show role)` with `covered_personality` = the draft's second host's personality in One host, and pass it as `NewEpisode.settings`;
   - in `backend/app/podcasts/services/series.py`, `SeriesService.new_episode` does the same with the series' second host's personality (≈ 19 lines), and `learner_role` comes from the settings;
   - in Panel and Listen, `covered_personality` is `None`.
 
   Together with T043–T045, this makes T037 green.
-- [ ] T047 [P] [US1] Add `ConversationSessionPool.run_turn_live` in `backend/app/services/conversation/pool.py`, with `_first_token_with_one_retry`, each ≤ 20 lines, and `ConversationEngine.stream_live` in `backend/app/services/conversation/engine.py`. `run_turn` and `stream_turn` stay unchanged. Makes T028 green.
-- [ ] T048 [P] [US1] Create `backend/app/conversation_turns/streaming.py` with `iterate_in_thread(make_iterator)`: the default executor, an `asyncio.Queue` fed with `loop.call_soon_threadsafe`, a sentinel for the end and for exceptions, and `aclose()` closing the sync iterator in its thread. Export it from `backend/app/conversation_turns/__init__.py`. Makes T029 green.
-- [ ] T049 [P] [US1] Create `backend/app/podcasts/services/sentences.py` with `SentenceSplitter.feed(token) -> list[str]` and `flush() -> str`, using the boundary rules of T030 and `MIN_SENTENCE_CHARACTERS`. Use no abbreviation list and no per-language data. Makes T030 green.
-- [ ] T050 [US1] Add `StreamingSanitiser` and `SentenceVerdict(text, is_cut)` to `backend/app/podcasts/services/sanitiser.py`, wrapping `LineSanitiser`'s label and stage-direction rules and exposing `was_trimmed`. Each sentence's address tags are collected and removed through `LineAddress` (T045a) **before** the stage-direction strip; a sentence that is only a tag yields no kept sentence; `address()` reads the collected raw text once flushed; tag removal never sets `was_trimmed`. Depends on T045a. Makes T031 green.
+- [X] T047 [P] [US1] Add `ConversationSessionPool.run_turn_live` in `backend/app/services/conversation/pool.py`, with `_first_token_with_one_retry`, each ≤ 20 lines, and `ConversationEngine.stream_live` in `backend/app/services/conversation/engine.py`. `run_turn` and `stream_turn` stay unchanged. Makes T028 green.
+- [X] T048 [P] [US1] Create `backend/app/conversation_turns/streaming.py` with `iterate_in_thread(make_iterator)`: the default executor, an `asyncio.Queue` fed with `loop.call_soon_threadsafe`, a sentinel for the end and for exceptions, and `aclose()` closing the sync iterator in its thread. Export it from `backend/app/conversation_turns/__init__.py`. Makes T029 green.
+- [X] T049 [P] [US1] Create `backend/app/podcasts/services/sentences.py` with `SentenceSplitter.feed(token) -> list[str]` and `flush() -> str`, using the boundary rules of T030 and `MIN_SENTENCE_CHARACTERS`. Use no abbreviation list and no per-language data. Makes T030 green.
+- [X] T050 [US1] Add `StreamingSanitiser` and `SentenceVerdict(text, is_cut)` to `backend/app/podcasts/services/sanitiser.py`, wrapping `LineSanitiser`'s label and stage-direction rules and exposing `was_trimmed`. Each sentence's address tags are collected and removed through `LineAddress` (T045a) **before** the stage-direction strip; a sentence that is only a tag yields no kept sentence; `address()` reads the collected raw text once flushed; tag removal never sets `was_trimmed`. Depends on T045a. Makes T031 green.
 - [ ] T051 [US1] Create `backend/app/podcasts/services/line_writer.py` with `LineWriter`: it consumes `engine.stream_live` through `iterate_in_thread`, splits tokens with `SentenceSplitter`, cleans each sentence with `StreamingSanitiser`, and yields kept sentences. It retries a line cut or empty before its first sentence (`_attempt`, `_kept_sentences`, each ≤ 20 lines; this is `EpisodeTurns._write_line` moved), and raises a mid-line error with the `stream_id` after a part. The finished line carries `StreamingSanitiser.address()`'s addressee. Depends on T047–T050. Makes T032 green.
 - [ ] T052 [P] [US1] Create `backend/app/podcasts/services/spoken_parts.py` with `LinePart` and `SpokenParts` (`begin`, `add`, `audio`, `assemble`, `discard`, expiry after `PART_TTL_SECONDS`), taking the speech lookup, a single-worker executor and a clock through its constructor. Use the standard-library `wave` module to join the parts. Makes T033 green.
 - [ ] T053 [US1] Wire the streaming pieces in `backend/app/services/factory.py`: `get_spoken_parts()`, process-wide like `MemoryCatchUps`, with its worker shut down where the app's other workers are; and a `LineWriter` and `SpokenParts` in `EpisodeDependencies`. No module outside `app.podcasts` other than the factory imports `spoken_parts`. Makes T034 green.

@@ -281,3 +281,77 @@ class TestWarmAndLifecycle:
         pool.acknowledge(ROLEPLAY_7, "m2")
 
         assert not pool.is_live(ROLEPLAY_7)
+
+
+class TestLiveTurns:
+    """011 T028: a turn whose tokens are handed on as the session produces them (R13.1)."""
+
+    def _live(self, pool, provider, key=ROLEPLAY_7):
+        return pool.run_turn_live(provider, _request([ASK], key))
+
+    def test_each_token_arrives_before_the_reply_has_finished(self, pool, provider):
+        tokens = self._live(pool, provider)
+
+        assert next(tokens) == "Buenos"
+        assert [event for event, _ in provider.log] == ["start"]
+        assert "".join(tokens) == " días"
+        assert [event for event, _ in provider.log] == ["start", "end"]
+
+    def test_a_finished_live_turn_keeps_its_session(self, pool, provider):
+        "".join(self._live(pool, provider))
+        pool.acknowledge(ROLEPLAY_7, "m2")
+
+        _turn(pool, provider, [ASK, ANSWER, FOLLOW_UP])
+
+        assert len(provider.opened) == 1
+
+    def test_the_keys_lock_is_held_until_the_live_turn_is_done(self, pool, provider):
+        tokens = self._live(pool, provider)
+        next(tokens)
+        second = threading.Thread(target=_turn, args=(pool, provider, [ASK]))
+        second.start()
+        time.sleep(0.05)
+
+        assert [event for event, _ in provider.log] == ["start"]
+        "".join(tokens)
+        second.join(2)
+        assert [event for event, _ in provider.log] == ["start", "end", "start", "end"]
+
+    def test_closing_the_live_turn_releases_the_lock_and_discards_the_session(self, pool, provider):
+        tokens = self._live(pool, provider)
+        next(tokens)
+
+        tokens.close()
+
+        assert provider.opened[0].is_closed
+        assert not pool.is_live(ROLEPLAY_7)
+        assert _turn(pool, provider, [ASK]) == "Buenos días"
+
+    def test_a_retryable_failure_before_the_first_token_retries_once(self, pool, provider):
+        provider.errors = [LLMError("process exited")]
+
+        assert "".join(self._live(pool, provider)) == "Buenos días"
+        assert len(provider.opened) == 2
+        assert provider.opened[0].is_closed
+
+    def test_a_failure_before_the_first_token_twice_propagates(self, pool, provider):
+        provider.errors = [LLMError("first"), LLMError("second")]
+
+        with pytest.raises(LLMError, match="second"):
+            "".join(self._live(pool, provider))
+        assert not pool.is_live(ROLEPLAY_7)
+
+    def test_a_failure_after_the_first_token_ends_the_turn_unretried(self, pool, provider):
+        provider.mid_reply_errors = [LLMError("process exited mid-reply")]
+        tokens = self._live(pool, provider)
+
+        assert next(tokens) == "Buenos"
+        with pytest.raises(LLMError, match="mid-reply"):
+            next(tokens)
+        assert len(provider.opened) == 1
+        assert not pool.is_live(ROLEPLAY_7)
+
+    def test_the_batched_turn_is_unchanged(self, pool, provider):
+        provider.mid_reply_errors = [LLMError("process exited mid-reply")]
+
+        assert _turn(pool, provider, [ASK]) == "Buenos días"
