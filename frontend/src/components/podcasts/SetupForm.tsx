@@ -67,7 +67,7 @@ function SeriesSection({ show, catalog, form, hosts, hostCount, series, guest, o
   return (
     <>
       <SeriesHosts hosts={hosts} hostCount={hostCount} personalities={catalog.personalities}
-        keepsVoice={catalog.voices.installed_count <= 2} series={context} guest={guest} onPlaySample={onPlaySample} />
+        keepsVoice={catalog.voices.installed_count <= 2} series={context} guest={guest} format={form.format} onPlaySample={onPlaySample} />
       {series && <SeriesMemoryPanel detail={series} />}
       {series && <StandardSettingsButton detail={series} onReset={form.reset} />}
     </>

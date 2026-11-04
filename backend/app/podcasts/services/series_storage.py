@@ -174,6 +174,8 @@ class RememberedPoint:
     conversation_language: str
     english: str
     episode_number: int
+    conversation_id: int
+    """011: the episode the point came from, to tell who was there (research R11)."""
 
 
 @dataclass(frozen=True, slots=True)

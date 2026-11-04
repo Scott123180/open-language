@@ -18,7 +18,7 @@ from app.podcasts.services.series import (
     StartRefused,
 )
 from app.podcasts.services.series_settings import SeriesSettings
-from app.podcasts.services.series_snapshot import SeriesSnapshot
+from app.podcasts.services.series_snapshot import RememberedLine, SeriesSnapshot
 from app.podcasts.services.series_storage import SeriesHost, ShowContent
 from app.podcasts.services.storage import NewHost
 from app.services.storage.base import AppSettingsRecord
@@ -500,3 +500,103 @@ def test_a_one_host_series_switched_to_panel_brings_in_its_never_heard_second_ho
     prepared = world.service.prepare(_request(format="panel"), _settings())
 
     assert prepared.series.snapshot.new_host_slots == ("second",)
+
+
+# --- 011 T115: a guest in place of a regular host, and the missed marks (R10–R12) ---------
+
+LEAD_GUEST = SeriesHost("lead", "Marco", "joker", "es_AR-daniela-high", "host", None, 0)
+
+
+def _guest_start(world, guest=MARCO, format="panel"):
+    return world.service.prepare(_with_guest(guest, format=format), _settings())
+
+
+def test_a_guest_in_a_panel_series_second_chair_replaces_that_host_for_today(world):
+    world.existing_series(episodes=2)
+
+    snapshot = _guest_start(world).series.snapshot
+
+    assert (snapshot.guest_slot, snapshot.away_host_name) == ("second", "Inés")
+
+
+def test_a_lead_guest_in_a_one_host_series_stands_in_for_the_one_host(world):
+    series = world.existing_series(episodes=2)
+    world.series_storage.present[series.series_id] = {
+        1001: frozenset({"Hugo"}),
+        1002: frozenset({"Hugo"}),
+    }
+    expert_like_ines = replace(LEAD_GUEST, personality_id="expert")
+
+    prepared = _guest_start(world, expert_like_ines, format="one_host")
+
+    assert prepared.hosts == (
+        NewHost("lead", "Marco", "expert", "es_AR-daniela-high", "host", None),
+    )
+    assert prepared.series.snapshot.away_host_name == "Hugo"
+
+
+def test_the_shows_expert_joining_a_one_host_series_replaces_nobody(world):
+    series = world.existing_series(episodes=2)
+    world.series_storage.present[series.series_id] = {
+        1001: frozenset({"Hugo"}),
+        1002: frozenset({"Hugo"}),
+    }
+
+    assert _guest_start(world).series.snapshot.away_host_name is None
+
+
+def test_points_from_a_guest_episode_are_missed_by_the_host_who_was_away(world):
+    series = world.existing_series(episodes=3)
+    world.series_storage.present[series.series_id][1003] = frozenset({"Hugo", "Marco"})
+    world.series_storage.add_point(series.series_id, "topic", "los bostezos", 3)
+    world.series_storage.add_point(series.series_id, "topic", "el sueño", 2)
+
+    snapshot = world.service.prepare(_request(), _settings()).series.snapshot
+
+    assert snapshot.topics_covered == (
+        RememberedLine("el sueño"),
+        RememberedLine("los bostezos", ("second",)),
+    )
+
+
+def test_two_guest_episodes_in_a_row_mark_every_point_from_both(world):
+    series = world.existing_series(episodes=3)
+    present = world.series_storage.present[series.series_id]
+    present[1002], present[1003] = frozenset({"Hugo", "Marco"}), frozenset({"Hugo", "Sofía"})
+    for number in (2, 3):
+        world.series_storage.add_point(series.series_id, "learner", f"Punto {number}.", number)
+
+    snapshot = world.service.prepare(_request(), _settings()).series.snapshot
+
+    assert all(line.missed_by == ("second",) for line in snapshot.about_learner)
+
+
+def test_a_second_host_joining_a_one_host_series_has_missed_every_earlier_point(world):
+    series = world.existing_series(episodes=2)
+    world.series_storage.present[series.series_id] = {
+        1001: frozenset({"Hugo"}),
+        1002: frozenset({"Hugo"}),
+    }
+    for number in (1, 2):
+        world.series_storage.add_point(series.series_id, "topic", f"tema {number}", number)
+
+    snapshot = world.service.prepare(_request(format="panel"), _settings()).series.snapshot
+
+    assert [line.missed_by for line in snapshot.topics_covered] == [("second",), ("second",)]
+
+
+def test_points_from_episodes_every_present_host_was_in_stay_unmarked(world):
+    series = world.existing_series(episodes=2)
+    world.series_storage.add_point(series.series_id, "topic", "el sueño", 1)
+
+    snapshot = world.service.prepare(_request(), _settings()).series.snapshot
+
+    assert snapshot.topics_covered == (RememberedLine("el sueño"),)
+    assert not snapshot.has_marks
+
+
+def test_a_guest_never_adds_a_seat(world):
+    world.existing_series(episodes=2)
+
+    assert len(_guest_start(world).hosts) == 2
+    assert len(_guest_start(world, LEAD_GUEST, format="one_host").hosts) == 1

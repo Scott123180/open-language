@@ -45,3 +45,22 @@ describe('SeriesHostCard, a host who joins (011 R12)', () => {
     expect(screen.queryByText('New to the show')).not.toBeInTheDocument()
   })
 })
+
+describe('SeriesHostCard, inviting a guest (011 US4)', () => {
+  it('offers Invite a guest… beside Recast…', () => {
+    const onInvite = vi.fn()
+    render(<SeriesHostCard host={hugo} onPlaySample={() => undefined} onRecast={() => undefined} onInvite={onInvite} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Invite a guest in place of Hugo' }))
+
+    expect(screen.getByRole('button', { name: 'Recast Hugo' })).toBeInTheDocument()
+    expect(onInvite).toHaveBeenCalledOnce()
+  })
+
+  it('reads “Away this episode” while a guest has the chair, with no actions', () => {
+    render(<SeriesHostCard host={hugo} onPlaySample={() => undefined} onRecast={() => undefined} onInvite={() => undefined} isAway />)
+
+    expect(screen.getByText('Away this episode')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Invite a guest/ })).not.toBeInTheDocument()
+  })
+})

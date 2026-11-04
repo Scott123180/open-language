@@ -39,3 +39,14 @@ describe('GuestCard (011 contracts §11)', () => {
     expect(screen.getByText('Ollama isn’t running.')).toBeInTheDocument()
   })
 })
+
+describe('GuestCard — removing an invited guest (011 US4)', () => {
+  it('Remove guest gives the chair back', async () => {
+    const onRemove = vi.fn()
+    render(<GuestCard guest={marco} personalityLabel="Expert" isCasting={false} error={null} onAnother={vi.fn()} onRemove={onRemove} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove guest' }))
+
+    expect(onRemove).toHaveBeenCalledOnce()
+  })
+})

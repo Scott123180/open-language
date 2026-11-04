@@ -23,7 +23,7 @@ from app.podcasts.catalog import (
 )
 from app.podcasts.services.casting import Cast, Host
 from app.podcasts.services.host_talk import HostTalk
-from app.podcasts.services.series_snapshot import SeriesBrief
+from app.podcasts.services.series_snapshot import RememberedLine, SeriesBrief
 from app.podcasts.services.surprise import SurpriseIdea
 from app.podcasts.services.turn_policy import LineCue
 from app.practice_languages import ConversationLanguages
@@ -133,26 +133,53 @@ def _series_section(series: SeriesBrief, learner_label: str, talk: HostTalk) -> 
     snapshot = series.snapshot
     lines = [_episode_sentence(series.episode_number)]
     if snapshot.topics_covered:
-        lines.append(f"Earlier episodes covered: {'; '.join(snapshot.topics_covered)}.")
+        topics = "; ".join(_point_text(point, series) for point in snapshot.topics_covered)
+        lines.append(f"Earlier episodes covered: {topics}.")
     if snapshot.about_learner:
         verb = "have" if learner_label == LISTENER_LABEL else "has"
         lines.append(f"What {learner_label} {verb} told you before:")
-        lines.extend(f"- {point}" for point in snapshot.about_learner)
+        lines.extend(f"- {_point_text(point, series)}" for point in snapshot.about_learner)
     rules = _series_rules(bool(snapshot.topics_covered or snapshot.about_learner))
     lines.extend(_with_chosen_subject(rules, learner_label, talk.today_subject))
     lines.extend(_new_host_rule(name) for name in series.new_host_names)
     lines.extend(_guest_lines(series))
+    lines.extend(_marks_rule(name, learner_label) for name in _missing_names(series))
     return "\n".join(lines)
+
+
+def _missing_names(series: SeriesBrief) -> tuple[str, ...]:
+    """Today's hosts who missed at least one remembered point, in cast order (011 R11)."""
+    snapshot = series.snapshot
+    points = (*snapshot.topics_covered, *snapshot.about_learner)
+    missed = {name for point in points for name in series.missed_names(point)}
+    return tuple(name for _slot, name in series.present_names if name in missed)
+
+
+def _marks_rule(name: str, learner_label: str) -> str:
+    return (
+        f"- {name} only heard about points marked [{name} was away]: {name} may mention them as "
+        f"something heard from the other host, never as having been there or having heard "
+        f"{learner_label} say it."
+    )
+
+
+def _point_text(point: RememberedLine, series: SeriesBrief) -> str:
+    """A point, marked for each host here today who was not there (011 R11)."""
+    marks = "".join(f" [{name} was away for this]" for name in series.missed_names(point))
+    return point.text + marks
 
 
 def _guest_lines(series: SeriesBrief) -> tuple[str, ...]:
     """Today's guest, who knows nothing of the series (011 R10). None in a 010 snapshot."""
     if series.guest_name is None:
         return ()
-    return (
+    guest = (
         f"- {series.guest_name} is today's guest, here for this episode only, and does not "
-        "know the earlier episodes.",
+        "know the earlier episodes."
     )
+    if series.away_host_name is None:
+        return (guest,)
+    return (guest, f"- {series.away_host_name} is away today and back next time.")
 
 
 def _with_chosen_subject(

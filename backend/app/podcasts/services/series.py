@@ -6,7 +6,7 @@ a plain 409 rather than silently overruled (SC-001, research R2). The memory an 
 with is frozen into its snapshot here (research R5).
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
 from app.podcasts.catalog import (
@@ -38,9 +38,10 @@ from app.podcasts.services.casting import Host, HostCaster
 from app.podcasts.services.episode_settings import EpisodeSettings
 from app.podcasts.services.library import ShowLibrary
 from app.podcasts.services.series_settings import SeriesSettings
-from app.podcasts.services.series_snapshot import SeriesSnapshot
+from app.podcasts.services.series_snapshot import RememberedLine, SeriesSnapshot
 from app.podcasts.services.series_storage import (
     KeptShow,
+    RememberedPoint,
     SeriesAlreadyExists,
     SeriesHost,
     SeriesRecord,
@@ -159,13 +160,13 @@ class SeriesService:
             raise LanguageChanged()
         if req.slot not in _used_slots(req.format):
             raise StartRefused(GUEST_HAS_NO_SEAT)
-        _check_personality(series, req.slot, req.personality_id)
         other = next(host for host in series.hosts if host.slot != req.slot)
+        beside = (other,) if other.slot in _used_slots(req.format) else ()
+        _check_guest_personality(req.personality_id, beside)
         avoid = (*(host.name for host in series.hosts), *req.avoid_names, req.learner_name or "")
         personality = req.personality_id or _expert_for(series, req.slot, other)
-        return self._caster.cast_guest(
-            req.slot, personality, (other.to_host(),), avoid, series.language
-        )
+        present = tuple(host.to_host() for host in beside)
+        return self._caster.cast_guest(req.slot, personality, present, avoid, series.language)
 
     def reset(self, series_id: int) -> bool:
         """Start over: forget the series; its episodes stay in Past Chats (FR-011)."""
@@ -236,9 +237,10 @@ class SeriesService:
         host = next((h for h in series.hosts if h.name.casefold() == name), None)
         if host is not None:
             return GUEST_IS_A_HOST.format(name=host.name)
-        other = _host_draft(next(h for h in series.hosts if h.slot != guest.slot))
+        other = next(h for h in series.hosts if h.slot != guest.slot)
+        beside = _host_draft(other) if other.slot in _used_slots(req.format) else None
         installed = self._installed_count(language)
-        return guest_problem(guest, other, language, req.learner_name, installed)
+        return guest_problem(guest, beside, language, req.learner_name, installed)
 
     def _one_off_start(self, req: StartEpisodeRequest, language: str) -> PreparedStart:
         """007's start, unchanged; a learner-made show is kept by playing it (FR-014)."""
@@ -298,32 +300,19 @@ class SeriesService:
     def _snapshot(
         self, series: SeriesRecord, hosts: tuple[NewHost, ...], guest_slot: str | None
     ) -> SeriesSnapshot:
-        """The bounded memory, newest first, who joins the series in this episode, and today's
-        guest (011)."""
-        points = self._series.remembered(series.series_id)
+        """The bounded memory, newest first, each point marked for the hosts here today who
+        missed it; who joins the series now; and today's guest and the host they replace
+        (011 R10–R12)."""
+        present = self._series.hosts_present(series.series_id)
+        regulars = tuple(h for h in series.hosts if h.slot in _seats(hosts) - {guest_slot})
+        points = Remembered(self._series.remembered(series.series_id), present, regulars)
         return SeriesSnapshot(
             episode_number=series.next_episode_number,
-            topics_covered=tuple(p.conversation_language for p in points if p.kind == TOPIC_POINT),
-            about_learner=tuple(p.conversation_language for p in points if p.kind == LEARNER_POINT),
-            new_host_slots=self._joining_slots(series, hosts, guest_slot),
+            topics_covered=points.lines(TOPIC_POINT),
+            about_learner=points.lines(LEARNER_POINT),
+            new_host_slots=_joining_slots(series, regulars, present),
             guest_slot=guest_slot,
-        )
-
-    def _joining_slots(
-        self, series: SeriesRecord, hosts: tuple[NewHost, ...], guest_slot: str | None
-    ) -> tuple[str, ...]:
-        """Regular hosts in this episode who are new to the show: just recast (010), or never
-        in an episode yet, such as a One host series' second host (011 R12)."""
-        count = series.episode_count
-        if count < 1:
-            return ()
-        heard = set().union(*self._series.hosts_present(series.series_id).values())
-        taking_part = {host.slot for host in hosts} - {guest_slot}
-        return tuple(
-            host.slot
-            for host in series.hosts
-            if host.slot in taking_part
-            and (host.joined_after_episodes == count or host.name not in heard)
+            away_host_name=_away_host(series, guest_slot, present),
         )
 
     @staticmethod
@@ -340,6 +329,17 @@ def _check_personality(series: SeriesRecord, slot: str, personality_id: str | No
     other = next(host for host in series.hosts if host.slot != slot)
     if other.personality_id == personality_id:
         raise PersonalityTaken(PERSONALITY_TAKEN.format(other=other.name))
+
+
+def _check_guest_personality(personality_id: str | None, beside: tuple[SeriesHost, ...]) -> None:
+    """A known personality, unlike the other host's in the episode, if there is one."""
+    if personality_id is None:
+        return
+    if personality_id not in PERSONALITIES:
+        raise StartRefused(UNKNOWN_PERSONALITY)
+    taken = next((host for host in beside if host.personality_id == personality_id), None)
+    if taken is not None:
+        raise PersonalityTaken(PERSONALITY_TAKEN.format(other=taken.name))
 
 
 def _expert_for(series: SeriesRecord, slot: str, other: SeriesHost) -> str | None:
@@ -390,6 +390,60 @@ def _series_host(draft: HostDraftModel) -> SeriesHost:
     return SeriesHost(
         draft.slot, name, draft.personality_id, draft.voice_key, draft.show_role, draft.angle, 0
     )
+
+
+@dataclass(frozen=True)
+class Remembered:
+    """The series' points, read against who was in each episode (011 R11)."""
+
+    points: tuple[RememberedPoint, ...]
+    present: Mapping[int, frozenset[str]]
+    regulars: tuple[SeriesHost, ...]
+    """The series' own hosts taking part today."""
+
+    def lines(self, kind: str) -> tuple[RememberedLine, ...]:
+        return tuple(self._line(p) for p in self.points if p.kind == kind)
+
+    def _line(self, point: RememberedPoint) -> RememberedLine:
+        there = self.present.get(point.conversation_id, frozenset())
+        missed = tuple(host.slot for host in self.regulars if host.name not in there)
+        return RememberedLine(point.conversation_language, missed)
+
+
+def _seats(hosts: tuple[NewHost, ...]) -> set[str]:
+    return {host.slot for host in hosts}
+
+
+def _heard(present: Mapping[int, frozenset[str]]) -> frozenset[str]:
+    """Everyone who has been in a series episode."""
+    return frozenset().union(*present.values())
+
+
+def _joining_slots(
+    series: SeriesRecord, regulars: tuple[SeriesHost, ...], present: Mapping[int, frozenset[str]]
+) -> tuple[str, ...]:
+    """Regular hosts here today who are new to the show: just recast (010), or never in an
+    episode yet, such as a One host series' second host (011 R12)."""
+    count = series.episode_count
+    if count < 1:
+        return ()
+    heard = _heard(present)
+    return tuple(
+        host.slot
+        for host in regulars
+        if host.joined_after_episodes == count or host.name not in heard
+    )
+
+
+def _away_host(
+    series: SeriesRecord, guest_slot: str | None, present: Mapping[int, frozenset[str]]
+) -> str | None:
+    """The regular host whose chair the guest takes, once they have been on the show; the
+    never-heard second host of a One host series is not away (011 FR-024a)."""
+    if guest_slot is None:
+        return None
+    host = series.host(guest_slot)
+    return host.name if host.name in _heard(present) else None
 
 
 def _participating(series: SeriesRecord, req: StartEpisodeRequest) -> tuple[NewHost, ...]:

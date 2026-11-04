@@ -343,9 +343,19 @@ def series_open(label: str, series: SeriesBrief, phrase: str = "", subject: str 
     )
     if series.is_new_host(_LEAD):
         return f"{opening} Introduce yourself as the show's new host."
-    if series.guest_name is not None and series.guest_slot != _LEAD:
-        return f"{opening} Introduce {series.guest_name} as today's guest."
-    return opening
+    return opening + _guest_opening(series)
+
+
+def _guest_opening(series: SeriesBrief) -> str:
+    """Today's guest, and the regular host they are in for (011 R10)."""
+    guest, away = series.guest_name, series.away_host_name
+    if guest is None:
+        return ""
+    if series.guest_slot == _LEAD:
+        return f" You are today's guest host, standing in for {away}, who is away today."
+    if away is None:
+        return f" Introduce {guest} as today's guest."
+    return f" Introduce {guest} as today's guest, in for {away}, who is away today."
 
 
 def _greeting(cue: LineCue, cast: Cast, label: str, series: SeriesBrief | None, phrase: str) -> str:

@@ -298,6 +298,7 @@ def _episode_fields(episode: LoadedEpisode, saved_show_id: int | None) -> dict:
         "length": record.length,
         "target_host_lines": episode.length.target_host_lines,
         "learner_name": record.learner_name,
+        "away_host_name": record.series.snapshot.away_host_name if record.series else None,
     }
 
 

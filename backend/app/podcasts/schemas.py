@@ -455,6 +455,8 @@ class EpisodeSettingsResponse(BaseModel):
 
 
 class EpisodeResponse(BaseModel):
+    away_host_name: str | None = None
+    """011: the regular host today's guest is in for; None when nobody is away."""
     conversation_id: int
     status: str
     language: str
@@ -610,14 +612,15 @@ def _host_problem(
 
 def guest_problem(
     guest: HostDraftModel,
-    other: HostDraftModel,
+    other: HostDraftModel | None,
     language: str,
     learner_name: str | None,
     installed_count: int,
 ) -> str | None:
-    """007's host and pair checks for a guest beside the other present host (011 §5.2)."""
+    """007's host checks for a guest, and its pair checks beside the other present host, if
+    any (011 §5.2)."""
     problem = _host_problem(guest, language, learner_name, SERIES_CLASH)
-    if problem is not None:
+    if problem is not None or other is None:
         return problem
     lead, second = sorted((guest, other), key=lambda host: host.slot != LEAD_SLOT)
     return _pair_problem(lead, second, installed_count)

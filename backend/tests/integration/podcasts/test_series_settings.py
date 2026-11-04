@@ -105,7 +105,7 @@ def test_scoped_episodes_count_and_remember_as_any_series_episode(harness):
 
     assert [second["series"]["episode_number"], third["series"]["episode_number"]] == [2, 3]
     stored = harness.podcasts.get_episode(third["conversation_id"]).series.snapshot
-    assert stored.topics_covered == ("el sueño",)
+    assert [line.text for line in stored.topics_covered] == ["el sueño"]
 
 
 def test_the_reset_returns_standard_settings_and_leaves_past_episodes(harness):

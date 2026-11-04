@@ -1,12 +1,14 @@
 """010 T013: the series value objects (data-model §3)."""
 
+import json
+
 import pytest
 
 from app.podcasts.catalog import PODCAST_FORMATS
 from app.podcasts.schemas import HostDraftModel, ShowDraftModel
 from app.podcasts.services.casting import Cast, Host
 from app.podcasts.services.library import ShowRef
-from app.podcasts.services.series_snapshot import SeriesBrief, SeriesSnapshot
+from app.podcasts.services.series_snapshot import RememberedLine, SeriesBrief, SeriesSnapshot
 from app.podcasts.services.series_storage import KeptShow, SeriesHost, SeriesRecord
 
 HUGO = SeriesHost("lead", "Hugo", "curious_interviewer", "es_AR-daniela-high", "host", None, 0)
@@ -218,3 +220,69 @@ def test_a_brief_without_a_guest_names_none():
     brief = SeriesBrief.of(SeriesSnapshot(4), cast)
 
     assert (brief.guest_slot, brief.guest_name) == (None, None)
+
+
+# --- 011 T113: missed marks and the away host (data-model §2.5, §3.5) --------------------
+
+
+def test_a_remembered_line_has_no_marks_by_default():
+    assert RememberedLine("el sueño").missed_by == ()
+
+
+def test_snapshot_points_are_remembered_lines_even_when_given_as_text():
+    snapshot = SeriesSnapshot(4, ("el sueño",), ("Odia las mañanas.",))
+
+    assert snapshot.topics_covered == (RememberedLine("el sueño"),)
+    assert snapshot.about_learner == (RememberedLine("Odia las mañanas."),)
+
+
+def test_a_marked_point_is_written_as_an_object_and_an_unmarked_one_as_text():
+    snapshot = SeriesSnapshot(4, (RememberedLine("el sueño", ("second",)), "los bostezos"))
+
+    stored = json.loads(snapshot.to_json())
+
+    assert stored["topics_covered"] == [
+        {"text": "el sueño", "missed_by": ["second"]},
+        "los bostezos",
+    ]
+
+
+def test_both_point_forms_and_the_away_host_round_trip_through_json():
+    snapshot = SeriesSnapshot(
+        5,
+        (RememberedLine("el sueño", ("second",)),),
+        (RememberedLine("Odia las mañanas.", ("lead", "second")), "Va a la playa."),
+        guest_slot="second",
+        away_host_name="Clara",
+    )
+
+    assert SeriesSnapshot.from_json(snapshot.to_json()) == snapshot
+
+
+def test_a_010_snapshot_loads_with_no_marks_and_no_away_host():
+    snapshot = SeriesSnapshot.from_json(_010_SNAPSHOT_JSON)
+
+    assert snapshot.topics_covered == (RememberedLine("el sueño"),)
+    assert snapshot.away_host_name is None
+
+
+def test_a_snapshot_without_an_away_host_writes_no_key_for_it():
+    assert "away_host_name" not in SeriesSnapshot(4, guest_slot="second").to_json()
+
+
+def test_the_brief_gives_the_away_host_and_names_who_missed_a_point():
+    marco = Host("second", "Marco", "joker", "es_ES-davefx-medium", "co_host")
+    cast = Cast.for_format(PODCAST_FORMATS["panel"], HUGO.to_host(), marco)
+    line = RememberedLine("el sueño", ("lead", "second"))
+
+    brief = SeriesBrief.of(SeriesSnapshot(4, (line,), away_host_name="Inés"), cast)
+
+    assert brief.away_host_name == "Inés"
+    assert brief.missed_names(line) == ("Hugo", "Marco")
+
+
+def test_a_point_missed_by_a_host_outside_the_episode_names_nobody():
+    cast = Cast.for_format(PODCAST_FORMATS["one_host"], HUGO.to_host(), None)
+    line = RememberedLine("el sueño", ("second",))
+
+    assert SeriesBrief.of(SeriesSnapshot(4, (line,)), cast).missed_names(line) == ()

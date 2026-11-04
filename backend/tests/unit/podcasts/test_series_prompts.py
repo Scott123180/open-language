@@ -21,7 +21,7 @@ from app.podcasts.prompts import (
 from app.podcasts.services.casting import Cast, Host
 from app.podcasts.services.episode_settings import EpisodeSettings
 from app.podcasts.services.host_talk import ConfiguredTalk
-from app.podcasts.services.series_snapshot import SeriesBrief, SeriesSnapshot
+from app.podcasts.services.series_snapshot import RememberedLine, SeriesBrief, SeriesSnapshot
 from app.podcasts.services.turn_policy import Ask, LineCue
 from app.practice_languages import ConversationLanguages
 from tests.unit.podcasts.legacy_talk_calls import (
@@ -285,3 +285,55 @@ def test_without_a_guest_the_configured_section_has_no_guest_line():
     brief = SeriesBrief.of(SeriesSnapshot(4, TOPICS, LEARNER), CAST)
 
     assert "today's guest" not in _configured_prompt(brief, CAST)
+
+
+# --- 011 T116: the away host, the lead stand-in and the missed marks (R10, R11) -----------
+
+CLARA_AWAY = SeriesSnapshot(5, TOPICS, LEARNER, guest_slot="second", away_host_name="Clara")
+MARKS_RULE = (
+    "- Inés only heard about points marked [Inés was away]: Inés may mention them as something "
+    "heard from the other host, never as having been there or having heard Sam say it."
+)
+
+
+def test_the_away_host_is_away_today_never_gone():
+    section = _section(_configured_prompt(SeriesBrief.of(CLARA_AWAY, GUEST_CAST)))
+
+    assert "- Clara is away today and back next time." in section
+    assert "left" not in section
+
+
+def test_the_open_cue_names_the_guest_and_the_away_host():
+    cue = LineCue("lead", "open", Ask.NEVER, False, False)
+
+    text = render_cue(cue, _configured(SeriesBrief.of(CLARA_AWAY, GUEST_CAST), GUEST_CAST))
+
+    assert "Introduce Marco as today's guest, in for Clara, who is away today." in text
+
+
+def test_a_lead_guest_opens_as_standing_in_for_the_away_host():
+    marco_lead = Host("lead", "Marco", "joker", "es_AR-daniela-high", "host")
+    cast = Cast.for_format(PODCAST_FORMATS["one_host"], marco_lead, None)
+    snapshot = SeriesSnapshot(5, TOPICS, LEARNER, guest_slot="lead", away_host_name="Hugo")
+    cue = LineCue("lead", "open", Ask.NEVER, False, False)
+
+    text = render_cue(cue, _configured(SeriesBrief.of(snapshot, cast), cast))
+
+    assert "You are today's guest host, standing in for Hugo, who is away today." in text
+
+
+def test_a_marked_point_names_who_was_away_and_adds_the_rule():
+    marked = SeriesSnapshot(5, (RememberedLine("los bostezos", ("second",)),), LEARNER)
+
+    section = _section(_configured_prompt(SeriesBrief.of(marked, CAST), CAST))
+
+    assert "Earlier episodes covered: los bostezos [Inés was away for this]." in section
+    assert MARKS_RULE in section
+
+
+def test_the_marks_rule_appears_only_when_a_point_is_marked():
+    section = _section(
+        _configured_prompt(SeriesBrief.of(SeriesSnapshot(5, TOPICS, LEARNER), CAST), CAST)
+    )
+
+    assert "only heard about" not in section

@@ -371,3 +371,20 @@ def test_hosts_present_of_a_series_without_episodes_is_empty(storage, series):
 
 def test_settings_are_a_value(series):
     assert _replace(series.settings, style="presented").style == "presented"
+
+
+# --- 011 T114: each point knows the episode it came from (research R11) ------------------
+
+
+def test_a_remembered_point_carries_its_episodes_conversation_id(storage, session, series):
+    first = series_episode(session, series, 1)
+    second = series_episode(session, series, 2)
+
+    storage.remember(series.series_id, first, reply("el sueño"), None)
+    storage.remember(series.series_id, second, reply("los bostezos"), None)
+
+    points = storage.remembered(series.series_id)
+    assert [(p.conversation_language, p.conversation_id) for p in points] == [
+        ("los bostezos", second),
+        ("el sueño", first),
+    ]

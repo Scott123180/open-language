@@ -6,13 +6,19 @@ interface Seat {
   slot: HostSlot
   format: PodcastFormatId
   personalityId: string | null
+  isAutomatic: boolean
 }
 
 export interface GuestControls {
   guest: HostDraft | null
+  /** The chair the guest has, or is being cast for; null with no guest. */
+  seatSlot: HostSlot | null
+  /** The show's expert, seated by the setup rather than invited by the learner (FR-024a). */
+  isAutomatic: boolean
   isCasting: boolean
   error: string | null
-  cast: (slot: HostSlot, format: PodcastFormatId, personalityId: string | null) => Promise<void>
+  /** Seat a guest; there is only ever one, so a new one replaces any other (interpretation 6). */
+  cast: (slot: HostSlot, format: PodcastFormatId, personalityId: string | null, options?: { isAutomatic?: boolean }) => Promise<void>
   /** Another guest: the same seat and personality, never a name drawn before. */
   another: () => Promise<void>
   remove: () => void
@@ -26,25 +32,28 @@ export function useGuest(seriesId: number | null, language: string, learnerName:
   const drawn = useRef<string[]>([])
   const draw = async (next: Seat) => {
     seat.current = next
-    setState((current) => ({ ...current, isCasting: true, error: null }))
+    setState((current) => ({ ...current, seatSlot: next.slot, isCasting: true, error: null }))
     const cast = await castState(seriesId!, guestBody(next, language, learnerName, drawn.current))
     if (cast.guest) drawn.current = [...drawn.current, cast.guest.name]
-    setState(cast)
+    setState({ ...cast, seatSlot: next.slot, isAutomatic: next.isAutomatic })
   }
   const remove = () => {
     seat.current = null
     setState(NO_GUEST)
   }
-  return { ...state, remove, cast: (slot, format, id) => draw({ slot, format, personalityId: id }), another: () => (seat.current ? draw(seat.current) : Promise.resolve()) }
+  const cast: GuestControls['cast'] = (slot, format, id, options) => draw({ slot, format, personalityId: id, isAutomatic: options?.isAutomatic ?? false })
+  return { ...state, remove, cast, another: () => (seat.current ? draw(seat.current) : Promise.resolve()) }
 }
 
 interface GuestState {
   guest: HostDraft | null
+  seatSlot: HostSlot | null
+  isAutomatic: boolean
   isCasting: boolean
   error: string | null
 }
 
-const NO_GUEST: GuestState = { guest: null, isCasting: false, error: null }
+const NO_GUEST: GuestState = { guest: null, seatSlot: null, isAutomatic: false, isCasting: false, error: null }
 
 async function castState(seriesId: number, body: podcasts.GuestBody): Promise<GuestState> {
   try {
@@ -75,10 +84,10 @@ interface ExpertSeat {
 /** The show's expert takes the second chair while a One host series is Panel or Listen for
  * this episode, and leaves when the format goes back (011 FR-024a). */
 export function useExpertGuest(controls: GuestControls, { isWanted, format, expertId }: ExpertSeat): void {
-  const { guest, isCasting, error, cast, remove } = controls
+  const { guest, isAutomatic, isCasting, error, cast, remove } = controls
   useEffect(() => {
-    if (isWanted && !guest && !isCasting && !error) void cast('second', format, expertId)
-    if (!isWanted && guest?.slot === 'second') remove()
+    if (isWanted && !guest && !isCasting && !error) void cast('second', format, expertId, { isAutomatic: true })
+    if (!isWanted && guest && isAutomatic) remove()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- cast and remove are new each render
-  }, [isWanted, guest, isCasting, error, format, expertId])
+  }, [isWanted, guest, isAutomatic, isCasting, error, format, expertId])
 }

@@ -89,3 +89,30 @@ describe('useExpertGuest (011 FR-024a)', () => {
     expect(result.current.guest).toBeNull()
   })
 })
+
+describe('useGuest — one guest at a time (011 plan interpretation 6)', () => {
+  it('a lead-chair guest replaces the automatic expert', async () => {
+    const lead: HostDraft = { ...marco, slot: 'lead', name: 'Pía', show_role: 'host' }
+    vi.mocked(podcasts.castGuest).mockResolvedValueOnce(marco).mockResolvedValueOnce(lead)
+    const { result } = renderHook(() => useGuest(4, 'es', ''))
+    await act(() => result.current.cast('second', 'panel', 'expert', { isAutomatic: true }))
+
+    await act(() => result.current.cast('lead', 'panel', 'joker'))
+
+    expect(result.current.guest).toEqual(lead)
+    expect(result.current.isAutomatic).toBe(false)
+  })
+
+  it('the automatic expert never removes a guest the learner invited', async () => {
+    vi.mocked(podcasts.castGuest).mockResolvedValue(marco)
+    const { result } = renderHook(() => {
+      const guest = useGuest(4, 'es', '')
+      useExpertGuest(guest, { isWanted: false, format: 'panel', expertId: 'expert' })
+      return guest
+    })
+
+    await act(() => result.current.cast('second', 'panel', 'joker'))
+
+    expect(result.current.guest).toEqual(marco)
+  })
+})

@@ -781,7 +781,7 @@ episode. Check that:
 
 ### Tests for User Story 4 (write first, see them fail)
 
-- [ ] T113 [P] [US4] Extend `backend/tests/unit/podcasts/test_series_values.py` (data-model §2.5, §3.5):
+- [X] T113 [P] [US4] Extend `backend/tests/unit/podcasts/test_series_values.py` (data-model §2.5, §3.5):
   - `RememberedLine(text, missed_by=())`;
   - `SeriesSnapshot.topics_covered` and `about_learner` are tuples of `RememberedLine`;
   - `to_json` writes unmarked points as plain strings and marked ones as `{"text": …, "missed_by": ["second"]}`;
@@ -789,8 +789,8 @@ episode. Check that:
   - `away_host_name` round-trips and is absent when `None`;
   - a snapshot with no marks, guest or away host is byte-identical to 010's;
   - `SeriesBrief.of` gives `away_host_name`, and `missed_names(line)` resolves the slots present in the cast to names.
-- [ ] T114 [P] [US4] Extend `backend/tests/unit/podcasts/test_sqlite_series_storage.py`: `remembered(series_id)` returns `RememberedPoint`s with the `conversation_id` of the episode each came from (≈ 12 lines).
-- [ ] T115 [P] [US4] Extend `backend/tests/unit/podcasts/test_series_service.py` (FR-020–FR-024, R10–R12):
+- [X] T114 [P] [US4] Extend `backend/tests/unit/podcasts/test_sqlite_series_storage.py`: `remembered(series_id)` returns `RememberedPoint`s with the `conversation_id` of the episode each came from (≈ 12 lines).
+- [X] T115 [P] [US4] Extend `backend/tests/unit/podcasts/test_series_service.py` (FR-020–FR-024, R10–R12):
   - a guest in the second slot of a Panel series replaces Clara: the snapshot's `guest_slot = "second"` and `away_host_name = "Clara"`;
   - a guest in the lead slot of a One host series replaces the one host (US4-6), with `away_host_name` = the lead's name;
   - the next episode's points from the guest episode carry `missed_by = ("second",)` while Clara is present;
@@ -799,29 +799,29 @@ episode. Check that:
   - points from episodes the present hosts were all in stay unmarked;
   - a guest named like the away host is refused;
   - at most three people: a guest never adds a fourth seat.
-- [ ] T116 [P] [US4] Extend `backend/tests/unit/podcasts/test_series_prompts.py` (new tests only) and `backend/tests/unit/podcasts/test_configured_golden.py`:
+- [X] T116 [P] [US4] Extend `backend/tests/unit/podcasts/test_series_prompts.py` (new tests only) and `backend/tests/unit/podcasts/test_configured_golden.py`:
   - the away host is "away today", never "left the show";
   - the `open` cue names both the guest and the away host;
   - a lead-slot guest opens as standing in for the away host;
   - a marked point renders `- {text} [Clara was away for this]`, and the rule "Clara only heard about points marked [Clara was away]: Clara may mention them as something heard from the other host, never as having been there or having heard {label} say it." appears only when a mark is present;
   - add a configured series guest case to the golden test, with structure assertions first. Its file `backend/tests/unit/podcasts/golden/configured_series_guest_prompt.json` is written in T124.
-- [ ] T117 [P] [US4] Extend `backend/tests/contract/test_podcast_series_episodes_api.py` and `backend/tests/contract/test_podcast_series_settings_api.py`:
+- [X] T117 [P] [US4] Extend `backend/tests/contract/test_podcast_series_episodes_api.py` and `backend/tests/contract/test_podcast_series_settings_api.py`:
   - a guest episode's `EpisodeResponse` has `is_guest: true` on the guest only, and `away_host_name: "Clara"`;
   - a Panel-this-episode expert episode has `away_host_name: null`;
   - `POST /series/{id}/guest` for the lead slot refuses the second host's personality, with "{name} already has that personality. Pick another one.".
-- [ ] T118 [P] [US4] Extend `backend/tests/integration/podcasts/test_guest_episodes.py` (T095):
+- [X] T118 [P] [US4] Extend `backend/tests/integration/podcasts/test_guest_episodes.py` (T095):
   - a Panel series' guest in Clara's place is introduced as joining today, and Clara is away;
   - the next episode has Clara back with the same name, personality and voice, no guest, and a snapshot marking the guest episode's points as missed by her;
   - the series count and Hugo's memory include the guest episode;
   - a One host series' lead guest works the same way;
   - a missing guest voice behaves as 007 FR-031.
-- [ ] T119 [P] [US4] Write the Vitest tests:
+- [X] T119 [P] [US4] Write the Vitest tests:
   - `frontend/src/components/podcasts/GuestDialog.test.tsx`: a personality `radiogroup`, then **Invite**, then the cast guest is shown; an `alertdialog` with focus trap and return;
   - `frontend/src/components/podcasts/SeriesHostCard.test.tsx`: **Invite a guest…** beside **Recast…**; with a guest in that chair, the regular card reads "Away this episode";
   - `frontend/src/components/podcasts/GuestCard.test.tsx`: **Remove guest** restores the regular host;
   - `frontend/src/hooks/podcasts/useGuest.test.tsx`: inviting a guest on the lead chair while the automatic expert sits in the second chair replaces the expert, so there is still one guest;
   - `frontend/src/components/podcasts/EpisodeHeader.test.tsx`: "Guest: Marco" and "Clara is away" from `is_guest` and `away_host_name`, as text, not colour alone.
-- [ ] T120 [P] [US4] Write `frontend/e2e/podcast-guests.spec.ts` with `guestDraft`:
+- [X] T120 [P] [US4] Write `frontend/e2e/podcast-guests.spec.ts` with `guestDraft`:
   - Invite a guest… → personality → Invite shows the guest card;
   - Another guest sends `avoid_names`;
   - Remove guest restores the host;
@@ -831,17 +831,17 @@ episode. Check that:
 
 ### Implementation for User Story 4
 
-- [ ] T121 [P] [US4] Add `RememberedLine`, `away_host_name` and both point forms to `backend/app/podcasts/services/series_snapshot.py`: `to_json` / `from_json` via `_line_json` / `_line_of` (≈ 13 / 12 lines), and `SeriesBrief.of` with `guest_name`, `away_host_name` and `missed_names` (≈ 10 lines). Makes T113 green.
-- [ ] T122 [P] [US4] Add `conversation_id` to `RememberedPoint` in `backend/app/podcasts/services/series_storage.py`, filled by `SQLiteSeriesStorage.remembered` in `backend/app/podcasts/services/sqlite_series_storage.py`. Update `backend/tests/support/fake_series_storage.py` and `backend/tests/support/series_records.py`. Makes T114 green.
-- [ ] T123 [US4] Extend `backend/app/podcasts/services/series.py`:
+- [X] T121 [P] [US4] Add `RememberedLine`, `away_host_name` and both point forms to `backend/app/podcasts/services/series_snapshot.py`: `to_json` / `from_json` via `_line_json` / `_line_of` (≈ 13 / 12 lines), and `SeriesBrief.of` with `guest_name`, `away_host_name` and `missed_names` (≈ 10 lines). Makes T113 green.
+- [X] T122 [P] [US4] Add `conversation_id` to `RememberedPoint` in `backend/app/podcasts/services/series_storage.py`, filled by `SQLiteSeriesStorage.remembered` in `backend/app/podcasts/services/sqlite_series_storage.py`. Update `backend/tests/support/fake_series_storage.py` and `backend/tests/support/series_records.py`. Makes T114 green.
+- [X] T123 [US4] Extend `backend/app/podcasts/services/series.py`:
   - a guest in place of either regular host, with `away_host_name`;
   - `_snapshot` marks points via `_remembered_lines(points, present, cast)`, using `hosts_present`: a point is missed by every present regular host who was not in its episode.
 
   Makes T115 green.
-- [ ] T124 [US4] Render the away host, the lead-slot stand-in and the missed marks in `backend/app/podcasts/prompts.py`: `_point_line(point, series)`, the away lines in `_guest_lines`, the `open` cue naming both, and the marks rule only when a mark is present. Then generate `backend/tests/unit/podcasts/golden/configured_series_guest_prompt.json` with the `--write` script, review it against R10–R11, and pin it. Makes T116 green.
-- [ ] T125 [US4] Add `away_host_name` and the replacement guest's `is_guest` to the episode in `backend/app/podcasts/responses.py`, via `_guest_fields(episode)` (`_episode_fields` ≈ 19 lines). Makes T117 and T118 green.
-- [ ] T126 [US4] Create `frontend/src/components/podcasts/GuestDialog.tsx`. Add **Invite a guest…** and "Away this episode" to `frontend/src/components/podcasts/SeriesHostCard.tsx`, **Remove guest** to `GuestCard.tsx`, and the single-guest rule (a lead-chair guest replaces the automatic expert) to `frontend/src/hooks/podcasts/useGuest.ts`, through small child components so each stays ≤ 20 lines.
-- [ ] T127 [US4] Show "Guest: {name}" and "{name} is away" in `frontend/src/components/podcasts/EpisodeHeader.tsx`, through a small child component. Makes T119 and T120 green.
+- [X] T124 [US4] Render the away host, the lead-slot stand-in and the missed marks in `backend/app/podcasts/prompts.py`: `_point_line(point, series)`, the away lines in `_guest_lines`, the `open` cue naming both, and the marks rule only when a mark is present. Then generate `backend/tests/unit/podcasts/golden/configured_series_guest_prompt.json` with the `--write` script, review it against R10–R11, and pin it. Makes T116 green.
+- [X] T125 [US4] Add `away_host_name` and the replacement guest's `is_guest` to the episode in `backend/app/podcasts/responses.py`, via `_guest_fields(episode)` (`_episode_fields` ≈ 19 lines). Makes T117 and T118 green.
+- [X] T126 [US4] Create `frontend/src/components/podcasts/GuestDialog.tsx`. Add **Invite a guest…** and "Away this episode" to `frontend/src/components/podcasts/SeriesHostCard.tsx`, **Remove guest** to `GuestCard.tsx`, and the single-guest rule (a lead-chair guest replaces the automatic expert) to `frontend/src/hooks/podcasts/useGuest.ts`, through small child components so each stays ≤ 20 lines.
+- [X] T127 [US4] Show "Guest: {name}" and "{name} is away" in `frontend/src/components/podcasts/EpisodeHeader.tsx`, through a small child component. Makes T119 and T120 green.
 - [ ] T128 [US4] Write `backend/tests/integration/podcasts/test_guest_episode_benchmark.py` (`@pytest.mark.benchmark`): 10 guest episodes in a two-host series and each following episode, printing the guest's introduction and every returning-host line that mentions the guest episode, for SC-009 review. Run it on `llama3.1:8b` and record the results in `specs/011-configurable-podcast-shows/talk-review-sheet.md`.
 - [ ] T129 [US4] US4 checkpoint: the full suites, lint, and quickstart §4 step 7 by hand.
 

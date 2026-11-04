@@ -245,3 +245,28 @@ def test_every_host_of_a_plain_episode_is_not_a_guest(harness):
     episode = harness.start_series("panel")
 
     assert [host["is_guest"] for host in episode["hosts"]] == [False, False]
+
+
+# --- 011 T117: the away host on the episode (contracts §5) --------------------------------
+
+
+def _panel_series_then(harness, **body):
+    harness.start_series("panel")
+    return _post(harness, harness.listing(), **body)
+
+
+def test_a_guest_episode_names_the_away_host(harness):
+    response = _panel_series_then(harness, guest=MARCO)
+
+    episode = response.json()
+    away = next(host["name"] for host in harness.listing()["hosts"] if host["slot"] == "second")
+    assert episode["away_host_name"] == away
+    assert [host["is_guest"] for host in episode["hosts"]] == [False, True]
+
+
+def test_an_expert_joining_a_one_host_series_has_nobody_away(harness):
+    assert _later(harness, guest=MARCO).json()["away_host_name"] is None
+
+
+def test_an_episode_without_a_guest_has_nobody_away(harness):
+    assert harness.start_series("panel")["away_host_name"] is None

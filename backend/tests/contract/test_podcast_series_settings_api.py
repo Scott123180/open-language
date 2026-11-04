@@ -146,3 +146,15 @@ def test_a_guest_with_the_present_hosts_personality_is_refused_plainly(harness):
     assert response.json()["detail"] == (
         f"{lead['name']} already has that personality. Pick another one."
     )
+
+
+def test_a_lead_guest_cannot_take_the_second_hosts_personality(harness):
+    second = _series(harness)["hosts"][1]
+    series_id = harness.listing()["series"]["series_id"]
+
+    response = _guest(harness, series_id, slot="lead", personality_id=second["personality_id"])
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        f"{second['name']} already has that personality. Pick another one."
+    )

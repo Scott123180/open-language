@@ -30,8 +30,21 @@ export default function EpisodeHeader({ episode }: { episode: Episode }) {
       <div style={{ minWidth: 0 }}>
         <h1 style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--color-text)' }}>{episodeTitle(episode)}</h1>
         <PodcastLabel formatLabel={episode.format_label} hostNames={hostNames} />
+        <GuestLine episode={episode} />
       </div>
       <ConversationLevelControl />
     </header>
+  )
+}
+
+/** "Guest: Marco · Clara is away", in words, for a series guest episode (011 US4). */
+function GuestLine({ episode }: { episode: Episode }) {
+  const guest = episode.hosts.find((host) => host.is_guest)
+  if (!guest) return null
+  return (
+    <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
+      <span>{`Guest: ${guest.name}`}</span>
+      {episode.away_host_name && <span>{' · '}<span>{`${episode.away_host_name} is away`}</span></span>}
+    </p>
   )
 }

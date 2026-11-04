@@ -524,4 +524,5 @@ def _remembered_point(memory: PodcastSeriesMemory, episode_number: int) -> Remem
         conversation_language=memory.conversation_language,
         english=memory.english,
         episode_number=episode_number,
+        conversation_id=memory.conversation_id,
     )

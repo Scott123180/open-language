@@ -34,7 +34,7 @@ from app.podcasts.services.casting import Cast, Host
 from app.podcasts.services.cues import episode_history
 from app.podcasts.services.episode_settings import EpisodeSettings
 from app.podcasts.services.host_talk import ConfiguredTalk
-from app.podcasts.services.series_snapshot import SeriesBrief, SeriesSnapshot
+from app.podcasts.services.series_snapshot import RememberedLine, SeriesBrief, SeriesSnapshot
 from app.podcasts.services.turn_policy import LEARNER, Ask, LineCue, LineFacts
 from app.practice_languages import ConversationLanguages
 
@@ -186,10 +186,74 @@ def test_every_configured_cue_fits_its_budget(key):
     assert len(_cue(cue, subject)) / CHARACTERS_PER_TOKEN <= CUE_TOKEN_BUDGET
 
 
+# --- 011 T116/T124: a configured series guest episode (research R10, R11) -----------------
+
+GUEST_FILE = GOLDEN_FILE.parent / "configured_series_guest_prompt.json"
+MARCO = Host("second", "Marco", "joker", "es_AR-daniela-high", "co_host")
+GUEST_CAST = Cast.for_format(PODCAST_FORMATS["panel"], HUGO, MARCO)
+GUEST_SNAPSHOT = SeriesSnapshot(
+    6,
+    (RememberedLine("las tostadas", ("lead",)), RememberedLine("los bostezos")),
+    (RememberedLine("Sam tiene un gato."),),
+    guest_slot="second",
+    away_host_name="Julia",
+)
+
+
+def _guest_context() -> CueContext:
+    return CueContext(GUEST_CAST, LABEL, _talk(), SeriesBrief.of(GUEST_SNAPSHOT, GUEST_CAST))
+
+
+def guest_cases() -> Iterator[Case]:
+    context = _guest_context()
+    yield "standing", lambda: build_standing_prompt(
+        PromptContext(SHOW, SPANISH, ConversationLevel.BEGINNER, context)
+    )
+    yield "cue|open", lambda: render_cue(LineCue("lead", "open", Ask.NEVER, False, False), context)
+    yield "cue|greet", lambda: render_cue(
+        LineCue("second", "greet", Ask.NEVER, False, False), context
+    )
+
+
+def _guest_render(key: str) -> str:
+    return dict(guest_cases())[key]()
+
+
+def test_the_guest_prompt_introduces_the_guest_and_keeps_the_away_host():
+    prompt = _guest_render("standing")
+
+    assert "- Marco is today's guest, here for this episode only" in prompt
+    assert "- Julia is away today and back next time." in prompt
+    assert "las tostadas [Hugo was away for this]" in prompt
+    assert "- Hugo only heard about points marked [Hugo was away]" in prompt
+
+
+def test_the_guest_cues_name_the_guest_and_the_greeting_fits_its_budget():
+    """A series opening is 010's recollection plus the subject and the guest, so it is not held
+    to the one-off cue budget; the greeting is."""
+    opening, greeting = _guest_render("cue|open"), _guest_render("cue|greet")
+
+    assert "Introduce Marco as today's guest, in for Julia, who is away today." in opening
+    assert "Greet Hugo and Sam" in greeting
+    assert "introduce yourself as today's guest" in greeting
+    assert len(greeting) / CHARACTERS_PER_TOKEN <= CUE_TOKEN_BUDGET
+
+
+def test_the_guest_prompt_fits_its_budget():
+    assert len(_guest_render("standing")) / CHARACTERS_PER_TOKEN <= STANDING_PROMPT_TOKEN_BUDGET
+
+
+@pytest.mark.parametrize(("key", "render"), list(guest_cases()), ids=lambda value: str(value))
+def test_the_guest_text_equals_the_reviewed_text(key, render):
+    assert render() == json.loads(GUEST_FILE.read_text(encoding="utf-8"))[key]
+
+
 def _write_golden() -> None:
     GOLDEN_FILE.parent.mkdir(parents=True, exist_ok=True)
     texts = {key: render() for key, render in golden_cases()}
     GOLDEN_FILE.write_text(json.dumps(texts, ensure_ascii=False, indent=1) + "\n", "utf-8")
+    guest = {key: render() for key, render in guest_cases()}
+    GUEST_FILE.write_text(json.dumps(guest, ensure_ascii=False, indent=1) + "\n", "utf-8")
 
 
 if __name__ == "__main__" and "--write" in sys.argv:

@@ -1012,6 +1012,28 @@ export function seriesWithSettings(overrides: Record<string, unknown> = {}) {
   })
 }
 
+/** A Panel series whose two hosts have both been on the show (011 US4): a guest replaces one. */
+export function panelSeriesWithSettings() {
+  const detail = seriesWithSettings()
+  return {
+    ...detail,
+    usual_settings: { ...detail.usual_settings, format: 'panel' },
+    is_standard: false,
+    hosts: detail.hosts.map((host) => ({ ...host, has_taken_part: true })),
+  }
+}
+
+/** Episode 2 with Marco as the guest in Inés' chair (011 contracts §5). */
+export function guestEpisodeFixture() {
+  const episode = seriesEpisodeFixture(2, 'panel')
+  const [lead, second] = episode.hosts
+  return {
+    ...episode,
+    hosts: [{ ...lead, name: 'Hugo', is_guest: false }, { ...second, name: guestDraft.name, is_guest: true }],
+    away_host_name: 'Inés' as string | null,
+  }
+}
+
 /** `POST /api/podcasts/shows/discover`: three fresh suggestions (010 contracts §4). */
 export const suggestionsFixture = {
   suggestions: [

@@ -85,7 +85,8 @@ class FakeSeriesStorage(SeriesStorage):
 
     def add_point(self, series_id: int, kind: str, text: str, episode_number: int = 1) -> None:
         point_id = sum(len(points) for points in self.points.values()) + 1
-        point = RememberedPoint(point_id, kind, text, f"EN {text}", episode_number)
+        conversation_id = series_id * 1000 + episode_number
+        point = RememberedPoint(point_id, kind, text, f"EN {text}", episode_number, conversation_id)
         self.points[series_id].insert(0, point)
 
     def find(self, show_row_id: int, language: str) -> SeriesRecord | None:
