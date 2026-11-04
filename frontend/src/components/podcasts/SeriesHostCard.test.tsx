@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import SeriesHostCard from './SeriesHostCard'
-import { hugo } from './fixtures.test.utils'
+import { hugo, ines } from './fixtures.test.utils'
 
 describe('SeriesHostCard', () => {
   it('shows the host read-only with a voice sample', () => {
@@ -29,5 +29,19 @@ describe('SeriesHostCard', () => {
     expect(screen.getByText('Curious interviewer')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: "Play Hugo's voice" })).toBeDisabled()
     expect(screen.getByText(message)).toBeInTheDocument()
+  })
+})
+
+describe('SeriesHostCard, a host who joins (011 R12)', () => {
+  it('reads “New to the show” until the host has been in an episode', () => {
+    render(<SeriesHostCard host={{ ...ines, has_taken_part: false }} onPlaySample={() => undefined} />)
+
+    expect(screen.getByText('New to the show')).toBeInTheDocument()
+  })
+
+  it('says nothing for a host who has taken part', () => {
+    render(<SeriesHostCard host={{ ...ines, has_taken_part: true }} onPlaySample={() => undefined} />)
+
+    expect(screen.queryByText('New to the show')).not.toBeInTheDocument()
   })
 })

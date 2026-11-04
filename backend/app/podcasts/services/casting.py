@@ -8,6 +8,7 @@ language has one installed voice (FR-007).
 
 import hashlib
 import random
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from app.podcasts.catalog import (
@@ -133,6 +134,34 @@ class HostCaster:
         used = {replaced.personality_id, other.personality_id}
         free = [key for key in PERSONALITIES if key not in used]
         return _host(slot, name, personality_id or self._rng.choice(free), voice, None)
+
+    def cast_guest(
+        self,
+        slot: str,
+        personality_id: str | None,
+        present: tuple[Host, ...],
+        avoid_names: Iterable[str],
+        language: str,
+    ) -> Host:
+        """A guest for one episode in `slot` (011 research R10): never a series host's or the
+        learner's name (`avoid_names`), and unlike the hosts `present` in personality and, when
+        another voice is installed, in voice."""
+        used = {host.personality_id for host in present}
+        if personality_id in used:
+            raise InvalidCast("A guest needs a personality unlike the other host's.")
+        voice = self._guest_voice(present, language)
+        taken = {name.strip().casefold() for name in avoid_names}
+        name = self._random_name(voice, language, taken)
+        free = [key for key in PERSONALITIES if key not in used]
+        return _host(slot, name, personality_id or self._rng.choice(free), voice, None)
+
+    def _guest_voice(self, present: tuple[Host, ...], language: str) -> VoiceInfo:
+        catalogue = voices_for(language)
+        installed = [v for v in catalogue if self._installation.is_installed(v.key)]
+        usable = installed or list(catalogue)
+        taken = {host.voice_key for host in present}
+        fresh = [voice for voice in usable if voice.key not in taken]
+        return self._rng.choice(fresh) if fresh else usable[0]
 
     def _recast_voice(self, replaced: Host, other: Host) -> VoiceInfo:
         catalogue = voices_for(_VOICES[replaced.voice_key].language)

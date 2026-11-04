@@ -29,6 +29,7 @@ export default function SeriesHostCard({ host, onPlaySample, onRecast }: SeriesH
       <span style={nameStyle}>
         <span style={{ fontWeight: 'var(--weight-semibold)' as never }}>{host.name}</span>
         <span style={mutedTextStyle}>{host.personality_label}</span>
+        {host.has_taken_part === false && <span style={mutedTextStyle}>New to the show</span>}
       </span>
       <button type="button" onClick={onPlaySample} disabled={!host.is_voice_available} aria-label={`Play ${host.name}'s voice`} style={secondaryButtonStyle}>▶</button>
       {onRecast && <button type="button" onClick={onRecast} aria-label={`Recast ${host.name}`} style={secondaryButtonStyle}>Recast…</button>}

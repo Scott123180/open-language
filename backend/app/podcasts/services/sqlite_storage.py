@@ -18,6 +18,7 @@ from app.podcasts.models import (
 )
 from app.podcasts.services.episode_settings import EpisodeSettings
 from app.podcasts.services.series_snapshot import SeriesSnapshot
+from app.podcasts.services.sqlite_series_storage import series_settings_row
 from app.podcasts.services.storage import (
     EpisodeRecord,
     EpisodeSeriesFacts,
@@ -61,7 +62,13 @@ class SQLitePodcastStorage(PodcastStorage):
 
     def _add_series_link(self, conversation_id: int, link: NewSeriesLink | None) -> None:
         if link is not None:
+            self._upsert_series_settings(link)
             self._db.add(_new_link_row(conversation_id, link))
+
+    def _upsert_series_settings(self, link: NewSeriesLink) -> None:
+        if link.settings_update is not None:
+            row = series_settings_row(link.series_id, link.settings_update, datetime.now(UTC))
+            self._db.merge(row)
 
     def get_episode(self, conversation_id: int) -> EpisodeRecord | None:
         row = self._episode_rows().filter(PodcastEpisode.conversation_id == conversation_id).first()

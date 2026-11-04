@@ -343,13 +343,21 @@ def series_open(label: str, series: SeriesBrief, phrase: str = "", subject: str 
     )
     if series.is_new_host(_LEAD):
         return f"{opening} Introduce yourself as the show's new host."
+    if series.guest_name is not None and series.guest_slot != _LEAD:
+        return f"{opening} Introduce {series.guest_name} as today's guest."
     return opening
 
 
 def _greeting(cue: LineCue, cast: Cast, label: str, series: SeriesBrief | None, phrase: str) -> str:
-    is_new = series is not None and series.is_new_host(cue.speaker_slot)
-    yourself = "introduce yourself as new to the show" if is_new else "introduce yourself"
-    return f"Greet {cast.lead.name} and {label} {phrase}, then {yourself}."
+    return f"Greet {cast.lead.name} and {label} {phrase}, then {_yourself(cue, series)}."
+
+
+def _yourself(cue: LineCue, series: SeriesBrief | None) -> str:
+    if series is not None and series.guest_slot == cue.speaker_slot:
+        return "introduce yourself as today's guest"
+    if series is not None and series.is_new_host(cue.speaker_slot):
+        return "introduce yourself as new to the show"
+    return "introduce yourself"
 
 
 def _answer(cue: LineCue, cast: Cast, label: str, phrase: str) -> str:

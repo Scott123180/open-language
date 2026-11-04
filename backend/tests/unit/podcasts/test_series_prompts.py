@@ -11,9 +11,18 @@ from app.podcasts.catalog import (
     REMEMBERED_TEXT_BUDGET,
     SERIES_SECTION_MAX_LENGTH,
 )
-from app.podcasts.prompts import ShowBrief
+from app.podcasts.prompts import (
+    CueContext,
+    PromptContext,
+    ShowBrief,
+    build_standing_prompt,
+    render_cue,
+)
 from app.podcasts.services.casting import Cast, Host
+from app.podcasts.services.episode_settings import EpisodeSettings
+from app.podcasts.services.host_talk import ConfiguredTalk
 from app.podcasts.services.series_snapshot import SeriesBrief, SeriesSnapshot
+from app.podcasts.services.turn_policy import Ask, LineCue
 from app.practice_languages import ConversationLanguages
 from tests.unit.podcasts.legacy_talk_calls import (
     legacy_cue,
@@ -216,3 +225,63 @@ def test_a_new_lead_opens_by_introducing_themselves_as_the_new_host():
     cue = legacy_cue(cue=OPEN, cast=CAST, learner_label="Sam", series=_brief(new=("lead",)))
 
     assert "Introduce yourself as the show's new host." in cue
+
+
+# --- 011 T092: today's guest, and a host new after a switch to Panel (R10, R12) -----------
+
+MARCO = Host("second", "Marco", "joker", "es_AR-daniela-high", "co_host")
+GUEST_CAST = Cast.for_format(PODCAST_FORMATS["panel"], HUGO, MARCO)
+
+
+def _configured(series: SeriesBrief, cast: Cast) -> CueContext:
+    settings = EpisodeSettings.defaults("guest")
+    return CueContext(cast, "Sam", ConfiguredTalk(settings), series)
+
+
+def _guest_brief(cast: Cast = GUEST_CAST, guest_slot="second", new=()) -> SeriesBrief:
+    snapshot = SeriesSnapshot(4, TOPICS, LEARNER, new, guest_slot=guest_slot)
+    return SeriesBrief.of(snapshot, cast)
+
+
+def _configured_prompt(series: SeriesBrief, cast: Cast = GUEST_CAST) -> str:
+    context = _configured(series, cast)
+    return build_standing_prompt(PromptContext(SHOW, SPANISH, ConversationLevel.NATURAL, context))
+
+
+def test_a_guest_joins_for_this_episode_without_knowing_the_earlier_ones():
+    section = _section(_configured_prompt(_guest_brief()))
+
+    assert (
+        "- Marco is today's guest, here for this episode only, and does not know the earlier "
+        "episodes." in section
+    )
+
+
+def test_the_open_cue_names_todays_guest():
+    cue = LineCue("lead", "open", Ask.NEVER, False, False)
+
+    text = render_cue(cue, _configured(_guest_brief(), GUEST_CAST))
+
+    assert "Introduce Marco as today's guest." in text
+
+
+def test_the_guests_greeting_introduces_them_as_todays_guest():
+    cue = LineCue("second", "greet", Ask.NEVER, False, False)
+
+    text = render_cue(cue, _configured(_guest_brief(), GUEST_CAST))
+
+    assert "then introduce yourself as today's guest." in text
+
+
+def test_a_host_who_joins_on_a_switch_to_panel_is_introduced_as_new():
+    brief = SeriesBrief.of(SeriesSnapshot(4, TOPICS, LEARNER, ("second",)), CAST)
+
+    section = _section(_configured_prompt(brief, CAST))
+
+    assert "- Inés is new to the show and does not know the earlier episodes" in section
+
+
+def test_without_a_guest_the_configured_section_has_no_guest_line():
+    brief = SeriesBrief.of(SeriesSnapshot(4, TOPICS, LEARNER), CAST)
+
+    assert "today's guest" not in _configured_prompt(brief, CAST)

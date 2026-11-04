@@ -3,6 +3,7 @@ import type { SetupForm } from '../../hooks/podcasts/useSetupForm'
 import FormatFieldset from './FormatFieldset'
 import LearnerNameField from './LearnerNameField'
 import LengthFieldset from './LengthFieldset'
+import ScopeMark from './ScopeMark'
 import SetupVoiceNotice from './SetupVoiceNotice'
 
 interface SetupFieldsProps {
@@ -17,9 +18,9 @@ interface SetupFieldsProps {
 export default function SetupFields({ catalog, form, hostCount, hostNames }: SetupFieldsProps) {
   return (
     <>
-      <FormatFieldset formats={catalog.formats} value={form.format} onChange={form.setFormat} />
+      <FormatFieldset formats={catalog.formats} value={form.format} onChange={form.setFormat} mark={<ScopeMark scope={form.scopeOf?.('format')} />} />
       <SetupVoiceNotice voices={catalog.voices} hostCount={hostCount} />
-      <LengthFieldset lengths={catalog.lengths} value={form.length} onChange={form.setLength} />
+      <LengthFieldset lengths={catalog.lengths} value={form.length} onChange={form.setLength} mark={<ScopeMark scope={form.scopeOf?.('length')} />} />
       <LearnerNameField value={form.learnerName} onChange={form.setLearnerName} hostNames={hostNames} />
     </>
   )

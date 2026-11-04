@@ -163,3 +163,85 @@ def test_a_one_off_of_a_kept_ready_made_show_marks_it_played(harness):
 
     (row,) = _show_rows(harness)
     assert row.last_played_at > first_played
+
+
+# --- 011 T093: from_now_on and guest on POST /episodes (data-model §5.2) ------------------
+
+MARCO = {
+    "slot": "second",
+    "name": "Marco",
+    "personality_id": "joker",
+    "voice_key": "es_AR-daniela-high",
+    "show_role": "co_host",
+    "angle": None,
+}
+
+
+def _detail(response) -> str:
+    detail = response.json()["detail"]
+    message = detail if isinstance(detail, str) else detail[0]["msg"]
+    return message.removeprefix("Value error, ")
+
+
+def _later(harness, **body):
+    harness.start_series("one_host")
+    return _post(harness, harness.listing(), **body)
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        ({"from_now_on": ["voice"]}, "That setting can't be kept for later episodes."),
+        ({"guest": [MARCO, MARCO]}, "Only one guest can join an episode."),
+        ({"guest": {**MARCO, "name": "Sam"}, "learner_name": "Sam"}, "Sam has the same name"),
+        ({"guest": {**MARCO, "personality_id": "pirate"}}, "Marco: that personality isn't"),
+    ],
+    ids=["unknown-setting", "two-guests", "learner-name", "unknown-personality"],
+)
+def test_a_bad_later_start_is_a_422_with_its_message(harness, body, message):
+    response = _later(harness, **body)
+
+    assert response.status_code == 422
+    assert _detail(response).startswith(message)
+
+
+def test_a_guest_on_the_first_episode_is_a_422(harness):
+    response = _post(harness, harness.listing(), guest=MARCO)
+
+    assert (response.status_code, _detail(response)) == (
+        422,
+        "A guest can join from the second episode.",
+    )
+
+
+def test_a_guest_named_like_a_series_host_is_a_422(harness):
+    first = harness.start_series("one_host")
+    host = first["hosts"][0]["name"]
+
+    response = _post(harness, harness.listing(), guest={**MARCO, "name": host})
+
+    assert _detail(response) == f"{host} is already a host of this show. Invite another guest."
+
+
+def test_a_one_off_cannot_keep_settings_for_later(harness):
+    response = _post(harness, harness.listing(), kind="one_off", from_now_on=["style"])
+
+    assert (response.status_code, _detail(response)) == (
+        422,
+        "Only a series keeps settings for later episodes.",
+    )
+
+
+def test_only_the_guest_is_marked_as_a_guest(harness):
+    response = _later(harness, guest=MARCO)
+
+    assert response.status_code == 201, response.text
+    hosts = {host["name"]: host["is_guest"] for host in response.json()["hosts"]}
+    assert hosts["Marco"] is True
+    assert list(hosts.values()).count(True) == 1
+
+
+def test_every_host_of_a_plain_episode_is_not_a_guest(harness):
+    episode = harness.start_series("panel")
+
+    assert [host["is_guest"] for host in episode["hosts"]] == [False, False]

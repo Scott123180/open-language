@@ -15,9 +15,10 @@ export default function PodcastSetup() {
   const { catalog, error } = usePodcastCatalog()
   const { preferences } = usePodcastPreferences()
   const { show, draft, replaceDraft } = useSetupShow(catalog)
-  const form = useSetupForm(catalog, preferences, show?.learner_role)
-  const starting = useStartEpisode()
   const { detail } = useSeries(show?.series?.series_id ?? null)
+  const usual = detail && detail.episode_count >= 1 ? detail.usual_settings : undefined
+  const form = useSetupForm(catalog, preferences, show?.learner_role, usual)
+  const starting = useStartEpisode()
   return (
     <PageShell title={show?.title ?? 'Set up your episode'} backTo="/podcasts" backLabel="Back to Podcasts">
       {error && <ErrorBanner message={error} />}

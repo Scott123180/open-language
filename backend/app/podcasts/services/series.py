@@ -13,26 +13,31 @@ from app.podcasts.catalog import (
     DEFAULT_EPISODE_STYLE,
     DEFAULT_HOST_LINE_LENGTH,
     DEFAULT_INVITE_FREQUENCY,
+    HOST_SLOTS,
     LEAD_SLOT,
     LEARNER_POINT,
     PERSONALITIES,
     PODCAST_FORMATS,
     READY_MADE_SOURCE,
     SERIES_KIND,
+    SERIES_SETTING_NAMES,
     TOPIC_POINT,
 )
 from app.podcasts.schemas import (
     LANGUAGE_CHANGED,
     SERIES_CLASH,
     EpisodeSettingsModel,
+    GuestRequest,
     HostDraftModel,
     StartEpisodeRequest,
+    guest_problem,
     show_problem,
     validate_draft,
 )
-from app.podcasts.services.casting import HostCaster
+from app.podcasts.services.casting import Host, HostCaster
 from app.podcasts.services.episode_settings import EpisodeSettings
 from app.podcasts.services.library import ShowLibrary
+from app.podcasts.services.series_settings import SeriesSettings
 from app.podcasts.services.series_snapshot import SeriesSnapshot
 from app.podcasts.services.series_storage import (
     KeptShow,
@@ -48,6 +53,14 @@ SERIES_HOSTS_CHANGED = "This show's hosts changed. Open the show again."
 SERIES_GONE = "That series isn't there any more. Open the show again."
 PERSONALITY_TAKEN = "{other} already has that personality. Pick another one."
 UNKNOWN_PERSONALITY = "That personality isn't in the list. Pick one of the listed ones."
+NOT_KEPT_FOR_LATER = "That setting can't be kept for later episodes."
+ONE_OFF_KEEPS_NOTHING = "Only a series keeps settings for later episodes."
+GUEST_TOO_EARLY = "A guest can join from the second episode."
+ONE_OFF_GUEST = "Only a series episode can have a guest."
+GUEST_HAS_NO_SEAT = (
+    "That guest has no seat in this format. Pick Panel, or invite them in the host's place."
+)
+GUEST_IS_A_HOST = "{name} is already a host of this show. Invite another guest."
 
 InstalledCount = Callable[[str], int]
 """How many voices are installed for a language."""
@@ -131,6 +144,29 @@ class SeriesService:
         )
         return self._series.recast(series_id, replacement)
 
+    def reset_settings(self, series_id: int, language: str) -> SeriesRecord:
+        """Back to the show's standard settings (011 FR-019)."""
+        series = self._require(series_id)
+        if series.language != language:
+            raise LanguageChanged()
+        self._series.reset_settings(series_id)
+        return self._require(series_id)
+
+    def cast_guest(self, series_id: int, req: GuestRequest) -> Host:
+        """A guest for one episode in `req.slot`, beside the other host (011 research R10)."""
+        series = self._require(series_id)
+        if series.language != req.language:
+            raise LanguageChanged()
+        if req.slot not in _used_slots(req.format):
+            raise StartRefused(GUEST_HAS_NO_SEAT)
+        _check_personality(series, req.slot, req.personality_id)
+        other = next(host for host in series.hosts if host.slot != req.slot)
+        avoid = (*(host.name for host in series.hosts), *req.avoid_names, req.learner_name or "")
+        personality = req.personality_id or _expert_for(series, req.slot, other)
+        return self._caster.cast_guest(
+            req.slot, personality, (other.to_host(),), avoid, series.language
+        )
+
     def reset(self, series_id: int) -> bool:
         """Start over: forget the series; its episodes stay in Past Chats (FR-011)."""
         self._require(series_id)
@@ -166,15 +202,50 @@ class SeriesService:
         known = self._library.resolve(req.show)
         series = self._series.find(known.show_row_id, language) if known else None
         self._check_series_draft(req, series, language)
+        self._check_extras(req, series, language)
         kept = self._library.keep(req.show)
         self._library.played(kept)
-        series = series or self._create(kept, req, language)
-        hosts = _participating(series, req.format)
-        settings = episode_settings(req, series.hosts[1].personality_id)
-        return PreparedStart(req, hosts, self._link(series), kept.ref.saved_show_id, settings)
+        settings = episode_settings(req, _draft_second(req).personality_id)
+        chosen = _chosen_settings(req, settings)
+        is_first = series is None
+        series = series or self._create(kept, req, language, chosen)
+        update = chosen if is_first else _kept_for_later(series, chosen, req.from_now_on)
+        hosts = _participating(series, req)
+        link = self._link(series, req, hosts, update)
+        return PreparedStart(req, hosts, link, kept.ref.saved_show_id, settings)
+
+    def _check_extras(
+        self, req: StartEpisodeRequest, series: SeriesRecord | None, language: str
+    ) -> None:
+        """011 §5.2: what a series episode keeps for later, and its guest."""
+        if any(name not in SERIES_SETTING_NAMES for name in req.from_now_on):
+            raise StartRefused(NOT_KEPT_FOR_LATER)
+        if req.guest is None:
+            return
+        if series is None:
+            raise StartRefused(GUEST_TOO_EARLY)
+        self._refuse(self._guest_problem(req, series, language))
+
+    def _guest_problem(
+        self, req: StartEpisodeRequest, series: SeriesRecord, language: str
+    ) -> str | None:
+        guest = req.guest
+        if guest.slot not in _used_slots(req.format):
+            return GUEST_HAS_NO_SEAT
+        name = guest.name.strip().casefold()
+        host = next((h for h in series.hosts if h.name.casefold() == name), None)
+        if host is not None:
+            return GUEST_IS_A_HOST.format(name=host.name)
+        other = _host_draft(next(h for h in series.hosts if h.slot != guest.slot))
+        installed = self._installed_count(language)
+        return guest_problem(guest, other, language, req.learner_name, installed)
 
     def _one_off_start(self, req: StartEpisodeRequest, language: str) -> PreparedStart:
         """007's start, unchanged; a learner-made show is kept by playing it (FR-014)."""
+        if req.from_now_on:
+            raise StartRefused(ONE_OFF_KEEPS_NOTHING)
+        if req.guest is not None:
+            raise StartRefused(ONE_OFF_GUEST)
         installed = self._installed_count(language)
         self._refuse(validate_draft(req.show, language, req.learner_name, installed))
         settings = episode_settings(req, _draft_second(req).personality_id)
@@ -204,29 +275,55 @@ class SeriesService:
             raise SeriesHostsChanged()
         self._refuse(_name_clash(series, req.learner_name))
 
-    def _create(self, kept: KeptShow, req: StartEpisodeRequest, language: str) -> SeriesRecord:
+    def _create(
+        self, kept: KeptShow, req: StartEpisodeRequest, language: str, usual: SeriesSettings
+    ) -> SeriesRecord:
         hosts = tuple(_series_host(draft) for draft in _lead_first(req.show.hosts))
         try:
-            return self._series.create(kept.show_row_id, language, hosts)
+            return self._series.create(kept.show_row_id, language, hosts, usual)
         except SeriesAlreadyExists as raced:
             raise SeriesHostsChanged() from raced
 
-    def _link(self, series: SeriesRecord) -> NewSeriesLink:
-        return NewSeriesLink(series.series_id, series.next_episode_number, self._snapshot(series))
+    def _link(
+        self,
+        series: SeriesRecord,
+        req: StartEpisodeRequest,
+        hosts: tuple[NewHost, ...],
+        update: SeriesSettings | None,
+    ) -> NewSeriesLink:
+        guest_slot = req.guest.slot if req.guest else None
+        snapshot = self._snapshot(series, hosts, guest_slot)
+        return NewSeriesLink(series.series_id, series.next_episode_number, snapshot, update)
 
-    def _snapshot(self, series: SeriesRecord) -> SeriesSnapshot:
-        """The bounded memory, newest first, and who joins the series in this episode."""
+    def _snapshot(
+        self, series: SeriesRecord, hosts: tuple[NewHost, ...], guest_slot: str | None
+    ) -> SeriesSnapshot:
+        """The bounded memory, newest first, who joins the series in this episode, and today's
+        guest (011)."""
         points = self._series.remembered(series.series_id)
-        count = series.episode_count
         return SeriesSnapshot(
             episode_number=series.next_episode_number,
             topics_covered=tuple(p.conversation_language for p in points if p.kind == TOPIC_POINT),
             about_learner=tuple(p.conversation_language for p in points if p.kind == LEARNER_POINT),
-            new_host_slots=tuple(
-                host.slot
-                for host in series.hosts
-                if count >= 1 and host.joined_after_episodes == count
-            ),
+            new_host_slots=self._joining_slots(series, hosts, guest_slot),
+            guest_slot=guest_slot,
+        )
+
+    def _joining_slots(
+        self, series: SeriesRecord, hosts: tuple[NewHost, ...], guest_slot: str | None
+    ) -> tuple[str, ...]:
+        """Regular hosts in this episode who are new to the show: just recast (010), or never
+        in an episode yet, such as a One host series' second host (011 R12)."""
+        count = series.episode_count
+        if count < 1:
+            return ()
+        heard = set().union(*self._series.hosts_present(series.series_id).values())
+        taking_part = {host.slot for host in hosts} - {guest_slot}
+        return tuple(
+            host.slot
+            for host in series.hosts
+            if host.slot in taking_part
+            and (host.joined_after_episodes == count or host.name not in heard)
         )
 
     @staticmethod
@@ -243,6 +340,15 @@ def _check_personality(series: SeriesRecord, slot: str, personality_id: str | No
     other = next(host for host in series.hosts if host.slot != slot)
     if other.personality_id == personality_id:
         raise PersonalityTaken(PERSONALITY_TAKEN.format(other=other.name))
+
+
+def _expert_for(series: SeriesRecord, slot: str, other: SeriesHost) -> str | None:
+    """The show's second personality sits in the second seat of a One host series (FR-024a),
+    unless the lead has it; otherwise the caster picks a free one."""
+    expert = series.show.personalities[1]
+    is_one_host = PODCAST_FORMATS[series.settings.format].host_count == 1
+    is_one_host_seat = slot != LEAD_SLOT and is_one_host
+    return expert if is_one_host_seat and expert != other.personality_id else None
 
 
 def _name_clash(series: SeriesRecord, learner_name: str | None) -> str | None:
@@ -286,10 +392,59 @@ def _series_host(draft: HostDraftModel) -> SeriesHost:
     )
 
 
-def _participating(series: SeriesRecord, format_id: str) -> tuple[NewHost, ...]:
-    """The series' hosts for the format's slots: the lead alone in One host (FR-003)."""
-    count = PODCAST_FORMATS[format_id].host_count
-    return tuple(_new_host(host) for host in series.hosts[:count])
+def _participating(series: SeriesRecord, req: StartEpisodeRequest) -> tuple[NewHost, ...]:
+    """The series' hosts for the format's slots, the lead alone in One host (FR-003), with
+    today's guest in their slot (011 FR-020)."""
+    count = PODCAST_FORMATS[req.format].host_count
+    hosts = tuple(_new_host(host) for host in series.hosts[:count])
+    guest = req.guest
+    if guest is None:
+        return hosts
+    return tuple(_draft_host(guest) if host.slot == guest.slot else host for host in hosts)
+
+
+def _used_slots(format_id: str) -> tuple[str, ...]:
+    return HOST_SLOTS[: PODCAST_FORMATS[format_id].host_count]
+
+
+def _chosen_settings(req: StartEpisodeRequest, settings: EpisodeSettings) -> SeriesSettings:
+    """This episode's choices, in the form a series keeps them."""
+    return SeriesSettings(
+        format=req.format,
+        length=req.length,
+        style=settings.style.style_id,
+        line_length=settings.line_length.line_length_id,
+        invite_frequency=settings.invite_frequency.invite_frequency_id,
+        learner_role=settings.learner_role,
+    )
+
+
+def _kept_for_later(
+    series: SeriesRecord, chosen: SeriesSettings, names: list[str]
+) -> SeriesSettings | None:
+    return series.settings.with_changes(chosen, tuple(names)) if names else None
+
+
+def _host_draft(host: SeriesHost) -> HostDraftModel:
+    return HostDraftModel(
+        slot=host.slot,
+        name=host.name,
+        personality_id=host.personality_id,
+        voice_key=host.voice_key,
+        show_role=host.show_role,
+        angle=host.angle,
+    )
+
+
+def _draft_host(draft: HostDraftModel) -> NewHost:
+    return NewHost(
+        draft.slot,
+        draft.name.strip(),
+        draft.personality_id,
+        draft.voice_key,
+        draft.show_role,
+        draft.angle,
+    )
 
 
 def _new_host(host: SeriesHost) -> NewHost:
@@ -301,7 +456,4 @@ def _new_host(host: SeriesHost) -> NewHost:
 def _draft_hosts(req: StartEpisodeRequest) -> tuple[NewHost, ...]:
     """Every host of the draft, or only the lead in a one-host format (FR-003)."""
     count = PODCAST_FORMATS[req.format].host_count
-    return tuple(
-        NewHost(h.slot, h.name.strip(), h.personality_id, h.voice_key, h.show_role, h.angle)
-        for h in _lead_first(req.show.hosts)[:count]
-    )
+    return tuple(_draft_host(h) for h in _lead_first(req.show.hosts)[:count])

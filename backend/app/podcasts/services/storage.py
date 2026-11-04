@@ -10,6 +10,7 @@ from app.podcasts.catalog import (
     DEFAULT_INVITE_FREQUENCY,
 )
 from app.podcasts.services.episode_settings import EpisodeSettings
+from app.podcasts.services.series_settings import SeriesSettings
 from app.podcasts.services.series_snapshot import SeriesSnapshot
 
 
@@ -30,6 +31,8 @@ class NewSeriesLink:
     series_id: int
     episode_number: int
     snapshot: SeriesSnapshot
+    settings_update: SeriesSettings | None = None
+    """011: the series' usual settings from this episode on, written with the link."""
 
 
 @dataclass(frozen=True, slots=True)

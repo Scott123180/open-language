@@ -85,3 +85,10 @@ def test_an_unknown_mode_is_rejected(monkeypatch):
 
     with pytest.raises(ValueError):
         Settings(_env_file=None)
+
+
+def test_small_local_models_get_an_8192_token_context_by_default():
+    """011 R18: up to 10 GB on disk, which covers the 7–8B models beside an 8 GB GPU."""
+    settings = Settings(_env_file=None)
+
+    assert (settings.ollama_small_model_max_gb, settings.ollama_small_model_context) == (10, 8192)

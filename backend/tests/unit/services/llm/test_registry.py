@@ -28,6 +28,14 @@ def client_hosts(monkeypatch) -> list[str]:
     return hosts
 
 
+@pytest.fixture(autouse=True)
+def fresh_context_window():
+    """The window is per process; each test looks its models up afresh."""
+    registry._ollama_context_window.cache_clear()
+    yield
+    registry._ollama_context_window.cache_clear()
+
+
 class TestOllama:
     def test_serves_every_capability(self, settings, client_hosts):
         provider = build_llm_provider(LLMSelection("ollama", "llama3.2"), settings)
@@ -59,6 +67,26 @@ class TestOllama:
         learning_tool.chat([ChatMessage(role="user", content="Hola")])
 
         assert [call["keep_alive"] for call in client.chat_calls] == ["30m", None]
+
+    def test_a_small_model_asks_for_the_configured_larger_window(self, settings, monkeypatch):
+        """011 R18: llama3.1:8b outgrew Ollama's 4,096-token default in a Long episode."""
+        client = ScriptedOllamaClient(sizes={"llama3.1:8b": 4_920_753_328})
+        monkeypatch.setattr(registry, "_ollama_client_factory", lambda host: client)
+
+        build_llm_provider(LLMSelection("ollama", "llama3.1:8b"), settings).chat(HELLO)
+
+        assert client.chat_calls[0]["options"] == {"num_ctx": settings.ollama_small_model_context}
+
+    def test_a_large_model_keeps_ollamas_default_window(self, settings, monkeypatch):
+        client = ScriptedOllamaClient(sizes={"llama3.1:70b": 42_520_412_561})
+        monkeypatch.setattr(registry, "_ollama_client_factory", lambda host: client)
+
+        build_llm_provider(LLMSelection("ollama", "llama3.1:70b"), settings).chat(HELLO)
+
+        assert "options" not in client.chat_calls[0]
+
+
+HELLO = [ChatMessage(role="user", content="Hola")]
 
 
 def test_unknown_provider_is_rejected(settings):

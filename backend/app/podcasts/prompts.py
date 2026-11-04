@@ -141,7 +141,18 @@ def _series_section(series: SeriesBrief, learner_label: str, talk: HostTalk) -> 
     rules = _series_rules(bool(snapshot.topics_covered or snapshot.about_learner))
     lines.extend(_with_chosen_subject(rules, learner_label, talk.today_subject))
     lines.extend(_new_host_rule(name) for name in series.new_host_names)
+    lines.extend(_guest_lines(series))
     return "\n".join(lines)
+
+
+def _guest_lines(series: SeriesBrief) -> tuple[str, ...]:
+    """Today's guest, who knows nothing of the series (011 R10). None in a 010 snapshot."""
+    if series.guest_name is None:
+        return ()
+    return (
+        f"- {series.guest_name} is today's guest, here for this episode only, and does not "
+        "know the earlier episodes.",
+    )
 
 
 def _with_chosen_subject(

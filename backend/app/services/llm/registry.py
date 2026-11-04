@@ -24,6 +24,7 @@ from app.services.llm.catalog import CLAUDE_PROVIDER_ID, OLLAMA_PROVIDER_ID
 from app.services.llm.claude_code import ClaudeCodeAvailability, ClaudeCodeLLMProvider
 from app.services.llm.claude_code.runner import SubprocessClaudeCodeRunner
 from app.services.llm.ollama import OllamaLLMProvider
+from app.services.llm.ollama_context import ContextPolicy, OllamaContextWindow
 from app.services.llm.ollama_residency import OllamaResidency
 from app.services.llm.selection_types import DEFAULT_EFFORT, LLMSelection
 
@@ -52,6 +53,7 @@ class UnknownProviderError(LLMError):
 
 
 _ollama_client_factory: Callable[..., ollama.Client] = ollama.Client
+_BYTES_PER_GB = 1_000_000_000
 
 _Builder = Callable[[LLMSelection, Settings, str], ConfiguredLLMProvider]
 
@@ -68,13 +70,22 @@ def build_llm_provider(
 def _build_ollama(selection: LLMSelection, settings: Settings, _effort: str) -> OllamaLLMProvider:
     client = _ollama_client_factory(host=settings.ollama_url)
     residency = _ollama_residency(settings.session_idle_ttl_minutes)
-    return OllamaLLMProvider(client, selection.model, residency)
+    context = _ollama_context_window(
+        int(settings.ollama_small_model_max_gb * _BYTES_PER_GB), settings.ollama_small_model_context
+    )
+    return OllamaLLMProvider(client, selection.model, residency, context)
 
 
 @lru_cache
 def _ollama_residency(session_keep_alive_minutes: int) -> OllamaResidency:
     """One per process: providers are built per request, but sessions outlive them."""
     return OllamaResidency(session_keep_alive_minutes)
+
+
+@lru_cache
+def _ollama_context_window(small_model_max_bytes: int, context_tokens: int) -> OllamaContextWindow:
+    """One per process, so a model's window is looked up once and every request agrees."""
+    return OllamaContextWindow(ContextPolicy(small_model_max_bytes, context_tokens))
 
 
 def _build_claude(

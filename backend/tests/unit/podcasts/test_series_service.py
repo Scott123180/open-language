@@ -17,6 +17,7 @@ from app.podcasts.services.series import (
     SeriesService,
     StartRefused,
 )
+from app.podcasts.services.series_settings import SeriesSettings
 from app.podcasts.services.series_snapshot import SeriesSnapshot
 from app.podcasts.services.series_storage import SeriesHost, ShowContent
 from app.podcasts.services.storage import NewHost
@@ -57,7 +58,12 @@ def _host_draft(host: SeriesHost, **changes) -> dict:
 
 
 def _request(
-    hosts=(HUGO, INES), source="ready_made", format="panel", kind="series", **show_changes
+    hosts=(HUGO, INES),
+    source="ready_made",
+    format="panel",
+    kind="series",
+    extra: dict | None = None,
+    **show_changes,
 ) -> StartEpisodeRequest:
     show = {
         "source": source,
@@ -70,7 +76,7 @@ def _request(
         "hosts": [_host_draft(host) for host in hosts],
         **show_changes,
     }
-    return StartEpisodeRequest(show=show, format=format, length="short", kind=kind)
+    return StartEpisodeRequest(show=show, format=format, length="short", kind=kind, **(extra or {}))
 
 
 class World:
@@ -355,3 +361,142 @@ def test_a_one_off_keeps_007s_clash_wording(world):
 
     with pytest.raises(StartRefused, match="Shuffle the host or change your name."):
         world.service.prepare(request, _settings())
+
+
+# --- 011 T089: usual settings and scopes (data-model §5.2, plan interpretations 3–7) ------
+
+PRESENTED = {"style": "presented", "line_length": "long", "invite_frequency": "rarely"}
+
+
+def test_episode_1_makes_all_its_choices_the_usual_settings(world):
+    extra = {"settings": PRESENTED, "from_now_on": ["style"]}
+
+    prepared = world.service.prepare(_request(format="panel", extra=extra), _settings())
+
+    expected = SeriesSettings("panel", "short", "presented", "long", "rarely", "guest")
+    assert prepared.series.settings_update == expected
+    (series,) = world.series_storage.series.values()
+    assert series.settings == expected
+
+
+def test_a_later_episode_keeps_only_the_from_now_on_settings(world):
+    world.existing_series()
+    extra = {"settings": PRESENTED, "from_now_on": ["style", "format"]}
+
+    prepared = world.service.prepare(_request(format="panel", extra=extra), _settings())
+
+    usual = SeriesSettings.standard(world.series_storage.series[1].show)
+    assert prepared.series.settings_update == replace(usual, style="presented", format="panel")
+
+
+def test_a_later_episode_with_nothing_from_now_on_updates_nothing(world):
+    world.existing_series()
+
+    prepared = world.service.prepare(_request(extra={"settings": PRESENTED}), _settings())
+
+    assert prepared.series.settings_update is None
+    assert prepared.settings.style.style_id == "presented"
+
+
+def test_a_setting_that_cannot_be_kept_is_refused(world):
+    world.existing_series()
+
+    with pytest.raises(StartRefused, match="That setting can't be kept for later episodes."):
+        world.service.prepare(_request(extra={"from_now_on": ["today_subject"]}), _settings())
+
+
+def test_a_one_off_cannot_keep_settings_for_later(world):
+    request = _request(kind="one_off", extra={"from_now_on": ["style"]})
+
+    with pytest.raises(StartRefused, match="Only a series keeps settings for later episodes."):
+        world.service.prepare(request, _settings())
+
+
+# --- 011 T089: guest checks (data-model §5.2) ---------------------------------------------
+
+MARCO = SeriesHost("second", "Marco", "joker", "es_ES-davefx-medium", "co_host", None, 0)
+
+
+def _with_guest(guest: SeriesHost = MARCO, format="panel", **changes) -> StartEpisodeRequest:
+    return _request(format=format, extra={"guest": _host_draft(guest, **changes)})
+
+
+def test_a_guest_cannot_join_the_first_episode(world):
+    with pytest.raises(StartRefused, match="A guest can join from the second episode."):
+        world.service.prepare(_with_guest(), _settings())
+
+
+def test_a_guest_needs_a_seat_the_format_uses(world):
+    world.existing_series()
+
+    with pytest.raises(StartRefused, match="That guest has no seat in this format."):
+        world.service.prepare(_with_guest(format="one_host"), _settings())
+
+
+@pytest.mark.parametrize("name", ["Hugo", "inés"])
+def test_a_guest_named_like_a_series_host_is_refused(world, name):
+    world.existing_series()
+
+    with pytest.raises(StartRefused, match="is already a host of this show. Invite another guest."):
+        world.service.prepare(_with_guest(name=name), _settings())
+
+
+def test_a_guest_named_like_the_learner_gets_the_series_clash_message(world):
+    world.existing_series()
+    request = _with_guest().model_copy(update={"learner_name": "Marco"})
+
+    with pytest.raises(StartRefused, match="Marco has the same name as you."):
+        world.service.prepare(request, _settings())
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ({"personality_id": "wizard"}, "that personality isn't in the list"),
+        ({"voice_key": "de_DE-thorsten-medium"}, "that voice doesn't speak Spanish"),
+        ({"personality_id": "curious_interviewer"}, "need different personalities"),
+        ({"voice_key": "es_AR-daniela-high"}, "need different voices"),
+    ],
+    ids=["unknown-personality", "foreign-voice", "same-personality", "same-voice"],
+)
+def test_a_guest_gets_007s_host_and_pair_messages(world, change, message):
+    world.existing_series()
+
+    with pytest.raises(StartRefused, match=message):
+        world.service.prepare(_with_guest(**change), _settings())
+
+
+def test_a_guest_may_share_the_only_installed_voice():
+    world = World(installed=1)
+    world.existing_series()
+
+    prepared = world.service.prepare(_with_guest(voice_key=HUGO.voice_key), _settings())
+
+    assert prepared.hosts[1].voice_key == HUGO.voice_key
+
+
+def test_a_second_seat_guest_becomes_the_episodes_second_host(world):
+    world.existing_series(episodes=3)
+
+    prepared = world.service.prepare(_with_guest(), _settings())
+
+    assert prepared.hosts == (
+        NewHost("lead", "Hugo", "curious_interviewer", "es_AR-daniela-high", "host", None),
+        NewHost("second", "Marco", "joker", "es_ES-davefx-medium", "co_host", None),
+    )
+    assert prepared.series.snapshot.guest_slot == "second"
+    assert prepared.series.snapshot.new_host_slots == ()
+    assert world.series_storage.series[1].hosts == (HUGO, INES)
+
+
+def test_a_one_host_series_switched_to_panel_brings_in_its_never_heard_second_host(world):
+    """R12: from now on, the stored second host joins, introduced as new to the show."""
+    series = world.existing_series(episodes=2)
+    world.series_storage.present[series.series_id] = {
+        1: frozenset({"Hugo"}),
+        2: frozenset({"Hugo"}),
+    }
+
+    prepared = world.service.prepare(_request(format="panel"), _settings())
+
+    assert prepared.series.snapshot.new_host_slots == ("second",)

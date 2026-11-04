@@ -337,3 +337,31 @@ describe('PodcastSetup page — a kept show (010 US4)', () => {
     expect(await screen.findByRole('heading', { name: 'Night Shift Abroad' })).toBeInTheDocument()
   })
 })
+
+describe('PodcastSetup page — a series’ usual settings (011 US3)', () => {
+  const usual: podcasts.SeriesSettings = {
+    format: 'one_host', length: 'long', style: 'presented', line_length: 'long', invite_frequency: 'rarely', learner_role: 'guest',
+  }
+
+  beforeEach(() => {
+    vi.mocked(podcasts.getPodcastCatalog).mockResolvedValue({ ...catalog, shows: [...catalog.shows, seriesListing] })
+    vi.mocked(podcasts.catchUpSeriesMemory).mockResolvedValue({ status: 'up_to_date' })
+  })
+
+  it('starts a series setup on its usual settings, not on the last-used ones', async () => {
+    vi.mocked(podcasts.getSeries).mockResolvedValue(seriesDetail({ usual_settings: usual, is_standard: false }))
+    renderSetup('?show=big-little-questions')
+
+    await waitFor(() => expect(screen.getByRole('radio', { name: /One host/ })).toBeChecked())
+    expect(screen.getByRole('radio', { name: /Long/ })).toBeChecked()
+  })
+
+  it('reads a host who has never taken part as new to the show', async () => {
+    const [hugo, ines] = seriesDetail().hosts
+    const detail = seriesDetail({ usual_settings: { ...usual, format: 'panel' }, hosts: [hugo, { ...ines, has_taken_part: false }] })
+    vi.mocked(podcasts.getSeries).mockResolvedValue(detail)
+    renderSetup('?show=big-little-questions')
+
+    expect(await screen.findByText('New to the show')).toBeInTheDocument()
+  })
+})

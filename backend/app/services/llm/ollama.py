@@ -1,4 +1,4 @@
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 
 import ollama
 
@@ -16,18 +16,26 @@ from app.services.llm.base import (
     StructuredLLMProvider,
 )
 from app.services.llm.catalog import OLLAMA_PROVIDER_ID
+from app.services.llm.ollama_context import OllamaContextWindow
 from app.services.llm.ollama_residency import OllamaResidency
-from app.services.llm.ollama_session import OllamaSession, OllamaSessionConfig
+from app.services.llm.ollama_session import OllamaSession, OllamaSessionConfig, with_options
 from app.services.llm.selection_types import LLMSelection
 
 _NO_EFFORT = ""
 
 
 class OllamaLLMProvider(LLMProvider, StructuredLLMProvider, SessionCapableProvider):
-    def __init__(self, client: ollama.Client, model: str, residency: OllamaResidency) -> None:
+    def __init__(
+        self,
+        client: ollama.Client,
+        model: str,
+        residency: OllamaResidency,
+        context: OllamaContextWindow | None = None,
+    ) -> None:
         self._client = client
         self._model = model
         self._residency = residency
+        self._context = context
 
     @property
     def model_name(self) -> str:
@@ -40,6 +48,7 @@ class OllamaLLMProvider(LLMProvider, StructuredLLMProvider, SessionCapableProvid
                 messages=_to_wire(messages),
                 stream=True,
                 keep_alive=self._residency.keep_alive_for(self._model),
+                **self._window(),
             )
             for chunk in response:
                 yield chunk["message"]["content"]
@@ -53,6 +62,7 @@ class OllamaLLMProvider(LLMProvider, StructuredLLMProvider, SessionCapableProvid
                 messages=_to_wire(messages),
                 stream=False,
                 keep_alive=self._residency.keep_alive_for(self._model),
+                **self._window(),
             )
             return response["message"]["content"]
         except Exception as e:
@@ -66,6 +76,7 @@ class OllamaLLMProvider(LLMProvider, StructuredLLMProvider, SessionCapableProvid
                 stream=False,
                 format=schema,
                 keep_alive=self._residency.keep_alive_for(self._model),
+                **self._window(),
             )
             return response["message"]["content"]
         except Exception as e:
@@ -86,9 +97,19 @@ class OllamaLLMProvider(LLMProvider, StructuredLLMProvider, SessionCapableProvid
             fingerprint=self.session_fingerprint(standing_prompt),
             standing_prompt=standing_prompt,
             residency=self._residency,
+            options=self._window_options(),
         )
         self._residency.hold(self._model)
         return OllamaSession(config, history)
+
+    def _window_options(self) -> Mapping[str, int] | None:
+        if self._context is None:
+            return None
+        return self._context.options_for(self._client, self._model)
+
+    def _window(self) -> dict[str, Mapping[str, int]]:
+        """The `options` keyword for a request, or nothing to keep Ollama's default."""
+        return with_options(self._window_options())
 
 
 def _to_wire(messages: list[ChatMessage]) -> list[dict[str, str]]:

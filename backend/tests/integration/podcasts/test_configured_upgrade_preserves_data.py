@@ -238,3 +238,56 @@ def test_a_pre_011_one_off_keeps_the_007_standing_prompt(upgraded_storage):
     episode = load_episode(upgraded_storage, ONE_OFF_ID)
 
     assert episode.standing_prompt(ConversationLevel.BEGINNER) == golden[ONE_OFF_GOLDEN_KEY]
+
+
+# --- 011 T096: the pre-feature series through the API -------------------------------------
+
+SERIES_ID = 1
+STANDARD_USUAL = {
+    "format": "one_host",
+    "length": "medium",
+    "style": "balanced",
+    "line_length": "medium",
+    "invite_frequency": "sometimes",
+    "learner_role": "guest",
+}
+
+
+@pytest.fixture
+def upgraded_harness(upgraded, tmp_path):
+    from tests.support.podcast_harness import podcast_harness_on
+
+    db_file, _before = upgraded
+    engine = create_engine(
+        f"sqlite:///{db_file}", connect_args={"check_same_thread": False}, poolclass=NullPool
+    )
+    event.listen(engine, "connect", _configure_sqlite)
+    with podcast_harness_on(sessionmaker(bind=engine), tmp_path) as harness:
+        yield harness
+    engine.dispose()
+
+
+def test_a_pre_feature_series_has_the_shows_standard_settings(upgraded_harness):
+    detail = upgraded_harness.client.get(f"/api/podcasts/series/{SERIES_ID}").json()
+
+    assert (detail["usual_settings"], detail["is_standard"]) == (STANDARD_USUAL, True)
+    assert [host["name"] for host in detail["hosts"]] == ["Hugo", "Inés"]
+    assert all(host["has_taken_part"] for host in detail["hosts"])
+    assert detail["episode_count"] == 2
+    assert [p["text"] for p in detail["remembered"]["topics"]] == ["sleep", "yawning"]
+
+
+def test_a_pre_feature_series_next_episode_is_configured(upgraded_harness):
+    episode = upgraded_harness.start_series("panel")
+
+    assert episode["series"] == {"series_id": SERIES_ID, "episode_number": 3}
+    assert episode["settings"] is not None
+
+
+def test_a_pre_feature_series_episodes_still_load_their_010_snapshots(upgraded_harness):
+    numbers = [
+        upgraded_harness.episode(conversation_id)["series"]["episode_number"]
+        for conversation_id in (FIRST_SERIES_ID, SECOND_SERIES_ID)
+    ]
+
+    assert numbers == [1, 2]

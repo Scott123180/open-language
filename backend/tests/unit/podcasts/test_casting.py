@@ -279,3 +279,79 @@ def test_a_recast_without_a_choice_is_007s_shuffle():
     assert _caster(seed=5).recast("second", hosts, None) == _caster(seed=5).recast(
         "second", hosts, None, personality_id=None
     )
+
+
+# --- 011 T090: a guest for one episode (research R10) -------------------------------------
+
+
+def _series_hosts() -> tuple[Host, Host]:
+    return _caster().cast_template(SHOW, "es", None)
+
+
+def _guest(seed: int = 0, installed: set[str] | None = None, **overrides) -> Host:
+    lead, second = _series_hosts()
+    values = {
+        "slot": "second",
+        "personality_id": None,
+        "present": (lead,),
+        "avoid_names": (lead.name, second.name, "Sam"),
+        "language": "es",
+        **overrides,
+    }
+    return _caster(installed, seed).cast_guest(**values)
+
+
+@pytest.mark.parametrize("seed", range(6))
+def test_a_guest_never_takes_a_series_hosts_or_the_learners_name(seed):
+    lead, second = _series_hosts()
+
+    guest = _guest(seed)
+
+    assert guest.name.casefold() not in {lead.name.casefold(), second.name.casefold(), "sam"}
+
+
+def test_a_guest_avoids_the_names_another_guest_had():
+    first = _guest(seed=1)
+    lead, second = _series_hosts()
+
+    again = _guest(seed=1, avoid_names=(lead.name, second.name, first.name))
+
+    assert again.name != first.name
+
+
+def test_a_guest_takes_a_voice_unlike_the_present_hosts_when_another_is_installed():
+    lead, _second = _series_hosts()
+
+    assert _guest().voice_key != lead.voice_key
+
+
+def test_a_guest_shares_the_only_installed_voice():
+    only = _keys("es")[0]
+
+    guest = _guest(installed={only})
+
+    assert guest.voice_key == only
+
+
+def test_a_guest_takes_the_chosen_personality():
+    assert _guest(personality_id="joker").personality_id == "joker"
+
+
+@pytest.mark.parametrize("seed", range(6))
+def test_a_guest_without_a_choice_never_shares_the_present_hosts_personality(seed):
+    lead, _second = _series_hosts()
+
+    assert _guest(seed).personality_id != lead.personality_id
+
+
+def test_a_guest_with_the_present_hosts_personality_is_refused():
+    lead, _second = _series_hosts()
+
+    with pytest.raises(InvalidCast):
+        _guest(personality_id=lead.personality_id)
+
+
+def test_a_guest_sits_in_its_slot_with_that_slots_show_role():
+    guest = _guest(slot="lead", present=(_series_hosts()[1],))
+
+    assert (guest.slot, guest.show_role) == ("lead", "host")

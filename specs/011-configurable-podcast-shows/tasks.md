@@ -648,8 +648,8 @@ later episodes; the next two episodes use it. The episode count and the memory a
   - `hosts_present(series_id)` maps each series episode's conversation id to the `frozenset` of names in its `podcast_hosts`, in one query;
   - resetting the series (010) cascades the settings row;
   - `SeriesStorage`'s abstract methods are 010's set plus exactly `hosts_present` and `reset_settings`.
-- [ ] T088 [P] [US3] Extend `backend/tests/unit/podcasts/test_sqlite_storage.py`: `NewSeriesLink.settings_update` upserts the series settings row in `create_episode`'s transaction, with `updated_at` set. A failure forced after the upsert leaves the series settings, the link and the episode all unwritten.
-- [ ] T089 [P] [US3] Extend `backend/tests/unit/podcasts/test_series_service.py` (data-model §5.2, plan interpretations 3–7):
+- [X] T088 [P] [US3] Extend `backend/tests/unit/podcasts/test_sqlite_storage.py`: `NewSeriesLink.settings_update` upserts the series settings row in `create_episode`'s transaction, with `updated_at` set. A failure forced after the upsert leaves the series settings, the link and the episode all unwritten.
+- [X] T089 [P] [US3] Extend `backend/tests/unit/podcasts/test_series_service.py` (data-model §5.2, plan interpretations 3–7):
   - **episode 1**: `settings_update` is the full set from the episode's choices, and `from_now_on` is ignored;
   - **later episodes**:
     - only the `from_now_on` names are updated, each to this episode's value;
@@ -659,18 +659,18 @@ later episodes; the next two episodes use it. The episode count and the memory a
   - **guest checks** (shared with US4): a guest on episode 1 fails 422 "A guest can join from the second episode."; a guest in a slot the format does not use (`second` in `one_host`) fails 422 "That guest has no seat in this format. Pick Panel, or invite them in the host's place."; a guest named like any series host or the learner fails 422 "{name} is already a host of this show. Invite another guest." or the 010 name-clash message; an unknown personality or a voice that does not speak the language gives 007's host messages; a personality or voice equal to the other present host's gives 007's pair messages (voice only with two or more installed);
   - a valid second-slot guest in a Panel-this-episode switch becomes the episode's second host, with the snapshot's `guest_slot = "second"` and no away host;
   - **R12**: a series switched to Panel from now on brings in the stored second host, whose slot is in `new_host_slots` because `hosts_present` shows they were never in an episode.
-- [ ] T090 [P] [US3] Extend `backend/tests/unit/podcasts/test_casting.py` for `HostCaster.cast_guest(slot, personality_id, present, avoid_names, language)` (R10):
+- [X] T090 [P] [US3] Extend `backend/tests/unit/podcasts/test_casting.py` for `HostCaster.cast_guest(slot, personality_id, present, avoid_names, language)` (R10):
   - the name is never a series host's (the away host's included), the learner's, or one in `avoid_names`;
   - the voice differs from the other present host's when two or more are installed;
   - the personality is the one given, or the show's second personality (`KeptShow.personalities[1]`) when none is given for the second slot of a One host series;
   - a personality equal to the other present host's is refused.
-- [ ] T091 [P] [US3] Extend `backend/tests/unit/podcasts/test_series_values.py`: `SeriesSnapshot` round-trips `guest_slot`. A 010 snapshot JSON (no new keys) loads with `guest_slot is None`. `to_json` of a snapshot with no guest is byte-identical to 010's. `SeriesBrief.of` gives `guest_name` from the cast and `guest_slot`.
-- [ ] T092 [P] [US3] Extend `backend/tests/unit/podcasts/test_series_prompts.py` with **new** tests only:
+- [X] T091 [P] [US3] Extend `backend/tests/unit/podcasts/test_series_values.py`: `SeriesSnapshot` round-trips `guest_slot`. A 010 snapshot JSON (no new keys) loads with `guest_slot is None`. `to_json` of a snapshot with no guest is byte-identical to 010's. `SeriesBrief.of` gives `guest_name` from the cast and `guest_slot`.
+- [X] T092 [P] [US3] Extend `backend/tests/unit/podcasts/test_series_prompts.py` with **new** tests only:
   - a second-slot guest is introduced in the series section as joining for this episode, without knowledge of earlier episodes;
   - the `open` cue names the guest as today's guest, and the `greet` cue has the guest introduce themself as today's guest;
   - a host in `new_host_slots` after a from-now-on switch to Panel is introduced as new to the show;
   - with no guest, every existing expectation is unchanged.
-- [ ] T093 [P] [US3] Write the contract tests (contracts §3, §6–§8):
+- [X] T093 [P] [US3] Write the contract tests (contracts §3, §6–§8):
   - extend `backend/tests/contract/test_podcast_series_api.py`: `GET /api/podcasts/series/{id}` returns `usual_settings`, `is_standard` and `second_role_personality_id`, and each `SeriesHostModel` returns `has_taken_part`;
   - create `backend/tests/contract/test_podcast_series_settings_api.py`:
     - `DELETE /api/podcasts/series/{id}/settings` returns 200 with standard `usual_settings` and leaves the count, the hosts and the memory unchanged; 404 with 010's message for an unknown series; 422 `LANGUAGE_CHANGED` in another language;
@@ -679,7 +679,7 @@ later episodes; the next two episodes use it. The episode count and the memory a
     - `from_now_on` and `guest` on `POST /episodes` with each §5.2 message;
     - a JSON array as `guest` fails 422 "Only one guest can join an episode.";
     - `EpisodeResponse.hosts[].is_guest` is true for the guest only.
-- [ ] T094 [P] [US3] Write `backend/tests/integration/podcasts/test_series_settings.py` (FR-014–FR-019, SC-006):
+- [X] T094 [P] [US3] Write `backend/tests/integration/podcasts/test_series_settings.py` (FR-014–FR-019, SC-006):
   - episode 1 with Panel · Long · Presented sets the series' `usual_settings`;
   - a Just-this-episode Style change leaves the next `usual_settings` unchanged, and the next episode uses the usual Style;
   - a This-and-later Style change appears in the next **two** setups' `usual_settings`;
@@ -689,15 +689,15 @@ later episodes; the next two episodes use it. The episode count and the memory a
   - the episode count, the episode numbers and the memory read and write behave as for any series episode (FR-018);
   - the reset returns standard settings, and the past episodes' settings rows are unchanged;
   - an `es` series and a `de` series of the same show keep separate settings.
-- [ ] T095 [P] [US3] Write `backend/tests/integration/podcasts/test_guest_episodes.py`, with the Panel-this-episode expert cases (FR-024a):
+- [X] T095 [P] [US3] Write `backend/tests/integration/podcasts/test_guest_episodes.py`, with the Panel-this-episode expert cases (FR-024a):
   - in a One host series, a Panel start for this episode with the cast expert guest stores the guest in the second slot, and the snapshot's `guest_slot = "second"` with no away host;
   - the series' hosts are unchanged, and the next episode's draft has the regular hosts only;
   - the count includes the guest episode;
   - a second Panel-this-episode episode casts afresh.
 
   US4 (T118) extends this file.
-- [ ] T096 [P] [US3] Extend `backend/tests/integration/podcasts/test_configured_upgrade_preserves_data.py` (T004) with its API-level checks. `GET /api/podcasts/series/{id}` for the seeded pre-feature series returns standard `usual_settings` and `is_standard: true`, with its hosts, episode count and memory unchanged. Its next episode's prompt is configured, and its 010 snapshots still load. No other line of the test changes.
-- [ ] T097 [P] [US3] Write the Vitest tests:
+- [X] T096 [P] [US3] Extend `backend/tests/integration/podcasts/test_configured_upgrade_preserves_data.py` (T004) with its API-level checks. `GET /api/podcasts/series/{id}` for the seeded pre-feature series returns standard `usual_settings` and `is_standard: true`, with its hosts, episode count and memory unchanged. Its next episode's prompt is configured, and its 010 snapshots still load. No other line of the test changes.
+- [X] T097 [P] [US3] Write the Vitest tests:
   - `frontend/src/hooks/podcasts/useSeriesScopes.test.ts`, covering the data-model §6.1 state machine:
     - the first change opens the question;
     - Just this episode → `this-episode`; This and later episodes → `from-now-on`;
@@ -710,7 +710,7 @@ later episodes; the next two episodes use it. The episode count and the memory a
   - `frontend/src/components/podcasts/StandardSettingsButton.test.tsx`: shown only when `is_standard` is false; it opens `ConfirmDialog` and calls the reset;
   - `frontend/src/components/podcasts/GuestCard.test.tsx` and `frontend/src/hooks/podcasts/useGuest.test.tsx`: switching a One host series to Panel for Just this episode casts the expert guest (showing "Casting…" first), and the card reads "Guest · this episode" with **Another guest**, which re-casts with `avoid_names`;
   - `frontend/src/pages/PodcastSetup.test.tsx`: a series setup starts on `usual_settings`, not on the last-used preferences; a joining host reads "New to the show" from `has_taken_part`.
-- [ ] T098 [P] [US3] Write `frontend/e2e/podcast-series-settings.spec.ts` with `seriesWithSettings` and `guestDraft`:
+- [X] T098 [P] [US3] Write `frontend/e2e/podcast-series-settings.spec.ts` with `seriesWithSettings` and `guestDraft`:
   - a scope question on the first change of each setting, and a mark per setting;
   - the request's `settings` and `from_now_on`;
   - the next setup after a Just-this-episode start shows the usual settings, and after a from-now-on start shows the change;
@@ -726,33 +726,33 @@ later episodes; the next two episodes use it. The episode count and the memory a
   - the new abstract methods `reset_settings` and `hosts_present`, and their SQLite implementations.
 
   Update `backend/tests/support/fake_series_storage.py` to match. Makes T087 green.
-- [ ] T101 [US3] Add `settings_update: SeriesSettings | None` to `NewSeriesLink` in `backend/app/podcasts/services/storage.py`, and apply it as an upsert beside the link row in `SQLitePodcastStorage.create_episode` (`backend/app/podcasts/services/sqlite_storage.py`). Makes T088 green.
-- [ ] T102 [P] [US3] Add `HostCaster.cast_guest(...)` to `backend/app/podcasts/services/casting.py`, reusing `_free_names` and a voice helper. `recast` is unchanged. Makes T090 green.
-- [ ] T103 [P] [US3] Add `guest_slot: str | None = None` to `SeriesSnapshot`, and `guest_name` to `SeriesBrief`, in `backend/app/podcasts/services/series_snapshot.py`. Absent keys load as `None`, and `to_json` omits `None`. Makes T091 green.
-- [ ] T104 [US3] Extend `SeriesService` in `backend/app/podcasts/services/series.py`:
+- [X] T101 [US3] Add `settings_update: SeriesSettings | None` to `NewSeriesLink` in `backend/app/podcasts/services/storage.py`, and apply it as an upsert beside the link row in `SQLitePodcastStorage.create_episode` (`backend/app/podcasts/services/sqlite_storage.py`). Makes T088 green.
+- [X] T102 [P] [US3] Add `HostCaster.cast_guest(...)` to `backend/app/podcasts/services/casting.py`, reusing `_free_names` and a voice helper. `recast` is unchanged. Makes T090 green.
+- [X] T103 [P] [US3] Add `guest_slot: str | None = None` to `SeriesSnapshot`, and `guest_name` to `SeriesBrief`, in `backend/app/podcasts/services/series_snapshot.py`. Absent keys load as `None`, and `to_json` omits `None`. Makes T091 green.
+- [X] T104 [US3] Extend `SeriesService` in `backend/app/podcasts/services/series.py`:
   - `_series_start` (≈ 14 lines) resolves the episode's settings with `_series_settings(...)`, and builds `settings_update` (the full set on episode 1, `with_changes` for `from_now_on` later);
   - the §5.2 guest checks;
   - `_participating` (≈ 8 lines) puts the guest in its slot via `_with_guest`;
   - `_snapshot` (≈ 16 lines) sets `guest_slot`, and adds never-present hosts to `new_host_slots` from episode 2 via `_joining_slots(series, present)`.
 
   Makes T089 green.
-- [ ] T105 [US3] Extend `backend/app/podcasts/schemas.py`:
+- [X] T105 [US3] Extend `backend/app/podcasts/schemas.py`:
   - `from_now_on: list[str] = []` and `guest: GuestModel | None = None` on the start request; an array `guest` fails with "Only one guest can join an episode.";
   - `GuestRequest` for the guest endpoint;
   - `usual_settings`, `is_standard` and `second_role_personality_id` on the series detail;
   - `has_taken_part` on `SeriesHostModel`;
   - `is_guest` on the episode host.
-- [ ] T106 [US3] Render the second-slot guest in `backend/app/podcasts/prompts.py`: `_guest_lines(series)` in `_series_section` (≈ 18 lines), the `open` cue naming today's guest, and the `greet` cue for a second-slot guest (`_series_open` ≈ 13 lines). Legacy series sections stay byte-identical. Makes T092 green.
-- [ ] T107 [US3] Add the endpoints and response fields:
+- [X] T106 [US3] Render the second-slot guest in `backend/app/podcasts/prompts.py`: `_guest_lines(series)` in `_series_section` (≈ 18 lines), the `open` cue naming today's guest, and the `greet` cue for a second-slot guest (`_series_open` ≈ 13 lines). Legacy series sections stay byte-identical. Makes T092 green.
+- [X] T107 [US3] Add the endpoints and response fields:
   - in `backend/app/podcasts/series_routes.py`: `DELETE /api/podcasts/series/{series_id}/settings` and `POST /api/podcasts/series/{series_id}/guest`, with contracts §7–§8's statuses;
   - in `backend/app/podcasts/routes.py`: `from_now_on` and `guest` passed to `SeriesService.prepare`, and the one-off 422;
   - in `backend/app/podcasts/responses.py`: `series_detail` moves its host and memory fields into `_series_members(...)`, then gains `usual_settings`, `is_standard` and `second_role_personality_id` (≈ 18 lines); hosts gain `has_taken_part` from `hosts_present`; episode hosts gain `is_guest`.
 
   Makes T093–T096 green.
-- [ ] T108 [P] [US3] Extend `frontend/src/services/podcastsApi.ts`: `resetSeriesSettings(seriesId)`, `castGuest(seriesId, request)`, `from_now_on` and `guest` in the start body, and the new series and host fields.
-- [ ] T109 [US3] Create `frontend/src/hooks/podcasts/useSeriesScopes.ts`, `frontend/src/components/podcasts/ScopeDialog.tsx` (built like `ConfirmDialog`) and `frontend/src/components/podcasts/ScopeMark.tsx`. Show the marks in the legends of `FormatFieldset.tsx`, `LengthFieldset.tsx`, `StyleFieldset.tsx`, `HostLinesFieldset.tsx`, `AskedFieldset.tsx` and `RoleFieldset.tsx`.
-- [ ] T110 [US3] Create `frontend/src/hooks/podcasts/useGuest.ts` (cast, Another guest) and `frontend/src/components/podcasts/GuestCard.tsx` ("Guest · this episode", **Another guest**, "Casting…"). In `frontend/src/components/podcasts/SetupHosts.tsx` / `SeriesHostCard.tsx`, casting the expert guest when a One host series turns Panel for Just this episode, and removing it when the format goes back. A joining regular host reads "New to the show" from `has_taken_part`.
-- [ ] T111 [US3] Wire the series setup:
+- [X] T108 [P] [US3] Extend `frontend/src/services/podcastsApi.ts`: `resetSeriesSettings(seriesId)`, `castGuest(seriesId, request)`, `from_now_on` and `guest` in the start body, and the new series and host fields.
+- [X] T109 [US3] Create `frontend/src/hooks/podcasts/useSeriesScopes.ts`, `frontend/src/components/podcasts/ScopeDialog.tsx` (built like `ConfirmDialog`) and `frontend/src/components/podcasts/ScopeMark.tsx`. Show the marks in the legends of `FormatFieldset.tsx`, `LengthFieldset.tsx`, `StyleFieldset.tsx`, `HostLinesFieldset.tsx`, `AskedFieldset.tsx` and `RoleFieldset.tsx`.
+- [X] T110 [US3] Create `frontend/src/hooks/podcasts/useGuest.ts` (cast, Another guest) and `frontend/src/components/podcasts/GuestCard.tsx` ("Guest · this episode", **Another guest**, "Casting…"). In `frontend/src/components/podcasts/SetupHosts.tsx` / `SeriesHostCard.tsx`, casting the expert guest when a One host series turns Panel for Just this episode, and removing it when the format goes back. A joining regular host reads "New to the show" from `has_taken_part`.
+- [X] T111 [US3] Wire the series setup:
   - create `frontend/src/components/podcasts/StandardSettingsButton.tsx` (`ConfirmDialog`, then the reset);
   - `frontend/src/pages/PodcastSetup.tsx` passes `usual_settings` to the form;
   - `useSetupForm.ts` and `useEpisodeSettingsForm.ts` start a series setup on `usual_settings`;

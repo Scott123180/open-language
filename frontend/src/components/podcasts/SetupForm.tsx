@@ -2,15 +2,20 @@ import type { PodcastCatalog, SeriesDetail, SeriesHostView } from '../../service
 import type { SetupForm as SetupFormState } from '../../hooks/podcasts/useSetupForm'
 import type { SetupShowDraft } from '../../hooks/podcasts/useSetupShow'
 import type { StartEpisode } from '../../hooks/podcasts/useStartEpisode'
+import type { GuestControls } from '../../hooks/podcasts/useGuest'
+import { SERIES_SETTING_LEGENDS } from '../../hooks/podcasts/useSeriesScopes'
+import { useSeriesSetup } from '../../hooks/podcasts/useSeriesSetup'
 import { useSetupHosts } from '../../hooks/podcasts/useSetupHosts'
 import { useSetupStart } from '../../hooks/podcasts/useSetupStart'
 import EpisodeKindFieldset from './EpisodeKindFieldset'
 import EpisodeSettings from './EpisodeSettings'
+import ScopeDialog from './ScopeDialog'
 import SetupFields from './SetupFields'
 import SeriesHosts from './SeriesHosts'
 import SeriesMemoryPanel from './SeriesMemoryPanel'
 import SetupActions from './SetupActions'
 import SetupHosts from './SetupHosts'
+import StandardSettingsButton from './StandardSettingsButton'
 
 interface SetupFormProps {
   show: SetupShowDraft
@@ -23,18 +28,20 @@ interface SetupFormProps {
 
 /** Everything the learner sees before an episode starts, and the one Start action (FR-005).
  * Once a series has an episode its hosts are fixed: read-only, with no Shuffle (FR-008). */
-export default function SetupForm({ show, catalog, form, starting, series }: SetupFormProps) {
+export default function SetupForm({ show, catalog, form: plainForm, starting, series }: SetupFormProps) {
+  const { form, scopes, guest } = useSeriesSetup(show, catalog, plainForm, series)
   const hostCount = catalog.formats.find((f) => f.format_id === form.format)?.host_count ?? 1
   const hosts = useSetupHosts(show, form.learnerName)
   const seriesHosts = continuingHosts(show, catalog, form, series)
-  const start = useSetupStart({ show, form, hosts: seriesHosts ? show.hosts : hosts.hosts, starting, series })
+  const start = useSetupStart({ show, form, hosts: seriesHosts ? show.hosts : hosts.hosts, starting, series, fromNowOn: scopes.fromNowOn(), guest: seriesHosts ? guest.guest : null })
   const hostNames = show.hosts.map((host) => host.name)
   return (
     <>
       <p style={{ margin: 0, color: 'var(--color-text)' }}>{show.premise}</p>
       <EpisodeKindFieldset nextEpisodeNumber={show.series?.next_episode_number ?? 1} value={form.kind} onChange={form.setKind} />
-      {seriesHosts ? <SeriesSection show={show} catalog={catalog} form={form} hosts={seriesHosts} hostCount={hostCount} series={series} onPlaySample={hosts.playSample} />
+      {seriesHosts ? <SeriesSection show={show} catalog={catalog} form={form} hosts={seriesHosts} hostCount={hostCount} series={series} guest={guest} onPlaySample={hosts.playSample} />
         : <SetupHosts controls={hosts} personalities={catalog.personalities} hostCount={hostCount} />}
+      {scopes.asking && <ScopeDialog setting={SERIES_SETTING_LEGENDS[scopes.asking]} onAnswer={scopes.answer} onCancel={scopes.cancel} />}
       <SetupFields catalog={catalog} form={form} hostCount={hostCount} hostNames={seriesHosts ? hostNames : []} />
       {catalog.episode_options && <EpisodeSettings options={catalog.episode_options} form={form.settings} isListening={isListening(catalog, form)} show={show} seriesId={form.kind === 'series' ? show.series?.series_id ?? null : null} subjectError={subjectError(starting)} />}
       <SetupActions series={show.series ?? null} isOneOff={form.kind === 'one_off'} starting={starting} onStart={start} hostNames={hostNames} errorShownElsewhere={subjectError(starting)} />
@@ -49,17 +56,20 @@ interface SeriesSectionProps {
   hosts: SeriesHostView[]
   hostCount: number
   series: SeriesDetail | undefined
+  guest: GuestControls
   onPlaySample: (host: SeriesHostView) => void
 }
 
-/** A continuing series: its fixed hosts with Recast…, then what they remember. */
-function SeriesSection({ show, catalog, form, hosts, hostCount, series, onPlaySample }: SeriesSectionProps) {
+/** A continuing series: its fixed hosts with Recast… and today's guest, then what they
+ * remember, and the way back to the show's standard settings. */
+function SeriesSection({ show, catalog, form, hosts, hostCount, series, guest, onPlaySample }: SeriesSectionProps) {
   const context = { seriesId: show.series!.series_id, language: show.language, learnerName: form.learnerName }
   return (
     <>
       <SeriesHosts hosts={hosts} hostCount={hostCount} personalities={catalog.personalities}
-        keepsVoice={catalog.voices.installed_count <= 2} series={context} onPlaySample={onPlaySample} />
+        keepsVoice={catalog.voices.installed_count <= 2} series={context} guest={guest} onPlaySample={onPlaySample} />
       {series && <SeriesMemoryPanel detail={series} />}
+      {series && <StandardSettingsButton detail={series} onReset={form.reset} />}
     </>
   )
 }

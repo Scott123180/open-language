@@ -256,7 +256,21 @@ export interface SeriesHostView {
   is_new_next_episode: boolean
   is_voice_available: boolean
   voice_unavailable_message: string | null
+  /** 011: false until the host has been in an episode, so they read as new to the show. */
+  has_taken_part?: boolean
 }
+
+/** The settings a series keeps from one episode to the next (011 data-model §3.3). */
+export interface SeriesSettings {
+  format: PodcastFormatId
+  length: EpisodeLengthId
+  style: EpisodeStyleId
+  line_length: HostLineLengthId
+  invite_frequency: InviteFrequencyId
+  learner_role: LearnerRole
+}
+
+export type SeriesSettingName = keyof SeriesSettings
 
 export interface RememberedPoint {
   point_id: number
@@ -276,6 +290,11 @@ export interface SeriesDetail {
   memory_status: MemoryStatus
   hosts: SeriesHostView[]
   remembered: { topics: RememberedPoint[]; about_learner: RememberedPoint[] }
+  /** 011: the series' usual settings, and whether they are the show's standard ones. */
+  usual_settings?: SeriesSettings
+  is_standard?: boolean
+  /** The show's second personality: the expert who joins a One host series for an episode. */
+  second_role_personality_id?: string
 }
 
 /** What a memory catch-up answers (010 contracts §8). */
@@ -299,6 +318,20 @@ export interface StartEpisodeBody {
   kind?: EpisodeKind
   /** 011: how the episode sounds; a missing field takes its default. */
   settings?: EpisodeSettingsRequest
+  /** 011: the settings a series episode also keeps for later episodes. */
+  from_now_on?: SeriesSettingName[]
+  /** 011: one guest for this series episode only. */
+  guest?: HostDraft | null
+}
+
+/** Cast a guest for one series episode; nothing is stored (011 contracts §8). */
+export interface GuestBody {
+  language: string
+  slot: HostSlot
+  format: PodcastFormatId
+  personality_id?: string | null
+  learner_name?: string | null
+  avoid_names?: string[]
 }
 
 export interface EpisodeSettingsRequest {
@@ -396,6 +429,14 @@ export interface RecastBody {
 /** Replace one series host for this and later episodes, after the learner confirmed (§6). */
 export const recastHost = (seriesId: number, slot: HostSlot, body: RecastBody): Promise<SeriesDetail> =>
   podcastFetch(`/series/${seriesId}/hosts/${slot}/recast`, jsonBody('POST', body))
+
+/** Back to the show's standard settings; past episodes keep theirs (011 contracts §7). */
+export const resetSeriesSettings = (seriesId: number): Promise<SeriesDetail> =>
+  podcastFetch(`/series/${seriesId}/settings`, { method: 'DELETE' })
+
+/** A guest for one series episode, cast but not stored (011 contracts §8). */
+export const castGuest = (seriesId: number, body: GuestBody): Promise<HostDraft> =>
+  podcastFetch(`/series/${seriesId}/guest`, jsonBody('POST', body))
 
 /** Start over: forget the series; its episodes stay in Past Chats (§7). */
 export const resetSeries = async (seriesId: number): Promise<void> => {

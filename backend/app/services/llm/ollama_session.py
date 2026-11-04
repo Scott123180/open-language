@@ -6,7 +6,7 @@ until the model's last session closes (see `ollama_residency`).
 """
 
 import logging
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 
 import ollama
@@ -36,6 +36,8 @@ class OllamaSessionConfig:
     fingerprint: SessionFingerprint
     standing_prompt: str
     residency: OllamaResidency
+    options: Mapping[str, int] | None = None
+    """The context window every request asks for (011 R18); None keeps Ollama's default."""
 
 
 class OllamaSession(ConversationSession):
@@ -66,6 +68,7 @@ class OllamaSession(ConversationSession):
                 model=self._config.model,
                 prompt=_EMPTY_PRELOAD_PROMPT,
                 keep_alive=self._config.keep_alive,
+                **with_options(self._config.options),
             )
         except Exception as exc:
             raise self._broken(exc) from exc
@@ -97,7 +100,11 @@ class OllamaSession(ConversationSession):
         with `keep_alive` unset: it costs nothing while the model is loaded.
         """
         try:
-            self._config.client.generate(model=self._config.model, prompt=_EMPTY_PRELOAD_PROMPT)
+            self._config.client.generate(
+                model=self._config.model,
+                prompt=_EMPTY_PRELOAD_PROMPT,
+                **with_options(self._config.options),
+            )
         except Exception as exc:  # noqa: BLE001 — close must succeed; the model then idles out
             logger.warning(
                 "Could not return %s to Ollama's keep-alive: %s", self._config.model, exc
@@ -121,6 +128,7 @@ class OllamaSession(ConversationSession):
             messages=messages,
             stream=True,
             keep_alive=self._config.keep_alive,
+            **with_options(self._config.options),
         )
         for chunk in response:
             yield chunk["message"]["content"]
@@ -132,6 +140,12 @@ class OllamaSession(ConversationSession):
     def _broken(self, exc: Exception) -> LLMError:
         self._is_broken = True
         return LLMError(str(exc))
+
+
+def with_options(options: Mapping[str, int] | None) -> dict[str, Mapping[str, int]]:
+    """The `options` keyword for a request; nothing when it keeps Ollama's defaults, because a
+    request with other options than the loaded model's makes Ollama reload it."""
+    return {} if options is None else {"options": options}
 
 
 def _wire(role: str, content: str) -> dict[str, str]:

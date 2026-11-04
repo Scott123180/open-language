@@ -7,7 +7,10 @@ import type {
   InviteFrequencyId,
   LearnerRole,
   PodcastPreferences,
+  SeriesSettingName,
+  SeriesSettings,
 } from '../../services/podcastsApi'
+import type { SettingScope } from './useSeriesScopes'
 
 export interface EpisodeSettingValues {
   style: EpisodeStyleId
@@ -25,23 +28,35 @@ export interface EpisodeSettingsForm {
   summary: string
   change: <K extends EpisodeSettingName>(name: K, value: EpisodeSettingValues[K]) => void
   requestSettings: () => EpisodeSettingsRequest
+  /** 011: a continuing series' scope of each changed setting. */
+  scopeOf?: (name: SeriesSettingName) => SettingScope | undefined
+  reset: () => void
 }
 
 /** Episode settings start on the last one-off's style, lines and frequency (FR-013), Your role on
- * the show's own, and Today's subject empty. Until a field changes it follows the loaded data. */
+ * the show's own, and Today's subject empty; a continuing series starts on its usual settings
+ * (011 FR-015). Until a field changes it follows the loaded data. */
 export function useEpisodeSettingsForm(
   options: EpisodeOptions | undefined,
   preferences: PodcastPreferences | undefined,
   showRole: LearnerRole,
+  usual?: SeriesSettings,
 ): EpisodeSettingsForm {
   const [changed, setChanged] = useState<Partial<EpisodeSettingValues>>({})
-  const values = { ...startingValues(options, preferences, showRole), ...changed }
+  const starting = usual ? usualValues(usual) : startingValues(options, preferences, showRole)
+  const values = { ...starting, ...changed }
   return {
     values,
     summary: settingsSummary(values, options),
     change: (name, value) => setChanged((current) => ({ ...current, [name]: value })),
     requestSettings: () => ({ ...values, today_subject: values.today_subject.trim() || null }),
+    reset: () => setChanged({}),
   }
+}
+
+function usualValues(usual: SeriesSettings): EpisodeSettingValues {
+  const { style, line_length, invite_frequency, learner_role } = usual
+  return { style, line_length, invite_frequency, learner_role, today_subject: '' }
 }
 
 function startingValues(options: EpisodeOptions | undefined, preferences: PodcastPreferences | undefined, showRole: LearnerRole): EpisodeSettingValues {

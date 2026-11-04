@@ -179,3 +179,42 @@ def test_a_new_host_who_is_not_in_the_episode_is_not_named():
 
     assert brief.new_host_names == ()
     assert not brief.is_new_host("second")
+
+
+# --- 011 T091: a guest in the snapshot (data-model §2.5) ----------------------------------
+
+_010_SNAPSHOT_JSON = (
+    '{"episode_number": 4, "topics_covered": ["el sueño"], "about_learner": [], '
+    '"new_host_slots": []}'
+)
+
+
+def test_a_snapshot_with_a_guest_round_trips_through_json():
+    snapshot = SeriesSnapshot(4, ("el sueño",), guest_slot="second")
+
+    assert SeriesSnapshot.from_json(snapshot.to_json()) == snapshot
+
+
+def test_a_010_snapshot_loads_with_no_guest():
+    assert SeriesSnapshot.from_json(_010_SNAPSHOT_JSON).guest_slot is None
+
+
+def test_a_snapshot_with_no_guest_writes_010s_json_byte_for_byte():
+    assert SeriesSnapshot(4, ("el sueño",)).to_json() == _010_SNAPSHOT_JSON
+
+
+def test_the_brief_names_the_guest_from_the_cast():
+    marco = Host("second", "Marco", "expert", "es_ES-davefx-medium", "co_host")
+    cast = Cast.for_format(PODCAST_FORMATS["panel"], HUGO.to_host(), marco)
+
+    brief = SeriesBrief.of(SeriesSnapshot(4, guest_slot="second"), cast)
+
+    assert (brief.guest_slot, brief.guest_name) == ("second", "Marco")
+
+
+def test_a_brief_without_a_guest_names_none():
+    cast = Cast.for_format(PODCAST_FORMATS["one_host"], HUGO.to_host(), None)
+
+    brief = SeriesBrief.of(SeriesSnapshot(4), cast)
+
+    assert (brief.guest_slot, brief.guest_name) == (None, None)

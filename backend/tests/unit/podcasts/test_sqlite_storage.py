@@ -1,14 +1,21 @@
 """T010: the SQLite podcast storage (data-model §2.1–§2.4)."""
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.podcasts.catalog import PODCAST_SCENARIO_ID
-from app.podcasts.models import PodcastEpisodeSettings, PodcastHost, PodcastSeriesEpisode
+from app.podcasts.models import (
+    PodcastEpisodeSettings,
+    PodcastHost,
+    PodcastSeriesEpisode,
+    PodcastSeriesSettings,
+)
 from app.podcasts.services.episode_settings import EpisodeSettings
+from app.podcasts.services.series_settings import SeriesSettings
 from app.podcasts.services.series_snapshot import SeriesSnapshot
 from app.podcasts.services.sqlite_storage import SQLitePodcastStorage
 from app.podcasts.services.storage import (
@@ -403,3 +410,59 @@ def test_a_host_line_without_an_ask_reads_back_none(storage):
 def test_an_episode_cannot_take_a_role_other_than_its_settings_give():
     with pytest.raises(ValueError, match="role"):
         new_episode(settings=PRESENTED, learner_role="guest")
+
+
+# --- 011 T088: the series settings upsert beside the link (data-model §3.4) ---------------
+
+
+PRESENTED_SERIES = SeriesSettings("panel", "long", "presented", "long", "rarely", "guest")
+
+
+def _with_update(series, settings: SeriesSettings | None) -> NewSeriesLink:
+    return NewSeriesLink(series.series_id, 2, SeriesSnapshot(2), settings_update=settings)
+
+
+def test_a_series_settings_update_is_written_with_the_link(session, storage):
+    series = make_series(session)
+
+    _panel(storage, series=_with_update(series, PRESENTED_SERIES))
+
+    row = session.get(PodcastSeriesSettings, series.series_id)
+    assert (row.format, row.style, row.invite_frequency) == ("panel", "presented", "rarely")
+    assert row.updated_at is not None
+
+
+def test_a_series_settings_update_replaces_the_stored_row(session, storage):
+    series = make_series(session)
+    _panel(storage, series=_with_update(series, PRESENTED_SERIES))
+
+    _panel(storage, series=_with_update(series, replace(PRESENTED_SERIES, style="conversation")))
+
+    assert session.query(PodcastSeriesSettings).count() == 1
+    assert session.get(PodcastSeriesSettings, series.series_id).style == "conversation"
+
+
+def test_a_link_without_an_update_leaves_the_series_settings_alone(session, storage):
+    series = make_series(session)
+
+    _panel(storage, series=_with_update(series, None))
+
+    assert session.get(PodcastSeriesSettings, series.series_id) is None
+
+
+def test_a_failure_after_the_upsert_leaves_settings_link_and_episode_unwritten(
+    session, storage, core, monkeypatch
+):
+    series = make_series(session)
+    monkeypatch.setattr(session, "commit", _failing_commit)
+
+    with pytest.raises(OperationalError):
+        _panel(storage, series=_with_update(series, PRESENTED_SERIES))
+
+    assert session.get(PodcastSeriesSettings, series.series_id) is None
+    assert session.query(PodcastSeriesEpisode).count() == 0
+    assert core.list_conversations() == []
+
+
+def _failing_commit() -> None:
+    raise OperationalError("COMMIT", {}, Exception("disk I/O error"))

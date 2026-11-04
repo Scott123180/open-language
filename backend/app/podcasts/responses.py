@@ -1,6 +1,8 @@
 """Building the response bodies of /api/podcasts from domain values (007 contracts §1, §2, §6;
 010 contracts §1, §2, §5)."""
 
+from dataclasses import asdict, dataclass
+
 from app.podcasts.catalog import (
     DEFAULT_EPISODE_LENGTH,
     DEFAULT_EPISODE_STYLE,
@@ -42,6 +44,7 @@ from app.podcasts.schemas import (
     RememberedPointModel,
     SeriesDetailResponse,
     SeriesHostModel,
+    SeriesSettingsModel,
     SeriesSummaryModel,
     ShowDraftModel,
     ShowListing,
@@ -251,7 +254,9 @@ def episode_response(
 ) -> EpisodeResponse:
     return EpisodeResponse(
         **_episode_fields(episode, saved_show_id),
-        hosts=[_host_model(host, installation) for host in episode.hosts],
+        hosts=[
+            _host_model(host, installation, _guest_slot(episode.record)) for host in episode.hosts
+        ],
         shared_voice_notice=voice_notice,
         turn=turn.turn,
         awaiting=turn.awaiting,
@@ -329,9 +334,16 @@ def _show_model(record: EpisodeRecord, saved_show_id: int | None) -> EpisodeShow
     )
 
 
-def _host_model(host: HostRecord, installation: VoiceInstallation) -> EpisodeHostModel:
+def _guest_slot(record: EpisodeRecord) -> str | None:
+    return record.series.snapshot.guest_slot if record.series is not None else None
+
+
+def _host_model(
+    host: HostRecord, installation: VoiceInstallation, guest_slot: str | None = None
+) -> EpisodeHostModel:
     is_available = installation.is_installed(host.voice_key)
     return EpisodeHostModel(
+        is_guest=host.slot == guest_slot,
         host_id=host.host_id,
         slot=host.slot,
         name=host.name,
@@ -351,9 +363,9 @@ def series_detail(
     points: tuple[RememberedPoint, ...],
     memory_status: str,
     show: ShowListing,
-    installation: VoiceInstallation,
+    members: "SeriesMembers",
 ) -> SeriesDetailResponse:
-    """The setup screen's view of a series: its hosts and what they remember (FR-011)."""
+    """The setup screen's view of a series: hosts, memory and usual settings (FR-011)."""
     return SeriesDetailResponse(
         series_id=series.series_id,
         language=series.language,
@@ -362,16 +374,35 @@ def series_detail(
         next_episode_number=series.next_episode_number,
         unfinished_episode=_unfinished(series),
         memory_status=memory_status,
-        hosts=[_series_host_model(host, series, installation) for host in series.hosts],
+        hosts=[_series_host_model(host, series, members) for host in series.hosts],
         remembered=_remembered_model(points),
+        **_settings_fields(series),
     )
 
 
+def _settings_fields(series: SeriesRecord) -> dict:
+    """The series' usual settings, and the show's expert for a guest episode (011 §6)."""
+    return {
+        "usual_settings": SeriesSettingsModel(**asdict(series.settings)),
+        "is_standard": series.settings.is_standard_for(series.show),
+        "second_role_personality_id": series.show.personalities[1],
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class SeriesMembers:
+    """Who has been in the series' episodes, and which voices are installed."""
+
+    heard: frozenset[str]
+    installation: VoiceInstallation
+
+
 def _series_host_model(
-    host: SeriesHost, series: SeriesRecord, installation: VoiceInstallation
+    host: SeriesHost, series: SeriesRecord, members: SeriesMembers
 ) -> SeriesHostModel:
-    is_available = installation.is_installed(host.voice_key)
+    is_available = members.installation.is_installed(host.voice_key)
     return SeriesHostModel(
+        has_taken_part=host.name in members.heard,
         slot=host.slot,
         name=host.name,
         personality_id=host.personality_id,

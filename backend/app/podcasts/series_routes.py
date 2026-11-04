@@ -10,10 +10,12 @@ from functools import partial
 from fastapi import APIRouter, Depends, HTTPException, Path, Response
 
 from app.podcasts.catalog import MEMORY_WAIT_SECONDS
-from app.podcasts.responses import series_detail, show_listing
+from app.podcasts.responses import SeriesMembers, host_draft, series_detail, show_listing
 from app.podcasts.schemas import (
     SLOT_PATTERN,
     FavouriteRequest,
+    GuestRequest,
+    HostDraftModel,
     MemoryStatusResponse,
     RecastRequest,
     SeriesDetailResponse,
@@ -111,7 +113,11 @@ class SeriesView:
         status = self._catch_ups.status(series.series_id, self._series)
         points = self._series.remembered(series.series_id)
         listing = show_listing(item, series.language)
-        return series_detail(series, points, status, listing, self._installation)
+        return series_detail(series, points, status, listing, self._members(series.series_id))
+
+    def _members(self, series_id: int) -> SeriesMembers:
+        heard = frozenset().union(*self._series.hosts_present(series_id).values())
+        return SeriesMembers(heard, self._installation)
 
 
 @series_router.get("/series/{series_id}", response_model=SeriesDetailResponse)
@@ -135,6 +141,32 @@ def recast_host(
     except tuple(_REFUSAL_STATUS) as refusal:
         raise HTTPException(_REFUSAL_STATUS[type(refusal)], str(refusal)) from refusal
     return view.detail(series)
+
+
+@series_router.delete("/series/{series_id}/settings", response_model=SeriesDetailResponse)
+def reset_series_settings(
+    series_id: int,
+    app_settings=Depends(get_app_settings),
+    service: SeriesService = Depends(get_series_service),
+    view: SeriesView = Depends(),
+):
+    """Back to the show's standard settings; past episodes keep theirs (011 §7, FR-019)."""
+    try:
+        series = service.reset_settings(series_id, app_settings.target_language)
+    except tuple(_REFUSAL_STATUS) as refusal:
+        raise HTTPException(_REFUSAL_STATUS[type(refusal)], str(refusal)) from refusal
+    return view.detail(series)
+
+
+@series_router.post("/series/{series_id}/guest", response_model=HostDraftModel)
+def cast_guest(
+    series_id: int, req: GuestRequest, service: SeriesService = Depends(get_series_service)
+):
+    """A guest for one episode, cast but not stored (011 §8, research R10)."""
+    try:
+        return host_draft(service.cast_guest(series_id, req))
+    except tuple(_REFUSAL_STATUS) as refusal:
+        raise HTTPException(_REFUSAL_STATUS[type(refusal)], str(refusal)) from refusal
 
 
 @series_router.delete("/series/{series_id}", status_code=NO_CONTENT_STATUS)

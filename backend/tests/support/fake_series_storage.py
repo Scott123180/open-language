@@ -77,6 +77,10 @@ class FakeSeriesStorage(SeriesStorage):
         series_id = len(self.series) + 1
         self.series[series_id] = SeriesRecord(series_id, show, language, hosts, episode_count, None)
         self.points[series_id] = []
+        everyone = frozenset(host.name for host in hosts)
+        self.present[series_id] = {
+            series_id * 1000 + number: everyone for number in range(1, episode_count + 1)
+        }
         return self.series[series_id]
 
     def add_point(self, series_id: int, kind: str, text: str, episode_number: int = 1) -> None:

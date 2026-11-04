@@ -10,6 +10,8 @@ interface ConfirmDialogProps {
   isBusy?: boolean
   onConfirm: () => void
   onCancel: () => void
+  /** Escape's action, when it differs from the cancel button's; Cancel by default. */
+  onEscape?: () => void
   children?: ReactNode
 }
 
@@ -24,7 +26,7 @@ export default function ConfirmDialog(props: ConfirmDialogProps) {
   return (
     <div style={backdropStyle}>
       <div ref={dialog} role="alertdialog" aria-modal="true" aria-labelledby={ids.title} aria-describedby={ids.message}
-        onKeyDown={(event) => trapKeys(event, dialog.current, props.onCancel)} style={dialogStyle}>
+        onKeyDown={(event) => trapKeys(event, dialog.current, props.onEscape ?? props.onCancel)} style={dialogStyle}>
         <h2 id={ids.title} style={titleStyle}>{props.title}</h2>
         <p id={ids.message} style={{ margin: 0, color: 'var(--color-text)' }}>{props.message}</p>
         {props.children}
@@ -54,10 +56,10 @@ function useFocusReturn(dialog: React.RefObject<HTMLDivElement>) {
   }, [dialog])
 }
 
-function trapKeys(event: KeyboardEvent, dialog: HTMLDivElement | null, onCancel: () => void): void {
+function trapKeys(event: KeyboardEvent, dialog: HTMLDivElement | null, onEscape: () => void): void {
   if (event.key === 'Escape') {
     event.preventDefault()
-    onCancel()
+    onEscape()
   } else if (event.key === 'Tab' && dialog) {
     const focusable = [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)]
     const [first, last] = [focusable[0], focusable[focusable.length - 1]]

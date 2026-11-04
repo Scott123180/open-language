@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     voice_dir: Path = Path.home() / ".local" / "share" / "piper-voices"
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1:8b"
+    # Ollama's default 4,096-token context is too small for a long podcast episode, so a model
+    # this size on disk or smaller asks for the larger window; bigger models keep the default.
+    ollama_small_model_max_gb: float = 10
+    ollama_small_model_context: int = 8192
     whisper_model: str = "base"
     whisper_device: str = "auto"
     low_confidence_threshold: float = 0.55

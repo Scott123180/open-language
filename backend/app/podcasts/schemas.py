@@ -16,6 +16,7 @@ from app.podcasts.catalog import (
     HOST_NAME_MAX_LENGTH,
     HOST_SLOTS,
     INVITE_FREQUENCIES,
+    LEAD_SLOT,
     LEARNER_ROLES,
     ONE_OFF_KIND,
     PERSONALITIES,
@@ -39,8 +40,11 @@ SERIES_CLASH = "{name} has the same name as you. Change the name the hosts call 
 UNLISTED_SETTING = "That {setting} isn't in the list. Pick one of the listed ones."
 UNKNOWN_ROLE = "Your role must be guest, co-host or caller."
 TOO_MANY_TO_SKIP = "Too many subjects to skip. Close the suggestions and try again."
+ONE_GUEST_ONLY = "Only one guest can join an episode."
 SUBJECT_TOO_LONG = f"Today's subject can be at most {TODAY_SUBJECT_MAX_LENGTH} characters."
 MAX_INTERESTS = 10
+GUEST_AVOID_MAX = 20
+"""Another guest sends the names already drawn; more than this many is a stale screen."""
 MAX_AVOID_TITLES = 50
 AVOID_TITLE_MAX_LENGTH = 200
 INTEREST_MAX_LENGTH = 40
@@ -365,6 +369,33 @@ class StartEpisodeRequest(BaseModel):
     learner_name: str | None = None
     kind: Literal["one_off", "series"] = ONE_OFF_KIND
     settings: EpisodeSettingsModel | None = None
+    from_now_on: list[str] = Field(default_factory=list)
+    """011: the settings this series episode keeps for later episodes too."""
+    guest: HostDraftModel | None = None
+    """011: one guest for this series episode only, in their slot."""
+
+    @field_validator("learner_name")
+    @classmethod
+    def _trim_learner_name(cls, value: str | None) -> str | None:
+        return _trimmed_name(value)
+
+    @field_validator("guest", mode="before")
+    @classmethod
+    def _one_guest(cls, value):
+        if isinstance(value, list):
+            raise ValueError(ONE_GUEST_ONLY)
+        return value
+
+
+class GuestRequest(BaseModel):
+    """Cast a guest for one series episode; nothing is stored (011 contracts §8)."""
+
+    language: str
+    slot: str = Field(pattern=SLOT_PATTERN)
+    format: str = Field(pattern=FORMAT_PATTERN)
+    personality_id: str | None = None
+    learner_name: str | None = None
+    avoid_names: list[str] = Field(default_factory=list, max_length=GUEST_AVOID_MAX)
 
     @field_validator("learner_name")
     @classmethod
@@ -397,6 +428,8 @@ class EpisodeHostModel(BaseModel):
     show_role: str
     is_voice_available: bool
     voice_unavailable_message: str | None
+    is_guest: bool = False
+    """011: true for today's guest only."""
 
 
 class EpisodeLineModel(BaseModel):
@@ -471,6 +504,8 @@ class SeriesHostModel(BaseModel):
     is_new_next_episode: bool
     is_voice_available: bool
     voice_unavailable_message: str | None
+    has_taken_part: bool
+    """011: the host has been in a series episode, so they are not new to the show."""
 
 
 class RememberedPointModel(BaseModel):
@@ -484,6 +519,15 @@ class RememberedModel(BaseModel):
     about_learner: list[RememberedPointModel]
 
 
+class SeriesSettingsModel(BaseModel):
+    format: str
+    length: str
+    style: str
+    line_length: str
+    invite_frequency: str
+    learner_role: str
+
+
 class SeriesDetailResponse(BaseModel):
     series_id: int
     language: str
@@ -494,6 +538,10 @@ class SeriesDetailResponse(BaseModel):
     memory_status: str
     hosts: list[SeriesHostModel]
     remembered: RememberedModel
+    usual_settings: SeriesSettingsModel
+    is_standard: bool
+    second_role_personality_id: str
+    """The show's second personality: today's automatic expert guest (011 FR-024a)."""
 
 
 class RecastRequest(BaseModel):
@@ -558,6 +606,21 @@ def _host_problem(
     if learner_name and host.name.casefold() == learner_name.casefold():
         return clash_message.format(name=host.name)
     return None
+
+
+def guest_problem(
+    guest: HostDraftModel,
+    other: HostDraftModel,
+    language: str,
+    learner_name: str | None,
+    installed_count: int,
+) -> str | None:
+    """007's host and pair checks for a guest beside the other present host (011 §5.2)."""
+    problem = _host_problem(guest, language, learner_name, SERIES_CLASH)
+    if problem is not None:
+        return problem
+    lead, second = sorted((guest, other), key=lambda host: host.slot != LEAD_SLOT)
+    return _pair_problem(lead, second, installed_count)
 
 
 def _pair_problem(lead: HostDraftModel, second: HostDraftModel, installed_count: int) -> str | None:

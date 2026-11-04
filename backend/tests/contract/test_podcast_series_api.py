@@ -22,6 +22,9 @@ DETAIL_KEYS = {
     "memory_status",
     "hosts",
     "remembered",
+    "usual_settings",
+    "is_standard",
+    "second_role_personality_id",
 }
 HOST_KEYS = {
     "slot",
@@ -34,6 +37,7 @@ HOST_KEYS = {
     "is_new_next_episode",
     "is_voice_available",
     "voice_unavailable_message",
+    "has_taken_part",
 }
 SERIES_GONE = "That series isn't there any more. Open the show again."
 MEMORY_REPLY = {
@@ -182,3 +186,32 @@ def test_waiting_times_out_at_the_limit(harness):
 def test_catching_up_an_unknown_series_is_a_404(harness):
     assert _memory(harness, 999).status_code == 404
     assert _memory(harness, 999, wait="true").status_code == 404
+
+
+# --- 011 T093: usual settings and who has taken part (contracts §6) -----------------------
+
+
+def test_a_series_detail_gives_its_usual_settings_and_the_shows_second_personality(harness):
+    series_id = _series_id(harness)
+
+    detail = harness.client.get(f"{SERIES}/{series_id}").json()
+
+    assert detail["usual_settings"] == {
+        "format": "one_host",
+        "length": "short",
+        "style": "balanced",
+        "line_length": "medium",
+        "invite_frequency": "sometimes",
+        "learner_role": "guest",
+    }
+    assert detail["is_standard"] is False
+    assert detail["second_role_personality_id"] == "expert"
+
+
+def test_a_host_has_taken_part_once_they_were_in_an_episode(harness):
+    """A One host series' second host has never been heard: they read as new (R12)."""
+    series_id = _series_id(harness)
+
+    lead, second = harness.client.get(f"{SERIES}/{series_id}").json()["hosts"]
+
+    assert (lead["has_taken_part"], second["has_taken_part"]) == (True, False)

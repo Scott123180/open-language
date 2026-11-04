@@ -9,9 +9,15 @@ CANNED_JSON = json.dumps({"verdict": "correct", "corrections": []})
 class ScriptedOllamaClient:
     """Answers `chat` like the Ollama client: chunks when streaming, one message otherwise."""
 
-    def __init__(self, chunks=CANNED_REPLY_CHUNKS, error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        chunks=CANNED_REPLY_CHUNKS,
+        error: Exception | None = None,
+        sizes: dict[str, int] | None = None,
+    ) -> None:
         self._chunks = tuple(chunks)
         self._error = error
+        self._sizes = sizes or {}
         self.chat_calls: list[dict] = []
         self.generate_calls: list[dict] = []
 
@@ -29,6 +35,11 @@ class ScriptedOllamaClient:
         if self._error is not None:
             raise self._error
         return {"response": ""}
+
+    def list(self):
+        """The installed models and their sizes on disk, as `ollama list` gives them."""
+        models = [{"model": name, "size": size} for name, size in self._sizes.items()]
+        return {"models": models}
 
     def fail_with(self, error: Exception) -> None:
         """Make every later call raise, as a daemon that stopped mid-conversation would."""
