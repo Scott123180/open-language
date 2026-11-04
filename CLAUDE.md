@@ -327,8 +327,9 @@ file layout; commands are small `Command` objects wired in `composition.py`.
   lines, How often you're asked, Your role, Today's subject with Suggest subjects) sit behind one
   disclosure; series keep usual settings changed for one episode or from now on; a guest can take either
   chair for one episode. Pre-011 episodes are unchanged (golden tests). Two additive tables, five additive
-  columns. **Shipped as experimental**: on `llama3.1:8b` Beginner sentences run long (SC-002) and Medium
-  and Long lines start after more than 5 s at p90 (SC-011); small Ollama models now ask for an
+  columns. **Shipped as experimental**: on `llama3.1:8b` Medium and Long lines start after more than 5 s
+  at p90 (SC-011, accepted) and many questions to the learner are tagged for no one (SC-012); long
+  Beginner sentences (SC-002) were accepted as they are. Small Ollama models now ask for an
   8,192-token context (docs/architecture.md § "Open items")
 - **010-recurring-podcast-shows**: a show can be a series per practice language — the same two hosts each
   episode (checked at Start; changed only by a confirmed Recast), a bounded memory of topics and what the
