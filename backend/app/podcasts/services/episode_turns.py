@@ -70,6 +70,8 @@ class EpisodeDependencies:
 class _WrittenLine:
     cue: LineCue
     sanitised: SanitisedLine
+    addressee: str | None = None
+    """Who the written line is for (011 research R19)."""
 
 
 class EpisodeTurns:
@@ -92,9 +94,7 @@ class EpisodeTurns:
         """Start the episode's session in the background, unless it is already live."""
         if self._deps.engine.is_live(episode.key):
             return SESSION_LIVE
-        history = episode_history(
-            episode.facts, episode.cast, episode.learner_label, episode.series_brief
-        )
+        history = episode_history(episode.facts, episode.cue_context)
         prompt = episode.standing_prompt(self._deps.level)
         start_warming(self._deps.engine, self._deps.provider, episode.key, prompt, history)
         return SESSION_WARMING
@@ -163,23 +163,12 @@ class EpisodeTurns:
         raise EmptyLineError()
 
     def _request(self, episode: LoadedEpisode, cue: LineCue, guidance: str | None) -> TurnRequest:
-        labels = (episode.cast, episode.learner_label)
-        history = next_turn_history(episode.facts, *labels, cue, episode.series_brief)
+        history = next_turn_history(episode.facts, episode.cue_context, cue)
         prompt = episode.standing_prompt(self._deps.level)
         return TurnRequest(episode.key, prompt, history, guidance, opening_instruction=None)
 
     async def _store(self, episode: LoadedEpisode, written: _WrittenLine) -> LineRecord:
-        host = episode.host(written.cue.speaker_slot)
-        line = self._deps.podcasts.save_host_line(
-            NewHostLine(
-                conversation_id=episode.conversation_id,
-                host_id=host.host_id,
-                content=written.sanitised.text,
-                intent=written.cue.intent,
-                invites_learner=written.cue.invites_learner,
-                was_trimmed=written.sanitised.was_trimmed,
-            )
-        )
+        line = self._deps.podcasts.save_host_line(_host_line_for(episode, written))
         await self._acknowledge(episode, line, written.sanitised.was_trimmed)
         return line
 
@@ -234,6 +223,22 @@ def line_payload(line: LineRecord) -> dict:
         "is_revealed": host.is_revealed if host is not None else True,
         "created_at": line.created_at.isoformat(),
     }
+
+
+def _host_line_for(episode: LoadedEpisode, written: _WrittenLine) -> NewHostLine:
+    """The line as stored: its invitation decided from the written line (011 research R19)."""
+    cue, talk, addressee = written.cue, episode.talk, written.addressee
+    ask, stored_addressee = talk.stored_addressing(cue.ask, addressee)
+    return NewHostLine(
+        conversation_id=episode.conversation_id,
+        host_id=episode.host(cue.speaker_slot).host_id,
+        content=written.sanitised.text,
+        intent=cue.intent,
+        invites_learner=talk.invitation(cue.ask, addressee),
+        was_trimmed=written.sanitised.was_trimmed,
+        ask=ask,
+        addressee=stored_addressee,
+    )
 
 
 def _turn_fields(turn: Turn) -> dict:

@@ -7,10 +7,13 @@ producer cue that asked for it. Cues are re-rendered from the stored facts by th
 
 from collections.abc import Sequence
 
-from app.podcasts.prompts import render_cue
-from app.podcasts.services.casting import Cast
-from app.podcasts.services.series_snapshot import SeriesBrief
-from app.podcasts.services.turn_policy import LineCue, LineFacts, follows_pass, is_settle_moment
+from app.podcasts.prompts import CueContext, render_cue
+from app.podcasts.services.turn_policy import (
+    LineCue,
+    LineFacts,
+    follows_pass,
+    is_settle_moment,
+)
 from app.services.conversation import SavedTurn
 
 USER_ROLE = "user"
@@ -29,44 +32,37 @@ def stored_cue(lines: Sequence[LineFacts], index: int) -> LineCue:
     return LineCue(
         speaker_slot=line.speaker,
         intent=line.intent,
-        invites_learner=line.invites_learner,
+        ask=line.ask,
         is_after_pass=follows_pass(previous),
-        is_settle_invite=line.invites_learner and is_settle_moment(previous),
+        is_settle_invite=line.ask.may_invite and is_settle_moment(previous),
     )
 
 
-def episode_history(
-    lines: Sequence[LineFacts],
-    cast: Cast,
-    learner_label: str,
-    series: SeriesBrief | None = None,
-) -> tuple[SavedTurn, ...]:
+def episode_history(lines: Sequence[LineFacts], context: CueContext) -> tuple[SavedTurn, ...]:
     turns: list[SavedTurn] = []
     for index, line in enumerate(lines):
         if line.is_host:
-            cue = stored_cue(lines, index)
-            turns.append(_cue_turn(index, cue, cast, learner_label, series))
-            turns.append(SavedTurn(line_turn_id(line.message_id), ASSISTANT_ROLE, line.text))
+            turns.append(_cue_turn(index, stored_cue(lines, index), context))
+            turns.append(_host_turn(line, context))
         else:
-            text = f"{learner_label}: {line.text}"
+            text = f"{context.learner_label}: {line.text}"
             turns.append(SavedTurn(line_turn_id(line.message_id), USER_ROLE, text))
     return tuple(turns)
 
 
 def next_turn_history(
-    lines: Sequence[LineFacts],
-    cast: Cast,
-    learner_label: str,
-    cue: LineCue,
-    series: SeriesBrief | None = None,
+    lines: Sequence[LineFacts], context: CueContext, cue: LineCue
 ) -> tuple[SavedTurn, ...]:
     """The saved history, ending with a fresh cue for the next line (a user turn)."""
-    fresh = _cue_turn(len(lines), cue, cast, learner_label, series)
-    return (*episode_history(lines, cast, learner_label, series), fresh)
+    return (*episode_history(lines, context), _cue_turn(len(lines), cue, context))
 
 
-def _cue_turn(
-    position: int, cue: LineCue, cast: Cast, learner_label: str, series: SeriesBrief | None
-) -> SavedTurn:
-    rendered = render_cue(cue, cast, learner_label, series)
-    return SavedTurn(f"{CUE_TURN_PREFIX}{position}", USER_ROLE, rendered)
+def _host_turn(line: LineFacts, context: CueContext) -> SavedTurn:
+    replayed = context.talk.replayed_line(
+        line.text, line.addressee, context.cast, context.learner_label
+    )
+    return SavedTurn(line_turn_id(line.message_id), ASSISTANT_ROLE, replayed)
+
+
+def _cue_turn(position: int, cue: LineCue, context: CueContext) -> SavedTurn:
+    return SavedTurn(f"{CUE_TURN_PREFIX}{position}", USER_ROLE, render_cue(cue, context))

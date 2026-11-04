@@ -101,13 +101,13 @@ exceptions to "watch it fail", because they record today's behaviour on purpose:
 
 **Purpose**: a green baseline, a database backup, and the frozen pre-011 schema.
 
-- [ ] T001 Record the green baseline before any change:
+- [X] T001 Record the green baseline before any change:
   - from `backend/`: `backend/.venv/bin/pytest`, `backend/.venv/bin/ruff check .` and `backend/.venv/bin/black --check .`;
   - from `frontend/`: `npm run lint`, `npm run build`, `npm test -- --run` and `npm run test:e2e`.
 
   All must pass. Note any pre-existing failure in the PR description instead of fixing it here.
-- [ ] T002 Back up the local database: `cp ~/.open-language/app.db ~/.open-language/app.db.pre-011`. It should hold at least one series with two or more episodes and remembered points, and one one-off episode. T134 (SC-010) compares against this copy, so take it before the app runs any 011 code.
-- [ ] T003 Freeze the pre-011 schema as `backend/tests/fixtures/schema_010.sql`, following the pattern of `backend/tests/fixtures/schema_007.sql`:
+- [X] T002 Back up the local database: `cp ~/.open-language/app.db ~/.open-language/app.db.pre-011`. It should hold at least one series with two or more episodes and remembered points, and one one-off episode. T134 (SC-010) compares against this copy, so take it before the app runs any 011 code.
+- [X] T003 Freeze the pre-011 schema as `backend/tests/fixtures/schema_010.sql`, following the pattern of `backend/tests/fixtures/schema_007.sql`:
   - `git worktree add "$SCRATCH/wt-pre011" 28ab4c7`. That commit is the plan; no 011 code exists in it;
   - in that worktree, run `init_db()` against an empty database with `OPEN_LANGUAGE_DB_PATH` set to a scratch file, using this repository's `backend/.venv/bin/python`;
   - `sqlite3 <file> .schema > backend/tests/fixtures/schema_010.sql`, then `git worktree remove "$SCRATCH/wt-pre011"`;
@@ -136,7 +136,7 @@ every episode still runs on `LegacyTalk`.
 
 ### Tests for the foundation (write first)
 
-- [ ] T004 [P] Write the FR-025/SC-010 upgrade test `backend/tests/integration/podcasts/test_configured_upgrade_preserves_data.py`, modelled on `backend/tests/integration/podcasts/test_series_upgrade_preserves_data.py`:
+- [X] T004 [P] Write the FR-025/SC-010 upgrade test `backend/tests/integration/podcasts/test_configured_upgrade_preserves_data.py`, modelled on `backend/tests/integration/podcasts/test_series_upgrade_preserves_data.py`:
   - build the pre-011 file in `tmp_path` by `executescript` of `backend/tests/fixtures/schema_010.sql` (T003). Never use `create_all()`, because the shared metadata will hold the 011 tables;
   - seed:
     - an **unfinished One host one-off episode** (`es`, Beginner) with `conversations`, `podcast_episodes`, two `podcast_hosts`, three `podcast_host_lines` with intent `discuss`, and their `messages`;
@@ -151,13 +151,13 @@ every episode still runs on `LegacyTalk`.
     - loading the one-off through `SQLitePodcastStorage.get_episode` gives `settings is None`, and its `LoadedEpisode.standing_prompt` equals the matching One host Beginner entry of `backend/tests/unit/podcasts/golden/one_off_prompts.json` byte for byte.
 
   It fails until T014 adds the tables and T018 adds `talk`. T096 later adds the series' API-level checks; otherwise it is not edited.
-- [ ] T005 [P] Re-point the legacy pins through one helper, **before** any change to `backend/app/podcasts/prompts.py`:
+- [X] T005 [P] Re-point the legacy pins through one helper, **before** any change to `backend/app/podcasts/prompts.py`:
   - create `backend/tests/unit/podcasts/legacy_talk_calls.py` with `legacy_standing_prompt(**arguments)` and `legacy_cue(**arguments)`. Today they call `build_standing_prompt(...)` and `render_cue(...)` exactly as the tests do now;
   - change `backend/tests/unit/podcasts/test_one_off_golden.py` (including its `--write` script) and `backend/tests/unit/podcasts/test_series_prompts.py` to call only these helpers;
   - do not edit `golden/one_off_prompts.json` or any expected string. The tests pass on today's code.
 
   T017 changes the helpers' bodies to build a `PromptContext` with `LegacyTalk()`. That is the only edit these pins ever get.
-- [ ] T006 [P] Extend `backend/tests/unit/podcasts/test_catalog.py` (data-model §1.1–§1.4):
+- [X] T006 [P] Extend `backend/tests/unit/podcasts/test_catalog.py` (data-model §1.1–§1.4):
   - `EPISODE_STYLES` holds `conversation`, `balanced` and `presented`, in that order, with the labels and learner-facing descriptions of §1.1 and the weights react/explain/story **0.90/0.07/0.03**, **0.55/0.30/0.15** and **0.35/0.40/0.25**; `DEFAULT_EPISODE_STYLE == "balanced"`;
   - `HOST_LINE_LENGTHS` holds `short` (1–2, brief "in one or two sentences", full "in two sentences"), `medium` (3–5, brief "in three sentences", full "in four or five sentences") and `long` (5–8, brief "in five or six sentences", full "in six to eight sentences"), each with `range_phrase` ("three to five sentences" for Medium); `DEFAULT_HOST_LINE_LENGTH == "medium"` (research R22);
   - `PERSONALITIES["expert"].configured_speaking_style` and `PERSONALITIES["curious_interviewer"].configured_speaking_style` hold the research R22 wording; every other personality's is `None`; every `speaking_style` is unchanged;
@@ -166,18 +166,18 @@ every episode still runs on `LegacyTalk`.
   - validation: an `EpisodeStyle` whose weights are not all positive or do not sum to 1 raises `ValueError`; a `HostLineLength` with `min_sentences < 1` or `min_sentences > max_sentences` raises; an `InviteFrequency` hazard outside [0, 1] raises;
   - the constants `TODAY_SUBJECT_MAX_LENGTH == 120`, `SERIES_SETTING_NAMES == ("format", "length", "style", "line_length", "invite_frequency", "learner_role")`, `ANSWER_INTENTS == ("answer", "follow_up")`, `DISCUSSION_INTENTS == ("react", "explain", "story")`, `QUESTION_MARK == "?"`, `MIN_SENTENCE_CHARACTERS == 12`, `PART_WAIT_SECONDS == 30`, `PART_TTL_SECONDS == 600`, `ASKS == ("required", "allowed", "none")`, `ADDRESSEES == ("learner", "lead", "second")`, `ADDRESS_ALL == "all"`, `ADDRESS_TAG_MAX_LENGTH == 60`, `BRIEF_INTENTS == ("greet", "react", "wrap_up", "sign_off")`, `SUBJECT_SUGGESTIONS == 3` and `SUBJECT_AVOID_MAX == 10`;
   - every intent in `ANSWER_INTENTS + DISCUSSION_INTENTS` fits `podcast_host_lines.intent` (≤ 10 characters), and every value of `ASKS` and `ADDRESSEES` fits 8 characters.
-- [ ] T007 [P] Extend `backend/tests/unit/test_database.py` (data-model §2.1–§2.3). After `init_db()`:
+- [X] T007 [P] Extend `backend/tests/unit/test_database.py` (data-model §2.1–§2.3). After `init_db()`:
   - `podcast_episode_settings` has exactly: `conversation_id` Integer PK and FK to `podcast_episodes.conversation_id` **ON DELETE CASCADE**; `style` String(14) not null; `line_length` String(8) not null; `invite_frequency` String(10) not null; `today_subject` String(120) **nullable**; `covered_personality` String(30) **nullable**;
   - `podcast_series_settings` has exactly: `series_id` Integer PK and FK to `podcast_series.id` **ON DELETE CASCADE**; `format` String(12), `length` String(8), `style` String(14), `line_length` String(8), `invite_frequency` String(10), `learner_role` String(12) and `updated_at` DateTime(tz), all not null;
   - `podcast_preferences` gains `last_style VARCHAR(14) NOT NULL DEFAULT 'balanced'`, `last_line_length VARCHAR(8) NOT NULL DEFAULT 'medium'` and `last_invite_frequency VARCHAR(10) NOT NULL DEFAULT 'sometimes'`;
   - `podcast_host_lines` gains `ask VARCHAR(8)` and `addressee VARCHAR(8)`, both **nullable** with no default, and existing rows read NULL in both (data-model §2.4a);
   - running `init_db()` twice is idempotent.
-- [ ] T008 [P] Write `backend/tests/unit/podcasts/test_episode_settings.py` (data-model §3.1):
+- [X] T008 [P] Write `backend/tests/unit/podcasts/test_episode_settings.py` (data-model §3.1):
   - `EpisodeSettings.defaults("guest")` is Balanced, Medium, Sometimes, role `guest`, with no subject and no covered personality;
   - `from_ids(style=…, line_length=…, invite_frequency=…, learner_role=…, today_subject=…, covered_personality=…)` resolves the catalogue entries, and raises `ValueError` naming the setting for an unknown id;
   - `summary()` of the defaults is exactly `"Balanced · Medium lines · Asked sometimes"`, and of Presented · Long · Rarely is `"Presented · Long lines · Asked rarely"`;
   - the value is frozen: assigning a field raises.
-- [ ] T009 [P] Write the shared contract test `backend/tests/contract/service_interfaces/test_host_talk_contract.py` (research R1, LSP):
+- [X] T009 [P] Write the shared contract test `backend/tests/contract/service_interfaces/test_host_talk_contract.py` (research R1, LSP):
   - `HostTalk` is an ABC with exactly nine abstract methods (research R1, amended 2026-11-03): `ask(run, format, rng)`, `invitation(ask, addressee)`, `discussion_intent(state, rng)`, `line_rules(label, languages)`, `speech_rules(prompt, level)`, `speaking_style(personality)`, `instruction(cue, cast, label)`, `closing(cue, label)` and `replayed_line(text, addressee, cast, label)`;
   - one contract, parametrised over the implementations (today `[LegacyTalk()]`; T025 adds `ConfiguredTalk`):
     - `ask(INVITE_DEADLINE, format, rng)` is `Ask.REQUIRED` for every speaking format;
@@ -188,7 +188,7 @@ every episode still runs on `LegacyTalk`.
     - `discussion_intent(...)` returns a value that fits `podcast_host_lines.intent`;
   - `LegacyTalk` only: `ask` never returns `Ask.ALLOWED`, `invitation(ask, "learner")` equals `ask == Ask.REQUIRED`, `speaking_style(p) == p.speaking_style`, and `replayed_line(text, …) == text`;
   - `host_talk_for(None)` returns a `LegacyTalk`.
-- [ ] T010 [P] Extend `backend/tests/unit/podcasts/test_sqlite_storage.py` (data-model §3.2):
+- [X] T010 [P] Extend `backend/tests/unit/podcasts/test_sqlite_storage.py` (data-model §3.2):
   - `create_episode(NewEpisode(..., settings=EpisodeSettings(...)))` writes one `podcast_episode_settings` row with the given ids, subject and covered personality;
   - `create_episode` with `settings=None` writes no row;
   - a failure forced after the settings insert rolls back the conversation, the episode, the hosts and the settings row together;
@@ -197,24 +197,24 @@ every episode still runs on `LegacyTalk`.
   - `save_host_line(NewHostLine(..., ask="allowed", addressee="learner", invites_learner=True))` stores both new columns, and `get_lines` returns them on `LineRecord.host`; a line saved with `ask=None, addressee=None` reads back `None` for both (data-model §2.4a, §3.7).
 
   `backend/tests/contract/service_interfaces/test_podcast_storage_provider.py` stays unedited: `PodcastStorage` gains no abstract method.
-- [ ] T011 [P] Update the policy test helpers in `backend/tests/unit/podcasts/test_turn_policy.py` and `backend/tests/unit/podcasts/test_turn_policy_properties.py`, so every `EpisodeState` they build carries `talk=LegacyTalk()`. Where a test reads `cue.invites_learner`, read `cue.ask` instead and assert `Ask.REQUIRED` for `True` and `Ask.NONE` for `False`; change no other expectation. Add one test with a spy `HostTalk` asserting that `TurnPolicy` asks `state.talk.ask(...)` for a cue's `Ask` and `state.talk.discussion_intent(...)` for discussion lines, while `open`, `greet`, `wrap_up` and `sign_off` keep their own rules (wrap-up is `REQUIRED` in a speaking format; sign-off is `NONE`). Add one test that a `LineFacts` built from a stored line with `ask=None` reads `Ask.REQUIRED` when `invites_learner` is true and `Ask.NONE` otherwise.
-- [ ] T012 [P] Extend `backend/tests/unit/services/test_scripted_line_writer.py` for streaming:
+- [X] T011 [P] Update the policy test helpers in `backend/tests/unit/podcasts/test_turn_policy.py` and `backend/tests/unit/podcasts/test_turn_policy_properties.py`, so every `EpisodeState` they build carries `talk=LegacyTalk()`. Where a test reads `cue.invites_learner`, read `cue.ask` instead and assert `Ask.REQUIRED` for `True` and `Ask.NONE` for `False`; change no other expectation. Add one test with a spy `HostTalk` asserting that `TurnPolicy` asks `state.talk.ask(...)` for a cue's `Ask` and `state.talk.discussion_intent(...)` for discussion lines, while `open`, `greet`, `wrap_up` and `sign_off` keep their own rules (wrap-up is `REQUIRED` in a speaking format; sign-off is `NONE`). Add one test that a `LineFacts` built from a stored line with `ask=None` reads `Ask.REQUIRED` when `invites_learner` is true and `Ask.NONE` otherwise.
+- [X] T012 [P] Extend `backend/tests/unit/services/test_scripted_line_writer.py` for streaming:
   - `ScriptedLineWriter.script_tokens(["Hola a ", "todos. Hoy ", "hablamos."])` makes the next reply yield exactly those tokens in order;
   - `fail_after_tokens(2, error)` yields two tokens and then raises `error`;
   - a reply yields its line as one token when no split is scripted, as today.
 
 ### Implementation for the foundation
 
-- [ ] T013 Add the catalogues and constants to `backend/app/podcasts/catalog.py` (data-model §1.1–§1.4): frozen dataclasses `EpisodeStyle` (`style_id`, `label`, `description`, `weights` for react/explain/story, validated in `__post_init__`), `HostLineLength` (`line_length_id`, `label`, `min_sentences`, `max_sentences`, `brief_phrase`, `full_phrase`, and a `range_phrase` property, validated) and `InviteFrequency` (`invite_frequency_id`, `label`, `hazards`, validated); `EPISODE_STYLES`, `HOST_LINE_LENGTHS` and `INVITE_FREQUENCIES` as `MappingProxyType`s in display order; the `DEFAULT_…` constants; `INVITE_DEADLINE` and the §1.4 constants. Give `Personality` the optional `configured_speaking_style` (data-model §1.6) and set it for `expert` and `curious_interviewer`. Makes T006 green.
-- [ ] T014 Add `PodcastEpisodeSettings` and `PodcastSeriesSettings` to `backend/app/podcasts/models.py` with the exact columns of T007, and the three `last_…` columns to `PodcastPreferences`. Add the three `("podcast_preferences", "last_style VARCHAR(14) NOT NULL DEFAULT 'balanced'")`-style entries to `_ADDITIVE_COLUMNS` in `backend/app/database.py`, plus `("podcast_host_lines", "ask VARCHAR(8)")` and `("podcast_host_lines", "addressee VARCHAR(8)")`, and add the two nullable columns to `PodcastHostLine`. Makes T007 green, and T004 as far as the tables.
-- [ ] T015 [P] Create `backend/app/podcasts/services/episode_settings.py` with the frozen `EpisodeSettings` value: `defaults(learner_role)`, `from_ids(...)` raising `ValueError` on an unknown id, and `summary()` built from the catalogue labels ("{Style} · {Lines} lines · Asked {frequency in lower case}"). Makes T008 green.
-- [ ] T016 Create `backend/app/podcasts/services/host_talk.py`:
+- [X] T013 Add the catalogues and constants to `backend/app/podcasts/catalog.py` (data-model §1.1–§1.4): frozen dataclasses `EpisodeStyle` (`style_id`, `label`, `description`, `weights` for react/explain/story, validated in `__post_init__`), `HostLineLength` (`line_length_id`, `label`, `min_sentences`, `max_sentences`, `brief_phrase`, `full_phrase`, and a `range_phrase` property, validated) and `InviteFrequency` (`invite_frequency_id`, `label`, `hazards`, validated); `EPISODE_STYLES`, `HOST_LINE_LENGTHS` and `INVITE_FREQUENCIES` as `MappingProxyType`s in display order; the `DEFAULT_…` constants; `INVITE_DEADLINE` and the §1.4 constants. Give `Personality` the optional `configured_speaking_style` (data-model §1.6) and set it for `expert` and `curious_interviewer`. Makes T006 green.
+- [X] T014 Add `PodcastEpisodeSettings` and `PodcastSeriesSettings` to `backend/app/podcasts/models.py` with the exact columns of T007, and the three `last_…` columns to `PodcastPreferences`. Add the three `("podcast_preferences", "last_style VARCHAR(14) NOT NULL DEFAULT 'balanced'")`-style entries to `_ADDITIVE_COLUMNS` in `backend/app/database.py`, plus `("podcast_host_lines", "ask VARCHAR(8)")` and `("podcast_host_lines", "addressee VARCHAR(8)")`, and add the two nullable columns to `PodcastHostLine`. Makes T007 green, and T004 as far as the tables.
+- [X] T015 [P] Create `backend/app/podcasts/services/episode_settings.py` with the frozen `EpisodeSettings` value: `defaults(learner_role)`, `from_ids(...)` raising `ValueError` on an unknown id, and `summary()` built from the catalogue labels ("{Style} · {Lines} lines · Asked {frequency in lower case}"). Makes T008 green.
+- [X] T016 Create `backend/app/podcasts/services/host_talk.py`:
   - the `HostTalk` ABC with the nine methods of T009, and the `Ask` `StrEnum` in `backend/app/podcasts/services/turn_policy.py` (data-model §3.7);
   - `LegacyTalk`, a **pure move** of today's behaviour: `_line_rules` from `prompts.py`; the One host "always invite" rule and Panel's hazards (0.25, 0.45, 0.60) with deadline 4 from `turn_policy.py`, now returning `Ask.REQUIRED` or `Ask.NONE`; `invitation(ask, _) = ask == Ask.REQUIRED`; `discuss` as the discussion intent; `with_partner_speech_rules` as `speech_rules`; `speaking_style` returning `personality.speaking_style`; `replayed_line` returning the text unchanged; today's cue instructions and closing sentences from `prompts.py`, with the closing chosen by `cue.ask`. Copy the hazards into a named constant (`LEGACY_PANEL_HAZARDS`);
   - `host_talk_for(settings)`, which returns `LegacyTalk()`. T043 adds the configured branch, test first.
 
   Makes T009 green.
-- [ ] T017 Refactor `backend/app/podcasts/prompts.py` onto `HostTalk` (plan.md § Function-length plan):
+- [X] T017 Refactor `backend/app/podcasts/prompts.py` onto `HostTalk` (plan.md § Function-length plan):
   - add the frozen `PromptContext` (show, cast, label, languages, level, series, talk);
   - `build_standing_prompt(context)`: sections from the context, line rules from `talk.line_rules`, level block from `talk.speech_rules` (≈ 14 lines);
   - `render_cue` / `_instruction`: the closing from `talk.closing(cue, label)`, and unknown intents from `talk.instruction(...)`;
@@ -223,7 +223,7 @@ every episode still runs on `LegacyTalk`.
   - change the bodies of `backend/tests/unit/podcasts/legacy_talk_calls.py` (T005) to build a `PromptContext` with `talk=LegacyTalk()`.
 
   T005's pins must pass with no expected text changed.
-- [ ] T018 Thread `talk` through the episode in `backend/app/podcasts/services/turn_policy.py`, `backend/app/podcasts/services/episodes.py` and `backend/app/podcasts/services/cues.py`:
+- [X] T018 Thread `talk` through the episode in `backend/app/podcasts/services/turn_policy.py`, `backend/app/podcasts/services/episodes.py` and `backend/app/podcasts/services/cues.py`:
   - `EpisodeState` gains `talk: HostTalk`;
   - `LoadedEpisode.state` sets it with `host_talk_for(record.settings)` (≈ 10 lines);
   - `LoadedEpisode.standing_prompt` builds a `PromptContext` (≈ 6 lines);
@@ -232,20 +232,20 @@ every episode still runs on `LegacyTalk`.
   - `episode_history` / `next_turn_history` pass `talk` through to `render_cue`, and build each assistant turn's text with `talk.replayed_line(...)`.
 
   Makes T011 green; T004 is now fully green.
-- [ ] T019 Add `settings: EpisodeSettings | None` to `EpisodeRecord` and `NewEpisode` in `backend/app/podcasts/services/storage.py`. In `backend/app/podcasts/services/sqlite_storage.py`:
+- [X] T019 Add `settings: EpisodeSettings | None` to `EpisodeRecord` and `NewEpisode` in `backend/app/podcasts/services/storage.py`. In `backend/app/podcasts/services/sqlite_storage.py`:
   - `create_episode` inserts the settings row in its existing transaction when `settings` is set (≈ 17 lines);
   - `get_episode` left-joins the row;
   - first move `_episode_record`'s scalar fields into `_record_fields(row)`, then add `settings=_settings_of(row)` (≈ 14 lines);
   - `NewHostLine` and `LineRecord.host` gain `ask: str | None` and `addressee: str | None`, written and read by `save_host_line` and `get_lines`.
 
   Every caller passes `settings=None`, and `ask=cue.ask` with `addressee=None`, for now; `EpisodeTurns._store` still stores `invites_learner` from `talk.invitation(cue.ask, None)`, which equals today's flag under `LegacyTalk`. Makes T010 green.
-- [ ] T020 [P] Extend `backend/tests/support/scripted_line_writer.py` with `script_tokens(tokens)` and `fail_after_tokens(count, error)` on `ScriptedLineWriter`, read by `ScriptedLineSession.reply` and `reply_to_opening`. Makes T012 green.
-- [ ] T021 [P] Add the 011 types and fixtures to the frontend:
+- [X] T020 [P] Extend `backend/tests/support/scripted_line_writer.py` with `script_tokens(tokens)` and `fail_after_tokens(count, error)` on `ScriptedLineWriter`, read by `ScriptedLineSession.reply` and `reply_to_opening`. Makes T012 green.
+- [X] T021 [P] Add the 011 types and fixtures to the frontend:
   - in `frontend/src/services/podcastsApi.ts`, **types only**: `EpisodeSettings`, `EpisodeOptions`, `SeriesUsualSettings`, `GuestDraft`, `LineStartedEvent`, `LinePartEvent`, the optional `stream_id` on the error event, `settings` / `away_host_name` on the episode, `is_guest` on a host, and `has_jump_in` / `has_pass` on a format;
   - in `frontend/e2e/fixtures.ts`: `episodeOptions` (contracts §1), `seriesWithSettings` (contracts §6, with `usual_settings`, `is_standard` and `second_role_personality_id`), `guestDraft` (a `HostDraftModel` for "Marco", Expert), and `streamedLineFrames(parts)`, which builds the contracts §4 SSE body: `line_started`, one `line_part` per text with `audio_url` `/api/podcasts/episodes/{id}/parts/{stream_id}/{n}`, then `line` (content = the parts joined by single spaces) and `done`.
 
   `npm run lint` and `npm run build` pass.
-- [ ] T022 Foundation checkpoint:
+- [X] T022 Foundation checkpoint:
   - run the full backend suite, ruff and black, plus `npm run lint`, `npm test -- --run` and `npm run test:e2e`;
   - `git diff 28ab4c7 -- backend/tests/unit/podcasts/golden/one_off_prompts.json` is empty, and no expected string in `test_series_prompts.py` has changed.
 
@@ -281,7 +281,7 @@ Pre-feature episodes resume unchanged.
 
 ### Tests for User Story 1 (write first, see them fail)
 
-- [ ] T023 [P] [US1] Extend `backend/tests/unit/conversation_levels/test_rules.py` (FR-001, R2):
+- [X] T023 [P] [US1] Extend `backend/tests/unit/conversation_levels/test_rules.py` (FR-001, R2):
   - `with_sentence_rules(prompt, NATURAL)` returns `prompt` unchanged;
   - at Beginner, Elementary and Intermediate, the block has no `Say at most` line, and keeps the per-sentence word limit, the joining rule, tenses, vocabulary, idioms, the "Questions to the learner" line and the four behaviour lines, in the same wording as `with_partner_speech_rules`;
   - `with_partner_speech_rules` output is unchanged; the existing tests pin it and are not edited;
@@ -429,7 +429,7 @@ Pre-feature episodes resume unchanged.
 
 ### Implementation for User Story 1
 
-- [ ] T041 [P] [US1] Add `with_sentence_rules(prompt, level)` to `backend/app/conversation_levels/rules.py` and export it from `backend/app/conversation_levels/__init__.py`. Refactor `_partner_speech_block` into `(precedence, cap_line, *_sentence_lines(limits))` and have the new `_sentence_block` reuse `_sentence_lines`, so the partner block stays byte-identical (≈ 8 lines). Makes T023 green.
+- [X] T041 [P] [US1] Add `with_sentence_rules(prompt, level)` to `backend/app/conversation_levels/rules.py` and export it from `backend/app/conversation_levels/__init__.py`. Refactor `_partner_speech_block` into `(precedence, cap_line, *_sentence_lines(limits))` and have the new `_sentence_block` reuse `_sentence_lines`, so the partner block stays byte-identical (≈ 8 lines). Makes T023 green.
 - [ ] T042 [US1] Give `PodcastFormat` `has_pass` in `backend/app/podcasts/catalog.py` and set One host's `has_jump_in` to true (data-model §1.5). `turn_actions` in `backend/app/podcasts/services/episodes.py` gives `can_pass` from `has_pass`. `_check_pass` in `backend/app/podcasts/routes.py` reads `has_pass`, and `_check_message` keeps reading `has_jump_in`. Add both flags to the format model in `backend/app/podcasts/schemas.py` and to the catalogue in `backend/app/podcasts/responses.py`. Makes T024 green.
 - [ ] T043 [US1] Implement `ConfiguredTalk(settings)` in `backend/app/podcasts/services/host_talk.py`, and make `host_talk_for` return it for any non-None settings:
   - `ask(run, format, rng)`: `Ask.ALLOWED` on the episode's `InviteFrequency` hazard hit for runs 1–3, `Ask.REQUIRED` at `INVITE_DEADLINE` and for every run under Often, `Ask.NONE` otherwise and in Listen;

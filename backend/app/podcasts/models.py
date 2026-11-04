@@ -1,4 +1,4 @@
-"""The podcast tables (007 data-model §2.1–§2.4, 010 data-model §2.1–§2.5).
+"""The podcast tables (007 data-model §2.1–§2.4, 010 data-model §2.1–§2.5, 011 §2.1–§2.4a).
 
 Every 007 table cascades from `conversations`; every 010 table from a new parent or from
 `conversations`, so a deleted conversation takes its series link and memories with it.
@@ -10,7 +10,12 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Uni
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
-from app.podcasts.catalog import DEFAULT_PODCAST_FORMAT
+from app.podcasts.catalog import (
+    DEFAULT_EPISODE_STYLE,
+    DEFAULT_HOST_LINE_LENGTH,
+    DEFAULT_INVITE_FREQUENCY,
+    DEFAULT_PODCAST_FORMAT,
+)
 
 _EPISODE_ID = "podcast_episodes.conversation_id"
 _SERIES_ID = "podcast_series.id"
@@ -73,6 +78,10 @@ class PodcastHostLine(Base):
     is_passed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_revealed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     was_trimmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    ask: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    """011: the cue's `Ask`. NULL on every pre-011 line and every legacy episode's line."""
+    addressee: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    """011: who the line is for: learner, lead or second. NULL means no one in particular."""
 
 
 class PodcastPreferences(Base):
@@ -87,6 +96,15 @@ class PodcastPreferences(Base):
     learner_name: Mapped[str | None] = mapped_column(String(40), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now, onupdate=_now
+    )
+    last_style: Mapped[str] = mapped_column(
+        String(14), nullable=False, server_default=DEFAULT_EPISODE_STYLE
+    )
+    last_line_length: Mapped[str] = mapped_column(
+        String(8), nullable=False, server_default=DEFAULT_HOST_LINE_LENGTH
+    )
+    last_invite_frequency: Mapped[str] = mapped_column(
+        String(10), nullable=False, server_default=DEFAULT_INVITE_FREQUENCY
     )
 
 
@@ -178,3 +196,35 @@ class PodcastSeriesMemory(Base):
     conversation_language: Mapped[str] = mapped_column(Text, nullable=False)
     english: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class PodcastEpisodeSettings(Base):
+    """How an episode sounds, frozen at Start. An episode with no row is pre-011 (legacy)."""
+
+    __tablename__ = "podcast_episode_settings"
+
+    conversation_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey(_EPISODE_ID, ondelete=_CASCADE), primary_key=True
+    )
+    style: Mapped[str] = mapped_column(String(14), nullable=False)
+    line_length: Mapped[str] = mapped_column(String(8), nullable=False)
+    invite_frequency: Mapped[str] = mapped_column(String(10), nullable=False)
+    today_subject: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    covered_personality: Mapped[str | None] = mapped_column(String(30), nullable=True)
+
+
+class PodcastSeriesSettings(Base):
+    """A series' usual settings. A series with no row has the show's standard settings."""
+
+    __tablename__ = "podcast_series_settings"
+
+    series_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey(_SERIES_ID, ondelete=_CASCADE), primary_key=True
+    )
+    format: Mapped[str] = mapped_column(String(12), nullable=False)
+    length: Mapped[str] = mapped_column(String(8), nullable=False)
+    style: Mapped[str] = mapped_column(String(14), nullable=False)
+    line_length: Mapped[str] = mapped_column(String(8), nullable=False)
+    invite_frequency: Mapped[str] = mapped_column(String(10), nullable=False)
+    learner_role: Mapped[str] = mapped_column(String(12), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

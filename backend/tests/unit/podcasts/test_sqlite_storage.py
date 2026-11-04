@@ -7,7 +7,8 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from app.podcasts.catalog import PODCAST_SCENARIO_ID
-from app.podcasts.models import PodcastHost, PodcastSeriesEpisode
+from app.podcasts.models import PodcastEpisodeSettings, PodcastHost, PodcastSeriesEpisode
+from app.podcasts.services.episode_settings import EpisodeSettings
 from app.podcasts.services.series_snapshot import SeriesSnapshot
 from app.podcasts.services.sqlite_storage import SQLitePodcastStorage
 from app.podcasts.services.storage import (
@@ -310,3 +311,95 @@ def test_the_episode_record_carries_its_series_facts(session, storage):
 
     assert stored.series == EpisodeSeriesFacts(series.series_id, 3, snapshot)
     assert storage.list_episodes()[0].series == stored.series
+
+
+# --- 011 T010: the episode settings row and the line's ask and addressee (data-model §3.2) --
+
+
+PRESENTED = EpisodeSettings.from_ids(
+    style="presented",
+    line_length="long",
+    invite_frequency="rarely",
+    learner_role="caller",
+    today_subject="por qué bostezamos",
+    covered_personality="expert",
+)
+
+
+def test_an_episode_with_settings_stores_one_settings_row(session, storage):
+    episode = _panel(storage, settings=PRESENTED, learner_role="caller")
+
+    row = session.get(PodcastEpisodeSettings, episode.conversation_id)
+    assert (row.style, row.line_length, row.invite_frequency) == ("presented", "long", "rarely")
+    assert (row.today_subject, row.covered_personality) == ("por qué bostezamos", "expert")
+
+
+def test_an_episode_without_settings_stores_no_settings_row(session, storage):
+    _panel(storage, settings=None)
+
+    assert session.query(PodcastEpisodeSettings).count() == 0
+
+
+def test_a_failure_after_the_settings_row_leaves_nothing_behind(session, storage, core):
+    missing_series = NewSeriesLink(999, 1, SeriesSnapshot(1))
+
+    with pytest.raises(IntegrityError):
+        _panel(storage, settings=PRESENTED, learner_role="caller", series=missing_series)
+
+    assert session.query(PodcastEpisodeSettings).count() == 0
+    assert session.query(PodcastHost).count() == 0
+    assert storage.list_episodes() == []
+    assert core.list_conversations() == []
+
+
+def test_the_episode_record_carries_its_settings(storage):
+    episode = _panel(storage, settings=PRESENTED, learner_role="caller")
+
+    assert storage.get_episode(episode.conversation_id).settings == PRESENTED
+    assert storage.list_episodes()[0].settings == PRESENTED
+
+
+def test_an_episode_without_a_settings_row_has_no_settings(storage):
+    episode = _panel(storage)
+
+    assert storage.get_episode(episode.conversation_id).settings is None
+
+
+def test_deleting_the_episode_removes_its_settings_row(session, storage):
+    episode = _panel(storage, settings=PRESENTED, learner_role="caller")
+
+    session.execute(
+        text("DELETE FROM podcast_episodes WHERE conversation_id = :id"),
+        {"id": episode.conversation_id},
+    )
+    session.commit()
+
+    assert session.query(PodcastEpisodeSettings).count() == 0
+
+
+def test_a_host_line_stores_its_ask_and_addressee(storage):
+    episode = _panel(storage, settings=PRESENTED, learner_role="caller")
+
+    saved = _save_line(storage, episode, ask="allowed", addressee="learner", invites_learner=True)
+
+    stored = storage.get_lines(episode.conversation_id)[0]
+    assert (saved.host.ask, saved.host.addressee) == ("allowed", "learner")
+    assert (stored.host.ask, stored.host.addressee, stored.host.invites_learner) == (
+        "allowed",
+        "learner",
+        True,
+    )
+
+
+def test_a_host_line_without_an_ask_reads_back_none(storage):
+    episode = _panel(storage)
+
+    _save_line(storage, episode, ask=None, addressee=None)
+
+    stored = storage.get_lines(episode.conversation_id)[0]
+    assert (stored.host.ask, stored.host.addressee) == (None, None)
+
+
+def test_an_episode_cannot_take_a_role_other_than_its_settings_give():
+    with pytest.raises(ValueError, match="role"):
+        new_episode(settings=PRESENTED, learner_role="guest")

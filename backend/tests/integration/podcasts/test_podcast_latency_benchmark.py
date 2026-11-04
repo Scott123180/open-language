@@ -20,7 +20,7 @@ from app.conversation_levels import ConversationLevel
 from app.podcasts.services.cues import next_turn_history
 from app.podcasts.services.episodes import load_episode
 from app.podcasts.services.sqlite_storage import SQLitePodcastStorage
-from app.podcasts.services.turn_policy import LineCue
+from app.podcasts.services.turn_policy import Ask, LineCue
 from tests.integration.podcasts.podcast_harness import real_podcast_app
 from tests.support.podcast_harness import EPISODES, lines_of, parse_sse
 
@@ -83,8 +83,8 @@ def _prompt_eval_count(harness, episode_id: int) -> int:
     import ollama
 
     episode = load_episode(SQLitePodcastStorage(harness.sessions()), episode_id)
-    cue = LineCue("lead", "discuss", False, False, False)
-    turns = next_turn_history(episode.facts, episode.cast, episode.learner_label, cue)
+    cue = LineCue("lead", "discuss", Ask.NONE, False, False)
+    turns = next_turn_history(episode.facts, episode.cue_context, cue)
     system = {"role": "system", "content": episode.standing_prompt(ConversationLevel.NATURAL)}
     messages = [system, *({"role": t.role, "content": t.content} for t in turns)]
     settings = get_settings()

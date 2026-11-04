@@ -10,13 +10,15 @@ from app.podcasts.catalog import PERSONALITIES, PODCAST_FORMATS, SHOW_TEMPLATES
 from app.podcasts.prompts import (
     PRODUCER_NOTE_MARKER,
     ShowBrief,
-    build_standing_prompt,
     learner_label_for,
-    render_cue,
 )
 from app.podcasts.services.casting import Cast, Host
-from app.podcasts.services.turn_policy import LineCue
 from app.practice_languages import ConversationLanguages
+from tests.unit.podcasts.legacy_talk_calls import (
+    legacy_cue,
+    legacy_line_cue,
+    legacy_standing_prompt,
+)
 
 CHARACTERS_PER_TOKEN = 4
 STANDING_PROMPT_TOKEN_BUDGET = 700
@@ -36,7 +38,9 @@ SPANISH = ConversationLanguages.of("es", "en")
 
 
 def _prompt(learner_label="our guest", level=ConversationLevel.NATURAL, cast=CAST, show=SHOW):
-    return build_standing_prompt(show, cast, learner_label, SPANISH, level)
+    return legacy_standing_prompt(
+        show=show, cast=cast, learner_label=learner_label, languages=SPANISH, level=level
+    )
 
 
 def _tokens(text: str) -> float:
@@ -160,45 +164,52 @@ INTENTS = ("open", "greet", "discuss", "wrap_up", "sign_off")
 
 
 def _cue(slot="second", intent="discuss", invites=False, after_pass=False, settle=False):
-    return LineCue(
-        speaker_slot=slot,
-        intent=intent,
-        invites_learner=invites,
-        is_after_pass=after_pass,
-        is_settle_invite=settle,
-    )
+    return legacy_line_cue(slot, intent, invites, after_pass, settle)
 
 
 def test_a_cue_begins_with_the_producer_note_marker():
-    assert render_cue(_cue(), CAST, "our guest").startswith(PRODUCER_NOTE_MARKER)
+    assert legacy_cue(cue=_cue(), cast=CAST, learner_label="our guest").startswith(
+        PRODUCER_NOTE_MARKER
+    )
 
 
 def test_a_cue_names_the_speaking_host():
-    assert "Next: Marco." in render_cue(_cue(slot="second"), CAST, "our guest")
-    assert "Next: Lucía." in render_cue(_cue(slot="lead"), CAST, "our guest")
+    assert "Next: Marco." in legacy_cue(
+        cue=_cue(slot="second"), cast=CAST, learner_label="our guest"
+    )
+    assert "Next: Lucía." in legacy_cue(cue=_cue(slot="lead"), cast=CAST, learner_label="our guest")
 
 
 @pytest.mark.parametrize("intent", INTENTS)
 def test_every_intent_has_its_own_instruction(intent):
-    rendered = {render_cue(_cue(intent=other), CAST, "our guest") for other in INTENTS}
+    rendered = {
+        legacy_cue(cue=_cue(intent=other), cast=CAST, learner_label="our guest")
+        for other in INTENTS
+    }
 
     assert len(rendered) == len(INTENTS)
-    assert render_cue(_cue(intent=intent), CAST, "our guest")
+    assert legacy_cue(cue=_cue(intent=intent), cast=CAST, learner_label="our guest")
 
 
 def test_only_an_inviting_cue_asks_the_learner_a_question():
-    assert "End by asking our guest" in render_cue(_cue(invites=True), CAST, "our guest")
-    assert "End by asking" not in render_cue(_cue(invites=False), CAST, "our guest")
+    assert "End by asking our guest" in legacy_cue(
+        cue=_cue(invites=True), cast=CAST, learner_label="our guest"
+    )
+    assert "End by asking" not in legacy_cue(
+        cue=_cue(invites=False), cast=CAST, learner_label="our guest"
+    )
 
 
 def test_a_settle_invite_asks_the_learner_to_settle_it():
-    rendered = render_cue(_cue(invites=True, settle=True), CAST, "Sam")
+    rendered = legacy_cue(cue=_cue(invites=True, settle=True), cast=CAST, learner_label="Sam")
 
     assert "End by asking Sam to settle it." in rendered
 
 
 def test_a_cue_after_a_pass_says_not_to_wait_for_the_learner():
-    assert "Don't wait for our guest." in render_cue(_cue(after_pass=True), CAST, "our guest")
+    assert "Don't wait for our guest." in legacy_cue(
+        cue=_cue(after_pass=True), cast=CAST, learner_label="our guest"
+    )
 
 
 def _is_reachable(intent, invites, after_pass, settle, label) -> bool:
@@ -223,6 +234,8 @@ def _is_reachable(intent, invites, after_pass, settle, label) -> bool:
     ],
 )
 def test_every_cue_fits_the_budget(intent, invites, after_pass, settle, label):
-    rendered = render_cue(_cue("second", intent, invites, after_pass, settle), CAST, label)
+    rendered = legacy_cue(
+        cue=_cue("second", intent, invites, after_pass, settle), cast=CAST, learner_label=label
+    )
 
     assert _tokens(rendered) <= CUE_TOKEN_BUDGET

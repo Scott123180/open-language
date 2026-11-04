@@ -1,14 +1,15 @@
 """What the model is told: one standing prompt per episode, one short cue per line (research R5).
 
 `prompts/templates.py` is not touched, so every roleplay prompt stays byte-identical (FR-034).
-Languages are named ("Spanish"), never given as codes. The level's rules come last, through the
-same renderer the roleplay partner uses, so a host line is held to the same limits (FR-026).
+Languages are named ("Spanish"), never given as codes. How the hosts talk (line rules, the level
+block, speaking styles, cue instructions and closings) comes from the episode's `HostTalk` (011
+research R1), so a pre-011 episode keeps 007's and 010's text byte for byte.
 """
 
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from app.conversation_levels import ConversationLevel, with_partner_speech_rules
+from app.conversation_levels import ConversationLevel
 from app.podcasts.catalog import (
     LEARNER_ROLES,
     MAX_POINTS_PER_EPISODE,
@@ -18,6 +19,7 @@ from app.podcasts.catalog import (
     PodcastFormat,
 )
 from app.podcasts.services.casting import Cast, Host
+from app.podcasts.services.host_talk import HostTalk
 from app.podcasts.services.series_snapshot import SeriesBrief
 from app.podcasts.services.surprise import SurpriseIdea
 from app.podcasts.services.turn_policy import LineCue
@@ -33,14 +35,6 @@ _LEARNER_ROLE_SENTENCES = {
     "caller": "{label} is a caller who has phoned in to the show.",
 }
 _LISTENER_SENTENCE = "The hosts talk to each other; {label} are listening."
-_INTENT_INSTRUCTIONS = {
-    "open": "Open the show: welcome {label}, introduce the show and yourself.",
-    "greet": "Greet {lead} and {label}, then introduce yourself.",
-    "discuss": "React to the last line, in character.",
-    "wrap_up": "Start wrapping up the topic, in character.",
-    "sign_off": "Close the show: thank {label} and say goodbye.",
-}
-_OPEN, _GREET, _LEAD = "open", "greet", "lead"
 _SERIES_RULES = (
     "Series rules:",
     "- Choose a subject within the show's topic that is not in the covered list.",
@@ -68,6 +62,27 @@ class ShowBrief:
     learner_role: str
 
 
+@dataclass(frozen=True, slots=True)
+class CueContext:
+    """What every cue of an episode is rendered with."""
+
+    cast: Cast
+    learner_label: str
+    talk: HostTalk
+    series: SeriesBrief | None = None
+    """None for a one-off episode."""
+
+
+@dataclass(frozen=True, slots=True)
+class PromptContext:
+    """What an episode's standing prompt is rendered with."""
+
+    show: ShowBrief
+    languages: ConversationLanguages
+    level: ConversationLevel
+    cues: CueContext
+
+
 def learner_label_for(podcast_format: PodcastFormat, learner_name: str | None) -> str:
     """How the hosts refer to the learner: by name, as our guest, or as our listeners."""
     if not podcast_format.is_learner_speaking:
@@ -75,63 +90,35 @@ def learner_label_for(podcast_format: PodcastFormat, learner_name: str | None) -
     return learner_name or GUEST_LABEL
 
 
-def build_standing_prompt(
-    show: ShowBrief,
-    cast: Cast,
-    learner_label: str,
-    languages: ConversationLanguages,
-    level: ConversationLevel,
-    series: SeriesBrief | None = None,
-) -> str:
+def build_standing_prompt(context: PromptContext) -> str:
     """A one-off's prompt is 007's, byte for byte; a series episode's adds its series section."""
+    cues, label = context.cues, context.cues.learner_label
     sections = (
-        _language_rule(languages),
-        _show_section(show, learner_label),
-        _hosts_section(cast),
-        _series_section(series, learner_label) if series is not None else None,
-        _line_rules(learner_label, languages),
+        _language_rule(context.languages),
+        _show_section(context.show, label),
+        _hosts_section(cues.cast, cues.talk),
+        _series_section(cues.series, label) if cues.series is not None else None,
+        cues.talk.line_rules(label, context.languages, cues.cast),
     )
     joined = "\n\n".join(section for section in sections if section is not None)
-    return with_partner_speech_rules(joined, level)
+    return cues.talk.speech_rules(joined, context.level)
 
 
-def render_cue(
-    cue: LineCue, cast: Cast, learner_label: str, series: SeriesBrief | None = None
-) -> str:
+def render_cue(cue: LineCue, context: CueContext) -> str:
     """The user turn before a host line. Re-rendered from stored facts, never stored itself."""
-    instruction = _instruction(cue, cast, learner_label, series)
-    parts = [PRODUCER_NOTE_MARKER, f"Next: {cast.host(cue.speaker_slot).name}.", instruction]
+    talk, label = context.talk, context.learner_label
+    instruction = talk.instruction(cue, context.cast, label, context.series)
+    parts = [
+        PRODUCER_NOTE_MARKER,
+        f"Next: {context.cast.host(cue.speaker_slot).name}.",
+        instruction,
+    ]
     if cue.is_after_pass:
-        parts.append(f"Don't wait for {learner_label}.")
-    if cue.invites_learner:
-        ask = "to settle it" if cue.is_settle_invite else "a question"
-        parts.append(f"End by asking {learner_label} {ask}.")
+        parts.append(f"Don't wait for {label}.")
+    closing = talk.closing(cue, label)
+    if closing:
+        parts.append(closing)
     return " ".join(parts)
-
-
-def _instruction(cue: LineCue, cast: Cast, label: str, series: SeriesBrief | None) -> str:
-    """What the host is asked to do: 007's instruction, or a series episode's variant."""
-    plain = _INTENT_INSTRUCTIONS[cue.intent].format(label=label, lead=cast.lead.name)
-    if series is None:
-        return plain
-    if cue.intent == _OPEN and series.episode_number > 1:
-        return _series_open(label, series)
-    if cue.intent == _GREET and series.is_new_host(cue.speaker_slot):
-        return f"Greet {cast.lead.name} and {label}, then introduce yourself as new to the show."
-    return plain
-
-
-def _series_open(label: str, series: SeriesBrief) -> str:
-    snapshot = series.snapshot
-    recall = snapshot.topics_covered or snapshot.about_learner
-    recollection = ", and bring up one thing from earlier episodes" if recall else ""
-    opening = (
-        f"Open the show: welcome {label} back, say the show is continuing with episode "
-        f"{series.episode_number}{recollection}."
-    )
-    if series.is_new_host(_LEAD):
-        return f"{opening} Introduce yourself as the show's new host."
-    return opening
 
 
 def _series_section(series: SeriesBrief, learner_label: str) -> str:
@@ -192,34 +179,18 @@ def _show_section(show: ShowBrief, learner_label: str) -> str:
     )
 
 
-def _hosts_section(cast: Cast) -> str:
-    return "Hosts:\n" + "\n".join(_host_line(host) for host in cast.hosts)
+def _hosts_section(cast: Cast, talk: HostTalk) -> str:
+    return "Hosts:\n" + "\n".join(_host_line(host, talk) for host in cast.hosts)
 
 
-def _host_line(host: Host) -> str:
+def _host_line(host: Host, talk: HostTalk) -> str:
     personality = PERSONALITIES[host.personality_id]
     role = host.show_role.replace("_", "-")
     angle = f" Angle: {host.angle}" if host.angle else ""
     return (
         f"- {host.name}, the {role}: {personality.description} "
-        f"{personality.speaking_style}{angle}"
+        f"{talk.speaking_style(personality)}{angle}"
     )
-
-
-def _line_rules(learner_label: str, languages: ConversationLanguages) -> str:
-    target, native = languages.target_name, languages.native_name
-    rules = (
-        "Line rules:",
-        "- Write only the words of the host named in the producer note, as that host.",
-        "- No name label, no stage directions and no sound effects.",
-        f"- Never write lines for another host or for {learner_label}.",
-        f"- Address the learner as {learner_label}.",
-        f"- If {learner_label} writes in {native}, answer in {target} and invite them, "
-        f"in character, to use {target}.",
-        "- Keep each line to a few sentences, in character, and on the show's topic.",
-        "- Producer notes are never read aloud or mentioned.",
-    )
-    return "\n".join(rules)
 
 
 # --- the show generator (research R9) -----------------------------------------------------

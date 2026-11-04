@@ -18,10 +18,14 @@ import pytest
 
 from app.conversation_levels import ConversationLevel
 from app.podcasts.catalog import PODCAST_FORMATS
-from app.podcasts.prompts import ShowBrief, build_standing_prompt, learner_label_for, render_cue
+from app.podcasts.prompts import ShowBrief, learner_label_for
 from app.podcasts.services.casting import Cast, Host
-from app.podcasts.services.turn_policy import LineCue
 from app.practice_languages import ConversationLanguages
+from tests.unit.podcasts.legacy_talk_calls import (
+    legacy_cue,
+    legacy_line_cue,
+    legacy_standing_prompt,
+)
 
 GOLDEN_FILE = Path(__file__).resolve().parent / "golden" / "one_off_prompts.json"
 LEARNER_NAMES = ("Sam", None)
@@ -51,14 +55,17 @@ def _cast_for(format_id: str) -> Cast:
 def _standing_case(format_id: str, name: str | None, level: ConversationLevel) -> Case:
     label = learner_label_for(PODCAST_FORMATS[format_id], name)
     key = f"standing|{format_id}|{name}|{level.value}"
-    return key, lambda: build_standing_prompt(SHOW, _cast_for(format_id), label, SPANISH, level)
+    cast = _cast_for(format_id)
+    return key, lambda: legacy_standing_prompt(
+        show=SHOW, cast=cast, learner_label=label, languages=SPANISH, level=level
+    )
 
 
 def _cue_case(intent: str, invites: bool, after_pass: bool, settle: bool, label: str) -> Case:
     speaker = "second" if intent == "greet" else "lead"
-    cue = LineCue(speaker, intent, invites, after_pass, settle)
+    cue = legacy_line_cue(speaker, intent, invites, after_pass, settle)
     key = f"cue|{intent}|{invites}|{after_pass}|{settle}|{label}"
-    return key, lambda: render_cue(cue, PANEL_CAST, label)
+    return key, lambda: legacy_cue(cue=cue, cast=PANEL_CAST, learner_label=label)
 
 
 def golden_cases() -> Iterator[Case]:

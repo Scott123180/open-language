@@ -141,3 +141,45 @@ class TestLearnerTextBlock:
         block = _block(with_learner_text_rules, level)
 
         assert "Explanations in any other language are not limited" in block
+
+
+class TestSentenceRules:
+    """011 T023: the partner block without the reply cap, for podcast hosts (research R2)."""
+
+    def test_natural_returns_the_prompt_byte_for_byte(self):
+        from app.conversation_levels import with_sentence_rules
+
+        assert with_sentence_rules(PROMPT, ConversationLevel.NATURAL) == PROMPT
+
+    @pytest.mark.parametrize("level", LIMITED_LEVELS)
+    def test_the_block_has_no_reply_cap(self, level):
+        from app.conversation_levels import with_sentence_rules
+
+        assert "Say at most" not in _block(with_sentence_rules, level)
+
+    @pytest.mark.parametrize("level", LIMITED_LEVELS)
+    def test_the_block_is_the_partner_block_without_its_cap_line(self, level):
+        from app.conversation_levels import with_sentence_rules
+
+        partner = _block(with_partner_speech_rules, level).split("\n")
+        cap = f"- Say at most {_limits(level).max_sentences_per_reply} sentences per reply."
+
+        assert _block(with_sentence_rules, level).split("\n") == [
+            line for line in partner if line != cap
+        ]
+
+    @pytest.mark.parametrize("level", LIMITED_LEVELS)
+    def test_the_block_keeps_every_rule_about_each_sentence(self, level):
+        from app.conversation_levels import with_sentence_rules
+
+        limits = _limits(level)
+        block = _block(with_sentence_rules, level)
+
+        assert block.startswith(PRECEDENCE_LINE)
+        assert f"at most {limits.max_words_per_sentence} words per sentence" in block
+        assert limits.sentence_joining in block
+        assert f"- Tenses: {limits.tenses}." in block
+        assert f"only the {limits.vocabulary_rank} most common words" in block
+        assert f"- Idioms and slang: {limits.idioms}." in block
+        assert f"- Questions to the learner: {limits.questions}." in block
+        assert block.count("\n- ") == 9

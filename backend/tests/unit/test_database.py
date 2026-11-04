@@ -31,6 +31,8 @@ LEGACY_TABLES = (
     "CREATE TABLE vocabulary_items (id INTEGER PRIMARY KEY)",
     "CREATE TABLE decks (id INTEGER PRIMARY KEY)",
     "CREATE TABLE practice_sessions (id INTEGER PRIMARY KEY)",
+    "CREATE TABLE podcast_preferences (id INTEGER PRIMARY KEY)",
+    "CREATE TABLE podcast_host_lines (message_id INTEGER PRIMARY KEY)",
 )
 
 
@@ -390,7 +392,10 @@ class TestFlashcardLanguageColumns:
     def test_the_two_language_columns_follow_each_other_in_introduction_order(self):
         from app.database import _ADDITIVE_COLUMNS
 
-        assert _ADDITIVE_COLUMNS[-3:-1] == (
+        decks = _ADDITIVE_COLUMNS.index(
+            ("decks", "target_language VARCHAR(20) NOT NULL DEFAULT 'es'")
+        )
+        assert _ADDITIVE_COLUMNS[decks : decks + 2] == (
             ("decks", "target_language VARCHAR(20) NOT NULL DEFAULT 'es'"),
             ("practice_sessions", "target_language VARCHAR(20) NOT NULL DEFAULT 'es'"),
         )
@@ -448,6 +453,9 @@ class TestPodcastTables:
             "is_passed": ("BOOLEAN", 1),
             "is_revealed": ("BOOLEAN", 1),
             "was_trimmed": ("BOOLEAN", 1),
+            # 011 data-model §2.4a
+            "ask": ("VARCHAR(8)", 0),
+            "addressee": ("VARCHAR(8)", 0),
         },
         "podcast_preferences": {
             "id": ("INTEGER", 1),
@@ -456,6 +464,10 @@ class TestPodcastTables:
             "interests": ("TEXT", 1),
             "learner_name": ("VARCHAR(40)", 0),
             "updated_at": ("DATETIME", 1),
+            # 011 data-model §2.3
+            "last_style": ("VARCHAR(14)", 1),
+            "last_line_length": ("VARCHAR(8)", 1),
+            "last_invite_frequency": ("VARCHAR(10)", 1),
         },
     }
 
@@ -655,6 +667,117 @@ class TestSeriesTables:
 
         assert {(row[3], row[2], row[4]) for row in rows} == self.FOREIGN_KEYS[table]
         assert {row[6] for row in rows} == {"CASCADE"}
+
+    def test_init_db_is_idempotent(self, fresh_engine):
+        from app import database
+
+        database.init_db()
+
+        tables = {row[0] for row in self._rows(fresh_engine, "SELECT name FROM sqlite_master")}
+        assert set(self.EXPECTED) <= tables
+
+
+class TestConfiguredShowTables:
+    """011 T007: the two settings tables and the additive columns (data-model §2.1–§2.4a)."""
+
+    EXPECTED = {
+        "podcast_episode_settings": {
+            "conversation_id": ("INTEGER", 1),
+            "style": ("VARCHAR(14)", 1),
+            "line_length": ("VARCHAR(8)", 1),
+            "invite_frequency": ("VARCHAR(10)", 1),
+            "today_subject": ("VARCHAR(120)", 0),
+            "covered_personality": ("VARCHAR(30)", 0),
+        },
+        "podcast_series_settings": {
+            "series_id": ("INTEGER", 1),
+            "format": ("VARCHAR(12)", 1),
+            "length": ("VARCHAR(8)", 1),
+            "style": ("VARCHAR(14)", 1),
+            "line_length": ("VARCHAR(8)", 1),
+            "invite_frequency": ("VARCHAR(10)", 1),
+            "learner_role": ("VARCHAR(12)", 1),
+            "updated_at": ("DATETIME", 1),
+        },
+    }
+    FOREIGN_KEYS = {
+        "podcast_episode_settings": ("conversation_id", "podcast_episodes", "conversation_id"),
+        "podcast_series_settings": ("series_id", "podcast_series", "id"),
+    }
+    PREFERENCE_DEFAULTS = {
+        "last_style": ("VARCHAR(14)", "'balanced'"),
+        "last_line_length": ("VARCHAR(8)", "'medium'"),
+        "last_invite_frequency": ("VARCHAR(10)", "'sometimes'"),
+    }
+    ADDITIVE = (
+        ("podcast_preferences", "last_style VARCHAR(14) NOT NULL DEFAULT 'balanced'"),
+        ("podcast_preferences", "last_line_length VARCHAR(8) NOT NULL DEFAULT 'medium'"),
+        ("podcast_preferences", "last_invite_frequency VARCHAR(10) NOT NULL DEFAULT 'sometimes'"),
+        ("podcast_host_lines", "ask VARCHAR(8)"),
+        ("podcast_host_lines", "addressee VARCHAR(8)"),
+    )
+
+    @pytest.fixture()
+    def fresh_engine(self, tmp_path, monkeypatch):
+        from app import database
+
+        engine = create_engine(f"sqlite:///{tmp_path / 'fresh-011.db'}")
+        monkeypatch.setattr(database, "_engine", engine)
+        database.init_db()
+        return engine
+
+    def _rows(self, engine, pragma: str) -> list:
+        with engine.connect() as conn:
+            return conn.execute(text(pragma)).fetchall()
+
+    @pytest.mark.parametrize("table", list(EXPECTED))
+    def test_init_db_creates_the_table_with_its_columns(self, fresh_engine, table):
+        rows = self._rows(fresh_engine, f"PRAGMA table_info({table})")
+
+        info = {row[1]: (row[2], int(bool(row[3] or row[5] > 0))) for row in rows}
+        assert info == self.EXPECTED[table]
+
+    @pytest.mark.parametrize("table", list(EXPECTED))
+    def test_the_key_is_the_parent_and_cascades(self, fresh_engine, table):
+        keys = self._rows(fresh_engine, f"PRAGMA foreign_key_list({table})")
+        primary = [
+            row[1] for row in self._rows(fresh_engine, f"PRAGMA table_info({table})") if row[5]
+        ]
+
+        assert [(row[3], row[2], row[4]) for row in keys] == [self.FOREIGN_KEYS[table]]
+        assert [row[6] for row in keys] == ["CASCADE"]
+        assert primary == [self.FOREIGN_KEYS[table][0]]
+
+    def test_the_preferences_columns_have_their_defaults(self, fresh_engine):
+        rows = self._rows(fresh_engine, "PRAGMA table_info(podcast_preferences)")
+
+        info = {row[1]: (row[2], row[4]) for row in rows if row[1] in self.PREFERENCE_DEFAULTS}
+        assert info == self.PREFERENCE_DEFAULTS
+
+    def test_the_host_line_columns_are_nullable_with_no_default(self, fresh_engine):
+        rows = self._rows(fresh_engine, "PRAGMA table_info(podcast_host_lines)")
+
+        info = {row[1]: (row[3], row[4]) for row in rows if row[1] in ("ask", "addressee")}
+        assert info == {"ask": (0, None), "addressee": (0, None)}
+
+    def test_the_five_columns_are_additive(self):
+        from app.database import _ADDITIVE_COLUMNS
+
+        assert _ADDITIVE_COLUMNS[-5:] == self.ADDITIVE
+
+    def test_existing_host_lines_read_null_after_the_upgrade(self, tmp_path, monkeypatch):
+        from app import database
+
+        engine = create_engine(f"sqlite:///{tmp_path / 'pre-011.db'}")
+        with engine.connect() as conn:
+            conn.execute(text("CREATE TABLE podcast_host_lines (message_id INTEGER PRIMARY KEY)"))
+            conn.execute(text("CREATE TABLE podcast_preferences (id INTEGER PRIMARY KEY)"))
+            conn.execute(text("INSERT INTO podcast_host_lines (message_id) VALUES (1)"))
+            conn.commit()
+            for table, definition in self.ADDITIVE:
+                database._add_column_if_missing(conn, table, definition)
+            row = conn.execute(text("SELECT ask, addressee FROM podcast_host_lines")).one()
+        assert tuple(row) == (None, None)
 
     def test_init_db_is_idempotent(self, fresh_engine):
         from app import database

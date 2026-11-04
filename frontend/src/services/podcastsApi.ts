@@ -1,6 +1,7 @@
 // ---------------------------------------------------------------------------
 // Podcast API types (mirror specs/007-podcast-mode/contracts/api.md §1, §2, §6 and
-// specs/010-recurring-podcast-shows/contracts/api.md §1–§8)
+// specs/010-recurring-podcast-shows/contracts/api.md §1–§8 and
+// specs/011-configurable-podcast-shows/contracts/api.md §1–§8a)
 // ---------------------------------------------------------------------------
 
 export type PodcastFormatId = 'one_host' | 'panel' | 'listen'
@@ -12,7 +13,22 @@ export type ShowSource = 'ready_made' | 'generated' | 'surprise' | 'suggested'
 export type EpisodeKind = 'one_off' | 'series'
 /** Whether the hosts have caught up on every series episode (010 contracts §5). */
 export type MemoryStatus = 'up_to_date' | 'pending' | 'running'
-export type LineIntent = 'open' | 'greet' | 'discuss' | 'wrap_up' | 'sign_off'
+export type LineIntent =
+  | 'open'
+  | 'greet'
+  | 'discuss'
+  | 'wrap_up'
+  | 'sign_off'
+  | 'react'
+  | 'explain'
+  | 'story'
+  | 'answer'
+  | 'follow_up'
+export type EpisodeStyleId = 'conversation' | 'balanced' | 'presented'
+export type HostLineLengthId = 'short' | 'medium' | 'long'
+export type InviteFrequencyId = 'often' | 'sometimes' | 'rarely'
+/** What a series episode may keep for later episodes (011 contracts §3). */
+export type SeriesSettingName = 'format' | 'length' | 'style' | 'line_length' | 'invite_frequency' | 'learner_role'
 
 /** Whose turn it is: the hosts', the learner's, or nobody's once the episode has finished. */
 export type Turn = 'hosts' | 'learner' | 'finished'
@@ -25,6 +41,10 @@ export interface PodcastFormatOption {
   host_count: number
   is_learner_speaking: boolean
   description: string
+  /** The learner can speak while the hosts have the floor (011: One host and Panel). */
+  has_jump_in?: boolean
+  /** The learner can pass on an invitation (011: Panel only). */
+  has_pass?: boolean
 }
 
 export interface EpisodeLengthOption {
@@ -115,7 +135,43 @@ export interface EpisodeHost {
   show_role: string
   is_voice_available: boolean
   voice_unavailable_message: string | null
+  /** The guest of a series episode (011 contracts §5). */
+  is_guest?: boolean
 }
+
+/** How one episode sounds, with its labels; null for an episode from before 011 (contracts §5). */
+export interface EpisodeSettings {
+  style: EpisodeStyleId
+  style_label: string
+  line_length: HostLineLengthId
+  line_length_label: string
+  invite_frequency: InviteFrequencyId
+  invite_frequency_label: string
+  learner_role: LearnerRole
+  today_subject: string | null
+}
+
+/** The setup's Episode settings choices, from the server's catalogue (011 contracts §1). */
+export interface EpisodeOptions {
+  styles: { style_id: EpisodeStyleId; label: string; description: string; is_default: boolean }[]
+  line_lengths: { line_length_id: HostLineLengthId; label: string; is_default: boolean }[]
+  invite_frequencies: { invite_frequency_id: InviteFrequencyId; label: string; is_default: boolean }[]
+  learner_roles: { learner_role: LearnerRole; label: string }[]
+  today_subject_max_length: number
+}
+
+/** A series' usual settings: its row, or the show's standard settings (011 contracts §6). */
+export interface SeriesUsualSettings {
+  format: PodcastFormatId
+  length: EpisodeLengthId
+  style: EpisodeStyleId
+  line_length: HostLineLengthId
+  invite_frequency: InviteFrequencyId
+  learner_role: LearnerRole
+}
+
+/** A guest cast for one series episode, as Start sends it back (011 contracts §3, §8). */
+export type GuestDraft = Pick<HostDraft, 'slot' | 'name' | 'personality_id' | 'voice_key' | 'show_role'>
 
 export interface EpisodeLine {
   message_id: number
@@ -164,6 +220,10 @@ export interface Episode {
   lines: EpisodeLine[]
   /** The series and episode number, or null for a one-off (010 contracts §2). */
   series?: EpisodeSeries | null
+  /** How the episode sounds; null for an episode from before 011 (011 contracts §5). */
+  settings?: EpisodeSettings | null
+  /** The regular host a guest replaces in this episode (011 contracts §5). */
+  away_host_name?: string | null
 }
 
 /** One row of `GET /api/podcasts/episodes`, for labelling Past Chats. */
@@ -365,6 +425,28 @@ export interface LineFrame {
   line: EpisodeLine
   turn: Turn
   awaiting: Awaiting
+}
+
+/** A streamed host line begins (011 contracts §4). */
+export interface LineStartedEvent {
+  event: 'line_started'
+  stream_id: string
+  host_id: number
+}
+
+/** One sentence of a streamed host line, with its own audio (011 contracts §4). */
+export interface LinePartEvent {
+  event: 'line_part'
+  stream_id: string
+  index: number
+  text: string
+  audio_url: string | null
+}
+
+/** An error frame; a `stream_id` means a streamed line was lost part-way (011 contracts §4). */
+export interface EpisodeErrorFrame {
+  error: string
+  stream_id?: string
 }
 
 export interface DoneFrame {

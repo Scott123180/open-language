@@ -4,8 +4,15 @@ from dataclasses import dataclass, replace
 
 from app.conversation_levels import ConversationLevel
 from app.podcasts.catalog import EPISODE_LENGTHS, PODCAST_FORMATS, EpisodeLength, PodcastFormat
-from app.podcasts.prompts import ShowBrief, build_standing_prompt, learner_label_for
+from app.podcasts.prompts import (
+    CueContext,
+    PromptContext,
+    ShowBrief,
+    build_standing_prompt,
+    learner_label_for,
+)
 from app.podcasts.services.casting import Cast, Host
+from app.podcasts.services.host_talk import HostTalk, host_talk_for
 from app.podcasts.services.series_snapshot import SeriesBrief
 from app.podcasts.services.storage import (
     EpisodeRecord,
@@ -13,7 +20,13 @@ from app.podcasts.services.storage import (
     LineRecord,
     PodcastStorage,
 )
-from app.podcasts.services.turn_policy import LEARNER, EpisodeState, LineFacts, Turn
+from app.podcasts.services.turn_policy import (
+    LEARNER,
+    EpisodeState,
+    LineFacts,
+    Turn,
+    stored_ask,
+)
 from app.practice_languages import ConversationLanguages
 from app.services.conversation import SessionKey, SessionKind
 
@@ -66,6 +79,11 @@ class LoadedEpisode:
         return tuple(_line_facts(line, slots) for line in self.lines)
 
     @property
+    def talk(self) -> HostTalk:
+        """How this episode's hosts talk: legacy without a settings row (011 research R1)."""
+        return host_talk_for(self.record.settings)
+
+    @property
     def state(self) -> EpisodeState:
         return EpisodeState(
             format=self.format,
@@ -73,6 +91,7 @@ class LoadedEpisode:
             cast=self.cast,
             lines=self.facts,
             is_finished=self.is_finished,
+            talk=self.talk,
             is_awaiting_retry=self.is_awaiting_retry,
         )
 
@@ -88,11 +107,14 @@ class LoadedEpisode:
         series = self.record.series
         return SeriesBrief.of(series.snapshot, self.cast) if series is not None else None
 
+    @property
+    def cue_context(self) -> CueContext:
+        return CueContext(self.cast, self.learner_label, self.talk, self.series_brief)
+
     def standing_prompt(self, level: ConversationLevel) -> str:
         record = self.record
         show = ShowBrief(record.title, record.premise, record.topic, record.learner_role)
-        labels = (self.cast, self.learner_label, self.languages, level)
-        return build_standing_prompt(show, *labels, series=self.series_brief)
+        return build_standing_prompt(PromptContext(show, self.languages, level, self.cue_context))
 
     def with_line(self, line: LineRecord) -> "LoadedEpisode":
         return replace(self, lines=(*self.lines, line))
@@ -135,11 +157,14 @@ def _host(record: HostRecord) -> Host:
 def _line_facts(line: LineRecord, slots: dict[int, str]) -> LineFacts:
     if line.host is None:
         return LineFacts(LEARNER, None, text=line.content, message_id=line.message_id)
+    host = line.host
     return LineFacts(
-        speaker=slots[line.host.host_id],
-        intent=line.host.intent,
-        invites_learner=line.host.invites_learner,
-        is_passed=line.host.is_passed,
+        speaker=slots[host.host_id],
+        intent=host.intent,
+        invites_learner=host.invites_learner,
+        is_passed=host.is_passed,
         text=line.content,
         message_id=line.message_id,
+        ask=stored_ask(host.ask, host.invites_learner),
+        addressee=host.addressee,
     )

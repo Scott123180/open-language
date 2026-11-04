@@ -22,7 +22,7 @@ from app.podcasts.catalog import (
     SERIES_SECTION_MAX_LENGTH,
     TOPIC_POINT,
 )
-from app.podcasts.prompts import ShowBrief, build_standing_prompt
+from app.podcasts.prompts import ShowBrief
 from app.podcasts.services.casting import Cast, Host
 from app.podcasts.services.series_snapshot import SeriesBrief, SeriesSnapshot
 from app.podcasts.services.series_storage import MemoryReply, PointText
@@ -30,6 +30,7 @@ from app.podcasts.services.sqlite_series_storage import SQLiteSeriesStorage
 from app.practice_languages import ConversationLanguages
 from tests.support.scratch_database import make_session
 from tests.support.series_records import TickingClock, make_series, series_episode
+from tests.unit.podcasts.legacy_talk_calls import legacy_standing_prompt
 
 SEQUENCES = 200
 CAPS = {TOPIC_POINT: MAX_REMEMBERED_TOPICS, LEARNER_POINT: MAX_REMEMBERED_ABOUT_LEARNER}
@@ -89,8 +90,13 @@ def _section(points) -> str:
     topics = tuple(p.conversation_language for p in points if p.kind == TOPIC_POINT)
     learner = tuple(p.conversation_language for p in points if p.kind == LEARNER_POINT)
     brief = SeriesBrief.of(SeriesSnapshot(12, topics, learner, ("second",)), CAST)
-    prompt = build_standing_prompt(
-        SHOW, CAST, "Sam", SPANISH, ConversationLevel.NATURAL, series=brief
+    prompt = legacy_standing_prompt(
+        show=SHOW,
+        cast=CAST,
+        learner_label="Sam",
+        languages=SPANISH,
+        level=ConversationLevel.NATURAL,
+        series=brief,
     )
     return prompt[prompt.index("This is ") : prompt.index("Line rules:")].strip()
 

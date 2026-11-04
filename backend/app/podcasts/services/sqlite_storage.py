@@ -10,11 +10,13 @@ from app.models.message import Message, MessageRole
 from app.podcasts.catalog import PODCAST_SCENARIO_ID
 from app.podcasts.models import (
     PodcastEpisode,
+    PodcastEpisodeSettings,
     PodcastHost,
     PodcastHostLine,
     PodcastPreferences,
     PodcastSeriesEpisode,
 )
+from app.podcasts.services.episode_settings import EpisodeSettings
 from app.podcasts.services.series_snapshot import SeriesSnapshot
 from app.podcasts.services.storage import (
     EpisodeRecord,
@@ -45,12 +47,17 @@ class SQLitePodcastStorage(PodcastStorage):
             self._db.add(_new_episode_row(conversation.id, episode))
             self._db.flush()
             self._db.add_all(_new_host_row(conversation.id, host) for host in episode.hosts)
+            self._add_settings(conversation.id, episode.settings)
             self._add_series_link(conversation.id, episode.series)
             self._db.commit()
         except Exception:
             self._db.rollback()
             raise
         return self.get_episode(conversation.id)
+
+    def _add_settings(self, conversation_id: int, settings: EpisodeSettings | None) -> None:
+        if settings is not None:
+            self._db.add(_new_settings_row(conversation_id, settings))
 
     def _add_series_link(self, conversation_id: int, link: NewSeriesLink | None) -> None:
         if link is not None:
@@ -65,13 +72,20 @@ class SQLitePodcastStorage(PodcastStorage):
         return [_episode_record(*row) for row in rows.all()]
 
     def _episode_rows(self):
-        """Each episode with its conversation, and its series link when it has one."""
+        """Each episode with its conversation, and its series link and settings when it has
+        them."""
         return (
-            self._db.query(PodcastEpisode, Conversation, PodcastSeriesEpisode)
+            self._db.query(
+                PodcastEpisode, Conversation, PodcastSeriesEpisode, PodcastEpisodeSettings
+            )
             .join(Conversation, Conversation.id == PodcastEpisode.conversation_id)
             .outerjoin(
                 PodcastSeriesEpisode,
                 PodcastSeriesEpisode.conversation_id == PodcastEpisode.conversation_id,
+            )
+            .outerjoin(
+                PodcastEpisodeSettings,
+                PodcastEpisodeSettings.conversation_id == PodcastEpisode.conversation_id,
             )
         )
 
@@ -203,13 +217,37 @@ def _new_line_row(message_id: int, line: NewHostLine) -> PodcastHostLine:
         is_passed=False,
         is_revealed=False,
         was_trimmed=line.was_trimmed,
+        ask=line.ask,
+        addressee=line.addressee,
+    )
+
+
+def _new_settings_row(conversation_id: int, settings: EpisodeSettings) -> PodcastEpisodeSettings:
+    return PodcastEpisodeSettings(
+        conversation_id=conversation_id,
+        style=settings.style.style_id,
+        line_length=settings.line_length.line_length_id,
+        invite_frequency=settings.invite_frequency.invite_frequency_id,
+        today_subject=settings.today_subject,
+        covered_personality=settings.covered_personality,
     )
 
 
 def _episode_record(
-    episode: PodcastEpisode, conversation: Conversation, link: PodcastSeriesEpisode | None
+    episode: PodcastEpisode,
+    conversation: Conversation,
+    link: PodcastSeriesEpisode | None,
+    settings: PodcastEpisodeSettings | None,
 ) -> EpisodeRecord:
     return EpisodeRecord(
+        **_record_fields(episode, conversation),
+        series=_series_facts(link),
+        settings=_settings_of(episode, settings),
+    )
+
+
+def _record_fields(episode: PodcastEpisode, conversation: Conversation) -> dict:
+    return dict(
         conversation_id=episode.conversation_id,
         show_source=episode.show_source,
         show_id=episode.show_id,
@@ -224,7 +262,21 @@ def _episode_record(
         native_language=conversation.native_language,
         status=conversation.status.value,
         created_at=episode.created_at,
-        series=_series_facts(link),
+    )
+
+
+def _settings_of(
+    episode: PodcastEpisode, row: PodcastEpisodeSettings | None
+) -> EpisodeSettings | None:
+    if row is None:
+        return None
+    return EpisodeSettings.from_ids(
+        style=row.style,
+        line_length=row.line_length,
+        invite_frequency=row.invite_frequency,
+        learner_role=episode.learner_role,
+        today_subject=row.today_subject,
+        covered_personality=row.covered_personality,
     )
 
 
@@ -265,6 +317,8 @@ def _host_line_facts(row: PodcastHostLine) -> HostLineFacts:
         is_passed=row.is_passed,
         is_revealed=row.is_revealed,
         was_trimmed=row.was_trimmed,
+        ask=row.ask,
+        addressee=row.addressee,
     )
 
 

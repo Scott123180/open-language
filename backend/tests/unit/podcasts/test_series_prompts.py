@@ -11,11 +11,15 @@ from app.podcasts.catalog import (
     REMEMBERED_TEXT_BUDGET,
     SERIES_SECTION_MAX_LENGTH,
 )
-from app.podcasts.prompts import ShowBrief, build_standing_prompt, render_cue
+from app.podcasts.prompts import ShowBrief
 from app.podcasts.services.casting import Cast, Host
 from app.podcasts.services.series_snapshot import SeriesBrief, SeriesSnapshot
-from app.podcasts.services.turn_policy import LineCue
 from app.practice_languages import ConversationLanguages
+from tests.unit.podcasts.legacy_talk_calls import (
+    legacy_cue,
+    legacy_line_cue,
+    legacy_standing_prompt,
+)
 from tests.unit.podcasts.test_one_off_golden import _golden, golden_cases
 
 HUGO = Host("lead", "Hugo", "curious_interviewer", "es_ES-davefx-medium", "host")
@@ -25,7 +29,7 @@ SHOW = ShowBrief("Big Little Questions", "Everyday curiosities.", "everyday curi
 SPANISH = ConversationLanguages.of("es", "en")
 TOPICS = ("los bostezos", "el sueño")
 LEARNER = ("Odia las mañanas.", "Este fin de semana va a la playa.")
-OPEN = LineCue("lead", "open", True, False, False)
+OPEN = legacy_line_cue("lead", "open", True, False, False)
 
 
 def _brief(number: int = 3, topics=TOPICS, learner=LEARNER, new=(), cast=CAST) -> SeriesBrief:
@@ -33,8 +37,13 @@ def _brief(number: int = 3, topics=TOPICS, learner=LEARNER, new=(), cast=CAST) -
 
 
 def _prompt(series: SeriesBrief | None, label: str = "Sam", cast: Cast = CAST) -> str:
-    return build_standing_prompt(
-        SHOW, cast, label, SPANISH, ConversationLevel.NATURAL, series=series
+    return legacy_standing_prompt(
+        show=SHOW,
+        cast=cast,
+        learner_label=label,
+        languages=SPANISH,
+        level=ConversationLevel.NATURAL,
+        series=series,
     )
 
 
@@ -132,7 +141,7 @@ def test_every_point_appears_newest_first():
 
 
 def test_a_later_open_welcomes_the_learner_back_and_recalls_a_point():
-    cue = render_cue(OPEN, CAST, "Sam", series=_brief())
+    cue = legacy_cue(cue=OPEN, cast=CAST, learner_label="Sam", series=_brief())
 
     assert "welcome Sam back" in cue
     assert "continuing" in cue and "episode 3" in cue
@@ -140,21 +149,25 @@ def test_a_later_open_welcomes_the_learner_back_and_recalls_a_point():
 
 
 def test_a_later_open_with_nothing_remembered_does_not_ask_for_a_recollection():
-    cue = render_cue(OPEN, CAST, "Sam", series=_brief(2, (), ()))
+    cue = legacy_cue(cue=OPEN, cast=CAST, learner_label="Sam", series=_brief(2, (), ()))
 
     assert "welcome Sam back" in cue
     assert "earlier episodes" not in cue
 
 
 def test_the_first_series_episode_opens_as_a_one_off_does():
-    assert render_cue(OPEN, CAST, "Sam", series=_brief(1, (), ())) == render_cue(OPEN, CAST, "Sam")
+    assert legacy_cue(
+        cue=OPEN, cast=CAST, learner_label="Sam", series=_brief(1, (), ())
+    ) == legacy_cue(cue=OPEN, cast=CAST, learner_label="Sam")
 
 
 @pytest.mark.parametrize("intent", ["greet", "discuss", "wrap_up", "sign_off"])
 def test_the_other_cues_are_unchanged_in_a_series(intent):
-    cue = LineCue("second" if intent == "greet" else "lead", intent, False, False, False)
+    cue = legacy_line_cue("second" if intent == "greet" else "lead", intent, False, False, False)
 
-    assert render_cue(cue, CAST, "Sam", series=_brief()) == render_cue(cue, CAST, "Sam")
+    assert legacy_cue(cue=cue, cast=CAST, learner_label="Sam", series=_brief()) == legacy_cue(
+        cue=cue, cast=CAST, learner_label="Sam"
+    )
 
 
 # --- one-off: series=None is 007's text ----------------------------------------------------
@@ -162,16 +175,12 @@ def test_the_other_cues_are_unchanged_in_a_series(intent):
 
 @pytest.mark.parametrize(("key", "render"), list(golden_cases()), ids=lambda value: str(value))
 def test_an_explicit_series_none_is_the_007_text(key, render, monkeypatch):
-    import app.podcasts.prompts as prompts
-
-    standing, cue = prompts.build_standing_prompt, prompts.render_cue
+    golden = "tests.unit.podcasts.test_one_off_golden"
     monkeypatch.setattr(
-        "tests.unit.podcasts.test_one_off_golden.build_standing_prompt",
-        lambda *args: standing(*args, series=None),
+        f"{golden}.legacy_standing_prompt",
+        lambda **args: legacy_standing_prompt(**args, series=None),
     )
-    monkeypatch.setattr(
-        "tests.unit.podcasts.test_one_off_golden.render_cue", lambda *args: cue(*args, series=None)
-    )
+    monkeypatch.setattr(f"{golden}.legacy_cue", lambda **args: legacy_cue(**args, series=None))
 
     assert render() == _golden()[key]
 
@@ -188,20 +197,22 @@ def test_the_section_introduces_a_new_host_as_new_to_the_show():
 
 
 def test_a_new_hosts_greeting_introduces_them_as_new():
-    greet = LineCue("second", "greet", False, False, False)
+    greet = legacy_line_cue("second", "greet", False, False, False)
 
-    cue = render_cue(greet, CAST, "Sam", series=_brief(new=("second",)))
+    cue = legacy_cue(cue=greet, cast=CAST, learner_label="Sam", series=_brief(new=("second",)))
 
     assert "introduce yourself as new to the show" in cue
 
 
 def test_an_old_hosts_greeting_is_unchanged():
-    greet = LineCue("second", "greet", False, False, False)
+    greet = legacy_line_cue("second", "greet", False, False, False)
 
-    assert render_cue(greet, CAST, "Sam", series=_brief()) == render_cue(greet, CAST, "Sam")
+    assert legacy_cue(cue=greet, cast=CAST, learner_label="Sam", series=_brief()) == legacy_cue(
+        cue=greet, cast=CAST, learner_label="Sam"
+    )
 
 
 def test_a_new_lead_opens_by_introducing_themselves_as_the_new_host():
-    cue = render_cue(OPEN, CAST, "Sam", series=_brief(new=("lead",)))
+    cue = legacy_cue(cue=OPEN, cast=CAST, learner_label="Sam", series=_brief(new=("lead",)))
 
     assert "Introduce yourself as the show's new host." in cue

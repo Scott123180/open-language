@@ -7,7 +7,7 @@ from app.podcasts.models import (
     PodcastSeriesHost,
     PodcastSeriesMemory,
 )
-from app.podcasts.prompts import build_standing_prompt
+from app.podcasts.prompts import CueContext, PromptContext, build_standing_prompt
 from app.podcasts.services.episodes import load_episode
 from tests.support.podcast_harness import EPISODES, SERIES_SHOW, podcast_harness
 
@@ -83,12 +83,9 @@ def test_a_one_off_prompt_has_no_series_section(tmp_path):
         standing_prompt, _pending = harness.writer.received[-1]
         episode = load_episode(harness.podcasts, one_off["conversation_id"])
         show = episode.standing_prompt(ConversationLevel.NATURAL)
+        cues = CueContext(episode.cast, episode.learner_label, episode.talk)
         plain = build_standing_prompt(
-            _brief(episode),
-            episode.cast,
-            episode.learner_label,
-            episode.languages,
-            ConversationLevel.NATURAL,
+            PromptContext(_brief(episode), episode.languages, ConversationLevel.NATURAL, cues)
         )
         assert standing_prompt == show == plain
         assert (

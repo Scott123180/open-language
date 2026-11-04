@@ -5,13 +5,19 @@ can say "the random choice would have picked the other host" and see a rule over
 """
 
 import random
+from datetime import UTC, datetime
 
 import pytest
 
+from app.conversation_levels import ConversationLevel
 from app.podcasts.catalog import EPISODE_LENGTHS, PODCAST_FORMATS
 from app.podcasts.services.casting import Cast, Host
+from app.podcasts.services.episodes import LoadedEpisode
+from app.podcasts.services.host_talk import HostTalk, LegacyTalk
+from app.podcasts.services.storage import EpisodeRecord, HostLineFacts, HostRecord, LineRecord
 from app.podcasts.services.turn_policy import (
     LEARNER,
+    Ask,
     EpisodeState,
     LineFacts,
     Turn,
@@ -58,6 +64,7 @@ def state(podcast_format=PANEL, lines=(), **overrides) -> EpisodeState:
         "cast": Cast.for_format(podcast_format, LUCIA, second),
         "lines": tuple(lines),
         "is_finished": False,
+        "talk": LegacyTalk(),
     }
     return EpisodeState(**{**values, **overrides})
 
@@ -225,21 +232,21 @@ def test_one_host_always_speaks_as_the_lead():
 
 
 def test_one_host_invites_the_learner_on_every_line():
-    assert cue([host(L, "open", True), learner()], ONE_HOST, draw=0.99).invites_learner is True
+    assert cue([host(L, "open", True), learner()], ONE_HOST, draw=0.99).ask is Ask.REQUIRED
 
 
 def test_one_host_opening_invites_the_learner():
-    assert cue((), ONE_HOST, draw=0.99).invites_learner is True
+    assert cue((), ONE_HOST, draw=0.99).ask is Ask.REQUIRED
 
 
 def test_a_sign_off_never_invites():
     lines = [host(L, "open", True), learner()]
 
-    assert TurnPolicy(Constant(0.0)).end_cue(state(ONE_HOST, lines)).invites_learner is False
+    assert TurnPolicy(Constant(0.0)).end_cue(state(ONE_HOST, lines)).ask is Ask.NONE
 
 
 def test_listen_never_invites():
-    assert cue(balanced(3), LISTEN, draw=0.0).invites_learner is False
+    assert cue(balanced(3), LISTEN, draw=0.0).ask is Ask.NONE
 
 
 def _after_learner(host_lines: list[LineFacts]) -> list[LineFacts]:
@@ -254,26 +261,26 @@ def _after_learner(host_lines: list[LineFacts]) -> list[LineFacts]:
 def test_panel_invitations_grow_more_likely_with_each_host_line(host_lines, hazard):
     lines = _after_learner(host_lines)
 
-    assert cue(lines, draw=hazard - 0.01).invites_learner is True
-    assert cue(lines, draw=hazard + 0.01).invites_learner is False
+    assert cue(lines, draw=hazard - 0.01).ask is Ask.REQUIRED
+    assert cue(lines, draw=hazard + 0.01).ask is Ask.NONE
 
 
 def test_the_fourth_host_line_always_invites():
     lines = _after_learner([host(S), host(L), host(S)])
 
-    assert cue(lines, draw=0.99).invites_learner is True
+    assert cue(lines, draw=0.99).ask is Ask.REQUIRED
 
 
 def test_a_pass_restarts_the_count():
     lines = [host(L), host(S), host(L), host(S, invites=True, passed=True)]
 
-    assert cue(lines, draw=0.3).invites_learner is False
+    assert cue(lines, draw=0.3).ask is Ask.NONE
 
 
 def test_a_wrap_up_always_invites_the_learner_in_a_panel():
     wrap = cue(balanced(SHORT.target_host_lines - 1), draw=0.99)
 
-    assert (wrap.intent, wrap.invites_learner) == ("wrap_up", True)
+    assert (wrap.intent, wrap.ask) == ("wrap_up", Ask.REQUIRED)
 
 
 def test_an_addressed_line_that_leaves_a_host_two_lines_ahead_does_not_invite():
@@ -281,7 +288,7 @@ def test_an_addressed_line_that_leaves_a_host_two_lines_ahead_does_not_invite():
 
     addressed = cue(lines, draw=0.0)
 
-    assert (addressed.speaker_slot, addressed.invites_learner) == (L, False)
+    assert (addressed.speaker_slot, addressed.ask) == (L, Ask.NONE)
 
 
 # --- settle and pass --------------------------------------------------------------------
@@ -290,13 +297,13 @@ def test_an_addressed_line_that_leaves_a_host_two_lines_ahead_does_not_invite():
 def test_an_invitation_after_two_hosts_disagree_asks_the_learner_to_settle_it():
     settle = cue([host(L), host(S)], draw=0.0)
 
-    assert (settle.invites_learner, settle.is_settle_invite) == (True, True)
+    assert (settle.ask, settle.is_settle_invite) == (Ask.REQUIRED, True)
 
 
 def test_an_invitation_after_one_host_is_not_a_settle_invite():
     invite = cue([host(S), host(L), host(L)], draw=0.0)
 
-    assert (invite.invites_learner, invite.is_settle_invite) == (True, False)
+    assert (invite.ask, invite.is_settle_invite) == (Ask.REQUIRED, False)
 
 
 def test_a_line_that_does_not_invite_is_never_a_settle_invite():
@@ -311,3 +318,129 @@ def test_the_line_after_a_pass_knows_the_learner_passed():
 
 def test_an_ordinary_line_is_not_after_a_pass():
     assert cue([host(L), host(S)], draw=0.5).is_after_pass is False
+
+
+# --- 011 T011: the policy asks the episode's HostTalk (research R1) ---------------------
+
+
+class SpyTalk(HostTalk):
+    """Allows every invitation and makes every discussion line a story, recording each ask."""
+
+    def __init__(self) -> None:
+        self.asks: list[tuple[int, str, str]] = []
+        self.intents = 0
+
+    def ask(self, run, podcast_format, rng, intent):
+        self.asks.append((run, podcast_format.format_id, intent))
+        return Ask.ALLOWED
+
+    def invitation(self, ask, addressee):
+        return ask is Ask.REQUIRED
+
+    def stored_addressing(self, ask, addressee):
+        return None, None
+
+    def discussion_intent(self, state, rng):
+        self.intents += 1
+        return "story"
+
+    def line_rules(self, label, languages, cast):
+        return "Line rules:"
+
+    def speech_rules(self, prompt: str, level: ConversationLevel) -> str:
+        return prompt
+
+    def speaking_style(self, personality):
+        return personality.speaking_style
+
+    def instruction(self, cue, cast, label, series):
+        return "Talk."
+
+    def closing(self, cue, label):
+        return ""
+
+    def replayed_line(self, text, addressee, cast, label):
+        return text
+
+
+def spied_cue(lines, podcast_format=PANEL, draw: float = 0.99):
+    talk = SpyTalk()
+    chosen = TurnPolicy(Constant(draw)).next_cue(state(podcast_format, lines, talk=talk))
+    return chosen, talk
+
+
+def test_a_discussion_line_takes_its_ask_and_intent_from_the_episodes_talk():
+    chosen, talk = spied_cue([host(L, "open"), host(S, "greet"), host(L, invites=True), learner()])
+
+    assert (chosen.intent, chosen.ask) == ("story", Ask.ALLOWED)
+    assert talk.intents == 1
+    assert talk.asks == [(1, "panel", "story")]
+
+
+def test_the_opening_keeps_its_own_intent_but_asks_the_talk():
+    chosen, talk = spied_cue(())
+
+    assert (chosen.intent, chosen.ask) == ("open", Ask.ALLOWED)
+    assert talk.intents == 0
+    assert talk.asks == [(1, "panel", "open")]
+
+
+def test_the_greeting_keeps_its_own_intent():
+    chosen, talk = spied_cue([host(L, "open")])
+
+    assert chosen.intent == "greet"
+    assert talk.intents == 0
+
+
+def test_a_wrap_up_is_required_to_invite_whatever_the_talk_says():
+    chosen, talk = spied_cue(balanced(SHORT.target_host_lines - 1))
+
+    assert (chosen.intent, chosen.ask) == ("wrap_up", Ask.REQUIRED)
+    assert talk.asks == []
+
+
+def test_a_sign_off_never_invites_whatever_the_talk_says():
+    talk = SpyTalk()
+    lines = [host(L, "open"), host(S, "greet")]
+
+    sign_off = TurnPolicy(Constant(0.0)).end_cue(state(PANEL, lines, talk=talk))
+
+    assert (sign_off.intent, sign_off.ask) == ("sign_off", Ask.NONE)
+    assert talk.asks == []
+
+
+# --- 011 T011: a stored line's ask, from its column or from invites_learner ------------------
+
+
+NOW = datetime(2026, 11, 3, tzinfo=UTC)
+
+
+def _stored(invites: bool, ask: str | None) -> LoadedEpisode:
+    record = EpisodeRecord(
+        1,
+        "ready_made",
+        "x",
+        "Show",
+        "Premise.",
+        "topic",
+        "guest",
+        "one_host",
+        "short",
+        "Sam",
+        "es",
+        "en",
+        "active",
+        NOW,
+    )
+    lead = HostRecord(7, "lead", "Lucía", "enthusiast", "es_AR-daniela-high", "host", None)
+    facts = HostLineFacts(7, "discuss", invites, False, False, False, ask=ask, addressee=None)
+    return LoadedEpisode(record, (lead,), (LineRecord(1, "assistant", "Hola.", NOW, facts),))
+
+
+@pytest.mark.parametrize(("invites", "expected"), [(True, Ask.REQUIRED), (False, Ask.NONE)])
+def test_a_line_stored_without_an_ask_reads_it_from_invites_learner(invites, expected):
+    assert _stored(invites, None).facts[0].ask is expected
+
+
+def test_a_line_stored_with_an_ask_reads_that_ask():
+    assert _stored(True, "allowed").facts[0].ask is Ask.ALLOWED

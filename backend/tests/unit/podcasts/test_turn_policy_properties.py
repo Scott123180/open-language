@@ -12,7 +12,8 @@ import pytest
 
 from app.podcasts.catalog import EPISODE_LENGTHS, PODCAST_FORMATS
 from app.podcasts.services.casting import Cast, Host
-from app.podcasts.services.turn_policy import LEARNER, EpisodeState, LineFacts, TurnPolicy
+from app.podcasts.services.host_talk import LegacyTalk
+from app.podcasts.services.turn_policy import LEARNER, Ask, EpisodeState, LineFacts, TurnPolicy
 
 EPISODES_PER_FORMAT = 1000
 LUCIA = Host("lead", "Lucía", "enthusiast", "es_AR-daniela-high", "host")
@@ -41,6 +42,7 @@ class Episode:
             cast=Cast.for_format(podcast_format, LUCIA, second),
             lines=tuple(self.lines),
             is_finished=self.is_finished,
+            talk=LegacyTalk(),
         )
 
 
@@ -53,7 +55,8 @@ def _host_line(episode: Episode, policy: TurnPolicy, chooser: random.Random, end
     state = episode.state()
     cue = policy.end_cue(state) if end else policy.next_cue(state)
     text = _host_text(chooser, cue.speaker_slot)
-    episode.lines.append(LineFacts(cue.speaker_slot, cue.intent, cue.invites_learner, False, text))
+    invites = cue.ask is Ask.REQUIRED
+    episode.lines.append(LineFacts(cue.speaker_slot, cue.intent, invites, False, text))
     episode.was_ended = episode.was_ended or end
     episode.is_finished = cue.intent == "sign_off"
 

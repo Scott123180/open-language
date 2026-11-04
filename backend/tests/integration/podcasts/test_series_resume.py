@@ -15,9 +15,7 @@ LATER_POINT = {
 def _rebuilt(harness, conversation_id: int):
     """The standing prompt and the history a rebuilt session would be given."""
     episode = load_episode(harness.podcasts, conversation_id)
-    history = episode_history(
-        episode.facts, episode.cast, episode.learner_label, episode.series_brief
-    )
+    history = episode_history(episode.facts, episode.cue_context)
     return episode.standing_prompt(ConversationLevel.NATURAL), history
 
 

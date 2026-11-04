@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 
+from app.podcasts.services.episode_settings import EpisodeSettings
 from app.podcasts.services.series_snapshot import SeriesSnapshot
 
 
@@ -52,6 +53,12 @@ class NewEpisode:
     hosts: tuple[NewHost, ...]
     series: NewSeriesLink | None = None
     """None for a one-off episode."""
+    settings: EpisodeSettings | None = None
+    """How the episode sounds (011). Every new start sets it; None stores no settings row."""
+
+    def __post_init__(self) -> None:
+        if self.settings is not None and self.settings.learner_role != self.learner_role:
+            raise ValueError("An episode's role is the one its settings give (data-model §2.1).")
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +78,8 @@ class EpisodeRecord:
     status: str
     created_at: datetime
     series: EpisodeSeriesFacts | None = None
+    settings: EpisodeSettings | None = None
+    """None for an episode started before 011: it runs on legacy host talk (research R1)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +103,10 @@ class HostLineFacts:
     is_passed: bool
     is_revealed: bool
     was_trimmed: bool
+    ask: str | None = None
+    """011: the cue's ask. None on lines stored before 011 and on legacy episodes' lines."""
+    addressee: str | None = None
+    """011: who the line was for: learner, lead or second. None means no one in particular."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +130,8 @@ class NewHostLine:
     intent: str
     invites_learner: bool
     was_trimmed: bool = False
+    ask: str | None = None
+    addressee: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

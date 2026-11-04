@@ -75,3 +75,31 @@ def test_a_session_tracks_the_turns_it_has_taken_in():
     session.acknowledge("p2")
 
     assert tuple(session.synced_turn_ids) == ("p1", "c0", "p2")
+
+
+# --- 011 T012: streamed replies ------------------------------------------------------------
+
+
+def test_a_reply_can_be_scripted_as_tokens():
+    writer = ScriptedLineWriter()
+    writer.script_tokens(["Hola a ", "todos. Hoy ", "hablamos."])
+    session = writer.open_session(KEY, "prompt", ())
+
+    assert list(session.reply((CUE,), None)) == ["Hola a ", "todos. Hoy ", "hablamos."]
+
+
+def test_a_reply_can_fail_after_some_tokens():
+    writer = ScriptedLineWriter()
+    writer.script_tokens(["Uno. ", "Dos. ", "Tres."])
+    writer.fail_after_tokens(2, LLMError("lost", "The model stopped."))
+    tokens = writer.open_session(KEY, "prompt", ()).reply((CUE,), None)
+
+    assert [next(tokens), next(tokens)] == ["Uno. ", "Dos. "]
+    with pytest.raises(LLMError, match="lost"):
+        next(tokens)
+
+
+def test_an_unsplit_line_is_one_token():
+    writer = ScriptedLineWriter(["¡Hola! ¿Qué tal?"])
+
+    assert list(writer.open_session(KEY, "prompt", ()).reply((CUE,), None)) == ["¡Hola! ¿Qué tal?"]

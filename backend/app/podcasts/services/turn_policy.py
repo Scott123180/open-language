@@ -10,9 +10,20 @@ import re
 import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import StrEnum
+from typing import TYPE_CHECKING
 
-from app.podcasts.catalog import LEAD_SLOT, SECOND_SLOT, EpisodeLength, PodcastFormat
+from app.podcasts.catalog import (
+    INVITE_DEADLINE,
+    LEAD_SLOT,
+    SECOND_SLOT,
+    EpisodeLength,
+    PodcastFormat,
+)
 from app.podcasts.services.casting import Cast
+
+if TYPE_CHECKING:
+    from app.podcasts.services.host_talk import HostTalk
 
 LEARNER = "learner"
 OPEN, GREET, DISCUSS, WRAP_UP, SIGN_OFF = "open", "greet", "discuss", "wrap_up", "sign_off"
@@ -23,11 +34,27 @@ OTHER_HOST_ANSWERS = 0.7
 """After a host line, the other host answers with this probability (FR-013)."""
 INVITER_ANSWERS = 0.6
 """After the learner speaks, the host who invited them answers with this probability."""
-INVITATION_HAZARDS = (0.25, 0.45, 0.6)
-"""Panel: the chance the 1st, 2nd and 3rd host line since the learner spoke invites them."""
 BALANCING_GAP = 2
 """When one host is this many lines ahead, the other speaks next (FR-015)."""
 _PREFERRED_SLOT = {OPEN: LEAD_SLOT, SIGN_OFF: LEAD_SLOT, GREET: SECOND_SLOT}
+
+
+class Ask(StrEnum):
+    """How a cue asks for an invitation (011 research R19)."""
+
+    REQUIRED = "required"
+    """The line must hand the learner the turn."""
+    ALLOWED = "allowed"
+    """The line may end with a question to the learner, if it fits."""
+    NONE = "none"
+    """The line must not ask the learner anything; if it does, they still get the turn."""
+    NEVER = "never"
+    """The line must not ask the learner anything, and never hands them the turn: a
+    two-host opening or greeting, which the other host's line must follow (R19)."""
+
+    @property
+    def may_invite(self) -> bool:
+        return self in (Ask.REQUIRED, Ask.ALLOWED)
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +67,14 @@ class LineFacts:
     is_passed: bool = False
     text: str = ""
     message_id: int | None = None
+    ask: Ask | None = None
+    """The cue's ask. A line stored before 011 has none: it is read from `invites_learner`."""
+    addressee: str | None = None
+    """Who the line was for: learner, lead or second. None means no one in particular."""
+
+    def __post_init__(self) -> None:
+        if self.ask is None:
+            object.__setattr__(self, "ask", stored_ask(None, self.invites_learner))
 
     @property
     def is_host(self) -> bool:
@@ -50,7 +85,7 @@ class LineFacts:
 class LineCue:
     speaker_slot: str
     intent: str
-    invites_learner: bool
+    ask: Ask
     is_after_pass: bool
     is_settle_invite: bool
 
@@ -62,6 +97,8 @@ class EpisodeState:
     cast: Cast
     lines: tuple[LineFacts, ...]
     is_finished: bool
+    talk: "HostTalk"
+    """How this episode's hosts talk: the invitations and the kind of each line (011 R1)."""
     is_awaiting_retry: bool = False
     """A Strict correction paused the learner's message; the learner must try again."""
 
@@ -98,21 +135,35 @@ class TurnPolicy:
 
     def next_cue(self, state: EpisodeState) -> LineCue:
         """The next host line in the natural course of the episode."""
-        return self._cue(state, _intent(state))
+        return self._cue(state, self._intent(state))
 
     def end_cue(self, state: EpisodeState) -> LineCue:
         """The sign-off the learner asked for with End episode (FR-019)."""
         return self._cue(state, SIGN_OFF)
 
+    def _intent(self, state: EpisodeState) -> str:
+        """The opening, greeting and wrap-up by position; every other line from the talk."""
+        host_lines = state.host_lines
+        if not host_lines:
+            return OPEN
+        if state.format.host_count == 2 and len(host_lines) == 1 and len(state.lines) == 1:
+            return GREET
+        has_wrapped_up = any(line.intent == WRAP_UP for line in host_lines)
+        if not has_wrapped_up and len(host_lines) + 1 >= state.length.target_host_lines:
+            return WRAP_UP
+        if not state.format.is_learner_speaking and state.last.intent == WRAP_UP:
+            return SIGN_OFF
+        return state.talk.discussion_intent(state, self._rng)
+
     def _cue(self, state: EpisodeState, intent: str) -> LineCue:
         speaker = self._speaker(state, intent)
-        invites = self._invites(state, intent, speaker)
+        ask = self._ask(state, intent, speaker)
         return LineCue(
             speaker_slot=speaker,
             intent=intent,
-            invites_learner=invites,
+            ask=ask,
             is_after_pass=follows_pass(state.lines),
-            is_settle_invite=invites and is_settle_moment(state.lines),
+            is_settle_invite=ask.may_invite and is_settle_moment(state.lines),
         )
 
     def _speaker(self, state: EpisodeState, intent: str) -> str:
@@ -136,17 +187,24 @@ class TurnPolicy:
             return favoured
         return _other(favoured)
 
-    def _invites(self, state: EpisodeState, intent: str, speaker: str) -> bool:
+    def _ask(self, state: EpisodeState, intent: str, speaker: str) -> Ask:
+        """Wrap-up and sign-off keep their rules; the talk decides every other line, unless the
+        line would leave a host two lines ahead before the deadline (FR-015)."""
         if not state.format.is_learner_speaking or intent == SIGN_OFF:
-            return False
-        if state.format.host_count == 1 or intent == WRAP_UP:
-            return True
+            return Ask.NONE
+        if intent == WRAP_UP:
+            return Ask.REQUIRED
         run = _run_since_learner(state.lines) + 1
-        if run >= state.format.invite_deadline:
-            return True
-        if _gap_after(state, speaker) >= BALANCING_GAP:
-            return False
-        return self._rng.random() < INVITATION_HAZARDS[min(run, len(INVITATION_HAZARDS)) - 1]
+        if _is_held_back(state, speaker, run):
+            return Ask.NONE
+        return state.talk.ask(run, state.format, self._rng, intent)
+
+
+def stored_ask(ask: str | None, invites_learner: bool) -> Ask:
+    """A stored line's ask; a line from before 011 has none, so its invitation tells it."""
+    if ask is not None:
+        return Ask(ask)
+    return Ask.REQUIRED if invites_learner else Ask.NONE
 
 
 def is_settle_moment(previous: Sequence[LineFacts]) -> bool:
@@ -165,18 +223,11 @@ def _reply() -> Turn:
     return Turn(HOSTS_TURN, AWAITING_REPLY)
 
 
-def _intent(state: EpisodeState) -> str:
-    host_lines = state.host_lines
-    if not host_lines:
-        return OPEN
-    if state.format.host_count == 2 and len(host_lines) == 1 and len(state.lines) == 1:
-        return GREET
-    has_wrapped_up = any(line.intent == WRAP_UP for line in host_lines)
-    if not has_wrapped_up and len(host_lines) + 1 >= state.length.target_host_lines:
-        return WRAP_UP
-    if not state.format.is_learner_speaking and state.last.intent == WRAP_UP:
-        return SIGN_OFF
-    return DISCUSS
+def _is_held_back(state: EpisodeState, speaker: str, run: int) -> bool:
+    """Two hosts: an invitation that would leave one two lines ahead waits (FR-015)."""
+    if state.cast.second is None or run >= INVITE_DEADLINE:
+        return False
+    return _gap_after(state, speaker) >= BALANCING_GAP
 
 
 def _other(slot: str) -> str:

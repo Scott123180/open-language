@@ -660,9 +660,9 @@ export const mockPodcastCatalog = {
   language: 'es',
   language_name: 'Spanish',
   formats: [
-    { format_id: 'one_host', label: 'One host', host_count: 1, is_learner_speaking: true, description: 'You and one host.' },
-    { format_id: 'panel', label: 'Panel', host_count: 2, is_learner_speaking: true, description: 'You and two hosts.' },
-    { format_id: 'listen', label: 'Listen', host_count: 2, is_learner_speaking: false, description: 'Two hosts talk; you listen.' },
+    { format_id: 'one_host', label: 'One host', host_count: 1, is_learner_speaking: true, description: 'You and one host.', has_jump_in: true, has_pass: false },
+    { format_id: 'panel', label: 'Panel', host_count: 2, is_learner_speaking: true, description: 'You and two hosts.', has_jump_in: true, has_pass: true },
+    { format_id: 'listen', label: 'Listen', host_count: 2, is_learner_speaking: false, description: 'Two hosts talk; you listen.', has_jump_in: false, has_pass: false },
   ],
   lengths: [
     { length_id: 'short', label: 'Short', target_host_lines: 10, is_default: false },
@@ -755,6 +755,65 @@ export function lineFrame(line: LineFixture, turn: string, awaiting: string | nu
 /** Build an SSE body from frames, e.g. `makeLineSseBody(lineFrame(...))`. */
 export function makeLineSseBody(frames: unknown[]): string {
   return frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join('')
+}
+
+// ── Configurable podcast shows (011 contracts §1, §4, §6, §8) ─────────────────
+
+/** `episode_options` of the catalogue, exactly as contracts §1 shows it. */
+export const episodeOptions = {
+  styles: [
+    { style_id: 'conversation', label: 'Conversation', description: 'Lots of back-and-forth.', is_default: false },
+    { style_id: 'balanced', label: 'Balanced', description: 'Some talk, some explaining.', is_default: true },
+    { style_id: 'presented', label: 'Presented', description: 'The hosts mostly explain and tell stories, like a radio show.', is_default: false },
+  ],
+  line_lengths: [
+    { line_length_id: 'short', label: 'Short', is_default: false },
+    { line_length_id: 'medium', label: 'Medium', is_default: true },
+    { line_length_id: 'long', label: 'Long', is_default: false },
+  ],
+  invite_frequencies: [
+    { invite_frequency_id: 'often', label: 'Often', is_default: false },
+    { invite_frequency_id: 'sometimes', label: 'Sometimes', is_default: true },
+    { invite_frequency_id: 'rarely', label: 'Rarely', is_default: false },
+  ],
+  learner_roles: [
+    { learner_role: 'guest', label: 'Guest' },
+    { learner_role: 'co_host', label: 'Co-host' },
+    { learner_role: 'caller', label: 'Caller' },
+  ],
+  today_subject_max_length: 120,
+}
+
+/** A guest cast for one episode (contracts §8): Marco, an Expert, in the second chair. */
+export const guestDraft = {
+  slot: 'second',
+  name: 'Marco',
+  personality_id: 'expert',
+  voice_key: 'es_ES-davefx-medium',
+  show_role: 'co_host',
+  angle: null as string | null,
+}
+
+export interface StreamedLineOptions {
+  conversationId?: number
+  messageId?: number
+  hostId?: number
+  streamId?: string
+  turn?: string
+  awaiting?: string | null
+}
+
+/** The contracts §4 SSE frames of a streamed host line: started, one part per text, line, done. */
+export function streamedLineFrames(parts: string[], options: StreamedLineOptions = {}) {
+  const { conversationId = 57, messageId = 101, hostId = 11, streamId = 'stream-1', turn = 'hosts' } = options
+  const awaiting = options.awaiting === undefined ? 'continue' : options.awaiting
+  const audioUrl = (index: number) => `/api/podcasts/episodes/${conversationId}/parts/${streamId}/${index}`
+  const line = { message_id: messageId, host_id: hostId, content: parts.join(' '), intent: 'react' }
+  return [
+    { event: 'line_started', stream_id: streamId, host_id: hostId },
+    ...parts.map((text, index) => ({ event: 'line_part', stream_id: streamId, index, text, audio_url: audioUrl(index) })),
+    ...lineFrame(line, turn, awaiting),
+  ]
 }
 
 export interface PodcastRouteOptions {
@@ -898,6 +957,23 @@ export function seriesDetailFixture(overrides: Record<string, unknown> = {}) {
     },
     ...overrides,
   }
+}
+
+/** A Big Little Questions series with its usual settings (011 contracts §6): One host, standard. */
+export function seriesWithSettings(overrides: Record<string, unknown> = {}) {
+  return seriesDetailFixture({
+    usual_settings: {
+      format: 'one_host',
+      length: 'medium',
+      style: 'balanced',
+      line_length: 'medium',
+      invite_frequency: 'sometimes',
+      learner_role: 'guest',
+    },
+    is_standard: true,
+    second_role_personality_id: 'expert',
+    ...overrides,
+  })
 }
 
 /** `POST /api/podcasts/shows/discover`: three fresh suggestions (010 contracts §4). */

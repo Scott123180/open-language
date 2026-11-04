@@ -158,4 +158,5 @@ def test_the_module_exports_exactly_five_public_names():
         "LEVEL_CATALOG",
         "with_partner_speech_rules",
         "with_learner_text_rules",
+        "with_sentence_rules",
     }

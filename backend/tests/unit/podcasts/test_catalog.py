@@ -5,6 +5,7 @@ from types import MappingProxyType
 
 import pytest
 
+from app.podcasts import catalog as podcast_catalog
 from app.podcasts.catalog import (
     DEFAULT_EPISODE_LENGTH,
     DEFAULT_PODCAST_FORMAT,
@@ -222,3 +223,154 @@ def test_the_memory_and_discovery_limits_match_the_data_model():
 
 def test_the_ready_made_shows_are_unchanged_in_content_and_order():
     assert list(SHOW_TEMPLATES) == SHOW_IDS_BEFORE_010
+
+
+# --- 011 T006: episode settings catalogues and constants (data-model §1.1–§1.4, §1.6) -------
+
+
+EXPERT_CONFIGURED_STYLE = (
+    "Explains how and why step by step, with simple facts and an everyday example, and stays "
+    "precise."
+)
+INTERVIEWER_CONFIGURED_STYLE = (
+    "Asks how and why, picks up details others said, and says what they think too."
+)
+
+
+def test_the_episode_styles_are_conversation_balanced_and_presented_in_order():
+    styles = podcast_catalog.EPISODE_STYLES
+
+    assert [(s.style_id, s.label, s.description, s.weights) for s in styles.values()] == [
+        ("conversation", "Conversation", "Lots of back-and-forth.", (0.90, 0.07, 0.03)),
+        ("balanced", "Balanced", "Some talk, some explaining.", (0.55, 0.30, 0.15)),
+        (
+            "presented",
+            "Presented",
+            "The hosts mostly explain and tell stories, like a radio show.",
+            (0.35, 0.40, 0.25),
+        ),
+    ]
+    assert list(styles) == ["conversation", "balanced", "presented"]
+    assert podcast_catalog.DEFAULT_EPISODE_STYLE == "balanced"
+
+
+def test_the_host_line_lengths_hold_their_counts_and_phrases():
+    lengths = podcast_catalog.HOST_LINE_LENGTHS
+
+    assert [
+        (
+            length.line_length_id,
+            length.label,
+            length.min_sentences,
+            length.max_sentences,
+            length.brief_phrase,
+            length.full_phrase,
+        )
+        for length in lengths.values()
+    ] == [
+        ("short", "Short", 1, 2, "in one or two sentences", "in two sentences"),
+        ("medium", "Medium", 3, 5, "in three sentences", "in four or five sentences"),
+        ("long", "Long", 5, 8, "in five or six sentences", "in six to eight sentences"),
+    ]
+    assert podcast_catalog.DEFAULT_HOST_LINE_LENGTH == "medium"
+
+
+@pytest.mark.parametrize(
+    ("line_length_id", "phrase"),
+    [
+        ("short", "one to two sentences"),
+        ("medium", "three to five sentences"),
+        ("long", "five to eight sentences"),
+    ],
+)
+def test_a_host_line_length_names_its_range(line_length_id, phrase):
+    assert podcast_catalog.HOST_LINE_LENGTHS[line_length_id].range_phrase == phrase
+
+
+def test_the_expert_and_the_interviewer_have_configured_speaking_styles():
+    configured = {key: p.configured_speaking_style for key, p in PERSONALITIES.items()}
+
+    assert configured.pop("expert") == EXPERT_CONFIGURED_STYLE
+    assert configured.pop("curious_interviewer") == INTERVIEWER_CONFIGURED_STYLE
+    assert set(configured.values()) == {None}
+
+
+def test_the_legacy_speaking_styles_are_unchanged():
+    assert PERSONALITIES["expert"].speaking_style == (
+        "Gives one clear fact or tip at a time, explains simply, stays precise."
+    )
+    assert PERSONALITIES["curious_interviewer"].speaking_style == (
+        "Asks follow-up questions, picks up details others said, digs gently."
+    )
+
+
+def test_the_invite_frequencies_hold_their_hazards():
+    frequencies = podcast_catalog.INVITE_FREQUENCIES
+
+    assert [(f.invite_frequency_id, f.label, f.hazards) for f in frequencies.values()] == [
+        ("often", "Often", (1.0, 1.0, 1.0)),
+        ("sometimes", "Sometimes", (0.35, 0.45, 0.55)),
+        ("rarely", "Rarely", (0.0, 0.05, 0.10)),
+    ]
+    assert podcast_catalog.DEFAULT_INVITE_FREQUENCY == "sometimes"
+    assert podcast_catalog.INVITE_DEADLINE == 4
+
+
+@pytest.mark.parametrize(
+    "catalogue_name", ["EPISODE_STYLES", "HOST_LINE_LENGTHS", "INVITE_FREQUENCIES"]
+)
+def test_every_episode_settings_catalogue_is_read_only(catalogue_name):
+    assert isinstance(getattr(podcast_catalog, catalogue_name), MappingProxyType)
+
+
+@pytest.mark.parametrize("weights", [(0.5, 0.5, 0.0), (0.6, 0.3, 0.3), (-0.1, 0.6, 0.5)], ids=str)
+def test_a_style_needs_positive_weights_that_sum_to_one(weights):
+    with pytest.raises(ValueError):
+        podcast_catalog.EpisodeStyle("odd", "Odd", "Odd.", weights)
+
+
+@pytest.mark.parametrize(("low", "high"), [(0, 2), (4, 3)])
+def test_a_host_line_length_needs_one_or_more_sentences_in_order(low, high):
+    with pytest.raises(ValueError):
+        podcast_catalog.HostLineLength("odd", "Odd", low, high, "in a few", "in some")
+
+
+@pytest.mark.parametrize("hazards", [(1.1, 0.5, 0.5), (0.2, -0.1, 0.5)], ids=str)
+def test_an_invite_frequency_needs_hazards_between_zero_and_one(hazards):
+    with pytest.raises(ValueError):
+        podcast_catalog.InviteFrequency("odd", "Odd", hazards)
+
+
+def test_the_011_constants_match_the_data_model():
+    c = podcast_catalog
+
+    assert c.TODAY_SUBJECT_MAX_LENGTH == 120
+    assert c.SERIES_SETTING_NAMES == (
+        "format",
+        "length",
+        "style",
+        "line_length",
+        "invite_frequency",
+        "learner_role",
+    )
+    assert c.ANSWER_INTENTS == ("answer", "follow_up")
+    assert c.DISCUSSION_INTENTS == ("react", "explain", "story")
+    assert (c.QUESTION_MARK, c.MIN_SENTENCE_CHARACTERS) == ("?", 12)
+    assert (c.PART_WAIT_SECONDS, c.PART_TTL_SECONDS) == (30, 600)
+    assert c.ASKS == ("required", "allowed", "none", "never")
+    assert c.ADDRESSEES == ("learner", "lead", "second")
+    assert (c.ADDRESS_ALL, c.ADDRESS_TAG_MAX_LENGTH) == ("all", 60)
+    assert c.BRIEF_INTENTS == ("greet", "react", "wrap_up", "sign_off")
+    assert (c.SUBJECT_SUGGESTIONS, c.SUBJECT_AVOID_MAX) == (3, 10)
+
+
+def test_every_new_intent_fits_the_host_line_intent_column():
+    intents = podcast_catalog.ANSWER_INTENTS + podcast_catalog.DISCUSSION_INTENTS
+
+    assert all(len(intent) <= 10 for intent in intents)
+
+
+def test_every_ask_and_addressee_fits_its_column():
+    values = podcast_catalog.ASKS + podcast_catalog.ADDRESSEES
+
+    assert all(len(value) <= 8 for value in values)

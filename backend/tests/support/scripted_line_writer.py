@@ -1,8 +1,9 @@
 """A SessionCapableProvider that writes podcast lines from a script.
 
-Each reply is the next scripted line (or a numbered default line when the script is empty). It
-records every standing prompt and pending turns it receives, counts the sessions it opens, can
-fail the next reply with an `LLMError`, and can hold every reply behind a gate.
+Each reply is the next scripted line (or a numbered default line when the script is empty), as
+one token, or as chosen tokens (011: `script_tokens`). It records every standing prompt and
+pending turns it receives, counts the sessions it opens, can fail the next reply with an
+`LLMError` before or after some tokens, and can hold every reply behind a gate.
 """
 
 import threading
@@ -49,9 +50,13 @@ class ScriptedLineSession(ConversationSession):
     def reply(self, pending: Sequence[SavedTurn], guidance: str | None) -> Iterator[str]:
         self._writer.received.append((self._standing_prompt, tuple(pending)))
         self._writer.guidance.append(guidance)
-        line = self._next_line()
+        tokens = self._next_tokens()
         self._synced.extend(turn.turn_id for turn in pending)
-        yield line
+        try:
+            yield from self._writer.deliver(tokens)
+        except LLMError:
+            self._is_broken = True
+            raise
 
     def reply_to_opening(self, instruction: str) -> Iterator[str]:
         raise AssertionError("Podcast lines never use an opening instruction")
@@ -62,14 +67,14 @@ class ScriptedLineSession(ConversationSession):
     def close(self) -> None:
         self._is_closed = True
 
-    def _next_line(self) -> str:
+    def _next_tokens(self) -> list[str]:
         if self._is_closed:
             raise LLMError("session closed")
         self._writer.wait_if_gated()
         if self._writer.errors:
             self._is_broken = True
             raise self._writer.errors.pop(0)
-        return self._writer.take_line()
+        return self._writer.take_tokens()
 
 
 class ScriptedLineWriter(SessionCapableProvider):
@@ -83,6 +88,8 @@ class ScriptedLineWriter(SessionCapableProvider):
         self.sessions: list[ScriptedLineSession] = []
         self.warm_count = 0
         self._gate: threading.Event | None = None
+        self._token_scripts: list[list[str]] = []
+        self._failure: tuple[int, Exception] | None = None
 
     @property
     def open_count(self) -> int:
@@ -94,11 +101,34 @@ class ScriptedLineWriter(SessionCapableProvider):
     def fail_next(self, error: Exception) -> None:
         self.errors.append(error)
 
+    def script_tokens(self, tokens: Sequence[str]) -> None:
+        """The next reply yields exactly these tokens, in order."""
+        self._token_scripts.append(list(tokens))
+
+    def fail_after_tokens(self, count: int, error: Exception) -> None:
+        """The next reply yields `count` tokens, then raises `error`."""
+        self._failure = (count, error)
+
+    def take_tokens(self) -> list[str]:
+        if self._token_scripts:
+            self._written += 1
+            return self._token_scripts.pop(0)
+        return [self.take_line()]
+
     def take_line(self) -> str:
         self._written += 1
         if self._lines:
             return self._lines.pop(0)
         return DEFAULT_LINE.format(number=self._written)
+
+    def deliver(self, tokens: Sequence[str]) -> Iterator[str]:
+        failure, self._failure = self._failure, None
+        for index, token in enumerate(tokens):
+            if failure is not None and index == failure[0]:
+                raise failure[1]
+            yield token
+        if failure is not None:
+            raise failure[1]
 
     def gate(self) -> threading.Event:
         """Hold every reply until the returned event is set."""

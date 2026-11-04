@@ -89,6 +89,12 @@ _ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
         f"target_language VARCHAR(20) NOT NULL DEFAULT '{DEFAULT_PRACTICE_LANGUAGE}'",
     ),
     ("app_settings", "summary_language VARCHAR(12) NOT NULL DEFAULT 'conversation'"),
+    # 011: the last-used episode settings, and who a host line was for (data-model §2.3, §2.4a).
+    ("podcast_preferences", "last_style VARCHAR(14) NOT NULL DEFAULT 'balanced'"),
+    ("podcast_preferences", "last_line_length VARCHAR(8) NOT NULL DEFAULT 'medium'"),
+    ("podcast_preferences", "last_invite_frequency VARCHAR(10) NOT NULL DEFAULT 'sometimes'"),
+    ("podcast_host_lines", "ask VARCHAR(8)"),
+    ("podcast_host_lines", "addressee VARCHAR(8)"),
 )
 """(table, column definition) pairs, in the order they were introduced."""
 

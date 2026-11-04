@@ -79,6 +79,8 @@ class Personality:
     """Learner-facing: one line."""
     speaking_style: str
     """Prompt-facing: how a host with this personality speaks and reacts."""
+    configured_speaking_style: str | None = None
+    """011: the style a configured episode uses instead, when set (research R22)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,8 +117,10 @@ EPISODE_LENGTHS: Mapping[str, EpisodeLength] = MappingProxyType(
 DEFAULT_EPISODE_LENGTH = "medium"
 
 
-def _personality(personality_id: str, label: str, description: str, style: str) -> Personality:
-    return Personality(personality_id, label, description, style)
+def _personality(
+    personality_id: str, label: str, description: str, style: str, configured: str | None = None
+) -> Personality:
+    return Personality(personality_id, label, description, style, configured)
 
 
 PERSONALITIES: Mapping[str, Personality] = MappingProxyType(
@@ -146,12 +150,15 @@ PERSONALITIES: Mapping[str, Personality] = MappingProxyType(
                 "Curious interviewer",
                 "Always asking why and how.",
                 "Asks follow-up questions, picks up details others said, digs gently.",
+                "Asks how and why, picks up details others said, and says what they think too.",
             ),
             _personality(
                 "expert",
                 "Expert",
                 "Knows the facts and likes to explain them.",
                 "Gives one clear fact or tip at a time, explains simply, stays precise.",
+                "Explains how and why step by step, with simple facts and an everyday example, "
+                "and stays precise.",
             ),
             _personality(
                 "joker",
@@ -271,3 +278,136 @@ SHOW_TEMPLATES: Mapping[str, ShowTemplate] = MappingProxyType(
         )
     }
 )
+
+
+# --- 011: how an episode sounds (data-model §1.1–§1.4) ----------------------------------------
+
+TODAY_SUBJECT_MAX_LENGTH = 120
+SERIES_SETTING_NAMES = (
+    "format",
+    "length",
+    "style",
+    "line_length",
+    "invite_frequency",
+    "learner_role",
+)
+"""The settings a series episode may keep for later episodes (`from_now_on`)."""
+ANSWER_INTENTS = ("answer", "follow_up")
+DISCUSSION_INTENTS = ("react", "explain", "story")
+"""The kinds of discussion line a Style draws from, in the order of its weights."""
+BRIEF_INTENTS = ("greet", "react", "wrap_up", "sign_off")
+"""The line kinds that take a Host lines value's brief phrase; every other takes its full one."""
+QUESTION_MARK = "?"
+ASKS = ("required", "allowed", "none", "never")
+ADDRESSEES = ("learner", LEAD_SLOT, SECOND_SLOT)
+"""Who a host line is for. A stored None means no one in particular."""
+ADDRESS_ALL = "all"
+ADDRESS_TAG_MAX_LENGTH = 60
+INVITE_DEADLINE = 4
+"""The 4th host line in a row since the learner spoke always invites them (FR-003)."""
+SUBJECT_SUGGESTIONS = 3
+SUBJECT_AVOID_MAX = 10
+MIN_SENTENCE_CHARACTERS = 12
+"""A shorter sentence is joined to the next, so "Sr." never stands alone (research R13)."""
+PART_WAIT_SECONDS = 30
+PART_TTL_SECONDS = 600
+
+_WEIGHT_TOLERANCE = 1e-9
+_NUMBER_WORDS = ("zero", "one", "two", "three", "four", "five", "six", "seven", "eight")
+
+
+@dataclass(frozen=True, slots=True)
+class EpisodeStyle:
+    style_id: str
+    label: str
+    description: str
+    """Learner-facing: one line."""
+    weights: tuple[float, float, float]
+    """The chance of a react, an explain and a story line, in `DISCUSSION_INTENTS` order."""
+
+    def __post_init__(self) -> None:
+        if any(weight <= 0 for weight in self.weights):
+            raise ValueError(f"Every weight of the {self.label} style must be positive.")
+        if abs(sum(self.weights) - 1) > _WEIGHT_TOLERANCE:
+            raise ValueError(f"The weights of the {self.label} style must sum to 1.")
+
+
+@dataclass(frozen=True, slots=True)
+class HostLineLength:
+    line_length_id: str
+    label: str
+    min_sentences: int
+    max_sentences: int
+    brief_phrase: str
+    """How a brief line kind is asked for (`BRIEF_INTENTS`), inside the range."""
+    full_phrase: str
+    """How every other line kind is asked for, inside the range."""
+
+    def __post_init__(self) -> None:
+        if not 1 <= self.min_sentences <= self.max_sentences:
+            raise ValueError(f"{self.label} lines need 1 ≤ min ≤ max sentences.")
+
+    @property
+    def range_phrase(self) -> str:
+        low, high = _NUMBER_WORDS[self.min_sentences], _NUMBER_WORDS[self.max_sentences]
+        return f"{low} to {high} sentences"
+
+
+@dataclass(frozen=True, slots=True)
+class InviteFrequency:
+    invite_frequency_id: str
+    label: str
+    hazards: tuple[float, float, float]
+    """The chance the 1st, 2nd and 3rd host line since the learner may invite them."""
+
+    def __post_init__(self) -> None:
+        if any(not 0 <= hazard <= 1 for hazard in self.hazards):
+            raise ValueError(f"Every hazard of {self.label} must be between 0 and 1.")
+
+
+EPISODE_STYLES: Mapping[str, EpisodeStyle] = MappingProxyType(
+    {
+        s.style_id: s
+        for s in (
+            EpisodeStyle(
+                "conversation", "Conversation", "Lots of back-and-forth.", (0.90, 0.07, 0.03)
+            ),
+            EpisodeStyle("balanced", "Balanced", "Some talk, some explaining.", (0.55, 0.30, 0.15)),
+            EpisodeStyle(
+                "presented",
+                "Presented",
+                "The hosts mostly explain and tell stories, like a radio show.",
+                (0.35, 0.40, 0.25),
+            ),
+        )
+    }
+)
+DEFAULT_EPISODE_STYLE = "balanced"
+
+HOST_LINE_LENGTHS: Mapping[str, HostLineLength] = MappingProxyType(
+    {
+        length.line_length_id: length
+        for length in (
+            HostLineLength("short", "Short", 1, 2, "in one or two sentences", "in two sentences"),
+            HostLineLength(
+                "medium", "Medium", 3, 5, "in three sentences", "in four or five sentences"
+            ),
+            HostLineLength(
+                "long", "Long", 5, 8, "in five or six sentences", "in six to eight sentences"
+            ),
+        )
+    }
+)
+DEFAULT_HOST_LINE_LENGTH = "medium"
+
+INVITE_FREQUENCIES: Mapping[str, InviteFrequency] = MappingProxyType(
+    {
+        f.invite_frequency_id: f
+        for f in (
+            InviteFrequency("often", "Often", (1.0, 1.0, 1.0)),
+            InviteFrequency("sometimes", "Sometimes", (0.35, 0.45, 0.55)),
+            InviteFrequency("rarely", "Rarely", (0.0, 0.05, 0.10)),
+        )
+    }
+)
+DEFAULT_INVITE_FREQUENCY = "sometimes"
