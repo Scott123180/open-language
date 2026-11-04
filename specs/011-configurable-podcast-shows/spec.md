@@ -29,6 +29,28 @@ settings** so the learner can shape how a podcast sounds, and lets the learner *
 settings for just the next episode or from now on**: for example, bringing an expert into Big Little
 Questions for one episode, or for every episode after it.
 
+Episode 45, the series' second episode in Panel with Claude as the conversation partner, showed four
+more problems. A strong model did not prevent them, so the cause is the design, not the model:
+
+4. **Questions to the learner were left behind Continue.** The app decides whether a line invites the
+   learner before the line is written, and never checks what was written. Six of thirteen
+   non-inviting lines asked the learner something anyway ("Y el pan, ¿lo comes con otra cosa?"); when
+   the learner pressed Continue, the next line ignored the question. A host's question to the other
+   host was answered only when the name happened to appear.
+5. **No subject was ever chosen.** The opening welcomed the learner back but named no subject;
+   coffee became the topic by accident, and the show's hook, one everyday curiosity, came up once.
+6. **The wrap-up did not wrap up.** The wrap-up line was asked both to wrap up and to ask a question,
+   and kept only the question. Nothing told the learner the end was near, and a Short episode ran
+   22 host lines until the learner pressed End.
+7. **The expert was not much of an expert.** Asked why coffee takes a while to wake you up, Julia
+   gave two short sentences. The level's two-sentence cap, the expert's "one fact at a time" style and
+   the required closing question each shortened the answer; the level should limit how hard each
+   sentence is, not how much the expert can explain.
+
+The recommended changes therefore also include: the app knows who each host line is for and acts on
+it, every episode is about one subject that the opening names, the wrap-up says the show is ending
+and the hosts then sign off, and explaining lines are longer than reacting ones.
+
 ## Clarifications
 
 ### Session 2026-10-18
@@ -38,6 +60,16 @@ Questions for one episode, or for every episode after it.
 - Q: Does 007 SC-009's target (next host line starts playing within 5 s of Continue, 90% of cases) still hold for Medium and Long lines? → A: Yes, the same 5 s target for every length, measured to the line's first sentence starting to play; later sentences may arrive while it speaks.
 - Q: Outside a series, does Your role start on the show's own role or on the role used last? → A: Always on the show's own role; Style, Host lines and How often you're asked carry over from last time.
 - Q: After a guest episode, how does the regular host who was away treat what the series remembers from it? → A: That episode's remembered points are marked as from an episode the host missed; the host may mention them as heard secondhand, never as having been there.
+
+### Session 2026-11-03
+
+From the review of episode 45 (Big Little Questions, Panel, Short, Beginner, Claude).
+
+- Q: How does the app know who a host line is for: the learner, the other host or no one in particular? → A: The host says so in a short hidden note at the end of the line, which is never shown or spoken. When the note is missing, the app falls back to the names and the question mark in the line. No extra model call is made.
+- Q: When does the learner get the turn? → A: Whenever a host line asks them something, whatever How often you're asked drew. The setting decides how often a host is told it may ask; a line that may not ask is told not to.
+- Q: After the wrap-up, do the hosts sign off on their own? → A: Yes. The wrap-up says the show is nearly over and asks for one last thought. After the learner's reply, or a pass, the next host line signs off. A question in the reply is answered first. This replaces 007's "the episode ends when the learner chooses End" for new episodes.
+- Q: Who picks the subject when Today's subject is empty? → A: The opening host names one concrete subject within the show's topic (in a series, one not yet covered). The learner can also press Suggest subjects for a few generated subjects not yet covered, and pick one.
+- Q: How long may an expert's explanation be? → A: Lines that explain, answer or tell use the upper part of the Host lines range, and reacting lines the lower part. A closing question to the learner is not counted. The level still decides how simple each sentence is.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -57,6 +89,9 @@ to a show that still feels like an interview.
 default settings. Verify that host lines are several sentences long while each sentence stays within
 the Beginner limits, that not every host line asks the learner something, that a question the learner
 asks is answered in the next host line, and that some host lines explain or tell rather than react.
+Then play a Short Panel episode: verify that every host question to the learner gives them the turn,
+that a host's question to the other host is answered by that host, that the opening names a subject,
+and that the hosts sign off after the learner's last thought.
 
 **Acceptance Scenarios**:
 
@@ -75,6 +110,27 @@ asks is answered in the next host line, and that some host lines explain or tell
    answered.
 6. **Given** any episode, **When** the discussion runs, **Then** some host lines explain something or
    tell a short story, not only react to the last line.
+7. **Given** a host line asks the learner something, **When** the line ends, **Then** it is the
+   learner's turn, whatever How often you're asked drew; a question to the learner is never followed
+   by only Continue.
+8. **Given** a host line that may not invite the learner, **When** it is spoken, **Then** it asks the
+   learner nothing.
+9. **Given** in Panel one host asks the other a question, **When** the next host line is spoken,
+   **Then** the asked host speaks it and answers the question.
+10. **Given** in Panel the learner asks both hosts something ("what do you two like?"), **When** the
+    hosts reply, **Then** each host answers for themselves.
+11. **Given** a host explains or answers, **When** the line is spoken, **Then** it is longer than a
+    reacting line and explains how or why step by step, while every sentence keeps the level's limits.
+    An expert host explains, not only states one fact.
+12. **Given** Today's subject is empty, **When** the episode opens, **Then** the opening names one
+    concrete subject within the show's topic, and the discussion stays on it until the wrap-up.
+13. **Given** the episode reaches its length, **When** the wrap-up line is spoken, **Then** it says the
+    show is nearly over and asks the learner for one last thought; after the learner's reply or a pass,
+    the next host line signs off, answering first if the reply asked something.
+
+In Panel, the same fixes read like this: Hugo asks Julia why coffee takes a while to wake you up, and
+Julia answers in four or five simple sentences, step by step. When Hugo then asks the learner how
+they take their coffee, it is the learner's turn, not Continue.
 
 ---
 
@@ -91,7 +147,8 @@ sometimes"). Opening it offers:
   default) or *Rarely*.
 - **Your role**: guest, co-host or caller, starting on the show's own role.
 - **Today's subject** (optional): a short free-text subject for this episode, such as "why do we yawn",
-  kept within the show's topic.
+  kept within the show's topic. **Suggest subjects** offers three subjects within the show's topic
+  (in a series, ones not yet covered); choosing one fills the field, which stays editable.
 
 The learner can start without touching any of it. The Style, Host lines and How often you're asked
 they used last are offered next time, as the format is today; Your role always starts on the show's
@@ -124,6 +181,9 @@ own role.
    you're asked and Your role are not offered, because the learner does not speak.
 7. **Given** an episode was started with some settings, **When** it is resumed later, **Then** it keeps
    those settings, even if the learner has since chosen others for new episodes.
+8. **Given** the setup screen, **When** the learner presses Suggest subjects, **Then** up to three
+   subjects within the show's topic appear (in a series, none already covered); choosing one fills
+   Today's subject, and pressing again offers different ones.
 
 ---
 
@@ -213,7 +273,7 @@ as heard secondhand is fine), while the series' count and the other host's memor
   sentences.
 - **The learner changes the level during an episode**: as today, it applies from the next host line;
   the episode settings do not change.
-- **Conversation · Often**: gives today's behaviour, a question on every host line, so the learner can
+- **Conversation · Often**: gives today's quick back-and-forth, a question on every host line, so the learner can
   keep the quick back-and-forth if they prefer it.
 - **A long line in Listen with Show text off**: the words stay hidden until tapped, whatever the length.
 - **Replay and Slower on a long line**: replay the whole line, as today.
@@ -243,6 +303,26 @@ as heard secondhand is fine), while the series' count and the other host's memor
 - **A provider that cannot keep long lines simple** (the default local model may drift at Beginner):
   the level's limits still apply; SC-002 measures this and may lead to an experimental label, as with
   earlier features.
+- **The hidden note is missing or names someone who isn't there**: the line names someone and ends
+  with a question → it is for the last person it names; otherwise a line naming the other host hands
+  over to them, as today; otherwise it is for no one in particular. The note is never shown or spoken
+  either way.
+- **A host asks both the learner and the other host in one line**: the hidden note decides; without
+  it, the last person named before the closing question does.
+- **The learner's question names one host**: that host answers, as today (007 FR-018), even if the
+  other host just spoke.
+- **The learner asks something after the wrap-up**: the next host line answers it, and the hosts sign
+  off at the following Continue. The learner can keep asking with Jump in; each question is answered
+  before the sign-off.
+- **The learner passes on the wrap-up**: the next host line signs off.
+- **End episode before the wrap-up**: a sign-off at once, as today.
+- **Suggest subjects with the conversation partner unavailable**: a plain message says what to do;
+  typing a subject and starting with an empty one both still work.
+- **A suggested subject, then edited**: checked like any typed subject at Start (FR-010).
+- **Suggest subjects pressed again**: the subjects already shown are not offered again; when nothing
+  new comes back, the learner is told so and the shown subjects stay.
+- **Listen**: the opening names the subject and the wrap-up says the show is nearly over, but nobody
+  is asked a last thought; the sign-off follows the wrap-up, as today.
 
 ## Requirements *(mandatory)*
 
@@ -255,23 +335,49 @@ as heard secondhand is fine), while the series' count and the other host's memor
   vocabulary and idioms, and a level change MUST still apply from the next host line. This replaces
   007 FR-026's reply cap for podcast host lines only; the roleplay partner is unchanged.
 - **FR-002**: Host lines MUST be: Short, at most 2 sentences; Medium, 3 to 5 sentences; Long, 5 to 8
-  sentences. Medium MUST be the default.
+  sentences, not counting a closing question to the learner (FR-003). Medium MUST be the default.
+- **FR-002b**: Within the Host lines range, lines that open, explain, answer or tell MUST use the upper
+  part and lines that greet, react, wrap up or sign off the lower part.
 - **FR-002a**: A host line of any length MUST start playing as quickly as a Short line does today
   (007 SC-009): playback MUST NOT wait for the whole line when its first sentence is ready.
-- **FR-003**: In One host as in Panel, a host line MUST invite the learner only as often as the How
-  often you're asked setting allows: Often, every host line; Sometimes (the default), one host line in
-  two on average; Rarely, one in four on average. In every case the learner MUST be invited at the
-  latest by the fourth host line in a row (007 FR-014). Invitations MUST be one question, clearly
-  addressed to the learner, and MUST NOT always be yes/no questions above the Beginner level.
+- **FR-003**: In One host as in Panel, a host MUST be allowed to invite the learner only as often as
+  the How often you're asked setting allows: Often, every host line; Sometimes (the default), one host
+  line in two on average; Rarely, one in four on average. A line that is allowed to invite asks only
+  when it fits the conversation. In every case the learner MUST be invited at the latest by the fourth
+  host line in a row (007 FR-014). Invitations MUST be one question, clearly addressed to the
+  learner, added after the line's sentences, and MUST NOT always be yes/no questions above the
+  Beginner level.
+- **FR-003a**: A host line that is not allowed to invite MUST NOT ask the learner anything. Whenever a
+  host line asks the learner something anyway, it MUST be the learner's turn: a question to the
+  learner is never followed by only Continue. Hosts MUST NOT ask the learner something the learner
+  has already answered in this episode.
+- **FR-003b**: The app MUST know who each host line is for (the learner, the other host, or no one in
+  particular) without showing or speaking anything extra and without an extra model call. In Panel,
+  the next host line MUST come from the host the last line was for, within the run limit (007
+  FR-015); a line for no one in particular leaves the choice to the flow rules (007 FR-013).
 - **FR-004**: The learner MUST be able to jump in whenever the hosts have the floor in One host as in
   Panel (extending 007 FR-017).
 - **FR-005**: When the learner's last line asks a question, the next host line MUST answer it before
-  anything else and MUST NOT reply to it only with a question.
+  anything else and MUST NOT reply to it only with a question. The same holds when a host asks the
+  other host a question: the asked host's next line answers it. When the learner's question is for
+  both hosts, each host MUST answer it for themselves.
 - **FR-006**: Besides reacting, hosts MUST be able to speak lines that explain something or tell a short
   story or example. The share of such lines MUST follow the Style setting: fewest with Conversation,
   most with Presented.
+- **FR-006a**: Lines that explain or answer MUST explain step by step (what it is, how or why it
+  works, an everyday example), using the length FR-002b gives them. An expert host MUST explain how
+  and why, not only state one fact; an interviewing host MUST also say what they think, not only ask.
 - **FR-007**: In One host, the host MUST also cover the absent second host's role in the show (for
   example, an interviewer who also gives the expert's answers), so the show keeps its purpose.
+- **FR-007a**: Every episode MUST be about one subject. The opening line MUST name it: Today's subject
+  when given, otherwise one concrete subject the host chooses within the show's topic (in a series,
+  one not in the covered list). The hosts MUST stay on it until the wrap-up.
+- **FR-007b**: The wrap-up line MUST say the show is nearly over and, in a speaking format, ask the
+  learner for one last thought rather than a new question. After the learner's reply, or a pass, the
+  next host line MUST sign off; if the reply asks a question, that line answers it and the sign-off
+  comes at the next Continue. In Listen, the sign-off follows the wrap-up, as today. End episode
+  stays available at any time. For new episodes this replaces 007's edge case "the episode ends when
+  the learner chooses End".
 
 **Episode settings**
 
@@ -283,6 +389,12 @@ as heard secondhand is fine), while the series' count and the other host's memor
 - **FR-010**: Today's subject MUST be optional, short (at most 120 characters), and checked by the same
   suitability rules as the show generator (007 FR-024); an unsuitable subject MUST be declined with a
   plain message saying what to change.
+- **FR-010a**: Beside Today's subject, the setup MUST offer Suggest subjects, a secondary action. It
+  gives up to three suitable subjects within the show's topic, from the selected conversation
+  partner, drawing on the learner's interests where they fit. In a series, none of them may be a
+  subject the series has already covered. Pressing it again MUST NOT repeat a subject already shown.
+  Choosing a subject fills Today's subject, which stays editable and is checked at Start like any
+  typed subject. A provider failure MUST be shown as a plain message, and starting MUST still work.
 - **FR-011**: In the Listen format, How often you're asked and Your role MUST NOT be offered.
 - **FR-012**: An episode MUST keep the settings it started with for its whole life, including when
   resumed.
@@ -336,8 +448,9 @@ as heard secondhand is fine), while the series' count and the other host's memor
   Existing series MUST keep their hosts, episode count and memory, and MUST start on the show's standard
   settings with the new defaults.
 - **FR-026**: The new defaults (Balanced, Medium, Sometimes) MUST apply to new one-off and series
-  episodes alike. Conversation, Short and Often together MUST reproduce today's behaviour for learners
-  who prefer it.
+  episodes alike. Conversation, Short and Often together MUST reproduce today's quick back-and-forth
+  (short lines and a question on every host line) for learners who prefer it. The fixes of FR-003a,
+  FR-003b, FR-007a and FR-007b apply under every setting.
 - **FR-027**: Episode settings, series settings and guests MUST work with every conversation-partner
   provider the learner can select and with every practice language, without per-language changes
   beyond the existing language data.
@@ -354,7 +467,12 @@ as heard secondhand is fine), while the series' count and the other host's memor
   second host of a one-episode switch to Panel: personality, name, voice, and the host they replace (if
   any). Cast afresh for each episode; never part of the series' cast.
 - **Line kind**: what a host line does: react, explain, tell a story or example, invite the learner,
-  answer the learner's question, open, wrap up or sign off.
+  answer the learner's or the other host's question, open (naming the episode's subject), wrap up or
+  sign off.
+- **Who a line is for**: stored with each host line: the learner, the other host, or no one in
+  particular. It decides whose turn comes next and is never shown or spoken.
+- **Subject suggestion**: a subject offered by Suggest subjects for one setup; not stored unless the
+  learner starts with it as Today's subject.
 - **Last-used settings**: the Style, Host lines and How often you're asked the learner used last
   outside a series, offered on the next setup (not Your role or Today's subject).
 
@@ -387,12 +505,30 @@ as heard secondhand is fine), while the series' count and the other host's memor
   the change are still present and usable afterwards.
 - **SC-011**: After Continue, the next host line's first sentence starts playing within 5 seconds in 90%
   of cases with the default local setup, for Short, Medium and Long lines alike (007 SC-009 kept).
+- **SC-012**: In a review of at least 20 Panel and 20 One host episodes with default settings, at least
+  95% of host lines that ask the learner something give the learner the turn, and at least 90% of a
+  host's questions to the other host are answered by that host in the very next line.
+- **SC-013**: In the SC-001 review, the median line that explains or answers has at least 4
+  sentences, while SC-002's sentence limits still hold.
+- **SC-014**: In the reviewed episodes, at least 90% of openings name one concrete subject, and at
+  least 90% of wrap-up lines say the show is nearly over.
+- **SC-015**: In 100% of speaking episodes that reach the wrap-up, the hosts sign off at the first host
+  line after the learner's last thought that does not answer a question (checked automatically).
+- **SC-016**: Over 10 presses of Suggest subjects in a series with covered subjects, every press shows
+  at least one subject, and no suggestion repeats a covered subject or one already shown (reviewed).
 
 ## Assumptions
 
 - **"The recommended changes" are the three from the earlier diagnosis**: longer lines at the same
-  level, fewer questions in One host, and lines that explain or tell. They become the defaults for every
-  new episode, so the learner's complaint is fixed without opening any settings.
+  level, fewer questions in One host, and lines that explain or tell, plus the four from episode 45
+  (Overview, items 4–7). They become the defaults for every new episode, so the learner's complaint is
+  fixed without opening any settings.
+- **Hosts say who a line is for.** The model adds a short note at the end of each line saying who it
+  is for; the app removes it before the line is shown, spoken, summarised or remembered. When a model
+  leaves it out, the names and question marks in the line decide, so smaller models still work, only
+  less precisely. SC-012 measures how often each approach is needed.
+- **Ending on its own changes 007 for new episodes only.** Episodes started before this feature keep
+  running until End (FR-025).
 - **"More configurable" means the five Episode settings above**, chosen because each maps to something
   the learner noticed (line length, questions, style) or to something a series wants to vary (role,
   today's subject). Voice speed, the number of hosts beyond two, and changing settings mid-episode are
@@ -410,7 +546,9 @@ as heard secondhand is fine), while the series' count and the other host's memor
   feature changes how every new host line is asked for, one-offs included. Episodes already started
   keep their old behaviour (FR-025).
 - **Line-level behaviour is model-dependent.** As with levels, corrections and series, the default local
-  model may keep long Beginner lines simple less reliably than a larger one; SC-001 to SC-004 measure
-  this and may lead to an experimental label.
+  model may keep long Beginner lines simple less reliably than a larger one; SC-001 to SC-004 and
+  SC-012 to SC-014 measure this and may lead to an experimental label.
 - **Settings stay on the learner's machine** like the rest of their data; today's subject goes to the
-  conversation partner as part of the episode context, under the existing provider notice.
+  conversation partner as part of the episode context, under the existing provider notice. Suggest
+  subjects sends the show, the series' covered subjects and the learner's interests to the selected
+  conversation partner, under the same notice.

@@ -5,6 +5,7 @@
 Every change is additive:
 - two new tables;
 - three new columns on `podcast_preferences`;
+- two new nullable columns on `podcast_host_lines` (added 2026-11-03, research R19);
 - new optional keys in the series snapshot JSON.
 
 No existing row is rewritten. Episodes and series from before this feature keep working through the
@@ -29,13 +30,15 @@ Validation: the weights are positive and sum to 1 (`__post_init__`).
 
 ### 1.2 `HostLineLength`
 
-| id | label | min_sentences | max_sentences | cue phrase |
-|---|---|---|---|---|
-| `short` | Short | 1 | 2 | in one or two sentences |
-| `medium` *(default)* | Medium | 3 | 5 | in three to five sentences |
-| `long` | Long | 5 | 8 | in five to eight sentences |
+| id | label | min_sentences | max_sentences | brief_phrase | full_phrase |
+|---|---|---|---|---|---|
+| `short` | Short | 1 | 2 | in one or two sentences | in two sentences |
+| `medium` *(default)* | Medium | 3 | 5 | in three sentences | in four or five sentences |
+| `long` | Long | 5 | 8 | in five or six sentences | in six to eight sentences |
 
-Validation: 1 ≤ min ≤ max.
+`range_phrase` ("three to five sentences") is built from min and max for the standing line rule.
+`BRIEF_INTENTS = ("greet", "react", "wrap_up", "sign_off")` take `brief_phrase`; every other intent
+takes `full_phrase` (research R22). Validation: 1 ≤ min ≤ max.
 
 ### 1.3 `InviteFrequency`
 
@@ -57,6 +60,13 @@ is in [0, 1].
 | `ANSWER_INTENTS` | `("answer", "follow_up")` | Policy priority (§4) |
 | `DISCUSSION_INTENTS` | `("react", "explain", "story")` | Style draw (§4) |
 | `QUESTION_MARK` | `"?"` | Question detection (research R4) |
+| `ASKS` | `("required", "allowed", "none")` | A cue's `Ask` level (research R19) |
+| `ADDRESSEES` | `("learner", "lead", "second")` | Stored addressees; `None` means no one in particular |
+| `ADDRESS_ALL` | `"all"` | The tag for no one in particular |
+| `ADDRESS_TAG_MAX_LENGTH` | 60 | Longest text inside an address tag |
+| `BRIEF_INTENTS` | `("greet", "react", "wrap_up", "sign_off")` | Intents that take `brief_phrase` (R22) |
+| `SUBJECT_SUGGESTIONS` | 3 | Most subjects one Suggest subjects press returns (R20) |
+| `SUBJECT_AVOID_MAX` | 10 | Most already-shown subjects a request may send |
 | `MIN_SENTENCE_CHARACTERS` | 12 | `SentenceSplitter` (research R13) |
 | `PART_WAIT_SECONDS` | 30 | Part audio endpoint |
 | `PART_TTL_SECONDS` | 600 | `SpokenParts` expiry |
@@ -70,6 +80,12 @@ The format gains `has_pass: bool`. One host's `has_jump_in` changes to true (res
 | `one_host` | **true** (was false) | false |
 | `panel` | true | **true** |
 | `listen` | false | false |
+
+### 1.6 `Personality` (changed)
+
+`Personality` gains `configured_speaking_style: str | None = None`. It is used by `ConfiguredTalk`
+only, and `None` means the personality's `speaking_style` (research R22). It is set for `expert` and
+`curious_interviewer` with the R22 wording.
 
 ---
 
@@ -129,6 +145,19 @@ Written by a one-off start only (FR-013).
 
 - `podcast_host_lines.intent` (String(10)) takes the new values `react`, `explain`, `story`,
   `answer` and `follow_up` in configured episodes. Legacy episodes keep `discuss`.
+
+### 2.4a `podcast_host_lines` (two additive columns, research R19)
+
+Added through `_ADDITIVE_COLUMNS` in `app/database.py`. Both are NULL on every pre-feature line and
+on every line of a legacy episode.
+
+| Column | Definition | Rule |
+|---|---|---|
+| `ask` | `VARCHAR(8)` NULL | The cue's `Ask`: `required`, `allowed` or `none`. NULL reads as `required` when `invites_learner` is true, else `none` |
+| `addressee` | `VARCHAR(8)` NULL | `learner`, `lead` or `second`; NULL means no one in particular |
+
+`invites_learner` keeps its meaning, "the learner has the turn after this line". In configured
+episodes it is now `talk.invitation(ask, addressee)`, written once with the line.
 - `podcast_hosts` holds a guest like any host. Its row is in the guest's slot; the episode's snapshot
   says which slot is a guest (§2.5).
 
@@ -234,7 +263,20 @@ link row, in the same transaction, as 010 adds the link.
 | `LinePart` | `services/spoken_parts.py` | `stream_id: str`, `index: int`, `text: str`, `audio_url: str \| None` |
 | `SpokenParts` | same | `begin(stream_id, voice_key, language) -> None`, `add(stream_id, text) -> LinePart`, `audio(stream_id, index, timeout) -> Path`, `assemble(stream_id, message_id) -> Path \| None`, `discard(stream_id)` |
 | `SentenceSplitter` | `services/sentences.py` | `feed(token) -> list[str]`, `flush() -> str` |
-| `StreamingSanitiser` | `services/sanitiser.py` | `clean_sentence(text) -> SentenceVerdict(text, is_cut)`; `was_trimmed` |
+| `StreamingSanitiser` | `services/sanitiser.py` | `clean_sentence(text) -> SentenceVerdict(text, is_cut)`; `was_trimmed`; `address() -> LineAddressResult` once the line is flushed |
+
+### 3.7 Line values (changed, research R19)
+
+| Value | Module | Change |
+|---|---|---|
+| `Ask` | `services/turn_policy.py` | New `StrEnum`: `REQUIRED`, `ALLOWED`, `NONE` |
+| `LineCue` | same | `invites_learner: bool` becomes `ask: Ask`, and it gains `asker: str \| None` (the slot or `"learner"` whose question an `answer` replies to, rebuilt from the previous line). `is_settle_invite` is true when `ask` is not `NONE` and it is a settle moment |
+| `LineFacts` | same | Gains `ask: Ask` and `addressee: str \| None`. `_line_facts` fills `ask` from the column, or from `invites_learner` when NULL |
+| `LineAddressResult` | `services/line_address.py` (new) | `addressee: str \| None`, `text: str` (tags removed), `is_from_tag: bool` |
+| `LineAddress` | same | `for_episode(cast, learner_label, speaker_slot, language, is_listening)`; `read(text) -> LineAddressResult` |
+| `NewHostLine` / `LineRecord.host` | `services/storage.py` | Gain `ask` and `addressee`. `invites_learner` is computed by the caller |
+| `SubjectSuggester` | `services/subject_suggestions.py` (new) | `suggest(request: SubjectRequest) -> tuple[str, ...]` |
+| `SubjectRequest` | same | `show: ShowBrief`, `languages`, `interests`, `covered: tuple[str, ...]`, `avoid: tuple[str, ...]` |
 
 ---
 
@@ -244,14 +286,21 @@ link row, in the same transaction, as 010 adds the link.
 
 | Rule | Legacy | Configured |
 |---|---|---|
-| Invite? | One host: always. Panel: hazards (0.25, 0.45, 0.60), deadline 4. Wrap-up: always. Sign-off: never | Hazards of the episode's `InviteFrequency`, deadline 4, in every speaking format. Wrap-up: always. Sign-off: never. Listen: never. Panel's balance rule kept |
-| Discussion intent | `discuss` | `answer` if the learner's last line contains `?`; else `follow_up` if the last learner line had ≥ 2 `?` and the one host line since was `answer`; else a Style-weighted draw of `react` / `explain` / `story` |
-| `open`, `greet`, `wrap_up`, `sign_off` | Unchanged | Unchanged |
+| `Ask` of the cue | One host: `required`. Panel: hazards (0.25, 0.45, 0.60) give `required`, deadline 4. Wrap-up: `required`. Sign-off: `none` | Hazards of the episode's `InviteFrequency` give `allowed`, `required` at deadline 4 and on every Often line, in every speaking format. Wrap-up: `required`. Sign-off, an answer after the wrap-up, Listen, and `open`/`greet` in a two-host format: `none`. Panel's balance rule kept |
+| Stored `invites_learner` | `ask == required` | `ask == required` or `addressee == learner`, except `open`/`greet` in a two-host format (R19) |
+| Next speaker | run cap > addressed host > balance > hand-over > preferred > random | run cap > addressed host > **addressee of the last host line** > balance > hand-over > preferred > random |
+| Discussion intent | `discuss` | After a wrap-up: research R21's table. Otherwise `answer` if the learner's last line contains `?`, or the last host line is for the other host and ends with `?`; else `follow_up` if the last learner line had ≥ 2 `?` and the one host line since was `answer`; else a Style-weighted draw of `react` / `explain` / `story` |
+| `open`, `greet`, `wrap_up`, `sign_off` | Unchanged | Same positions; configured wording (R20, R21); `sign_off` also follows the learner's last thought (R21) |
 
-**Invariants**, each with a seeded property test:
+**Invariants**, each with a seeded property test (addressees fed by the test):
 - never five host lines in a row without an invitation in a speaking format (SC-005);
-- an `answer` line always follows a learner line with `?`;
-- a sign-off never invites.
+- an `answer` line always follows a learner line with `?`, and a host line for the other host that
+  ends with `?`;
+- a host line whose addressee is the learner is always followed by the learner's turn;
+- after a host line addressed to the other host, that host speaks next unless the run cap forbids it;
+- a sign-off never invites;
+- in a speaking format, after the wrap-up and a learner reply without `?` (or a pass), the next host
+  line is `sign_off` (SC-015).
 
 ---
 
@@ -293,6 +342,16 @@ Episode 1 of a series: `from_now_on` is ignored, because every setting becomes t
 | Series, episode 1 | ✓ | insert from this episode | 007's `last_format` and name only |
 | Series, later | ✓ | upsert of the `from_now_on` fields, if any | same |
 
+### 5.4 Subject suggestions (`POST /api/podcasts/subject-suggestions`, research R20)
+
+| Check | Failure |
+|---|---|
+| `series_id`, when given, is a series of the current practice language | 404 `SERIES_GONE` (010: "That series isn't there any more. Open the show again.") |
+| `avoid` has at most `SUBJECT_AVOID_MAX` entries, each ≤ 120 characters | 422 "Too many subjects to skip. Close the suggestions and try again." |
+| The provider fails | 503 with the provider's message |
+
+Nothing is written. The reply is trimmed and filtered as research R20 describes.
+
 ---
 
 ## 6. State transitions
@@ -323,8 +382,9 @@ One host series, Format → Panel, from now on ──▶ second chair: the serie
 ### 6.3 A streamed host line (backend)
 
 ```text
-cue chosen → line_started → [sentence → sanitise → (cut? stop) → synthesise → line_part]×n
-  → store line → assemble WAV → line → done
+cue chosen → line_started → [sentence → read & strip address tag → sanitise → (cut? stop)
+  → (tag only? no part) → synthesise → line_part]×n
+  → addressee → invites = talk.invitation(ask, addressee) → store line → assemble WAV → line → done
 error before any part → retry once (empty or retryable) → else error frame
 error after a part   → end session, discard parts → error frame with stream_id
 ```

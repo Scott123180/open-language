@@ -40,6 +40,10 @@ feature-specific evidence is:
 | FR-014–FR-019, SC-006 | `test_series_settings.py`: episode 1 sets the usual settings; Just this episode leaves the next setup's `usual_settings` unchanged; from now on shows on the next two; reset; count and memory untouched |
 | FR-020–FR-024a | `test_guest_episodes.py`: guest validation, at most one guest, Panel-this-episode auto-expert, from-now-on Panel brings the stored second host in as new, missed marks in the next snapshot |
 | SC-007, SC-008 | `podcast-series-settings.spec.ts` (expert in 3 choices) and `podcast-episode-settings.spec.ts` (defaults need no opening) |
+| FR-003a, FR-003b | `test_line_address.py`: tag reading, the fallback, and episode 45's 22 host lines as a table. `test_line_addressing.py`: a question to the learner on a `none` cue gives the learner's turn; a host's question to the other host is answered by them with `answer`; no tag in any frame, stored line or TTS text; the history replays the canonical tag |
+| FR-007b, SC-015 | `test_episode_ending.py`: after the wrap-up, a last thought or a pass leads to `sign_off`, a question to `answer` and then `sign_off`; the conversation completes and `EpisodeEndings` is told; Listen and legacy are unchanged. Plus the policy property test |
+| FR-002b, FR-006a | Configured golden: brief and full phrases by intent; step-by-step `explain`/`answer`; configured speaking styles |
+| FR-010a | `test_subject_suggestions.py` (filtering, avoid, covered, provider error) and `test_podcast_subject_suggestions_api.py`; `podcast-episode-settings.spec.ts` (choose, again, empty, 503) |
 
 ## 3. Hand-run model checks (`benchmark` marker)
 
@@ -50,12 +54,16 @@ cd backend
 
 | Benchmark | Prints | Target |
 |---|---|---|
-| `test_host_talk_benchmark.py` | Per episode: median sentences per discussion line, the invitation share, the share of sentences within 8 words, the share of present-tense sentences, the intent counts; the learner-question transcripts for review | SC-001: median ≥ 3 sentences and ≤ 50% inviting. SC-002: ≥ 90% within length and ≥ 90% present tense. SC-004: Presented ≥ 40% and Conversation ≤ 20% explain or story |
+| `test_host_talk_benchmark.py` | Per episode: median sentences per discussion line, and per explain/answer line; the invitation share; the share of sentences within 8 words; the share of present-tense sentences; the intent counts; the share of lines whose addressee came from the tag; the openings and wrap-up lines; the learner-question and host-question transcripts for review. Runs 20 One host **and 20 Panel** episodes | SC-001: median ≥ 3 sentences and ≤ 50% inviting. SC-002: ≥ 90% within length and ≥ 90% present tense. SC-004: Presented ≥ 40% and Conversation ≤ 20% explain or story. SC-012: ≥ 95% / ≥ 90% (reviewed). SC-013: explain/answer median ≥ 4. SC-014: ≥ 90% each (reviewed) |
 | `test_guest_episode_benchmark.py` | 10 guest episodes, then each following episode's returning-host lines | SC-009, reviewed in the sheet |
 | `test_podcast_latency_benchmark.py` (extended) | p90 to the first part's audio, for Short, Medium and Long lines; `prompt_eval_count` at the end of a Long · Long-lines episode | SC-011: p90 ≤ 5 s each. R18: record whether the context truncates |
 
 Fill [talk-review-sheet.md](talk-review-sheet.md), created during validation:
 - SC-003: was each of at least 20 learner questions answered in the very next host line?
+- SC-012: does every host line that asks the learner something give them the turn, and is every
+  host's question to the other host answered by them next?
+- SC-014: does each opening name one concrete subject, and each wrap-up say the show is nearly over?
+- SC-016: over 10 Suggest subjects presses in a series, none repeats a covered or shown subject.
 - SC-009: guest introduced as a guest; no "I was there" from the returning host.
 - A spot-check of the counted intents (SC-004).
 
@@ -85,6 +93,17 @@ items" and ship configured talk with the experimental note (spec Assumptions).
    - In the next episode, Clara may say she heard about it, never that she was there.
 8. **Use the show's standard settings**, then confirm. The setup returns to One host · Balanced ·
    Medium lines · Asked sometimes, and the episode count is unchanged.
+9. Episode 45 again (the review that added R19–R22): Big Little Questions, Panel, Short, Beginner.
+   - Press **Suggest subjects**: three subjects appear, none the toast question already covered.
+     Press it again: three different ones. Choose one: it fills Today's subject. Clear it, then Start.
+   - The opening names one concrete subject.
+   - Whenever a host asks you something, it is your turn, never only Continue.
+   - When one host asks the other a question, that host answers next, step by step, in several
+     short sentences.
+   - Ask "¿Qué les gusta a ustedes dos?": both hosts answer for themselves.
+   - The wrap-up says the show is nearly over and asks for a last thought. Give one: the next line
+     signs off and the episode is finished, without End.
+   - No `[@…]` text appears on screen or is heard.
 
 ## 5. Accessibility check (Principle IV, manual)
 
@@ -95,4 +114,6 @@ In both themes, at 360 px and at desktop width:
 - scope marks are readable text with contrast ≥ 4.5:1;
 - guest badges are text, not colour alone;
 - the arriving line is announced once complete, not sentence by sentence (`aria-busy`);
+- Suggest subjects announces its result (or its message) once, each suggestion is a named button,
+  and choosing one moves focus to the filled field;
 - touch targets are ≥ 44 px.

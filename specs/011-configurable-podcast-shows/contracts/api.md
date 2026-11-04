@@ -107,6 +107,11 @@ data: {"done": true, "turn": "learner", "awaiting": null, "can_jump_in": false, 
   before any part is 007's `{"error": …}`.
 - `can_pass` now comes from the format's `has_pass`, and `can_jump_in` is true at One host's
   Continue (research R15).
+- **No address tag ever reaches a frame** (research R19). `line_part.text`, the `line` frame's
+  `content` and `GET /episodes/{id}` lines are tag-free. The `line` frame's `turn` is `learner`
+  whenever the stored line invites, including a configured line that asked the learner something on
+  a `none` cue. The frontend needs no change for this: it already follows `turn` and `awaiting`.
+- `EpisodeLine.invites_learner` keeps its meaning: the learner had the turn after this line.
 
 ### `GET /api/podcasts/episodes/{conversation_id}/parts/{stream_id}/{index}` (new)
 
@@ -193,6 +198,31 @@ Past episodes, the episode count, the hosts and the memory are unchanged.
 
 Nothing is stored. The guest becomes part of an episode only through `POST /episodes`.
 
+## 8a. `POST /api/podcasts/subject-suggestions` (new, research R20)
+
+Served by `discovery_routes.py`, beside Find a new show.
+
+```json
+{"show": {"title": "Big Little Questions", "premise": "Everyday curiosities, from why toast lands butter-side down onwards.", "topic": "everyday curiosities"}, "series_id": 1, "avoid": ["why do we yawn"]}
+```
+
+- `show` is required: the title, premise and topic of the show on the setup screen, as in a
+  `ShowDraft`.
+- `series_id` is optional. With it, the series' covered topics are excluded.
+- `avoid` is optional: the subjects already shown on this setup (at most 10).
+- The practice language and the learner's interests come from the app settings and podcast
+  preferences, as for Find a new show.
+
+| Status | Body |
+|---|---|
+| 200 | `{"subjects": ["why coffee wakes you up slowly", "why bread goes stale", "why cats knock things over"]}`: 0 to 3 subjects in the learner's own language, each ≤ 120 characters, none equal to a covered or avoided subject |
+| 404 | `series_id` unknown, or a series of another language: 010's "That series isn't there any more. Open the show again." |
+| 422 | `avoid` too long (data-model §5.4) |
+| 503 | The provider's message (Principle VI, no fallback) |
+
+An empty `subjects` list is a 200. The UI says "No new subjects came back. Type one, or start
+without one." Nothing is stored.
+
 ---
 
 ## 9. Prompts (internal contract, unit-tested)
@@ -200,10 +230,19 @@ Nothing is stored. The guest becomes part of an episode only through `POST /epis
 | Piece | Legacy (pre-feature episode) | Configured |
 |---|---|---|
 | Level block | `with_partner_speech_rules` | `with_sentence_rules` (no reply cap) |
-| Line length | "Keep each line to a few sentences" | "Each host line has {min} to {max} sentences…" in the line rules, plus the cue phrase |
+| Line length | "Keep each line to a few sentences" | "Each host line has {min} to {max} sentences…" in the line rules, plus the cue's brief or full phrase by intent (research R22) |
 | Question rule | — | "When {label} asks a question, answer it first; never answer only with a question." |
 | Asking rule | — | "Only ask {label} something when the producer note says so." |
-| Non-inviting cue | No closing sentence | "Don't ask {label} anything this time." |
+| Closing question | — | "A closing question to {label} comes after the line's sentences and is not one of them." |
+| No re-asking | — | "Never ask {label} something they have already answered in this episode." |
+| One subject | — | "Every episode is about one subject, named in the opening. Stay on it until the wrap-up." |
+| Address tag | — | "End every line with who it is for, in square brackets: [@{learner}], [@{other host}], or [@all] when it is for no one in particular. The brackets are never read aloud." (the last line rule; One host offers the learner and all) |
+| Cue closing by `Ask` | Inviting: "End by asking {label} a question."; otherwise none | `required`: "Then end by asking {label} one question."; `allowed`: "If it fits, then end by asking {label} one question; if not, ask {label} nothing."; `none`: "Don't ask {label} anything this time." |
+| Opening | 007 / 010 wording | Adds the subject: "…and introduce today's subject." or "…and name today's one subject: one concrete question or thing within the show's topic." (+ "not in the covered list" in a series) |
+| Wrap-up | "Start wrapping up the topic, in character." + invite | "Start wrapping up: tell {label} the show is nearly over, and sum up today's subject in one sentence." + "Then ask {label} for one last thought on it." (Listen: no ask) |
+| Sign-off | "Close the show: thank {label} and say goodbye." | "React briefly to the last line, then close the show: thank {label} and say goodbye." |
+| Speaking styles | `speaking_style` | `configured_speaking_style` when set (expert, curious interviewer; research R22) |
+| History | Assistant turns are the stored text | Stored text + " [@Name]" or " [@all]", rebuilt from `addressee` |
 | One host covered role | — | "This show usually has a second host, the {Label}: …" |
 | Today's subject | — | In the show section |
 | Guest and away | — | In the series section and `open`/`greet` cues |
@@ -240,6 +279,9 @@ tokens.
 | `services/episode_settings.py` (new) | `EpisodeSettings` |
 | `services/series_settings.py` (new) | `SeriesSettings` |
 | `services/subject_check.py` (new) | `SubjectCheck`, `SubjectDeclined` |
+| `services/subject_suggestions.py` (new) | `SubjectSuggester`, `SubjectRequest` (research R20) |
+| `services/line_address.py` (new) | `LineAddress`, `LineAddressResult` (research R19) |
+| `discovery_routes.py` | `POST /subject-suggestions` |
 | `services/sentences.py` (new) | `SentenceSplitter` |
 | `services/line_writer.py` (new) | `LineWriter`: streams, splits, sanitises, retries; yields parts |
 | `services/spoken_parts.py` (new) | `SpokenParts`, `LinePart`, WAV assembly |
@@ -261,12 +303,12 @@ tokens.
 | `app/conversation_levels/rules.py`, `__init__.py` | `with_sentence_rules` (new, pure) |
 | `app/services/conversation/pool.py`, `engine.py` | `run_turn_live` / `stream_live` (new) |
 | `app/conversation_turns/streaming.py` (new), `__init__.py` | `iterate_in_thread` |
-| `app/services/factory.py` | `get_spoken_parts` (process-wide), `get_subject_check` |
-| `app/database.py` | Three `_ADDITIVE_COLUMNS` entries |
+| `app/services/factory.py` | `get_spoken_parts` (process-wide), `get_subject_check`, `get_subject_suggester` |
+| `app/database.py` | Five `_ADDITIVE_COLUMNS` entries (three preferences, two host lines) |
 | **Not modified** | `prompts/templates.py`, `routers/chat.py`, `routers/audio.py`, `conversation_summary/*`, `services/llm/*`, `services/tts/*`, `practice_languages/*`, `language_data/*`, `language_kit/*` |
 
-`test_module_boundaries.py` adds `spoken_parts` and `subject_check` to the modules only the factory
-imports from outside `app.podcasts`.
+`test_module_boundaries.py` adds `spoken_parts`, `subject_check` and `subject_suggestions` to the
+modules only the factory imports from outside `app.podcasts`.
 
 ---
 
@@ -277,6 +319,8 @@ imports from outside `app.podcasts`.
 | Episode settings toggle | `button`, `aria-expanded`, name "Episode settings: Balanced · Medium lines · Asked sometimes" | Closed by default |
 | Style, Host lines, How often you're asked, Your role | `radiogroup` (fieldset + legend), one per setting | The last two are absent in Listen |
 | Today's subject | `textbox` "Today's subject (optional)", `maxlength=120`, live character count | |
+| Suggest subjects | Secondary `button` **Suggest subjects** beside the field; while waiting, "Finding subjects…" and `aria-busy` | Pressing again sends the shown subjects as `avoid` |
+| Suggested subjects | A `list` in a polite live region; each item is a `button` naming the subject ("Use: why bread goes stale") | Choosing fills the textbox and moves focus to it; an empty reply or a 503 shows its message in the region |
 | Scope question | `alertdialog` "Change for which episodes?", with buttons **Just this episode** and **This and later episodes** | Escape reverts |
 | Scope mark | Text in the legend: "this episode" / "from now on" | |
 | Standard settings | Button **Use the show's standard settings** → `ConfirmDialog` | Only when not standard |
@@ -286,7 +330,7 @@ imports from outside `app.podcasts`.
 
 New E2E specs:
 - `podcast-episode-settings.spec.ts`: the disclosure, the summary, defaults, last-used, Listen,
-  subject decline, one primary action;
+  subject decline, Suggest subjects (choose, again with `avoid`, empty, 503), one primary action;
 - `podcast-series-settings.spec.ts`: scopes, marks, the next setup, the standard-settings reset,
   SC-007 in three choices;
 - `podcast-guests.spec.ts`: invite, another, remove, the away label, the episode header.
@@ -299,6 +343,7 @@ New E2E specs:
 
 Fixtures (`frontend/e2e/fixtures.ts`) gain:
 - `episodeOptions`;
+- `subjectSuggestions` (three subjects) and `noSubjectSuggestions`;
 - `seriesWithSettings`;
 - `guestDraft`;
 - `streamedLineFrames(parts)`, which builds the §4 SSE body.

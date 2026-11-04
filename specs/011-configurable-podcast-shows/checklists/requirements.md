@@ -44,3 +44,10 @@
   limits podcast lines; sentence limits still do), 007 FR-014/FR-017 (invitations become a setting;
   Jump in extends to One host), and 010's pin of one-off episodes to 007's prompt (see Assumptions).
 - Line-level outcomes (SC-001 to SC-004) depend on the model and may lead to an experimental label.
+- **Revised 2026-11-03** from the episode 45 review (spec Clarifications, Session 2026-11-03). It adds
+  FR-002b, FR-003a, FR-003b, FR-006a, FR-007a, FR-007b and FR-010a, amends FR-002, FR-003 and
+  FR-005, and adds SC-012 to SC-016, with new edge cases and assumptions. Every item above was
+  re-checked and still passes. The revision deliberately supersedes two more earlier decisions:
+  - 007 R2's "never parse the model's text", for configured episodes;
+  - 007's "the episode ends when the learner chooses End", for new episodes.
+  SC-012 to SC-014 depend on the model, like SC-001 to SC-004.

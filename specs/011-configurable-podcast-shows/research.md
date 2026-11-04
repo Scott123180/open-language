@@ -23,12 +23,20 @@ standing prompt and `render_cue` all ask the episode's `HostTalk` for the follow
 
 | Method | Answers |
 |---|---|
-| `invites(run, rng)` | Whether the host line at position `run` since the learner spoke invites them |
-| `discussion_intent(state, rng)` | Which kind a discussion line is (R4) |
+| `ask(run, format, rng)` | The `Ask` level of the host line at position `run` since the learner spoke: `required`, `allowed` or `none` (R3, R19) |
+| `invitation(ask, addressee)` | Whether the written line invites the learner (R19) |
+| `discussion_intent(state, rng)` | Which kind a discussion line is (R4, R21) |
 | `line_rules(label, languages)` | The standing prompt's line rules |
 | `speech_rules(prompt, level)` | The level block (R2) |
+| `speaking_style(personality)` | The personality's speaking style in the hosts section (R22) |
 | `instruction(cue, cast, label)` | A cue's instruction for the line kinds it knows |
-| `closing(cue, label)` | The cue's last sentence: invite, or do not ask (R5) |
+| `closing(cue, label)` | The cue's last sentence, from its `Ask` (R5) |
+| `replayed_line(text, addressee, cast, label)` | A stored host line as the history replays it (R19) |
+
+*Amended 2026-11-03*: `invites` became `ask` plus `invitation`, and `speaking_style` and
+`replayed_line` were added. `LegacyTalk` returns `required` or `none` from today's rules, makes
+`invitation` true exactly for `required`, keeps every speaking style, and replays text unchanged, so
+legacy prompts, cues and histories stay byte for byte.
 
 **Rationale**:
 - FR-025 requires that an unfinished pre-feature episode resume exactly as it started. The engine
@@ -64,6 +72,9 @@ count comes from a new catalogue in `app/podcasts/catalog.py`:
 | `medium` (default) | 3–5 | "in three to five sentences" |
 | `long` | 5–8 | "in five to eight sentences" |
 
+*Amended 2026-11-03*: the cue phrase now depends on the line's kind; R22 replaces this column with a
+brief and a full phrase inside the same range.
+
 The count is stated twice:
 - once in the standing prompt's line rules ("Each host line has three to five sentences unless the
   producer note says otherwise; every sentence follows the rules at the end");
@@ -87,8 +98,13 @@ The count is stated twice:
 ## R3. How often the learner is asked: per-setting hazards, deadline 4 everywhere
 
 **Decision**: Invitations become a catalogue entry per setting, `InviteFrequency`. Each entry holds
-the chance that the 1st, 2nd and 3rd host line since the learner last spoke or passed invites them.
-The 4th line always does (FR-003, 007 FR-014).
+the chance that the 1st, 2nd and 3rd host line since the learner last spoke or passed is *allowed*
+to invite them. The 4th line is *required* to (FR-003, 007 FR-014).
+
+*Amended 2026-11-03 (R19)*: the draw now gives each cue an `Ask` level (`required`, `allowed` or
+`none`) instead of a yes/no. Whether the stored line invites is decided after it is written, from who
+it is for. The hazards below give the share of `allowed`-or-`required` cues; the measured invitation
+share is checked by SC-001 in the benchmark, not by the property test.
 
 | Setting | Hazards (1st, 2nd, 3rd) | Expected share of host lines that invite |
 |---|---|---|
@@ -97,9 +113,9 @@ The 4th line always does (FR-003, 007 FR-014).
 | `rarely` | 0.0, 0.05, 0.10 | about 1 in 3.8 (0.26) |
 
 The following stay as they are:
-- the wrap-up line still invites in a speaking format, so the learner gets the last word on the
-  topic;
-- the sign-off never invites;
+- the wrap-up line is `required` in a speaking format, so the learner gets the last word on the
+  topic (R21 changes what it asks);
+- the sign-off is `none`;
 - Panel's balance rule (`_gap_after`) still applies.
 
 **Rationale**:
@@ -111,13 +127,14 @@ The following stay as they are:
 - Today's Panel schedule (0.25, 0.45, 0.60) averages about 1 in 2.3, so Sometimes keeps Panel's feel.
 
 **Spec reading**: FR-003 says Often means every host line in both formats, and the plan follows it.
-FR-026's "Conversation · Short · Often reproduces today's behaviour" is then exact for One host. In
+FR-026's "Conversation · Short · Often reproduces today's quick back-and-forth" is then exact for One host's line length and invitations. In
 Panel, today's behaviour is closest to Sometimes (plan, Spec interpretations).
 
 **Alternatives considered**:
 - *A fixed every-Nth-line rhythm*: rejected. It is predictable and robotic.
 - *Letting the model decide when to ask*: rejected. This is the behaviour the learner complained
-  about, and 007 R2 already moved the decision to the policy.
+  about, and 007 R2 already moved the decision to the policy. R19 keeps the policy's allowance and
+  deadline, and only lets the model decide *whether it fits* on an `allowed` line.
 
 ---
 
@@ -128,11 +145,15 @@ fit `podcast_host_lines.intent String(10)`, and legacy episodes keep `discuss`.
 
 | Intent | When | Asked for |
 |---|---|---|
-| `answer` | The learner's last line asks a question (it contains `?`) | Answer it first and clearly, never with only a question; if two were asked, answer one and say the other is coming |
+| `answer` | The learner's last line asks a question (it contains `?`), **or** the last host line is a question for the other host (its addressee is that host, R19) | Answer {asker}'s question first and clearly, step by step, never with only a question; if two were asked, answer one and say the other is coming. In Panel, after a learner question that names neither host or both: "If it is for both of you, answer for yourself, then ask {other} for theirs." |
 | `follow_up` | The learner's last line had two or more `?`, and the one host line since was `answer` | Answer the other question from before |
 | `react` | Drawn by Style weight | React to the last line and add something of your own |
-| `explain` | Drawn by Style weight | Explain one thing about the subject simply |
+| `explain` | Drawn by Style weight | Explain one thing about the subject step by step: what it is, how it works, and an everyday example |
 | `story` | Drawn by Style weight | Tell a short story or example from your own life |
+
+*Amended 2026-11-03*: `answer` also follows a host's question to the other host, and `explain` and
+`answer` ask for a step-by-step explanation (FR-005, FR-006a). The line's length comes from its kind
+(R22). After a wrap-up, R21's rules take over from the Style draw.
 
 The Style weights are a catalogue entry:
 
@@ -179,13 +200,23 @@ words is needed (FR-027).
 6. The line rules, with these changes:
    - "Keep each line to a few sentences" becomes the Host lines count;
    - "When {label} asks a question, answer it first; never answer only with a question." is added;
-   - "Only ask {label} something when the producer note says so." is added.
+   - "Only ask {label} something when the producer note says so." is added;
+   - "A closing question to {label} comes after the line's sentences and is not one of them." is
+     added (FR-002);
+   - "Never ask {label} something they have already answered in this episode." is added (FR-003a);
+   - "Every episode is about one subject, named in the opening. Stay on it until the wrap-up." is
+     added (FR-007a, R20);
+   - the addressing rule of R19 is added, last.
 7. The level sentence rules (R2), last.
 
 Each cue is: the producer marker, then `Next: {name}.`, then the intent's instruction with the
-Host-lines phrase, then the after-pass sentence, then a closing. The closing is one of:
-- `End by asking {label} a question.` (or `to settle it`, as today) when the line invites;
-- **`Don't ask {label} anything this time.`** when it does not.
+Host-lines phrase (R22), then the after-pass sentence, then a closing from the cue's `Ask` (R19):
+- `required`: `Then end by asking {label} one question.` (or `to settle it`, as today; the wrap-up
+  has its own, R21);
+- `allowed`: `If it fits, then end by asking {label} one question; if not, ask {label} nothing.`;
+- `none`: **`Don't ask {label} anything this time.`**
+
+*Amended 2026-11-03*: three closings instead of two, and the new line rules above.
 
 **Rationale**:
 - The learner's main complaint is that every line ends in a question. The model adds a question by
@@ -211,6 +242,9 @@ It is stored as `podcast_episode_settings.covered_personality`. The standing pro
 
 > "This show usually has a second host, the {Expert}: {description}. Today you play that part too:
 > {speaking_style}"
+
+`{speaking_style}` is the configured style of R22, so a One host interviewer covering the expert
+explains step by step too.
 
 **Rationale**: The show keeps its purpose; Big Little Questions' interviewer also gives the expert's
 answers. The value is stored rather than looked up, so a later recast or a reset series cannot change
@@ -619,9 +653,232 @@ learner's GPU. It should be decided on a measurement, not a guess.
 
 ---
 
+## R19. Who a line is for: a hidden address tag, read after the line is written
+
+*Added 2026-11-03, from episode 45 (spec Overview, item 4).*
+
+**Problem**: 007 R2 decides whether a line invites the learner before it is written, and stores
+that decision as the line's `invites_learner`. Its rationale said the screen should never depend on
+"parsing the model's text for a question mark". Episode 45 shows the cost: Claude Sonnet asked the
+learner something on 6 of 13 non-inviting lines (messages 384, 395, 399, 402, 407, 409), the screen
+offered Continue, and three of those questions were never answered. A host's question to the other
+host was routed only when the name happened to appear (`_handed_over_host`). This decision reverses
+that part of 007 R2 for configured episodes; legacy episodes keep it (FR-025).
+
+**Decision**: code sets the limits, the content picks within them, and chance breaks ties.
+
+1. **The cue carries an `Ask` level, not a yes/no** (R3, R5). `required` on the deadline line, the
+   wrap-up and every line under Often; `allowed` when the hazard draw hits; `none` otherwise. The
+   sign-off and every Listen line are `none`. The `Ask` is stored with the line (`podcast_host_lines.ask`),
+   so the cue is rebuilt byte for byte (007 R3).
+2. **Every configured host line ends with an address tag.** The standing prompt's last line rule:
+   "End every line with who it is for, in square brackets: [@{learner}], [@{other host}], or [@all]
+   when it is for no one in particular. The brackets are never read aloud." In One host the choices
+   are the learner or all. `{learner}` is the learner label, so an unnamed learner is "[@our
+   guest]".
+3. **`LineAddress`** (`app/podcasts/services/line_address.py`, pure) reads the tag. It takes the cast
+   and the learner label and returns an `Addressee`: `learner`, `lead`, `second`, or `None` (no one
+   in particular).
+   - The tag is `\[@\s*([^\]\n]{1,60})\]`. The last tag in the text wins, names are folded
+     (case and accents, as `_fold`). `[@all]` is valid and gives `None`. A tag naming no
+     participant, or the speaker themselves, is not valid, so the fallback decides. In Listen,
+     anything for the learner gives `None`, because listeners never speak.
+   - **Fallback when there is no valid tag**, in order:
+     - the text ends with `?` (ignoring closing quotes and spaces) and names a participant → the
+       *last* participant named. The learner counts as named by their name or by one of the existing
+       `guest_labels_for(language)` labels, so no new per-language data is needed;
+     - the text names the other host anywhere → that host (today's hand-over, first named);
+     - otherwise `None`.
+   - Every tag is removed from the text. The stage-direction rule already strips `[...]`, but the tag
+     must be read before that strip runs.
+   - The result records whether the tag or the fallback decided, for the benchmark (SC-012).
+4. **Invitation from the written line.** `talk.invitation(ask, addressee)`: `ConfiguredTalk` gives
+   `ask == required or addressee == learner`; `LegacyTalk` gives `ask == required`. That value is
+   stored as `invites_learner`, so `TurnPolicy.turn`, the frontend and the stored facts stay as they
+   are. A question to the learner on a `none` line still hands them the turn (FR-003a). A `required`
+   line hands it to them even if the model forgot to ask (SC-005 stays exact).
+   - Exceptions: in a two-host format, the `open` and `greet` lines never invite. The second host's
+     greeting must come next, and the open and greet cues say "Don't ask".
+5. **Next speaker from the addressee.** In configured episodes a new speaker rule sits above balance:
+   run cap > addressed host (learner line names a host, 007 FR-018) > **addressee of the last host
+   line** > balance > hand-over > preferred slot > random. The addressee is always the other host
+   (a host does not address itself), so the run cap cannot conflict. Legacy lines have no addressee,
+   so the rule never fires for them and legacy speaker choice is unchanged.
+6. **`answer` after a host's question** (R4): when the last line is a host line whose addressee is
+   the other host and whose text ends with `?`, the next discussion intent is `answer`. The addressed
+   host speaks it by rule 5.
+7. **Streaming** (R13): `SentenceSplitter` keeps the tag with the last sentence, because `[` is not a
+   sentence start. `StreamingSanitiser` extracts the tag through `LineAddress` before stripping stage
+   directions. A sentence that is only a tag, which happens after a newline, gives no part. The tag
+   never reaches a `line_part`, the stored content, speech, the summary or the series memory.
+8. **History replay**: `talk.replayed_line(text, addressee, cast, label)` re-appends the canonical tag
+   (`[@Name]` or `[@all]`) to each configured assistant turn, so a rebuilt session keeps seeing the
+   pattern it must follow. It is derived from stored facts, so it is byte-stable. A live session keeps
+   the model's raw output. The two differ only when the model wrote the tag in another spelling or
+   left it out. The meaning is the same, so stripping a tag is **not** a trim (`was_trimmed` stays
+   false) and does not end the session.
+
+**Rationale**:
+- The decision comes from content wherever content gives a signal, with no extra model call (SC-011)
+  and no change to the streaming path's latency: the tag arrives with the last sentence, which is
+  already held until flush.
+- Every guarantee stays in code: the deadline, the run cap, balance, the sign-off, and Listen never
+  inviting. Property tests can still prove them by feeding chosen addressees.
+- On episode 45's 22 host lines, the fallback alone gives the right addressee for every line that
+  asks someone something:
+  - the six stranded questions, the five invitations and the opening question go to the learner;
+  - 387, 392 and 403 go to Julia;
+  - the rhetorical 386 goes to no one.
+
+  Statements go to the other host only when they name them (382, 404), as today's hand-over does.
+  `test_line_address.py` pins all 22 lines as a table.
+
+**Alternatives considered**:
+- *An LLM "director" call per turn*: rejected. A full round trip before every line breaks SC-011,
+  especially through `claude -p`, and `llama3.1:8b` cannot be trusted with the turn limits anyway.
+- *A JSON reply `{line, addressee}`*: rejected. It rules out sentence streaming (R13) and the
+  session (007 R3).
+- *Only the fallback*: rejected. It misses questions that don't end the line or name nobody ("¿Y tú?"
+  after naming someone in an earlier sentence works, "¿Qué opinas?" alone does not).
+- *An arrow or "to:" tag*: rejected. "to:" is English inside a target-language line, and `@` is a
+  convention every model knows.
+- *Per-language plural words ("ustedes", "ihr") for a question to both hosts*: rejected. It would need
+  a new language-kit `Requirement` (FR-027). The `answer` cue asks the first host to pass the question
+  on instead (R4), and the tag routes it.
+
+---
+
+## R20. One subject per episode: named in the opening, with suggested subjects
+
+*Added 2026-11-03, from episode 45 (spec Overview, item 5).*
+
+**Decision**:
+1. **Opening** (`ConfiguredTalk.instruction` for `open`; FR-007a):
+   - with Today's subject: "…introduce the show and yourself, and introduce today's subject.";
+   - without: "…introduce the show and yourself, and name today's one subject: one concrete question
+     or thing within the show's topic.";
+   - in a series episode after the first, without a subject, the opening also says "not in the covered
+     list". The series section's rule (010) already says so; the cue repeats it because per-line
+     instructions hold better (005 R4).
+
+   The subject is not stored separately. The opening line carries it in the history, and the series
+   keeper records it as the episode's topic (010 R6).
+2. **Suggest subjects** (FR-010a): `POST /api/podcasts/subject-suggestions` (contracts §8a), one
+   structured call through `SubjectSuggester` (`services/subject_suggestions.py`), which takes a
+   `StructuredLLMProvider`.
+   - The prompt uses the creator intro of 007's generator (subjects in the learner's own language,
+     like titles and premises). It gives the show's title, premise and topic, the learner's interests,
+     the series' covered topics, the subjects already shown (`avoid`, at most `SUBJECT_AVOID_MAX`),
+     007's suitability rule worded for subjects, and "at most 120 characters each".
+   - The schema is `{subjects: string[1..3]}`.
+   - The server trims each subject, drops any longer than 120 characters, and drops any whose folded
+     text equals a covered topic, an avoided subject or an earlier subject in the same reply. It
+     returns up to `SUBJECT_SUGGESTIONS` (3).
+   - It returns 200 with the list. An empty list means nothing new came back, and the UI says so. A
+     provider failure is a 503 with the provider's message (Principle VI).
+   - Covered topics are read with `SeriesStorage.remembered(series_id)`, topic points only. There is
+     no new storage method.
+3. **No shortcut at Start**: a chosen suggestion is checked by `SubjectCheck` (R14) like a typed one,
+   because the client can edit it and the server keeps no record of what it suggested.
+
+**Rationale**:
+- The opening rule fixes every episode for free. Suggestions are on demand, so the default Start
+  still calls no model (010 R6).
+- The covered-topic filter only catches exact repeats. Near-duplicates are left to the prompt and
+  reviewed (SC-016).
+
+**Alternatives considered**:
+- *Code picks from a hand-written sub-subject list per show*: rejected. It does not work for generated
+  or suggested shows, and the lists would need writing and translating.
+- *Suggest on setup open*: rejected. It would add a model call to every setup.
+- *Skipping `SubjectCheck` for an unedited suggestion*: rejected. The server would have to trust the
+  client or keep state.
+
+---
+
+## R21. Wrap-up and sign-off: the hosts end the episode
+
+*Added 2026-11-03, from episode 45 (spec Overview, item 6).*
+
+**Decision** (configured episodes; legacy keeps 007's rules):
+- **Wrap-up cue**: "Start wrapping up: tell {label} the show is nearly over, and sum up today's
+  subject in one sentence." The closing is wrap-up specific: "Then ask {label} for one last thought
+  on it." In Listen it is "…tell {label} the show is nearly over…" with the `none` closing.
+- **After the wrap-up**, `ConfiguredTalk.discussion_intent` decides before the Style draw:
+
+  | Last line | Next intent |
+  |---|---|
+  | The learner's, with `?` | `answer`, then `sign_off` at the next Continue |
+  | The learner's, without `?` | `sign_off` |
+  | The wrap-up, passed | `sign_off` |
+  | A host line after the wrap-up (an answer) | `sign_off` |
+
+  Listen keeps 007's rule: the sign-off follows the wrap-up.
+- **Sign-off cue**: "React briefly to the last line, then close the show: thank {label} and say
+  goodbye." The speaker comes from the existing rules, preferred slot lead, after the addressed-host
+  rule.
+- **Invitations after the wrap-up**: an `answer` line after the wrap-up is `none`, so a stranded
+  question cannot start a new round. R19 rule 4 still gives the learner the turn if the host asks
+  anyway. Jump in stays available, and each question gets an `answer` line.
+- The sign-off completes the conversation and tells `EpisodeEndings`, as End does (010 R6).
+
+**Rationale**: FR-007b. Nothing waits for an End the learner may not know to press. The learner keeps
+control: a question always gets its answer before the goodbye.
+
+**Alternatives considered**:
+- *Sign off a fixed number of lines after the wrap-up*: rejected. It ignores what the learner said.
+- *Keep 007 and highlight End*: rejected. The learner chose for the hosts to sign off.
+
+---
+
+## R22. Length by line kind, and personalities that explain
+
+*Added 2026-11-03, from episode 45 (spec Overview, item 7).*
+
+**Decision**:
+1. **Two cue phrases per Host lines value** (FR-002b), both inside the FR-002 range:
+
+   | `HostLineLength` | `brief_phrase`: greet, react, wrap up, sign off | `full_phrase`: open, explain, story, answer, follow-up |
+   |---|---|---|
+   | `short` | "in one or two sentences" | "in two sentences" |
+   | `medium` | "in three sentences" | "in four or five sentences" |
+   | `long` | "in five or six sentences" | "in six to eight sentences" |
+
+   The standing rule keeps the whole range ("Each host line has three to five sentences unless the
+   producer note says otherwise"). A closing question is outside the count (R5 line rule).
+2. **Configured speaking styles**: `Personality` gains `configured_speaking_style: str | None`, and
+   `ConfiguredTalk.speaking_style` uses it when set. `LegacyTalk` keeps `speaking_style`, so the legacy
+   goldens hold.
+
+   | Personality | Configured speaking style |
+   |---|---|
+   | `expert` | "Explains how and why step by step, with simple facts and an everyday example, and stays precise." |
+   | `curious_interviewer` | "Asks how and why, picks up details others said, and says what they think too." |
+
+   The other personalities keep their style. A later change is a catalogue edit.
+3. **Step-by-step instructions** for `explain` and `answer` (R4 table).
+
+**Rationale**: in episode 45, four rules shortened Julia's answer: the level's two-sentence cap (R2
+removes it), "one clear fact or tip at a time", "End by asking Scott a question" on the same line, and
+a reacting length for every line. The level still owns each sentence. The example below is five
+Beginner sentences of at most eight words in the present tense, and it explains why it takes a while:
+
+> La cafeína es una sustancia del café. Primero, va del estómago a la sangre. Eso tarda unos veinte
+> minutos. Después, la sangre la lleva al cerebro. Allí, la cafeína para la señal del sueño.
+
+SC-001's median of at least 3 sentences still holds under Balanced: react lines are 3 at Medium, and
+the rest are 4–5. SC-013 adds the median of at least 4 for explaining and answering lines.
+
+**Alternatives considered**:
+- *One phrase for every kind*: rejected. Reactions as long as explanations sound padded.
+- *Changing `speaking_style` itself*: rejected. It breaks the 007 one-off golden (FR-025).
+
+---
+
 ## Per-language data
 
 No new per-language value (FR-027):
-- sentence splitting, question detection and casting use only the existing data;
+- sentence splitting, question detection, address tags (R19: names, `?` and the existing
+  `guest_labels_for`) and casting use only the existing data;
 - guest names come from the existing name banks;
 - no `Requirement` is added in `backend/language_kit/registry.py`, and no `kit.sh backfill` is run.

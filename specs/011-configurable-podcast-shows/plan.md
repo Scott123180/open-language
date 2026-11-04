@@ -12,14 +12,20 @@ The learner found podcast hosts "too conversational". Three rules caused it:
 - One host invited the learner on every line;
 - hosts were only ever asked to react.
 
+Episode 45 (Panel, Claude) added four more, revised in on 2026-11-03:
+- questions to the learner left behind Continue;
+- no subject named;
+- a wrap-up that did not wrap up;
+- an expert held to two short sentences.
+
 This feature:
-- changes those three defaults for every new episode;
+- changes those three defaults for every new episode, and fixes the four;
 - adds five **Episode settings**: Style, Host lines, How often you're asked, Your role, and Today's
   subject;
 - lets a series change any setting **just for this episode** or **from now on**, including
   bringing an expert in through a format switch or a **guest host**.
 
-The design rests on six decisions from [research.md](research.md):
+The design rests on nine decisions from [research.md](research.md):
 
 1. **Old episodes keep old behaviour by construction** (R1, R7):
    - each new episode stores a frozen `podcast_episode_settings` row;
@@ -54,10 +60,28 @@ The design rests on six decisions from [research.md](research.md):
    - a returning host only "heard about" a guest episode;
    - a One host series' stored second host who joins later is introduced as new and knows the
      earlier points only secondhand.
+7. **The written line decides who has the turn, within the code's limits** (R19):
+   - each cue carries an `Ask` level (`required`, `allowed`, `none`) from the hazards and the deadline;
+   - each configured line ends with a hidden `[@Name]` / `[@all]` tag, read by `LineAddress` (with a
+     name-and-`?` fallback), stripped before anything is shown, spoken or remembered, and stored as
+     the line's `addressee`;
+   - `invites_learner` is decided after the line: `required`, or addressed to the learner;
+   - the next speaker follows the addressee above balance, and a question to a host gets an `answer`;
+   - this reverses 007 R2's "never parse the model's text" for configured episodes only.
+8. **One subject per episode, and the hosts end it** (R20, R21):
+   - the opening names Today's subject or a concrete one it chooses, or **Suggest subjects** offers
+     three not yet covered (one structured call, on demand);
+   - the wrap-up says the show is nearly over and asks for a last thought, and the next host line
+     signs off, after answering any question.
+9. **Explaining lines are longer than reacting ones** (R22):
+   - a brief and a full cue phrase inside each Host lines range;
+   - configured speaking styles for the expert and the interviewer;
+   - step-by-step `explain` and `answer` instructions.
 
 What is new:
-- two tables, three additive preference columns and optional snapshot keys (data-model §2);
-- three endpoints: part audio, settings reset and guest casting;
+- two tables, five additive columns (three on preferences, two on host lines) and optional snapshot
+  keys (data-model §2);
+- four endpoints: part audio, settings reset, guest casting and subject suggestions;
 - additive fields on the catalogue, preferences, episode and series responses;
 - new SSE events, `line_started` and `line_part`;
 - one renderer in `conversation_levels`, one streaming method on the conversation engine, and one
@@ -66,7 +90,8 @@ What is new:
 No new dependency, voice or per-language data.
 
 The real risk is the local model: whether `llama3.1:8b` keeps long Beginner lines simple (SC-002),
-answers questions (SC-003) and follows the line kinds (SC-004). It is measured with the hand-run
+answers questions (SC-003), follows the line kinds (SC-004), and writes the address tag (SC-012,
+where the fallback carries a missing tag). It is measured with the hand-run
 benchmarks and review sheet before any claim. A miss ships configured talk labelled experimental,
 as in 003, 005 and 010.
 
@@ -86,7 +111,8 @@ as in 003, 005 and 010.
 
 **Storage**: SQLite (WAL, foreign keys on).
 - Two new tables via `create_all()`: `podcast_episode_settings` and `podcast_series_settings`.
-- Three `podcast_preferences` columns via `_ADDITIVE_COLUMNS`.
+- Three `podcast_preferences` columns and two nullable `podcast_host_lines` columns (`ask`,
+  `addressee`) via `_ADDITIVE_COLUMNS`.
 - Optional keys in the series snapshot JSON.
 - No existing row is rewritten (data-model §2).
 
@@ -112,6 +138,8 @@ as in 003, 005 and 010.
   sentence's synthesis (R13).
 - Start does not call the model unless Today's subject is set (R14). 010 SC-006's measurement
   (no subject) is unaffected.
+- Addressing adds no model call and no latency: the tag rides on the last sentence, which is
+  already held until flush (R19). Suggest subjects is one structured call, only when pressed (R20).
 - Part audio is ready before the previous part ends: one Piper worker, faster than real time.
 
 **Constraints**:
@@ -129,14 +157,15 @@ as in 003, 005 and 010.
 
 **Scale/Scope**:
 - one learner, 3 languages, 8 ready-made shows;
-- 3 new endpoints, plus additive fields on 5 existing responses and 2 new SSE events;
-- about 8 new backend modules (in `app/podcasts/services/` and one in `app/conversation_turns/`),
-  and about 22 existing backend files touched (contracts §10);
-- frontend: about 12 new podcast components and 4 hooks; `SetupForm`, `SeriesHostCard`, `HostLine`,
+- 4 new endpoints, plus additive fields on 5 existing responses and 2 new SSE events;
+- about 10 new backend modules (in `app/podcasts/services/` and one in `app/conversation_turns/`),
+  and about 23 existing backend files touched (contracts §10);
+- frontend: about 13 new podcast components and 5 hooks; `SetupForm`, `SeriesHostCard`, `HostLine`,
   `EpisodeHeader`, `useSetupForm`, `useSetupStart`, `useEpisodeAudio`, `episodeState` and
   `usePodcastEpisode` changed.
 
-*No NEEDS CLARIFICATION items remain. Research R1–R18 settles the design questions.*
+*No NEEDS CLARIFICATION items remain. Research R1–R22 settles the design questions; R19–R22 were
+added on 2026-11-03 from the episode 45 review (spec Clarifications, Session 2026-11-03).*
 
 ---
 
@@ -146,8 +175,8 @@ Points where the spec admits more than one reading. Each is resolved here so the
 reviewed.
 
 1. **FR-003 "Often, every host line" in Panel**: taken literally, Often invites on every host line in
-   both formats. FR-026's "Conversation · Short · Often reproduces today's behaviour" is then exact
-   for One host. Today's Panel averages about one invitation in 2.3 lines, which is closest to the
+   both formats. FR-026's "Conversation · Short · Often reproduces today's quick back-and-forth" is
+   then exact for One host's line length and invitations (the episode 45 fixes still apply). Today's Panel averages about one invitation in 2.3 lines, which is closest to the
    new default, Sometimes (R3).
 2. **"The show's standard settings"** (FR-019, FR-025) are One host, Medium length, Balanced, Medium
    lines, Sometimes and the show's own role. They are built in one place, `SeriesSettings.standard`.
@@ -181,6 +210,22 @@ reviewed.
 13. **Today's subject in a series** replaces the series rule "choose a subject not in the covered
     list" with "Today's subject was chosen by {label}: talk about it even if it was covered before".
     That is the spec's edge case.
+14. **FR-003, "allowed to invite"**: the hazard draw gives `allowed`, the deadline and Often give
+    `required` (R19). The property tests check the share of `allowed`-or-`required` cues. The share
+    of lines that actually invite depends on the model and is measured by SC-001.
+15. **FR-003a, "asks the learner something"**: the line's addressee is the learner (R19). A question
+    the tag and the fallback both miss is a measured miss (SC-012's 95%), not a broken invariant.
+16. **FR-003b in One host**: there is no other host, so the addressee is the learner or no one. It
+    still decides the invitation.
+17. **FR-005, "the learner's question is for both hosts"**: a learner question that names neither
+    host, or both, gets the "answer for yourself, then ask {other}" instruction. The first host's tag
+    routes it to the second, who answers (R4, R19). No per-language plural words.
+18. **FR-007a, "names one subject"**: by instruction only. The subject is not stored apart from the
+    opening line and, for a series, the keeper's topic (R20).
+19. **FR-007b in Panel after the wrap-up**: Pass on the wrap-up counts as the last thought, so the
+    next line signs off (R21).
+20. **FR-010a, "from the selected conversation partner"**: the selected structured provider, as
+    Find a new show and `SubjectCheck` use (Principle VI).
 
 ---
 
@@ -192,22 +237,22 @@ bottom of this section.*
 | Principle | Status | How this design satisfies it |
 |---|---|---|
 | **I. Clean Code**: ≤ 20-line functions, intention-revealing names, no magic values | ✅ | Every probability, count and limit is a named catalogue field (data-model §1). The touched functions and their lengths are listed under *Function-length plan*; none ends over 20. `build_standing_prompt`'s six arguments become one `PromptContext` value. |
-| **II. SOLID: SRP** | ✅ | Each piece has one job: <br>• `HostTalk`: how this episode's hosts talk; <br>• `TurnPolicy`: who speaks and which kind of line; <br>• `LineWriter`: turn tokens into kept sentences; <br>• `SpokenParts`: speak sentences and assemble the line; <br>• `SeriesService`: which hosts, settings and snapshot an episode starts with; <br>• `SubjectCheck`: judge a subject. <br>Routers only sequence them. |
+| **II. SOLID: SRP** | ✅ | Each piece has one job: <br>• `HostTalk`: how this episode's hosts talk; <br>• `TurnPolicy`: who speaks and which kind of line; <br>• `LineWriter`: turn tokens into kept sentences; <br>• `SpokenParts`: speak sentences and assemble the line; <br>• `SeriesService`: which hosts, settings and snapshot an episode starts with; <br>• `SubjectCheck`: judge a subject; <br>• `LineAddress`: who a written line is for (pure); <br>• `SubjectSuggester`: suggest subjects. <br>Routers only sequence them. |
 | **II. SOLID: OCP** | ✅ | New behaviour is a new `HostTalk` implementation. `LegacyTalk` is today's code moved, not edited, and the goldens prove it. A new style, length or frequency is a catalogue entry. |
 | **II. SOLID: LSP** | ✅ | `LegacyTalk` and `ConfiguredTalk` honour the same contract (tested through one shared contract test). `stream_live` keeps `stream_turn`'s error contract (`LLMError` with a learner message). |
-| **II. SOLID: ISP** | ✅ | `HostTalk` has six small methods, all used by every caller. `SeriesStorage` gains two methods. `PodcastStorage` gains none (the settings travel on `NewEpisode`). |
-| **II. SOLID: DIP** | ✅ | `EpisodeTurns` depends on `LineWriter` and `SpokenParts`, both injected through `EpisodeDependencies`. `SubjectCheck` takes a `StructuredLLMProvider`. `SpokenParts` takes the speech lookup and an executor. All are wired in `services/factory.py`. |
+| **II. SOLID: ISP** | ✅ | `HostTalk` has nine small methods (research R1, amended), each used by the policy, the prompt or the history for every episode. `SeriesStorage` gains two methods. `PodcastStorage` gains none: the settings travel on `NewEpisode`, and `ask` and `addressee` on `NewHostLine`. |
+| **II. SOLID: DIP** | ✅ | `EpisodeTurns` depends on `LineWriter` and `SpokenParts`, both injected through `EpisodeDependencies`. `SubjectCheck` and `SubjectSuggester` take a `StructuredLLMProvider`. `SpokenParts` takes the speech lookup and an executor. All are wired in `services/factory.py`. |
 | **III. TDD (non-negotiable)** | ✅ | Written first: <br>• the `schema_010.sql` upgrade test and the legacy goldens on `LegacyTalk`, before any prompt change; <br>• `with_sentence_rules`, the catalogues, the policy property tests, the splitter and streaming-sanitiser property tests, and the `SeriesSettings` and snapshot round-trips, before their code; <br>• E2E specs with the SSE fixtures, before the components. |
 | **≥ 90% coverage, zero skipped tests** | ✅ | Benchmarks are deselected by marker, not skipped. Streaming is tested with a scripted session provider yielding chosen token splits and errors. `SpokenParts` is tested with a fake TTS and a synchronous executor. |
 | **IV. One primary action per screen** | ✅ | Setup: Start (or Continue) only. Episode settings is a disclosure; scope, guests and standard settings are secondary (SC-008). The episode screen is unchanged: Continue, or the learner's reply. |
 | **IV. Immediate feedback** | ✅ | The settings summary updates as choices change. Each scope mark appears as the scope is chosen. A guest card shows at once with "Casting…". An arriving line shows its sentences as they play. A declined subject says what to change. |
 | **IV. Plain-language, what-to-do-next messages** | ✅ | Every new 404, 422, 503 and 504 and the mid-line error say what to do (data-model §5, contracts §3–§8). |
 | **IV. Accessibility** | ✅ | Radio groups with legends; a disclosure with `aria-expanded`; scope and guest dialogs as `alertdialog` with focus trap and return; marks as text; `aria-busy` on the arriving line. Manual check in quickstart §5. |
-| **V. Compartmentalization** | ✅ | Podcast code stays inside `app.podcasts`, and its package root does not change. The modules outside it that change do so through their own package roots: <br>• `conversation_levels` (a new pure renderer); <br>• `services/conversation` (a new engine method); <br>• `conversation_turns` (a new bridge). <br>The factory is the only outside importer of `spoken_parts` and `subject_check` (boundary test extended). |
+| **V. Compartmentalization** | ✅ | Podcast code stays inside `app.podcasts`, and its package root does not change. The modules outside it that change do so through their own package roots: <br>• `conversation_levels` (a new pure renderer); <br>• `services/conversation` (a new engine method); <br>• `conversation_turns` (a new bridge). <br>The factory is the only outside importer of `spoken_parts`, `subject_check` and `subject_suggestions` (boundary test extended). |
 | **V. Abstractions before implementations** | ✅ | `HostTalk` is declared and contract-tested before either implementation. The `SeriesStorage` additions are tested on fakes before SQLite. |
 | **V. No feature-flag / if-debug guards** | ✅ | Legacy versus configured is data: the settings row, mapped once by `host_talk_for`. An "experimental" label, if SC-001–SC-004 miss, is UI copy, as in 005 and 010. |
 | **VI. Provider independence** | ✅ | No provider class, registry or catalogue change. Streaming goes through `SessionCapableProvider` sessions both providers already implement. `SubjectCheck` uses the selected structured provider. Failures are surfaced, never redirected. Nothing new leaves the machine on the local stack. |
-| **Per-language data** (template gate) | ✅ N/A | No per-language value: no `Requirement` in `backend/language_kit/registry.py`, and no `kit.sh backfill` (research, last section). |
+| **Per-language data** (template gate) | ✅ N/A | No per-language value: no `Requirement` in `backend/language_kit/registry.py`, and no `kit.sh backfill` (research, last section). Address tags use names, `?` and the existing `guest_labels_for` (R19). |
 | **Playwright E2E for frontend changes** | ✅ | New: `podcast-episode-settings`, `podcast-series-settings`, `podcast-guests`. Extended: `podcast-episode` (streamed parts, Replay after `line`, mid-line error, One host Jump in). Fixtures in contracts §11. |
 | **Linting (ruff, black, ESLint, Prettier)** | ✅ | No tooling change. The ESLint `max-lines-per-function` override already covers the podcast components; new shared files are added to its list if any are created. |
 
@@ -226,12 +271,17 @@ Every function this feature modifies ends at ≤ 20 lines.
 | `_series_section` / `_series_open` (prompts.py) | 16 / 11 | Guest, away and missed-mark lines come from `_guest_lines(series)` and `_point_line(point, series)` → ≈ 18 / 13 |
 | `_line_rules` (prompts.py) | 14 | Moves unchanged into `LegacyTalk`; `ConfiguredTalk` has its own, ≈ 18 |
 | `_partner_speech_block` ([rules.py](../../backend/app/conversation_levels/rules.py)) | 9 | Becomes `(precedence, cap_line, *_sentence_lines(limits))`, and `_sentence_block` reuses `_sentence_lines`. Output byte-identical → ≈ 8 |
-| `TurnPolicy._invites` ([turn_policy.py](../../backend/app/podcasts/services/turn_policy.py)) | 11 | The hazard and deadline come from `state.talk.invites(run, format, rng)`; the balance rule is kept → ≈ 10 |
-| `_intent` (turn_policy.py) | 12 | Becomes a method so the Style draw can use the policy's `rng`; `DISCUSS` comes from `state.talk.discussion_intent(state, rng)` → ≈ 13 |
+| `TurnPolicy._invites` ([turn_policy.py](../../backend/app/podcasts/services/turn_policy.py)) | 11 | Renamed `_ask`; the hazard and deadline come from `state.talk.ask(run, format, rng)`, returning an `Ask`; the balance rule is kept → ≈ 10 |
+| `TurnPolicy._speaker` (turn_policy.py) | 12 | The rule tuple gains `_addressee_of_last_line` between `_addressed_host` and `_balancing_host` (≈ 6 lines, new) → 12 |
+| `TurnPolicy._cue` (turn_policy.py) | 10 | `invites_learner=` becomes `ask=`; `is_settle_invite` reads `ask` → 10 |
+| `_intent` (turn_policy.py) | 12 | Becomes a method so the Style draw can use the policy's `rng`; `DISCUSS` comes from `state.talk.discussion_intent(state, rng)`, which also holds R21's after-wrap-up table → ≈ 13 |
+| `_line_facts` ([episodes.py](../../backend/app/podcasts/services/episodes.py)) | 11 | + `ask` (column, or derived from `invites_learner` via `_stored_ask`) and `addressee` → ≈ 13 |
+| `stored_cue` ([cues.py](../../backend/app/podcasts/services/cues.py)) | 10 | `invites_learner=` becomes `ask=line.ask` → 10 |
+| `EpisodeTurns._store` ([episode_turns.py](../../backend/app/podcasts/services/episode_turns.py)) | 14 | + `ask`, `addressee`, and `invites_learner=talk.invitation(...)` via `_host_line_for(episode, written)` → ≈ 12 |
 | `EpisodeState` / `LoadedEpisode.state` ([episodes.py](../../backend/app/podcasts/services/episodes.py)) | — / 9 | + `talk` field → 10 |
 | `LoadedEpisode.standing_prompt` (episodes.py) | 5 | Builds a `PromptContext` → ≈ 6 |
 | `turn_actions` (episodes.py) | 7 | `can_pass` reads `has_pass` → 7 |
-| `episode_history` / `next_turn_history` ([cues.py](../../backend/app/podcasts/services/cues.py)) | 16 / 10 | Pass `talk` through → 16 / 10 |
+| `episode_history` / `next_turn_history` ([cues.py](../../backend/app/podcasts/services/cues.py)) | 16 / 10 | Pass `talk` through; the assistant turn's text comes from `talk.replayed_line(...)` via `_host_turns(...)` → ≤ 16 / 10 |
 | `EpisodeTurns._line_events` ([episode_turns.py](../../backend/app/podcasts/services/episode_turns.py)) | 12 | Relays `line_started` / `line_part` from `LineWriter.events(...)`, then stores, assembles and sends `line` → ≈ 18 |
 | `EpisodeTurns._write_line` | 15 | Moves to `LineWriter`, split into `_attempt` and `_kept_sentences`, each ≤ 20 |
 | `EpisodeTurns._speak` | 12 | Replaced by `_assemble_audio(line, stream_id)` → ≈ 8 |
@@ -309,16 +359,19 @@ backend/
 │   │   ├── responses.py                    # + episode_options, settings, guest, usual_settings
 │   │   ├── routes.py                       # start with settings, guest, from_now_on; part audio
 │   │   ├── series_routes.py                # + settings reset, guest casting
+│   │   ├── discovery_routes.py             # + subject suggestions (R20)
 │   │   └── services/
 │   │       ├── host_talk.py                # NEW: HostTalk, LegacyTalk, ConfiguredTalk, host_talk_for
 │   │       ├── episode_settings.py         # NEW: EpisodeSettings
 │   │       ├── series_settings.py          # NEW: SeriesSettings (standard, with_changes)
 │   │       ├── subject_check.py            # NEW: SubjectCheck
+│   │       ├── subject_suggestions.py      # NEW: SubjectSuggester (R20)
+│   │       ├── line_address.py             # NEW: LineAddress, address tags + fallback (R19)
 │   │       ├── sentences.py                # NEW: SentenceSplitter
 │   │       ├── line_writer.py              # NEW: LineWriter (stream → sentences → sanitise → retry)
 │   │       ├── spoken_parts.py             # NEW: SpokenParts, LinePart, WAV assembly
-│   │       ├── sanitiser.py                # + StreamingSanitiser
-│   │       ├── turn_policy.py              # invitations and discussion intents via state.talk
+│   │       ├── sanitiser.py                # + StreamingSanitiser (reads the address tag first)
+│   │       ├── turn_policy.py              # Ask, addressee rule, discussion intents via state.talk
 │   │       ├── episodes.py, cues.py        # talk, settings, guest facts
 │   │       ├── episode_turns.py            # relays parts; speech via SpokenParts
 │   │       ├── series.py                   # settings, scopes, guests, marks, first appearances
@@ -329,8 +382,9 @@ backend/
 │   ├── conversation_levels/rules.py, __init__.py   # + with_sentence_rules
 │   ├── conversation_turns/streaming.py, __init__.py # NEW: iterate_in_thread
 │   ├── services/conversation/pool.py, engine.py    # + run_turn_live / stream_live
-│   ├── services/factory.py                 # + get_spoken_parts, get_subject_check
-│   └── database.py                         # + 3 _ADDITIVE_COLUMNS entries
+│   ├── services/factory.py                 # + get_spoken_parts, get_subject_check,
+│   │                                       #   get_subject_suggester
+│   └── database.py                         # + 5 _ADDITIVE_COLUMNS entries
 │   # NOT modified: prompts/templates.py, routers/chat.py, routers/audio.py,
 │   #   conversation_summary/*, services/llm/*, services/tts/*, practice_languages/*,
 │   #   language_data/*, language_kit/*
@@ -353,10 +407,11 @@ frontend/
 ├── src/
 │   ├── services/podcastsApi.ts             # + options, settings, guest, reset, part events
 │   ├── hooks/podcasts/                     # NEW: useEpisodeSettingsForm, useSeriesScopes, useGuest,
-│   │                                       #   usePartQueue; useSetupForm, useSetupStart,
+│   │                                       #   usePartQueue, useSubjectSuggestions; useSetupForm, useSetupStart,
 │   │                                       #   useEpisodeAudio, usePodcastEpisode, episodeState changed
 │   ├── components/podcasts/                # NEW: EpisodeSettings, StyleFieldset, HostLinesFieldset,
 │   │                                       #   AskedFieldset, RoleFieldset, TodaySubjectField,
+│   │                                       #   SubjectSuggestions,
 │   │                                       #   ScopeDialog, ScopeMark, StandardSettingsButton,
 │   │                                       #   GuestDialog, GuestCard, SetupFields, ArrivingLine;
 │   │                                       #   SetupForm, SeriesHostCard, HostLine, EpisodeHeader changed
@@ -395,7 +450,12 @@ frontend/
    - the factory wiring and the extended boundary test.
 2. **US1 (P1): hosts talk like podcast hosts**:
    - `with_sentence_rules`;
-   - `ConfiguredTalk`: line rules, cue text, the "don't ask" closing, the covered role;
+   - `ConfiguredTalk`: line rules, cue text, the three closings, the covered role, the subject in
+     the opening, the wrap-up and sign-off wording, brief/full phrases, configured speaking styles
+     (R19–R22);
+   - `LineAddress`, the `ask` and `addressee` columns, invitations from the written line, the
+     addressee speaker rule, `answer` after a host's question, and the after-wrap-up sign-off
+     (property tests);
    - policy invitations and discussion intents (property tests);
    - One host Jump in;
    - **sentence streaming (R13)**: `stream_live`, `iterate_in_thread`, `SentenceSplitter`,
@@ -408,6 +468,7 @@ frontend/
 3. **US2 (P1): episode settings**:
    - `settings` on Start (defaults, validation);
    - `SubjectCheck`;
+   - `SubjectSuggester`, `POST /subject-suggestions`, and Suggest subjects on the setup (R20);
    - last-used preferences;
    - `episode_options`;
    - the Episode settings disclosure and fieldsets;
