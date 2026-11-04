@@ -20,6 +20,7 @@ export function useSetupStart({ show, form, hosts, starting, series }: SetupStar
     length: form.length,
     learner_name: form.learnerName.trim(),
     kind: form.kind,
+    settings: form.settings.requestSettings(),
   }
   const seriesStart: SeriesStart | undefined = show.series && form.kind === 'series'
     ? { seriesId: show.series.series_id, memoryStatus: series?.memory_status ?? 'pending' }

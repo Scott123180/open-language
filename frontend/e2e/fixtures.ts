@@ -784,6 +784,13 @@ export const episodeOptions = {
   today_subject_max_length: 120,
 }
 
+/** Suggest subjects' answers (contracts §8a): three subjects, and nothing new. */
+export const subjectSuggestions = { subjects: ['why bread goes stale', 'why onions make you cry', 'why toast lands butter-side down'] }
+export const noSubjectSuggestions = { subjects: [] as string[] }
+
+/** The catalogue with Episode settings, as an 011 server serves it. */
+export const catalogWithEpisodeOptions = () => ({ ...mockPodcastCatalog, episode_options: episodeOptions })
+
 /** A guest cast for one episode (contracts §8): Marco, an Expert, in the second chair. */
 export const guestDraft = {
   slot: 'second',

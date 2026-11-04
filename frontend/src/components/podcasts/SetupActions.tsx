@@ -11,10 +11,11 @@ interface SetupActionsProps {
   starting: StartEpisode
   onStart: () => void
   hostNames: string[]
+  errorShownElsewhere?: string | null
 }
 
 /** Continue episode N when one is unfinished, otherwise Start episode N: never both (R4). */
-export default function SetupActions({ series, isOneOff, starting, onStart, hostNames }: SetupActionsProps) {
+export default function SetupActions({ series, isOneOff, starting, onStart, hostNames, errorShownElsewhere }: SetupActionsProps) {
   const navigate = useNavigate()
   const unfinished = isOneOff ? null : series?.unfinished_episode
   const isBusy = starting.isStarting || starting.catchUp.phase !== 'idle' || starting.error !== null
@@ -23,5 +24,5 @@ export default function SetupActions({ series, isOneOff, starting, onStart, host
     return <ContinueEpisode unfinished={unfinished} onContinue={onContinue} onStartNew={onStart} isStarting={starting.isStarting} />
   }
   const label = isOneOff ? 'Start one-off episode' : `Start episode ${series?.next_episode_number ?? 1}`
-  return <StartActions label={label} starting={starting} onStart={onStart} hostNames={hostNames} lastEpisode={series?.episode_count ?? 0} />
+  return <StartActions label={label} starting={starting} onStart={onStart} hostNames={hostNames} lastEpisode={series?.episode_count ?? 0} errorShownElsewhere={errorShownElsewhere} />
 }

@@ -78,6 +78,7 @@ describe('PodcastSetup page', () => {
       length: 'short',
       learner_name: 'Sam',
       kind: 'series',
+      settings: { style: 'balanced', line_length: 'medium', invite_frequency: 'sometimes', learner_role: 'guest', today_subject: null },
     })
   })
 

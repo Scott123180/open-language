@@ -10,19 +10,21 @@ interface StartActionsProps {
   hostNames: string[]
   /** The episode the hosts catch up on before the next one starts. */
   lastEpisode: number
+  /** An error already shown beside its field, such as a declined subject (011). */
+  errorShownElsewhere?: string | null
 }
 
 const rowStyle = { display: 'flex', flexWrap: 'wrap' as const, gap: 'var(--space-2)' }
 
 /** The setup screen's Start, and what it says while the hosts catch up (research R6). */
-export default function StartActions({ label, starting, onStart, hostNames, lastEpisode }: StartActionsProps) {
+export default function StartActions({ label, starting, onStart, hostNames, lastEpisode, errorShownElsewhere }: StartActionsProps) {
   const { phase, detail } = starting.catchUp
   const hasFailed = phase === 'failed' || phase === 'timedOut'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
       {phase === 'catchingUp' && <PlainNotice message={`${hostNames.join(' and ')} are catching up on episode ${lastEpisode}. This takes a few seconds.`} />}
       {hasFailed && <PlainNotice message={`The hosts couldn't catch up on episode ${lastEpisode}. ${detail}`} />}
-      {starting.error && <ErrorBanner message={starting.error} />}
+      {starting.error && starting.error !== errorShownElsewhere && <ErrorBanner message={starting.error} />}
       {hasFailed ? <CatchUpChoices starting={starting} /> : (
         <button type="button" onClick={onStart} disabled={starting.isStarting} aria-busy={phase === 'catchingUp'} style={{ ...primaryButtonStyle, alignSelf: 'flex-start' }}>{label}</button>
       )}

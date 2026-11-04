@@ -5,7 +5,8 @@ catalogue. Every row keeps the lifetime rules of data-model §2.1, and every mem
 pruned to the caps and the text budget in the transaction that wrote it.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from dataclasses import asdict
 from datetime import UTC, datetime
 
 from sqlalchemy import and_, func, or_
@@ -24,12 +25,15 @@ from app.podcasts.catalog import (
     TOPIC_POINT,
 )
 from app.podcasts.models import (
+    PodcastHost,
     PodcastSeries,
     PodcastSeriesEpisode,
     PodcastSeriesHost,
     PodcastSeriesMemory,
+    PodcastSeriesSettings,
     PodcastShow,
 )
+from app.podcasts.services.series_settings import SeriesSettings
 from app.podcasts.services.series_storage import (
     EpisodeRef,
     KeptShow,
@@ -171,13 +175,19 @@ class SQLiteSeriesStorage(SeriesStorage):
         return _series_record(self._db, row) if row is not None else None
 
     def create(
-        self, show_row_id: int, language: str, hosts: tuple[SeriesHost, SeriesHost]
+        self,
+        show_row_id: int,
+        language: str,
+        hosts: tuple[SeriesHost, SeriesHost],
+        settings: SeriesSettings | None = None,
     ) -> SeriesRecord:
         row = PodcastSeries(show_id=show_row_id, target_language=language, created_at=self._clock())
         try:
             self._db.add(row)
             self._db.flush()
             self._db.add_all(_new_series_host_row(row.id, host, 0) for host in hosts)
+            if settings is not None:
+                self._db.add(series_settings_row(row.id, settings, self._clock()))
             self._db.commit()
         except IntegrityError as clash:
             self._db.rollback()
@@ -205,6 +215,27 @@ class SQLiteSeriesStorage(SeriesStorage):
         _drop_if_unkept(self._db, show)
         self._db.commit()
         return True
+
+    def reset_settings(self, series_id: int) -> bool:
+        if self._db.get(PodcastSeries, series_id) is None:
+            return False
+        self._db.query(PodcastSeriesSettings).filter(
+            PodcastSeriesSettings.series_id == series_id
+        ).delete()
+        self._db.commit()
+        return True
+
+    def hosts_present(self, series_id: int) -> Mapping[int, frozenset[str]]:
+        rows = (
+            self._db.query(PodcastSeriesEpisode.conversation_id, PodcastHost.name)
+            .join(PodcastHost, PodcastHost.conversation_id == PodcastSeriesEpisode.conversation_id)
+            .filter(PodcastSeriesEpisode.series_id == series_id)
+            .all()
+        )
+        present: dict[int, set[str]] = {}
+        for conversation_id, name in rows:
+            present.setdefault(conversation_id, set()).add(name)
+        return {conversation_id: frozenset(names) for conversation_id, names in present.items()}
 
     def remembered(self, series_id: int) -> tuple[RememberedPoint, ...]:
         rows = (
@@ -417,7 +448,22 @@ def _series_record(db: Session, row: PodcastSeries) -> SeriesRecord:
         hosts=tuple(_series_host(host) for host in hosts),
         episode_count=_episode_count(db, row.id),
         unfinished=_unfinished(db, row.id),
+        settings=_settings_record(db.get(PodcastSeriesSettings, row.id)),
     )
+
+
+def _settings_record(row: PodcastSeriesSettings | None) -> SeriesSettings | None:
+    if row is None:
+        return None
+    return SeriesSettings(
+        row.format, row.length, row.style, row.line_length, row.invite_frequency, row.learner_role
+    )
+
+
+def series_settings_row(
+    series_id: int, settings: SeriesSettings, now: datetime
+) -> PodcastSeriesSettings:
+    return PodcastSeriesSettings(series_id=series_id, updated_at=now, **asdict(settings))
 
 
 def _episode_count(db: Session, series_id: int) -> int:

@@ -84,7 +84,7 @@ def _prompt_eval_count(harness, episode_id: int) -> int:
     import ollama
 
     episode = load_episode(SQLitePodcastStorage(harness.sessions()), episode_id)
-    cue = LineCue("lead", "discuss", Ask.NONE, False, False)
+    cue = LineCue("lead", "react", Ask.NONE, False, False)
     turns = next_turn_history(episode.facts, episode.cue_context, cue)
     system = {"role": "system", "content": episode.standing_prompt(ConversationLevel.NATURAL)}
     messages = [system, *({"role": t.role, "content": t.content} for t in turns)]

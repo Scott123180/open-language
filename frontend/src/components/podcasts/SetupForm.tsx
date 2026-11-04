@@ -5,14 +5,12 @@ import type { StartEpisode } from '../../hooks/podcasts/useStartEpisode'
 import { useSetupHosts } from '../../hooks/podcasts/useSetupHosts'
 import { useSetupStart } from '../../hooks/podcasts/useSetupStart'
 import EpisodeKindFieldset from './EpisodeKindFieldset'
-import FormatFieldset from './FormatFieldset'
-import LengthFieldset from './LengthFieldset'
-import LearnerNameField from './LearnerNameField'
+import EpisodeSettings from './EpisodeSettings'
+import SetupFields from './SetupFields'
 import SeriesHosts from './SeriesHosts'
 import SeriesMemoryPanel from './SeriesMemoryPanel'
 import SetupActions from './SetupActions'
 import SetupHosts from './SetupHosts'
-import SetupVoiceNotice from './SetupVoiceNotice'
 
 interface SetupFormProps {
   show: SetupShowDraft
@@ -37,11 +35,9 @@ export default function SetupForm({ show, catalog, form, starting, series }: Set
       <EpisodeKindFieldset nextEpisodeNumber={show.series?.next_episode_number ?? 1} value={form.kind} onChange={form.setKind} />
       {seriesHosts ? <SeriesSection show={show} catalog={catalog} form={form} hosts={seriesHosts} hostCount={hostCount} series={series} onPlaySample={hosts.playSample} />
         : <SetupHosts controls={hosts} personalities={catalog.personalities} hostCount={hostCount} />}
-      <FormatFieldset formats={catalog.formats} value={form.format} onChange={form.setFormat} />
-      <SetupVoiceNotice voices={catalog.voices} hostCount={hostCount} />
-      <LengthFieldset lengths={catalog.lengths} value={form.length} onChange={form.setLength} />
-      <LearnerNameField value={form.learnerName} onChange={form.setLearnerName} hostNames={seriesHosts ? hostNames : []} />
-      <SetupActions series={show.series ?? null} isOneOff={form.kind === 'one_off'} starting={starting} onStart={start} hostNames={hostNames} />
+      <SetupFields catalog={catalog} form={form} hostCount={hostCount} hostNames={seriesHosts ? hostNames : []} />
+      {catalog.episode_options && <EpisodeSettings options={catalog.episode_options} form={form.settings} isListening={isListening(catalog, form)} show={show} seriesId={form.kind === 'series' ? show.series?.series_id ?? null : null} subjectError={subjectError(starting)} />}
+      <SetupActions series={show.series ?? null} isOneOff={form.kind === 'one_off'} starting={starting} onStart={start} hostNames={hostNames} errorShownElsewhere={subjectError(starting)} />
     </>
   )
 }
@@ -67,6 +63,14 @@ function SeriesSection({ show, catalog, form, hosts, hostCount, series, onPlaySa
     </>
   )
 }
+
+/** The server's 422 for a declined subject is shown beside Today's subject (011 FR-010). */
+export const SUBJECT_DECLINED = "That subject can't be used for an episode. Change it or clear it, then start."
+
+const subjectError = (starting: StartEpisode) => (starting.error === SUBJECT_DECLINED ? starting.error : null)
+
+const isListening = (catalog: PodcastCatalog, form: SetupFormState) =>
+  catalog.formats.find((f) => f.format_id === form.format)?.is_learner_speaking === false
 
 /** A continuing series' fixed hosts, or null for a one-off or a series' first episode. */
 function continuingHosts(show: SetupShowDraft, catalog: PodcastCatalog, form: SetupFormState, series: SeriesDetail | undefined) {

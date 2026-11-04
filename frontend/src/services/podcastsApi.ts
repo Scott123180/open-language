@@ -116,6 +116,8 @@ export interface PodcastCatalog {
   shows: ShowListing[]
   my_shows: ShowListing[]
   voices: CatalogVoices
+  /** 011: the setup's Episode settings choices. */
+  episode_options?: EpisodeOptions
 }
 
 export interface PodcastPreferences {
@@ -123,6 +125,10 @@ export interface PodcastPreferences {
   is_show_text_on: boolean
   interests: string[]
   learner_name: string | null
+  /** 011: a one-off start's Episode settings, offered on the next setup (FR-013). */
+  last_style?: EpisodeStyleId
+  last_line_length?: HostLineLengthId
+  last_invite_frequency?: InviteFrequencyId
 }
 
 export interface EpisodeHost {
@@ -291,6 +297,23 @@ export interface StartEpisodeBody {
   learner_name?: string
   /** A series episode continues the show; a one-off (the server's default) stands alone. */
   kind?: EpisodeKind
+  /** 011: how the episode sounds; a missing field takes its default. */
+  settings?: EpisodeSettingsRequest
+}
+
+export interface EpisodeSettingsRequest {
+  style?: EpisodeStyleId
+  line_length?: HostLineLengthId
+  invite_frequency?: InviteFrequencyId
+  learner_role?: LearnerRole
+  today_subject?: string | null
+}
+
+/** The show a subject is suggested for (011 contracts §8a). */
+export interface SubjectShow {
+  title: string
+  premise: string
+  topic: string
 }
 
 export type PreferencesUpdate = Partial<Pick<PodcastPreferences, 'is_show_text_on' | 'interests' | 'learner_name'>>
@@ -343,6 +366,9 @@ export interface ShuffleHostBody {
 /** A new host for the slot, cast by the server so no name, personality or voice clashes. */
 export const shuffleHost = (body: ShuffleHostBody): Promise<HostDraft> =>
   podcastFetch('/hosts/shuffle', jsonBody('POST', body))
+
+export const suggestSubjects = (show: SubjectShow, seriesId: number | null, avoid: string[]): Promise<{ subjects: string[] }> =>
+  podcastFetch('/subject-suggestions', jsonBody('POST', { show, series_id: seriesId, avoid }))
 
 export const voiceSampleUrl = (voiceKey: string, name: string): string =>
   `${BASE}/voice-sample?${new URLSearchParams({ voice_key: voiceKey, name })}`

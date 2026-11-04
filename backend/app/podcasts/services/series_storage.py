@@ -6,13 +6,14 @@ one language). Only the composition root builds their implementations.
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
 from app.podcasts.catalog import READY_MADE_SOURCE, SHOW_TEMPLATES
 from app.podcasts.services.casting import Host
+from app.podcasts.services.series_settings import SeriesSettings
 
 
 class SeriesAlreadyExists(ValueError):  # noqa: N818 — reads as the invariant it guards
@@ -144,6 +145,12 @@ class SeriesRecord:
     """The lead, then the second host: both slots always, whatever the format."""
     episode_count: int
     unfinished: EpisodeRef | None
+    settings: SeriesSettings | None = None
+    """011: the series' usual settings; the show's standard ones when none are stored."""
+
+    def __post_init__(self) -> None:
+        if self.settings is None:
+            object.__setattr__(self, "settings", SeriesSettings.standard(self.show))
 
     @property
     def next_episode_number(self) -> int:
@@ -239,9 +246,22 @@ class SeriesStorage(ABC):
 
     @abstractmethod
     def create(
-        self, show_row_id: int, language: str, hosts: tuple[SeriesHost, SeriesHost]
+        self,
+        show_row_id: int,
+        language: str,
+        hosts: tuple[SeriesHost, SeriesHost],
+        settings: SeriesSettings | None = None,
     ) -> SeriesRecord:
-        """Raises SeriesAlreadyExists when the show has a series in `language`."""
+        """Raises SeriesAlreadyExists when the show has a series in `language`. With
+        `settings`, episode 1's choices become the usual settings (011 FR-014)."""
+
+    @abstractmethod
+    def reset_settings(self, series_id: int) -> bool:
+        """Back to the show's standard settings. False for an unknown series (011 FR-019)."""
+
+    @abstractmethod
+    def hosts_present(self, series_id: int) -> Mapping[int, frozenset[str]]:
+        """For each series episode, the names of its hosts, guests included (011 R11)."""
 
     @abstractmethod
     def recast(self, series_id: int, host: SeriesHost) -> SeriesRecord:

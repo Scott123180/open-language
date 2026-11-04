@@ -562,7 +562,7 @@ Conversation · Short · Often. Check that:
   - a one-off start updates the three `last_…` preferences; a series start leaves them unchanged;
   - the role and the subject are never remembered.
 - [X] T071 [P] [US2] Extend `backend/tests/unit/test_module_boundaries.py`: `app.podcasts.services.subject_check` and `app.podcasts.services.subject_suggestions` are importable, and the factory is the only module outside `app.podcasts` that imports either.
-- [ ] T072 [P] [US2] Write the Vitest tests:
+- [X] T072 [P] [US2] Write the Vitest tests:
   - `frontend/src/components/podcasts/EpisodeSettings.test.tsx`:
     - the toggle is a `button` with `aria-expanded="false"` and the name "Episode settings: Balanced · Medium lines · Asked sometimes";
     - the summary updates as choices change;
@@ -574,7 +574,7 @@ Conversation · Short · Often. Check that:
   - `frontend/src/hooks/podcasts/useEpisodeSettingsForm.test.tsx`: it starts Style, Host lines and How often you're asked on the preferences' `last_…` values (or the defaults), Your role on the show's role, and Today's subject empty;
   - `frontend/src/hooks/podcasts/useSetupStart.test.tsx`: Start sends `settings`, and a 422 subject decline is shown beside the field without starting;
   - `frontend/src/pages/PodcastSetup.test.tsx`: Start remains the single primary action.
-- [ ] T073 [P] [US2] Write `frontend/e2e/podcast-episode-settings.spec.ts` with `episodeOptions` (contracts §11):
+- [X] T073 [P] [US2] Write `frontend/e2e/podcast-episode-settings.spec.ts` with `episodeOptions` (contracts §11):
   - the disclosure is closed with its summary;
   - starting with the defaults needs no opening (SC-008), and the request carries the defaults;
   - the last-used values are offered on the next setup, with Your role on the show's role;
@@ -604,11 +604,11 @@ Conversation · Short · Often. Check that:
   With T074–T078, this makes T067, T068 and T070 green.
 - [X] T080 [US2] Render Today's subject and the episode's role in `backend/app/podcasts/prompts.py`: `_subject_sentence(talk)` in `_show_section` (≈ 12 lines), and the series subject-rule replacement in `_series_section`. Makes T069 green.
 - [X] T077a [US2] Add `POST /api/podcasts/subject-suggestions` to `backend/app/podcasts/discovery_routes.py` (contracts §8a): a `SubjectSuggestionsRequest` / `SubjectSuggestionsResponse` pair in `backend/app/podcasts/schemas.py` (`avoid` ≤ `SUBJECT_AVOID_MAX`, each ≤ 120 characters); the practice language and interests from the same `_context` dependency Find a new show uses; covered topics from `SeriesStorage.remembered(series_id)`, topic points only, after checking that the series exists in that language; `SeriesNotFound` → 404 and `LLMError` → 503. Makes T067a green.
-- [ ] T081 [P] [US2] Extend `frontend/src/services/podcastsApi.ts`: `episode_options` on the catalogue, `settings` in the start body, the preference fields, `settings` on the episode, and `suggestSubjects(show, seriesId, avoid)`. Add `subjectSuggestions` and `noSubjectSuggestions` to `frontend/e2e/fixtures.ts`.
-- [ ] T082 [US2] Create `frontend/src/hooks/podcasts/useEpisodeSettingsForm.ts`, which holds the settings state and summary and is initialised as in T072.
-- [ ] T082a [US2] Create `frontend/src/hooks/podcasts/useSubjectSuggestions.ts`: the request state (idle, waiting, shown, empty, error), the subjects shown so far for `avoid`, and `choose(subject)`, which hands the subject to `useEpisodeSettingsForm`'s Today's subject.
-- [ ] T083 [US2] Create `frontend/src/components/podcasts/EpisodeSettings.tsx`, `StyleFieldset.tsx`, `HostLinesFieldset.tsx`, `AskedFieldset.tsx`, `RoleFieldset.tsx`, `TodaySubjectField.tsx` and `SubjectSuggestions.tsx` (the Suggest subjects button and its live-region list, fed by `useSubjectSuggestions`). Build the radio fieldsets like `FormatFieldset.tsx`, and the disclosure with `aria-expanded` and `aria-controls`. Labels and descriptions come from `episode_options`. Use design-system tokens only.
-- [ ] T084 [US2] Put Episode settings on the setup screen:
+- [X] T081 [P] [US2] Extend `frontend/src/services/podcastsApi.ts`: `episode_options` on the catalogue, `settings` in the start body, the preference fields, `settings` on the episode, and `suggestSubjects(show, seriesId, avoid)`. Add `subjectSuggestions` and `noSubjectSuggestions` to `frontend/e2e/fixtures.ts`.
+- [X] T082 [US2] Create `frontend/src/hooks/podcasts/useEpisodeSettingsForm.ts`, which holds the settings state and summary and is initialised as in T072.
+- [X] T082a [US2] Create `frontend/src/hooks/podcasts/useSubjectSuggestions.ts`: the request state (idle, waiting, shown, empty, error), the subjects shown so far for `avoid`, and `choose(subject)`, which hands the subject to `useEpisodeSettingsForm`'s Today's subject.
+- [X] T083 [US2] Create `frontend/src/components/podcasts/EpisodeSettings.tsx`, `StyleFieldset.tsx`, `HostLinesFieldset.tsx`, `AskedFieldset.tsx`, `RoleFieldset.tsx`, `TodaySubjectField.tsx` and `SubjectSuggestions.tsx` (the Suggest subjects button and its live-region list, fed by `useSubjectSuggestions`). Build the radio fieldsets like `FormatFieldset.tsx`, and the disclosure with `aria-expanded` and `aria-controls`. Labels and descriptions come from `episode_options`. Use design-system tokens only.
+- [X] T084 [US2] Put Episode settings on the setup screen:
   - move the format, length and name fields of `frontend/src/components/podcasts/SetupForm.tsx` into a new `SetupFields.tsx`, and add `<EpisodeSettings>` (≈ 17 lines);
   - `frontend/src/hooks/podcasts/useSetupForm.ts` delegates the settings to `useEpisodeSettingsForm`;
   - `frontend/src/hooks/podcasts/useSetupStart.ts` sends `settings` and shows a subject decline beside the field.
@@ -637,11 +637,11 @@ later episodes; the next two episodes use it. The episode count and the memory a
 
 ### Tests for User Story 3 (write first, see them fail)
 
-- [ ] T086 [P] [US3] Write `backend/tests/unit/podcasts/test_series_settings.py` (data-model §3.3):
+- [X] T086 [P] [US3] Write `backend/tests/unit/podcasts/test_series_settings.py` (data-model §3.3):
   - `SeriesSettings.standard(show)` is `one_host`, `medium`, `balanced`, `medium`, `sometimes` and the show's role;
   - `with_changes(values, names)` copies only the named fields, and raises `ValueError` for a name outside `SERIES_SETTING_NAMES`;
   - `is_standard_for(show)` is true for `standard(show)` and false after any change.
-- [ ] T087 [P] [US3] Extend `backend/tests/unit/podcasts/test_sqlite_series_storage.py` and `backend/tests/contract/service_interfaces/test_series_storage_provider.py` (data-model §3.4):
+- [X] T087 [P] [US3] Extend `backend/tests/unit/podcasts/test_sqlite_series_storage.py` and `backend/tests/contract/service_interfaces/test_series_storage_provider.py` (data-model §3.4):
   - `create(show_row_id, language, hosts, settings)` also inserts the settings row;
   - `get` and `find` fill `SeriesRecord.settings` from the row, or from `SeriesSettings.standard` when there is none;
   - `reset_settings(series_id)` deletes the row and returns `True`, also when no row existed, and returns `False` for an unknown series;
@@ -719,8 +719,8 @@ later episodes; the next two episodes use it. The episode count and the memory a
 
 ### Implementation for User Story 3
 
-- [ ] T099 [P] [US3] Create `backend/app/podcasts/services/series_settings.py` with the frozen `SeriesSettings`: `standard(show)`, `with_changes(values, names)` and `is_standard_for(show)`. Makes T086 green.
-- [ ] T100 [US3] Extend `backend/app/podcasts/services/series_storage.py` and `backend/app/podcasts/services/sqlite_series_storage.py`:
+- [X] T099 [P] [US3] Create `backend/app/podcasts/services/series_settings.py` with the frozen `SeriesSettings`: `standard(show)`, `with_changes(values, names)` and `is_standard_for(show)`. Makes T086 green.
+- [X] T100 [US3] Extend `backend/app/podcasts/services/series_storage.py` and `backend/app/podcasts/services/sqlite_series_storage.py`:
   - `SeriesRecord.settings`, filled via `_settings_record(...)` (`_series_record` ≈ 16 lines);
   - `create(..., settings)` inserts the row;
   - the new abstract methods `reset_settings` and `hosts_present`, and their SQLite implementations.

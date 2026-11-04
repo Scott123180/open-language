@@ -1,5 +1,6 @@
 """010 T011: the SQLite series storage (data-model §2.2–§2.5, §4)."""
 
+from dataclasses import replace as _replace
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,13 @@ from app.podcasts.catalog import (
     REMEMBERED_POINT_MAX_LENGTH,
     REMEMBERED_TEXT_BUDGET,
 )
-from app.podcasts.models import PodcastEpisode, PodcastSeriesEpisode, PodcastShow
+from app.podcasts.models import (
+    PodcastEpisode,
+    PodcastSeriesEpisode,
+    PodcastSeriesSettings,
+    PodcastShow,
+)
+from app.podcasts.services.series_settings import SeriesSettings
 from app.podcasts.services.series_storage import (
     EpisodeRef,
     SeriesAlreadyExists,
@@ -25,6 +32,7 @@ from app.podcasts.services.sqlite_series_storage import (
 from app.services.storage.sqlite import SQLiteStorageProvider
 from tests.support.scratch_database import make_session
 from tests.support.series_records import (
+    EPISODE_HOSTS,
     SERIES_HOSTS,
     TickingClock,
     add_host_lines,
@@ -289,3 +297,77 @@ def test_deleting_an_episode_forgets_its_points_and_lowers_the_count(storage, se
 
     assert _texts(storage, series) == [("topic", "los bostezos")]
     assert _refresh(storage, series).episode_count == 1
+
+
+# --- 011 T087: usual settings, the settings reset and who was in each episode (§3.4) --------
+
+
+PANEL_PRESENTED = SeriesSettings("panel", "long", "presented", "long", "rarely", "co_host")
+
+
+def _settings_rows(session) -> int:
+    return session.query(PodcastSeriesSettings).count()
+
+
+def test_a_series_created_with_settings_stores_them(session):
+    kept = SQLiteShowLibraryStorage(session).keep(ShowContent.ready_made("game-day"))
+    storage = SQLiteSeriesStorage(session)
+
+    created = storage.create(kept.show_row_id, "es", SERIES_HOSTS, PANEL_PRESENTED)
+
+    assert created.settings == PANEL_PRESENTED
+    assert storage.get(created.series_id).settings == PANEL_PRESENTED
+    assert _settings_rows(session) == 1
+
+
+def test_a_series_without_a_settings_row_has_the_shows_standard_settings(storage, series):
+    stored = storage.get(series.series_id)
+
+    assert stored.settings == SeriesSettings.standard(stored.show)
+    assert storage.find(series.show.show_row_id, "es").settings == stored.settings
+
+
+def test_resetting_the_settings_deletes_the_row(session):
+    kept = SQLiteShowLibraryStorage(session).keep(ShowContent.ready_made("game-day"))
+    storage = SQLiteSeriesStorage(session)
+    created = storage.create(kept.show_row_id, "es", SERIES_HOSTS, PANEL_PRESENTED)
+
+    assert storage.reset_settings(created.series_id) is True
+    assert _settings_rows(session) == 0
+    assert storage.get(created.series_id).settings == SeriesSettings.standard(created.show)
+
+
+def test_resetting_settings_that_were_never_stored_is_fine(storage, series):
+    assert storage.reset_settings(series.series_id) is True
+
+
+def test_resetting_an_unknown_series_settings_is_false(storage):
+    assert storage.reset_settings(999) is False
+
+
+def test_resetting_the_series_takes_its_settings_with_it(session):
+    kept = SQLiteShowLibraryStorage(session).keep(ShowContent.ready_made("game-day"))
+    storage = SQLiteSeriesStorage(session)
+    created = storage.create(kept.show_row_id, "es", SERIES_HOSTS, PANEL_PRESENTED)
+
+    storage.reset(created.series_id)
+
+    assert _settings_rows(session) == 0
+
+
+def test_hosts_present_names_who_was_in_each_episode(session, storage, series):
+    first = series_episode(session, series)
+    second = series_episode(session, storage.get(series.series_id))
+
+    present = storage.hosts_present(series.series_id)
+
+    names = frozenset(host.name for host in EPISODE_HOSTS)
+    assert present == {first: names, second: names}
+
+
+def test_hosts_present_of_a_series_without_episodes_is_empty(storage, series):
+    assert storage.hosts_present(series.series_id) == {}
+
+
+def test_settings_are_a_value(series):
+    assert _replace(series.settings, style="presented").style == "presented"

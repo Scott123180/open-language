@@ -21,6 +21,9 @@ SERIES_METHODS = {
     "remembered",
     "pending_episodes",
     "remember",
+    # 011 data-model §3.4
+    "hosts_present",
+    "reset_settings",
 }
 PODCAST_METHODS_007 = {
     "create_episode",

@@ -70,6 +70,8 @@ class FakeSeriesStorage(SeriesStorage):
         self.points: dict[int, list[RememberedPoint]] = {}
         self.recasts: list[SeriesHost] = []
         self.resets: list[int] = []
+        self.present: dict[int, dict[int, frozenset[str]]] = {}
+        """Per series: who was in each of its episodes (011 R11)."""
 
     def add(self, show: KeptShow, language: str, hosts, episode_count: int = 0) -> SeriesRecord:
         series_id = len(self.series) + 1
@@ -95,10 +97,22 @@ class FakeSeriesStorage(SeriesStorage):
     def get(self, series_id: int) -> SeriesRecord | None:
         return self.series.get(series_id)
 
-    def create(self, show_row_id: int, language: str, hosts) -> SeriesRecord:
+    def create(self, show_row_id: int, language: str, hosts, settings=None) -> SeriesRecord:
         if self.find(show_row_id, language) is not None:
             raise SeriesAlreadyExists(f"show {show_row_id} has a {language} series")
-        return self.add(self._library.shows[show_row_id], language, hosts)
+        record = self.add(self._library.shows[show_row_id], language, hosts)
+        self.series[record.series_id] = replace(record, settings=settings or record.settings)
+        return self.series[record.series_id]
+
+    def reset_settings(self, series_id: int) -> bool:
+        record = self.series.get(series_id)
+        if record is None:
+            return False
+        self.series[series_id] = replace(record, settings=None)
+        return True
+
+    def hosts_present(self, series_id: int) -> dict[int, frozenset[str]]:
+        return dict(self.present.get(series_id, {}))
 
     def recast(self, series_id: int, host: SeriesHost) -> SeriesRecord:
         record = self.series[series_id]

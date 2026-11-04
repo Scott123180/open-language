@@ -15,7 +15,7 @@ export default function PodcastSetup() {
   const { catalog, error } = usePodcastCatalog()
   const { preferences } = usePodcastPreferences()
   const { show, draft, replaceDraft } = useSetupShow(catalog)
-  const form = useSetupForm(catalog, preferences)
+  const form = useSetupForm(catalog, preferences, show?.learner_role)
   const starting = useStartEpisode()
   const { detail } = useSeries(show?.series?.series_id ?? null)
   return (
