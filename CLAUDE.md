@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Open-Language** is a locally-run language learning application built using **SpecKit** (v1.0.1, skills-based integration), a specification-driven development (SDD) framework. All feature work goes through the SDD workflow below.
 
-The application is implemented and running: a FastAPI backend in [backend/app/](backend/app/) and a Vite/React frontend in [frontend/src/](frontend/src/). Features shipped so far: roleplay chat (001), vocabulary flashcards (002), corrective feedback mode (003, experimental), LLM provider selection with conversation sessions (004), conversation difficulty levels (005, experimental), German as a second practice language (006), podcast mode with a two-language conversation Summary (007), the language onboarding kit, which added Italian as a third practice language by data alone (008), and recurring podcast shows: series with the same hosts and a bounded memory, favourites, My shows, Find a new show, and themed drop-downs (010, series experimental). Every AI capability sits behind a provider interface, and the app is local by default: Ollama for the LLM, Piper for TTS, faster-whisper for STT, SQLite for storage. Cloud providers are opt-in — today, Claude as the conversation partner through the learner's signed-in Claude Code. STT and TTS are always local.
+The application is implemented and running: a FastAPI backend in [backend/app/](backend/app/) and a Vite/React frontend in [frontend/src/](frontend/src/). Features shipped so far: roleplay chat (001), vocabulary flashcards (002), corrective feedback mode (003, experimental), LLM provider selection with conversation sessions (004), conversation difficulty levels (005, experimental), German as a second practice language (006), podcast mode with a two-language conversation Summary (007), the language onboarding kit, which added Italian as a third practice language by data alone (008), recurring podcast shows: series with the same hosts and a bounded memory, favourites, My shows, Find a new show, and themed drop-downs (010, series experimental), and configurable podcast shows: podcast-style host talk streamed sentence by sentence, Episode settings with Today's subject, series settings for one episode or from now on, and guest hosts (011, experimental). Every AI capability sits behind a provider interface, and the app is local by default: Ollama for the LLM, Piper for TTS, faster-whisper for STT, SQLite for storage. Cloud providers are opt-in — today, Claude as the conversation partner through the learner's signed-in Claude Code. STT and TTS are always local.
 
 Speech-to-text is implemented in [backend/app/services/stt/whisper.py](backend/app/services/stt/whisper.py); see [reference/TRANSCRIPTION_INTEGRATION.md](reference/TRANSCRIPTION_INTEGRATION.md) for the underlying `faster-whisper` + CUDA integration patterns.
 
@@ -303,12 +303,33 @@ the only outside importer of `series_storage`, `sqlite_series_storage`, `series_
 `episode_endings` (a unit test enforces it). A series episode's prompt and cues come from its stored
 `SeriesSnapshot` only. On the frontend, every drop-down is `components/shared/ThemedSelect.tsx`; never add a
 native `<select>`.
+Configurable shows (011) live inside `backend/app/podcasts/` too. `services/host_talk.py` holds the
+`HostTalk` strategy: `LegacyTalk` (007/010's text, pinned by the golden tests) for episodes with no
+`podcast_episode_settings` row, `ConfiguredTalk` for every new one; `host_talk_for(settings)` is the only
+place a settings row becomes behaviour. Configured lines end with an address tag (`[@Name]`/`[@all]`)
+read and stripped by `services/line_address.py`, and stream sentence by sentence through `line_writer.py`,
+`sentences.py` and `spoken_parts.py` (`ConversationEngine.stream_live`, `conversation_turns.iterate_in_thread`).
+`app.conversation_levels` gains `with_sentence_rules` (the level's rules without a reply cap). Series keep
+usual settings (`series_settings.py`), and a guest sits in one chair for one episode, with remembered
+points marked for the hosts who missed them. The factory is the only outside importer of `spoken_parts`,
+`subject_check` and `subject_suggestions`. Ollama models up to 10 GB ask for an 8,192-token context
+(`services/llm/ollama_context.py`).
 `backend/language_kit/` (008) is developer tooling beside `app/`, run as `.claude/skills/language-kit/kit.sh`.
 It is never imported by the app (a unit test enforces it) and reaches the app only through package roots.
 One registry of requirements drives its pack template, validation, `check`, `backfill` and the canonical
 file layout; commands are small `Command` objects wired in `composition.py`.
 
 ## Recent Changes
+- **011-configurable-podcast-shows**: new episodes talk like a podcast — `react`/`explain`/`story`/
+  `answer`/`follow_up` lines of three to five sentences, invitations from an `Ask` level and the line's
+  address tag, one subject named in the opening, and a sign-off after the learner's last thought; lines
+  stream sentence by sentence with each sentence spoken as it arrives. Episode settings (Style, Host
+  lines, How often you're asked, Your role, Today's subject with Suggest subjects) sit behind one
+  disclosure; series keep usual settings changed for one episode or from now on; a guest can take either
+  chair for one episode. Pre-011 episodes are unchanged (golden tests). Two additive tables, five additive
+  columns. **Shipped as experimental**: on `llama3.1:8b` Beginner sentences run long (SC-002) and Medium
+  and Long lines start after more than 5 s at p90 (SC-011); small Ollama models now ask for an
+  8,192-token context (docs/architecture.md § "Open items")
 - **010-recurring-podcast-shows**: a show can be a series per practice language — the same two hosts each
   episode (checked at Start; changed only by a confirmed Recast), a bounded memory of topics and what the
   learner said (≤ 10 + 8 points, 1,200 characters) frozen into each episode's snapshot, written in the
@@ -363,5 +384,5 @@ file layout; commands are small `Command` objects wired in `composition.py`.
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
-at specs/007-podcast-mode/plan.md
+at specs/011-configurable-podcast-shows/plan.md
 <!-- SPECKIT END -->

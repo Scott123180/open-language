@@ -3,6 +3,7 @@ import type { EpisodeOptions, SubjectShow } from '../../services/podcastsApi'
 import type { EpisodeSettingsForm } from '../../hooks/podcasts/useEpisodeSettingsForm'
 import { useSubjectSuggestions } from '../../hooks/podcasts/useSubjectSuggestions'
 import { AskedFieldset, HostLinesFieldset, RoleFieldset, StyleFieldset } from './EpisodeSettingFields'
+import SettingsExperimentalNote from './SettingsExperimentalNote'
 import SubjectSuggestions from './SubjectSuggestions'
 import TodaySubjectField from './TodaySubjectField'
 import { secondaryButtonStyle } from './styles'
@@ -41,6 +42,7 @@ function SettingsPanel({ id, options, form, isListening, show, seriesId, subject
   }
   return (
     <div id={id} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+      <SettingsExperimentalNote />
       <StyleFieldset options={options} form={form} />
       <HostLinesFieldset options={options} form={form} />
       {!isListening && <AskedFieldset options={options} form={form} />}

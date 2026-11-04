@@ -663,6 +663,11 @@ Points worth internalising:
 > streaming already, so this stays a one-function change whenever the latency starts to matter.
 > Conversation sessions (004) change where the tokens come from, not how they reach the screen: delivery
 > is still batched, by the learner's decision.
+>
+> **Podcast lines (011) stream for real.** A configured episode's host line is written through
+> `ConversationEngine.stream_live` (`run_turn_live`), bridged to the event loop by `iterate_in_thread`,
+> cut into sentences as the tokens arrive, and spoken sentence by sentence: the first sentence plays while
+> the rest is still being written. Roleplay keeps the batched delivery above.
 
 #### Conversation sessions
 
@@ -905,6 +910,58 @@ unchanged. All of it lives inside `app/podcasts/`; the package root is unchanged
   until a suggestion is favourited or played.
 - **Composition root.** `services/factory.py` is the only outside importer of `series_storage`,
   `sqlite_series_storage`, `series_memory` and `episode_endings` (`tests/unit/test_module_boundaries.py`).
+
+#### Configurable shows (feature 011)
+
+A new episode talks like a podcast: longer host lines, a few invitations, one subject, a sign-off after
+the learner's last thought. Episodes from before 011 keep 007/010's behaviour byte for byte. Everything
+stays inside `app/podcasts/`; the package root is unchanged.
+
+- **Host talk is a strategy.** `HostTalk` (`services/host_talk.py`) owns everything that differs between
+  old and new episodes: the invitation level of a line (`ask`), the line rules, the level's speech rules,
+  each cue's instruction and closing, and how a stored line is replayed. `LegacyTalk` is a pure move of
+  007/010's text, pinned by the one-off golden and the 010 series prompt tests. `ConfiguredTalk` reads
+  the episode's `EpisodeSettings` (style, host line length, how often the learner is asked, role,
+  today's subject). `host_talk_for(settings)` is the only place a settings row becomes behaviour: an
+  episode with no `podcast_episode_settings` row is legacy.
+- **Line kinds and invitation hazards.** Configured episodes ask for `react`, `explain`, `story`,
+  `answer` and `follow_up` lines instead of `discuss`, weighted by the style, each with a brief or a full
+  sentence count from the host line length. `TurnPolicy` decides each line's `Ask` level: `required` at
+  the invitation deadline or with Often, `allowed` from a per-line hazard, `none` otherwise, and `never`
+  for a two-host opening and greeting. An answer owed to the learner is given before the wrap-up.
+- **Addressing (research R19).** Every configured line ends with an address tag, `[@Name]` or `[@all]`,
+  which `LineAddress` (`services/line_address.py`) reads and strips; a line without one falls back to a
+  question mark and the names in its last sentence. The addressee decides whether the line invites the
+  learner (`talk.invitation(ask, addressee)`) and who speaks next (a host addressed by the other host
+  answers). This reverses 007 R2's "never parse the model's text" for configured episodes only; legacy
+  episodes still invite exactly when the policy says.
+- **Sentence streaming.** `LineWriter` splits the reply with `SentenceSplitter`, checks each sentence with
+  `StreamingSanitiser` (a cut stops the line), and hands it to `SpokenParts`, which synthesises it on a
+  worker thread. The client gets `line_started`, one `line_part` per sentence with its audio URL
+  (`GET /episodes/{id}/parts/{stream_id}/{index}`), then the usual `line` with the assembled WAV. An error
+  after a part ends the session and reports the lost `stream_id`.
+- **Today's subject, Suggest subjects and the sign-off (R20, R21).** The opening names one subject: the
+  learner's (checked at Start by `SubjectCheck`, one structured call) or one the host chooses. Suggest
+  subjects (`POST /subject-suggestions`, `SubjectSuggester`) proposes three, skipping the series' covered
+  topics and those already shown. After the wrap-up asks for a last thought, the next host line signs off,
+  so a new episode ends by itself; 007's run-until-End stays for legacy episodes.
+- **Series settings and scopes.** A series keeps usual settings (`podcast_series_settings`,
+  `SeriesSettings`): episode 1's choices, then any setting a later Start names in `from_now_on`, upserted
+  with the series link in the episode's transaction. The setup asks once per changed setting whether it is
+  for this episode or later ones too, and marks its legend. **Use the show's standard settings**
+  (`DELETE /series/{id}/settings`) returns to One host, Medium, Balanced, Medium lines, Sometimes.
+- **Guests and the missed-by marks (R10–R12).** `POST /series/{id}/guest` casts a guest
+  (`HostCaster.cast_guest`) without storing anything; a Start with `guest` seats them in one chair. The
+  snapshot gains `guest_slot` and `away_host_name`; the regular host is "away today", the guest knows no
+  earlier episode, and a One host series turned Panel for one episode gets the show's expert. Each
+  remembered point carries the episode it came from; `hosts_present` tells who was in it, and a point is
+  rendered `[Name was away for this]` for each host here today who missed it, with one rule. A never-heard
+  second host joining from now on is introduced as new and has missed every earlier point.
+- **Local context.** Ollama models up to 10 GB on disk ask for an 8,192-token context on every request
+  (`OllamaContextWindow`, `services/llm/ollama_context.py`; `ollama_small_model_max_gb` and
+  `ollama_small_model_context`); larger models keep Ollama's default, which would not fit beside them.
+- **Composition root.** `services/factory.py` is the only outside importer of `spoken_parts`,
+  `subject_check` and `subject_suggestions` (`tests/unit/test_module_boundaries.py`).
 
 #### Conversation summary (feature 007)
 
@@ -1459,6 +1516,7 @@ open-language/
 | `007-podcast-mode` | Podcast episodes (One host, Panel, Listen) with code-chosen turns, cast hosts and per-host voices; ready-made, generated and Surprise me shows; a two-language Summary for every conversation | In progress |
 | `008-language-onboarding-kit` | Language data as generated TOML files, the language kit (registry, pack, apply, backfill, verify, bench, report) behind the `language-kit` skill, language-independent benchmarks, Spanish's evaluation set, Italian as a third practice language | In progress |
 | `010-recurring-podcast-shows` | Series of a show with the same hosts and a bounded memory, Recast and Start over, one-off episodes beside them, favourites and My shows, Find a new show, themed drop-downs everywhere; series experimental | In progress |
+| `011-configurable-podcast-shows` | Podcast-style host talk with line kinds, address tags and a sign-off; sentence-by-sentence streaming; Episode settings and Today's subject with Suggest subjects; series settings with scopes; guests and missed-by marks; experimental | In progress |
 
 `master` is the release branch; `develop` is the integration branch; feature branches are numbered and
 created by `.specify/scripts/bash/create-new-feature.sh`.

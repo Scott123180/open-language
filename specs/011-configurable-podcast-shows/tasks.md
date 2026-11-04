@@ -870,12 +870,12 @@ episode. Check that:
   - guests and the missed-by marks;
   - addressing (R19): the `Ask` levels, the address tag and its fallback, invitations decided from the written line, the addressee speaker rule, and that it reverses 007 R2's "never parse the model's text" for configured episodes;
   - the episode's subject, Suggest subjects, and the hosts signing off after the last thought (R20, R21), replacing 007's run-until-End for new episodes.
-- [ ] T133 [P] Update `CLAUDE.md`:
+- [X] T133 [P] Update `CLAUDE.md`:
   - add the 011 domain-module note to "Active Technologies", covering the new `app/podcasts/services/` modules, `with_sentence_rules`, `stream_live` / `iterate_in_thread`, and the factory being the only outside importer of `spoken_parts`, `subject_check` and `subject_suggestions`, and `line_address.py` with the address tag;
   - add a 011 entry at the top of "Recent Changes", with the experimental status from T131;
   - add 011 to the shipped-features sentence in "Project Overview";
   - point the plan reference at `specs/011-configurable-podcast-shows/plan.md`.
-- [ ] T134 SC-010 check against the backup (T002). Run the app once on the real `~/.open-language/app.db`. Then compare, between it and `app.db.pre-011`, the row counts and contents of `conversations`, `messages`, `podcast_*`, `podcast_series*`, vocabulary and `app_settings`: every pre-existing row is present and unchanged. Open a pre-feature series' setup and an unfinished pre-feature episode in the app.
+- [X] T134 SC-010 check against the backup (T002). Run the app once on the real `~/.open-language/app.db`. Then compare, between it and `app.db.pre-011`, the row counts and contents of `conversations`, `messages`, `podcast_*`, `podcast_series*`, vocabulary and `app_settings`: every pre-existing row is present and unchanged. Open a pre-feature series' setup and an unfinished pre-feature episode in the app.
 - [ ] T135 Run the quickstart §5 accessibility check by hand, in both themes, at 360 px and at desktop width. Record the result in the PR description.
 - [ ] T136 Final gate:
   - quickstart §2 in full: `backend/.venv/bin/pytest` (≥ 90% coverage, zero skips), `ruff check .`, `black --check .`, `npm run lint`, `npm test -- --run` and `npm run test:e2e`;

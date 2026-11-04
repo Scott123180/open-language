@@ -65,3 +65,20 @@ describe('EpisodeSettings (011 contracts §11)', () => {
     expect(screen.queryByRole('radiogroup', { name: 'Your role' })).not.toBeInTheDocument()
   })
 })
+
+describe('EpisodeSettings — experimental (011 T131)', () => {
+  it('says inside the settings that configured talk is experimental', () => {
+    renderSettings()
+
+    fireEvent.click(screen.getByRole('button', { name: /^Episode settings:/ }))
+
+    const note = screen.getByRole('note', { name: 'Episode settings are experimental' })
+    expect(note).toHaveTextContent(/local model/)
+  })
+
+  it('keeps the note out of sight while the settings are closed', () => {
+    renderSettings()
+
+    expect(screen.queryByRole('note', { name: 'Episode settings are experimental' })).not.toBeInTheDocument()
+  })
+})
