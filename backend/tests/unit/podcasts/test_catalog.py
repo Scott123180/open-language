@@ -38,6 +38,7 @@ def _descriptor(podcast_format) -> tuple:
         podcast_format.host_count,
         podcast_format.is_learner_speaking,
         podcast_format.has_jump_in,
+        podcast_format.has_pass,
         podcast_format.max_host_run,
         podcast_format.invite_deadline,
     )
@@ -49,9 +50,10 @@ def test_the_formats_are_one_host_panel_and_listen_in_order():
 
 def test_the_format_descriptors_match_the_data_model():
     assert {key: _descriptor(value) for key, value in PODCAST_FORMATS.items()} == {
-        "one_host": (1, True, False, None, 1),
-        "panel": (2, True, True, 3, 4),
-        "listen": (2, False, False, 3, None),
+        # 011 research R15: One host gains Jump in; Pass stays Panel's only.
+        "one_host": (1, True, True, False, None, 1),
+        "panel": (2, True, True, True, 3, 4),
+        "listen": (2, False, False, False, 3, None),
     }
 
 

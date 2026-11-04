@@ -12,7 +12,8 @@ import pytest
 
 from app.podcasts.catalog import EPISODE_LENGTHS, PODCAST_FORMATS
 from app.podcasts.services.casting import Cast, Host
-from app.podcasts.services.host_talk import LegacyTalk
+from app.podcasts.services.episode_settings import EpisodeSettings
+from app.podcasts.services.host_talk import ConfiguredTalk, LegacyTalk
 from app.podcasts.services.turn_policy import LEARNER, Ask, EpisodeState, LineFacts, TurnPolicy
 
 EPISODES_PER_FORMAT = 1000
@@ -65,7 +66,7 @@ def _learner_acts(episode: Episode, chooser: random.Random) -> str:
     roll = chooser.random()
     if roll < 0.03:
         return "end"
-    if roll < 0.2 and PODCAST_FORMATS[episode.format_id].has_jump_in:
+    if roll < 0.2 and PODCAST_FORMATS[episode.format_id].has_pass:
         last = episode.lines[-1]
         episode.lines[-1] = LineFacts(last.speaker, last.intent, True, True, last.text)
         return "pass"
@@ -205,3 +206,199 @@ def test_the_simulation_covers_every_learner_behaviour(episodes):
     assert any(line.is_passed for line in panel_lines)
     assert any(line.speaker == LEARNER and _first_named(line.text) for line in panel_lines)
     assert jump_ins
+
+
+# --- 011 T027: configured talk over thousands of simulated lines (R3, R4, R19, R21) ---------
+
+
+CONFIGURED_LINES = 12_000
+SHARES = {"often": (1.0, 1.0), "sometimes": (0.40, 0.50), "rarely": (0.22, 0.30)}
+DISCUSSION = {"react", "explain", "story", "answer", "follow_up"}
+STYLE_DRAWS = 10_000
+STYLE_TOLERANCE = 0.02
+NO_INVITATION_RUN = 5
+
+
+def _configured_talk(frequency: str = "sometimes", style: str = "balanced") -> ConfiguredTalk:
+    return ConfiguredTalk(
+        EpisodeSettings.from_ids(
+            style=style, line_length="medium", invite_frequency=frequency, learner_role="guest"
+        )
+    )
+
+
+@dataclass
+class ConfiguredEpisode:
+    format_id: str
+    talk: ConfiguredTalk
+    lines: list[LineFacts] = field(default_factory=list)
+    is_finished: bool = False
+
+    def state(self) -> EpisodeState:
+        podcast_format = PODCAST_FORMATS[self.format_id]
+        second = MARCO if podcast_format.host_count == 2 else None
+        return EpisodeState(
+            format=podcast_format,
+            length=EPISODE_LENGTHS["long"],
+            cast=Cast.for_format(podcast_format, LUCIA, second),
+            lines=tuple(self.lines),
+            is_finished=self.is_finished,
+            talk=self.talk,
+        )
+
+
+def _cooperative(cue, chooser: random.Random) -> tuple[str | None, str]:
+    """A model that asks the learner exactly when the cue may invite, and no one otherwise."""
+    return ("learner", "¿Y tú?") if cue.ask.may_invite else (None, "Una idea.")
+
+
+def _random_addressing(cue, chooser: random.Random) -> tuple[str | None, str]:
+    other = "second" if cue.speaker_slot == "lead" else "lead"
+    addressee = chooser.choice(("learner", other, None))
+    return addressee, chooser.choice(("¿Qué opinas?", "Una idea."))
+
+
+def _write(episode: ConfiguredEpisode, policy: TurnPolicy, chooser, addressing, end=False):
+    state = episode.state()
+    cue = policy.end_cue(state) if end else policy.next_cue(state)
+    addressee, text = addressing(cue, chooser)
+    if PODCAST_FORMATS[episode.format_id].host_count == 1 and addressee not in (None, "learner"):
+        addressee = None
+    invites = episode.talk.invitation(cue.ask, addressee)
+    episode.lines.append(
+        LineFacts(
+            cue.speaker_slot, cue.intent, invites, False, text, ask=cue.ask, addressee=addressee
+        )
+    )
+    episode.is_finished = cue.intent == "sign_off"
+    return cue
+
+
+def _learner_reply(episode: ConfiguredEpisode, chooser: random.Random) -> None:
+    text = chooser.choice(("Sí.", "Me gusta.", "¿Por qué?", "No sé."))
+    episode.lines.append(LineFacts(LEARNER, None, False, False, text))
+
+
+def simulate_configured(format_id, frequency, seed, addressing=_cooperative, limit=60):
+    chooser, policy = random.Random(seed), TurnPolicy(random.Random(seed + 1_000_000))
+    episode = ConfiguredEpisode(format_id, _configured_talk(frequency))
+    while not episode.is_finished and len(episode.lines) < limit:
+        if policy.turn(episode.state()).turn == "learner":
+            _learner_reply(episode, chooser)
+        else:
+            _write(episode, policy, chooser, addressing)
+    return episode
+
+
+def _before_wrap_up(episode: ConfiguredEpisode) -> list[LineFacts]:
+    intents = [line.intent for line in episode.lines]
+    end = intents.index("wrap_up") if "wrap_up" in intents else len(intents)
+    return episode.lines[:end]
+
+
+@pytest.mark.parametrize("format_id", ["one_host", "panel"])
+@pytest.mark.parametrize("frequency", list(SHARES))
+def test_the_share_of_cues_that_may_invite_follows_the_frequency(format_id, frequency):
+    cues, seed = [], 0
+    while len(cues) < CONFIGURED_LINES:
+        episode = simulate_configured(format_id, frequency, seed)
+        discussion = [line for line in _before_wrap_up(episode) if line.intent in DISCUSSION]
+        cues += [line.ask for line in discussion]
+        seed += 1
+    share = sum(ask.may_invite for ask in cues) / len(cues)
+
+    low, high = SHARES[frequency]
+    assert low <= share <= high
+
+
+@pytest.mark.parametrize("format_id", ["one_host", "panel"])
+@pytest.mark.parametrize(
+    "addressing", [_cooperative, _random_addressing], ids=["cooperative", "random"]
+)
+def test_never_five_host_lines_in_a_row_without_an_invitation(format_id, addressing):
+    for seed in range(300):
+        run = 0
+        for line in simulate_configured(format_id, "rarely", seed, addressing).lines:
+            run = 0 if not line.is_host or line.invites_learner else run + 1
+            assert run < NO_INVITATION_RUN
+
+
+@pytest.mark.parametrize("format_id", ["one_host", "panel"])
+def test_a_line_for_the_learner_hands_them_the_turn_except_a_two_host_opening(format_id):
+    for seed in range(300):
+        lines = simulate_configured(format_id, "sometimes", seed, _random_addressing).lines
+        for line, following in zip(lines, lines[1:], strict=False):
+            is_opening = format_id == "panel" and line.intent in ("open", "greet")
+            if line.is_host and line.addressee == "learner" and line.intent != "sign_off":
+                assert following.is_host is is_opening
+
+
+def test_a_line_for_the_other_host_is_followed_by_that_host_and_a_question_by_an_answer():
+    for seed in range(300):
+        lines = simulate_configured("panel", "sometimes", seed, _random_addressing).lines
+        for index, (line, following) in enumerate(zip(lines, lines[1:], strict=False)):
+            if (
+                not line.is_host
+                or line.addressee not in ("lead", "second")
+                or not following.is_host
+            ):
+                continue
+            if following.intent in ("greet", "wrap_up", "sign_off"):
+                continue
+            run = sum(1 for _ in _trailing_run(lines[: index + 1], line.addressee))
+            if run < PODCAST_FORMATS["panel"].max_host_run:
+                assert following.speaker == line.addressee
+            if line.text.endswith("?") and not _has_wrapped(lines[:index]):
+                assert following.intent == "answer"
+
+
+def _trailing_run(lines, slot):
+    for line in reversed(lines):
+        if line.speaker != slot:
+            return
+        yield line
+
+
+def _has_wrapped(lines) -> bool:
+    return any(line.intent == "wrap_up" for line in lines)
+
+
+@pytest.mark.parametrize("format_id", ["one_host", "panel"])
+def test_after_the_wrap_up_the_hosts_answer_questions_then_sign_off(format_id):
+    for seed in range(300):
+        episode = simulate_configured(format_id, "sometimes", seed, limit=200)
+        lines = episode.lines
+        assert episode.is_finished
+        wrap = [line.intent for line in lines].index("wrap_up")
+        for previous, line in zip(lines[wrap:], lines[wrap + 1 :], strict=False):
+            if not line.is_host:
+                continue
+            asked = not previous.is_host and "?" in previous.text
+            assert line.intent == ("answer" if asked else "sign_off")
+            assert line.intent != "answer" or line.ask is Ask.NONE
+
+
+def test_a_sign_off_never_invites_and_listen_never_asks():
+    for seed in range(200):
+        episode = simulate_configured("listen", "often", seed, limit=200)
+        assert all(line.ask is Ask.NONE for line in episode.lines)
+        assert episode.lines[-1].intent == "sign_off"
+    for seed in range(200):
+        lines = simulate_configured("panel", "often", seed, limit=200).lines
+        sign_offs = [line for line in lines if line.intent == "sign_off"]
+        assert all(line.ask is Ask.NONE and not line.invites_learner for line in sign_offs)
+
+
+@pytest.mark.parametrize("style", ["conversation", "balanced", "presented"])
+def test_the_style_draw_follows_its_weights(style):
+    from app.podcasts.catalog import DISCUSSION_INTENTS, EPISODE_STYLES
+
+    talk = _configured_talk(style=style)
+    rng = random.Random(11)
+    episode = ConfiguredEpisode(
+        "panel", talk, [LineFacts("lead", "open"), LineFacts("second", "greet")]
+    )
+    drawn = [talk.discussion_intent(episode.state(), rng) for _ in range(STYLE_DRAWS)]
+
+    for intent, weight in zip(DISCUSSION_INTENTS, EPISODE_STYLES[style].weights, strict=True):
+        assert abs(drawn.count(intent) / STYLE_DRAWS - weight) <= STYLE_TOLERANCE

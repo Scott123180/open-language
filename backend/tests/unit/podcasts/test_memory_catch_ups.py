@@ -5,8 +5,8 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-from app.podcasts.services.series_memory import KeeperEndings, MemoryCatchUps
 
+from app.podcasts.services.series_memory import KeeperEndings, MemoryCatchUps
 from app.podcasts.services.series_snapshot import SeriesSnapshot
 from app.podcasts.services.series_storage import PendingEpisode
 from app.podcasts.services.storage import EpisodeSeriesFacts

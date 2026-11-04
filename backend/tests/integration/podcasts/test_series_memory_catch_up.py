@@ -6,12 +6,12 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-from app.podcasts.series_routes import get_memory_wait_seconds
-from app.podcasts.services.series_memory import MemoryCatchUps, SeriesMemoryKeeper
 from fastapi import Depends
 
 from app.main import app
 from app.podcasts.models import PodcastSeriesEpisode, PodcastSeriesMemory
+from app.podcasts.series_routes import get_memory_wait_seconds
+from app.podcasts.services.series_memory import MemoryCatchUps, SeriesMemoryKeeper
 from app.services.factory import (
     get_app_settings,
     get_memory_catch_ups,

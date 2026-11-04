@@ -7,7 +7,15 @@ from app.practice_languages import host_names_for
 from app.services.tts.voices import AVAILABLE_VOICES
 from tests.support.podcast_harness import podcast_harness
 
-FORMAT_KEYS = {"format_id", "label", "host_count", "is_learner_speaking", "description"}
+FORMAT_KEYS = {
+    "format_id",
+    "label",
+    "host_count",
+    "is_learner_speaking",
+    "description",
+    "has_jump_in",
+    "has_pass",
+}
 LENGTH_KEYS = {"length_id", "label", "target_host_lines", "is_default"}
 PERSONALITY_KEYS = {"personality_id", "label", "description"}
 DRAFT_KEYS_007 = {
@@ -112,3 +120,10 @@ def test_the_ready_made_shows_come_in_catalogue_order_on_every_call(harness, cat
 
     assert [show["show_id"] for show in catalog["shows"]] == list(SHOW_TEMPLATES)
     assert again["shows"] == catalog["shows"]
+
+
+def test_each_format_says_whether_the_learner_can_jump_in_and_pass(catalog):
+    """011 T024 (research R15): Jump in in One host and Panel, Pass in Panel only."""
+    flags = {f["format_id"]: (f["has_jump_in"], f["has_pass"]) for f in catalog["formats"]}
+
+    assert flags == {"one_host": (True, False), "panel": (True, True), "listen": (False, False)}

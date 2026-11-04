@@ -12,8 +12,9 @@ import pytest
 from app.conversation_levels import ConversationLevel
 from app.podcasts.catalog import EPISODE_LENGTHS, INVITE_DEADLINE, PERSONALITIES, PODCAST_FORMATS
 from app.podcasts.services.casting import Cast, Host
-from app.podcasts.services.host_talk import HostTalk, LegacyTalk, host_talk_for
-from app.podcasts.services.turn_policy import Ask, EpisodeState, LineCue, LineFacts
+from app.podcasts.services.episode_settings import EpisodeSettings
+from app.podcasts.services.host_talk import ConfiguredTalk, HostTalk, LegacyTalk, host_talk_for
+from app.podcasts.services.turn_policy import Ask, EpisodeState, InvitePoint, LineCue, LineFacts
 from app.practice_languages import ConversationLanguages
 
 METHODS = {
@@ -39,7 +40,7 @@ INTENT_COLUMN_LENGTH = 10
 
 
 def implementations() -> list[HostTalk]:
-    return [LegacyTalk()]
+    return [LegacyTalk(), ConfiguredTalk(EpisodeSettings.defaults("guest"))]
 
 
 def _state(talk: HostTalk) -> EpisodeState:
@@ -62,7 +63,7 @@ def test_no_settings_row_means_legacy_talk():
 @pytest.mark.parametrize("talk", implementations(), ids=type)
 @pytest.mark.parametrize("podcast_format", SPEAKING_FORMATS, ids=lambda f: f.format_id)
 def test_the_deadline_line_is_required_to_invite(talk, podcast_format):
-    ask = talk.ask(INVITE_DEADLINE, podcast_format, random.Random(1), "react")
+    ask = talk.ask(InvitePoint(INVITE_DEADLINE, podcast_format, "react"), random.Random(1))
 
     assert ask is Ask.REQUIRED
 
@@ -119,7 +120,7 @@ def test_legacy_talk_never_allows_an_optional_invitation(podcast_format):
     talk = LegacyTalk()
 
     asks = {
-        talk.ask(run, podcast_format, random.Random(seed), "discuss")
+        talk.ask(InvitePoint(run, podcast_format, "discuss"), random.Random(seed))
         for run in range(1, INVITE_DEADLINE + 1)
         for seed in range(40)
     }
@@ -144,4 +145,14 @@ def test_legacy_talk_replays_a_line_unchanged():
 def test_legacy_talk_listens_without_inviting():
     listen = PODCAST_FORMATS["listen"]
 
-    assert LegacyTalk().ask(INVITE_DEADLINE, listen, random.Random(1), "discuss") is Ask.NONE
+    assert (
+        LegacyTalk().ask(InvitePoint(INVITE_DEADLINE, listen, "discuss"), random.Random(1))
+        is Ask.NONE
+    )
+
+
+def test_legacy_talk_holds_back_an_unbalancing_invitation_before_the_deadline():
+    talk = LegacyTalk()
+
+    assert talk.ask(InvitePoint(2, PANEL, "discuss", True), random.Random(1)) is Ask.NONE
+    assert talk.ask(InvitePoint(4, PANEL, "discuss", True), random.Random(1)) is Ask.REQUIRED

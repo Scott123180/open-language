@@ -14,8 +14,8 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from app.podcasts.catalog import (
-    INVITE_DEADLINE,
     LEAD_SLOT,
+    QUESTION_MARK,
     SECOND_SLOT,
     EpisodeLength,
     PodcastFormat,
@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 LEARNER = "learner"
 OPEN, GREET, DISCUSS, WRAP_UP, SIGN_OFF = "open", "greet", "discuss", "wrap_up", "sign_off"
+ANSWER, FOLLOW_UP = "answer", "follow_up"
 HOSTS_TURN, LEARNER_TURN, FINISHED = "hosts", "learner", "finished"
 AWAITING_OPENING, AWAITING_REPLY, AWAITING_CONTINUE = "opening", "reply", "continue"
 
@@ -36,6 +37,7 @@ INVITER_ANSWERS = 0.6
 """After the learner speaks, the host who invited them answers with this probability."""
 BALANCING_GAP = 2
 """When one host is this many lines ahead, the other speaks next (FR-015)."""
+_CLOSERS = " \t\n\"'»”’)]"
 _PREFERRED_SLOT = {OPEN: LEAD_SLOT, SIGN_OFF: LEAD_SLOT, GREET: SECOND_SLOT}
 
 
@@ -88,6 +90,22 @@ class LineCue:
     ask: Ask
     is_after_pass: bool
     is_settle_invite: bool
+    asker: str | None = None
+    """011: whose question an `answer` or `follow_up` replies to: LEARNER or a host slot."""
+    is_for_both: bool = False
+    """011: the learner's question named neither host or both, so the answer passes it on."""
+
+
+@dataclass(frozen=True, slots=True)
+class InvitePoint:
+    """Where a host line falls, as its talk needs it to decide the line's `Ask`."""
+
+    run: int
+    """The line's position among the host lines since the learner last spoke or passed."""
+    format: PodcastFormat
+    intent: str
+    is_unbalancing: bool = False
+    """Inviting now would leave one host two lines ahead of the other (FR-015)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,35 +160,40 @@ class TurnPolicy:
         return self._cue(state, SIGN_OFF)
 
     def _intent(self, state: EpisodeState) -> str:
-        """The opening, greeting and wrap-up by position; every other line from the talk."""
+        """The opening, greeting and wrap-up by position; every other line from the talk. An
+        answer owed to the learner comes before the wrap-up (011 FR-005)."""
         host_lines = state.host_lines
         if not host_lines:
             return OPEN
         if state.format.host_count == 2 and len(host_lines) == 1 and len(state.lines) == 1:
             return GREET
-        has_wrapped_up = any(line.intent == WRAP_UP for line in host_lines)
-        if not has_wrapped_up and len(host_lines) + 1 >= state.length.target_host_lines:
-            return WRAP_UP
         if not state.format.is_learner_speaking and state.last.intent == WRAP_UP:
             return SIGN_OFF
-        return state.talk.discussion_intent(state, self._rng)
+        intent = state.talk.discussion_intent(state, self._rng)
+        asker, _is_for_both = answer_context(state.lines, state.cast, intent)
+        if _is_wrap_up_due(state) and asker != LEARNER:
+            return WRAP_UP
+        return intent
 
     def _cue(self, state: EpisodeState, intent: str) -> LineCue:
         speaker = self._speaker(state, intent)
         ask = self._ask(state, intent, speaker)
+        asker, is_for_both = answer_context(state.lines, state.cast, intent)
         return LineCue(
             speaker_slot=speaker,
             intent=intent,
             ask=ask,
             is_after_pass=follows_pass(state.lines),
             is_settle_invite=ask.may_invite and is_settle_moment(state.lines),
+            asker=asker,
+            is_for_both=is_for_both,
         )
 
     def _speaker(self, state: EpisodeState, intent: str) -> str:
         if state.cast.second is None:
             return LEAD_SLOT
         candidates = _not_excluded_by_run(state)
-        for rule in (_addressed_host, _balancing_host, _handed_over_host):
+        for rule in (_addressed_host, _addressee_of_last_line, _balancing_host, _handed_over_host):
             chosen = rule(state)
             if chosen in candidates:
                 return chosen
@@ -188,16 +211,21 @@ class TurnPolicy:
         return _other(favoured)
 
     def _ask(self, state: EpisodeState, intent: str, speaker: str) -> Ask:
-        """Wrap-up and sign-off keep their rules; the talk decides every other line, unless the
-        line would leave a host two lines ahead before the deadline (FR-015)."""
+        """Wrap-up and sign-off keep their rules; the talk decides every other line."""
         if not state.format.is_learner_speaking or intent == SIGN_OFF:
             return Ask.NONE
         if intent == WRAP_UP:
             return Ask.REQUIRED
-        run = _run_since_learner(state.lines) + 1
-        if _is_held_back(state, speaker, run):
+        if intent == ANSWER and _has_wrapped_up(state):
             return Ask.NONE
-        return state.talk.ask(run, state.format, self._rng, intent)
+        run = _run_since_learner(state.lines) + 1
+        point = InvitePoint(run, state.format, intent, _would_unbalance(state, speaker))
+        return state.talk.ask(point, self._rng)
+
+
+def ends_with_question(text: str) -> bool:
+    """The text ends with a question mark, ignoring closing quotes, brackets and spaces."""
+    return text.rstrip(_CLOSERS).endswith(QUESTION_MARK)
 
 
 def stored_ask(ask: str | None, invites_learner: bool) -> Ask:
@@ -223,11 +251,33 @@ def _reply() -> Turn:
     return Turn(HOSTS_TURN, AWAITING_REPLY)
 
 
-def _is_held_back(state: EpisodeState, speaker: str, run: int) -> bool:
-    """Two hosts: an invitation that would leave one two lines ahead waits (FR-015)."""
-    if state.cast.second is None or run >= INVITE_DEADLINE:
+def answer_context(
+    previous: Sequence[LineFacts], cast: Cast, intent: str
+) -> tuple[str | None, bool]:
+    """Whose question an answer replies to, and whether the learner asked both hosts (R4)."""
+    last = previous[-1] if previous else None
+    if intent == FOLLOW_UP:
+        return LEARNER, False
+    if intent != ANSWER or last is None:
+        return None, False
+    if last.is_host:
+        return last.speaker, False
+    return LEARNER, cast.second is not None and len(_named_hosts(last.text, cast)) != 1
+
+
+def _is_wrap_up_due(state: EpisodeState) -> bool:
+    if _has_wrapped_up(state):
         return False
-    return _gap_after(state, speaker) >= BALANCING_GAP
+    return len(state.host_lines) + 1 >= state.length.target_host_lines
+
+
+def _has_wrapped_up(state: EpisodeState) -> bool:
+    return any(line.intent == WRAP_UP for line in state.host_lines)
+
+
+def _would_unbalance(state: EpisodeState, speaker: str) -> bool:
+    """Two hosts: inviting after this line would leave one two lines ahead (FR-015)."""
+    return state.cast.second is not None and _gap_after(state, speaker) >= BALANCING_GAP
 
 
 def _other(slot: str) -> str:
@@ -260,6 +310,14 @@ def _addressed_host(state: EpisodeState) -> str | None:
     if last is None or last.is_host:
         return None
     return _first_named(last.text, state.cast)
+
+
+def _addressee_of_last_line(state: EpisodeState) -> str | None:
+    """011 R19: the host the last host line was for. Legacy lines have no addressee."""
+    last = state.last
+    if last is None or not last.is_host or last.addressee in (None, LEARNER):
+        return None
+    return last.addressee if last.addressee != last.speaker else None
 
 
 def _balancing_host(state: EpisodeState) -> str | None:
@@ -310,13 +368,18 @@ def _run_since_learner(lines: Sequence[LineFacts]) -> int:
 
 
 def _first_named(text: str, cast: Cast) -> str | None:
+    positions = _named_hosts(text, cast)
+    return min(positions, key=positions.get) if positions else None
+
+
+def _named_hosts(text: str, cast: Cast) -> dict[str, int]:
+    """Each host the text names, with where the name first appears."""
     folded = _fold(text)
-    positions = {
+    return {
         host.slot: match.start()
         for host in cast.hosts
         if (match := re.search(rf"\b{re.escape(_fold(host.name))}\b", folded))
     }
-    return min(positions, key=positions.get) if positions else None
 
 
 def _fold(text: str) -> str:

@@ -76,6 +76,8 @@ class FormatOption(BaseModel):
     host_count: int
     is_learner_speaking: bool
     description: str
+    has_jump_in: bool
+    has_pass: bool
 
 
 class LengthOption(BaseModel):

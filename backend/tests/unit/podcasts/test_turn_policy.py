@@ -12,8 +12,9 @@ import pytest
 from app.conversation_levels import ConversationLevel
 from app.podcasts.catalog import EPISODE_LENGTHS, PODCAST_FORMATS
 from app.podcasts.services.casting import Cast, Host
+from app.podcasts.services.episode_settings import EpisodeSettings
 from app.podcasts.services.episodes import LoadedEpisode
-from app.podcasts.services.host_talk import HostTalk, LegacyTalk
+from app.podcasts.services.host_talk import ConfiguredTalk, HostTalk, LegacyTalk
 from app.podcasts.services.storage import EpisodeRecord, HostLineFacts, HostRecord, LineRecord
 from app.podcasts.services.turn_policy import (
     LEARNER,
@@ -49,6 +50,8 @@ def host(slot: str, intent: str = "discuss", invites: bool = False, **facts) -> 
         invites_learner=invites,
         is_passed=facts.get("passed", False),
         text=facts.get("text", "Una frase."),
+        ask=facts.get("ask"),
+        addressee=facts.get("addressee"),
     )
 
 
@@ -330,8 +333,8 @@ class SpyTalk(HostTalk):
         self.asks: list[tuple[int, str, str]] = []
         self.intents = 0
 
-    def ask(self, run, podcast_format, rng, intent):
-        self.asks.append((run, podcast_format.format_id, intent))
+    def ask(self, point, rng):
+        self.asks.append((point.run, point.format.format_id, point.intent))
         return Ask.ALLOWED
 
     def invitation(self, ask, addressee):
@@ -444,3 +447,122 @@ def test_a_line_stored_without_an_ask_reads_it_from_invites_learner(invites, exp
 
 def test_a_line_stored_with_an_ask_reads_that_ask():
     assert _stored(True, "allowed").facts[0].ask is Ask.ALLOWED
+
+
+# --- 011 T027: configured talk in the policy (FR-003–FR-007b, research R3, R4, R19, R21) ----
+
+
+CONFIGURED = ConfiguredTalk(EpisodeSettings.defaults("guest"))
+
+
+def configured(lines, podcast_format=PANEL, draw: float = 0.99):
+    episode = state(podcast_format, lines, talk=CONFIGURED)
+    return TurnPolicy(Constant(draw)).next_cue(episode)
+
+
+def test_a_learner_question_is_answered_whatever_the_draw():
+    chosen = configured(
+        [host(L, "open"), host(S, "greet"), learner("¿Por qué bostezamos?")], draw=0.0
+    )
+
+    assert (chosen.intent, chosen.asker) == ("answer", LEARNER)
+
+
+def test_two_learner_questions_get_an_answer_then_a_follow_up():
+    lines = [host(L, "open"), host(S, "greet"), learner("¿Por qué? ¿Y cuándo?"), host(S, "answer")]
+
+    assert configured(lines).intent == "follow_up"
+
+
+def test_a_learner_question_for_both_hosts_is_passed_on():
+    lines = [host(L, "open"), host(S, "greet"), learner("¿Qué os gusta a los dos?")]
+
+    assert configured(lines).is_for_both is True
+
+
+def test_a_learner_question_for_one_host_is_not_passed_on():
+    lines = [host(L, "open"), host(S, "greet"), learner("Marco, ¿qué te gusta?")]
+
+    assert configured(lines).is_for_both is False
+
+
+def test_a_question_to_the_other_host_is_answered_by_that_host():
+    lines = [host(L, "open"), host(S, "greet"), host(L, text="¿Y tú qué piensas?", addressee=S)]
+
+    chosen = configured(lines, draw=0.0)
+
+    assert (chosen.speaker_slot, chosen.intent, chosen.asker) == (S, "answer", L)
+
+
+def test_the_balance_rule_still_applies_when_the_last_line_has_no_addressee():
+    lines = [host(L, "open"), host(S, "greet"), host(L), host(L, invites=True), learner()]
+
+    assert configured(lines, draw=0.0).speaker_slot == S
+
+
+def test_the_addressee_outranks_balance():
+    """Lucía is two lines ahead, so balance would pick Marco; Marco's line is for Lucía."""
+    lines = [
+        host(L, "open"),
+        host(S, "greet"),
+        host(L),
+        host(L, invites=True),
+        learner(),
+        host(L, invites=True),
+        learner(),
+        host(S, text="Ella sabe mucho.", addressee=L),
+    ]
+
+    assert configured(lines, draw=0.99).speaker_slot == L
+
+
+def test_a_line_to_the_learner_is_always_followed_by_the_learners_turn():
+    """Episode 45: Hugo asked Scott something on a line that was not meant to invite."""
+    line = host(L, text="¿Y tú, Scott?", invites=True, ask=Ask.NONE, addressee="learner")
+    episode = state(PANEL, [host(L, "open"), host(S, "greet"), line], talk=CONFIGURED)
+
+    assert TurnPolicy(Constant(0.0)).turn(episode) == Turn("learner", None)
+
+
+def test_a_legacy_episodes_speaker_ignores_addressees():
+    lines = [host(L), host(S), host(L, text="Una idea.")]
+
+    assert cue(lines, draw=0.99).speaker_slot == cue(lines[:-1] + [host(L)], draw=0.99).speaker_slot
+
+
+def test_a_learner_question_delays_the_wrap_up_until_it_is_answered():
+    lines = [*balanced(SHORT.target_host_lines - 2), host(S, invites=True), learner("¿Por qué?")]
+
+    assert configured(lines).intent == "answer"
+    assert configured([*lines, host(L, "answer")]).intent == "wrap_up"
+
+
+def test_an_answer_after_the_wrap_up_asks_nothing():
+    lines = [host(L, "open"), host(S, "wrap_up", invites=True), learner("¿Y mañana?")]
+
+    chosen = configured(lines, draw=0.0)
+
+    assert (chosen.intent, chosen.ask) == ("answer", Ask.NONE)
+
+
+@pytest.mark.parametrize("podcast_format", [ONE_HOST, PANEL], ids=lambda f: f.format_id)
+def test_the_wrap_up_is_required_to_invite(podcast_format):
+    lines = (
+        [host(L) for _ in range(SHORT.target_host_lines - 1)]
+        if podcast_format is ONE_HOST
+        else balanced(SHORT.target_host_lines - 1)
+    )
+
+    chosen = configured(lines, podcast_format)
+
+    assert (chosen.intent, chosen.ask) == ("wrap_up", Ask.REQUIRED)
+
+
+def test_one_host_offers_jump_in_but_not_pass_at_continue():
+    from app.podcasts.services.episodes import turn_actions
+
+    assert turn_actions(ONE_HOST, Turn("hosts", "continue")) == {
+        "can_jump_in": True,
+        "can_pass": False,
+    }
+    assert turn_actions(PANEL, Turn("learner", None)) == {"can_jump_in": False, "can_pass": True}

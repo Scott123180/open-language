@@ -62,6 +62,8 @@ def _format_options() -> list[FormatOption]:
             host_count=f.host_count,
             is_learner_speaking=f.is_learner_speaking,
             description=f.description,
+            has_jump_in=f.has_jump_in,
+            has_pass=f.has_pass,
         )
         for f in PODCAST_FORMATS.values()
     ]

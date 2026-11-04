@@ -97,6 +97,7 @@ def build_standing_prompt(context: PromptContext) -> str:
         _language_rule(context.languages),
         _show_section(context.show, label),
         _hosts_section(cues.cast, cues.talk),
+        _covered_role_section(cues.cast, cues.talk),
         _series_section(cues.series, label) if cues.series is not None else None,
         cues.talk.line_rules(label, context.languages, cues.cast),
     )
@@ -181,6 +182,17 @@ def _show_section(show: ShowBrief, learner_label: str) -> str:
 
 def _hosts_section(cast: Cast, talk: HostTalk) -> str:
     return "Hosts:\n" + "\n".join(_host_line(host, talk) for host in cast.hosts)
+
+
+def _covered_role_section(cast: Cast, talk: HostTalk) -> str | None:
+    """One host stands in for the show's absent second host (011 research R6)."""
+    if cast.second is not None or talk.covered_personality is None:
+        return None
+    covered = PERSONALITIES[talk.covered_personality]
+    return (
+        f"This show usually has a second host, the {covered.label}: {covered.description} "
+        f"Today you play that part too: {talk.speaking_style(covered)}"
+    )
 
 
 def _host_line(host: Host, talk: HostTalk) -> str:

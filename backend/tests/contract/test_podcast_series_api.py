@@ -3,10 +3,10 @@
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-from app.podcasts.series_routes import get_memory_wait_seconds
-from app.podcasts.services.series_memory import MemoryCatchUps
 
 from app.main import app
+from app.podcasts.series_routes import get_memory_wait_seconds
+from app.podcasts.services.series_memory import MemoryCatchUps
 from app.services.factory import get_memory_catch_ups
 from app.services.llm.base import LLMError
 from tests.support.podcast_harness import podcast_harness

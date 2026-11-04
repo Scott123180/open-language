@@ -136,10 +136,10 @@ def load_episode(
 
 def turn_actions(podcast_format: PodcastFormat, turn: Turn) -> dict[str, bool]:
     """Which secondary actions the turn allows: Jump in at the hosts' Continue, Pass at the
-    learner's turn, both only in a format with Jump in (FR-017)."""
+    learner's turn, each only in a format that has it (FR-017, 011 research R15)."""
     return {
         "can_jump_in": podcast_format.has_jump_in and turn.awaiting == "continue",
-        "can_pass": podcast_format.has_jump_in and turn.turn == "learner",
+        "can_pass": podcast_format.has_pass and turn.turn == "learner",
     }
 
 

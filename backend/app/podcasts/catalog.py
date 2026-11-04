@@ -58,6 +58,9 @@ class PodcastFormat:
     host_count: int
     is_learner_speaking: bool
     has_jump_in: bool
+    """The learner can speak while the hosts have the floor (FR-017; One host too since 011)."""
+    has_pass: bool
+    """The learner can pass on an invitation (011 research R15: Panel only)."""
     max_host_run: int | None
     """The most lines one host may speak in a row (FR-015). None with one host."""
     invite_deadline: int | None
@@ -97,11 +100,11 @@ class ShowTemplate:
 PODCAST_FORMATS: Mapping[str, PodcastFormat] = MappingProxyType(
     {
         "one_host": PodcastFormat(
-            "one_host", "One host", "You and one host.", 1, True, False, None, 1
+            "one_host", "One host", "You and one host.", 1, True, True, False, None, 1
         ),
-        "panel": PodcastFormat("panel", "Panel", "You and two hosts.", 2, True, True, 3, 4),
+        "panel": PodcastFormat("panel", "Panel", "You and two hosts.", 2, True, True, True, 3, 4),
         "listen": PodcastFormat(
-            "listen", "Listen", "Two hosts talk; you listen.", 2, False, False, 3, None
+            "listen", "Listen", "Two hosts talk; you listen.", 2, False, False, False, 3, None
         ),
     }
 )

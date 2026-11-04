@@ -50,15 +50,15 @@ def test_each_cue_is_rendered_from_the_stored_facts():
     history = episode_history(LINES, CONTEXT)
 
     assert history[0].content == legacy_cue(
-        cue=stored_cue(LINES, 0), cast=CAST, learner_label=LABEL
+        cue=stored_cue(LINES, 0, CAST), cast=CAST, learner_label=LABEL
     )
     assert history[4].content == legacy_cue(
-        cue=stored_cue(LINES, 2), cast=CAST, learner_label=LABEL
+        cue=stored_cue(LINES, 2, CAST), cast=CAST, learner_label=LABEL
     )
 
 
 def test_a_stored_cue_remembers_the_pass_before_it():
-    assert stored_cue(LINES, 2) == LineCue(
+    assert stored_cue(LINES, 2, CAST) == LineCue(
         speaker_slot="lead",
         intent="discuss",
         ask=Ask.REQUIRED,

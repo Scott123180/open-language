@@ -8,9 +8,11 @@ producer cue that asked for it. Cues are re-rendered from the stored facts by th
 from collections.abc import Sequence
 
 from app.podcasts.prompts import CueContext, render_cue
+from app.podcasts.services.casting import Cast
 from app.podcasts.services.turn_policy import (
     LineCue,
     LineFacts,
+    answer_context,
     follows_pass,
     is_settle_moment,
 )
@@ -26,15 +28,18 @@ def line_turn_id(message_id: int) -> str:
     return f"{LINE_TURN_PREFIX}{message_id}"
 
 
-def stored_cue(lines: Sequence[LineFacts], index: int) -> LineCue:
+def stored_cue(lines: Sequence[LineFacts], index: int, cast: Cast) -> LineCue:
     """The cue that produced the host line at `index`, rebuilt from what was stored."""
     line, previous = lines[index], lines[:index]
+    asker, is_for_both = answer_context(previous, cast, line.intent)
     return LineCue(
         speaker_slot=line.speaker,
         intent=line.intent,
         ask=line.ask,
         is_after_pass=follows_pass(previous),
         is_settle_invite=line.ask.may_invite and is_settle_moment(previous),
+        asker=asker,
+        is_for_both=is_for_both,
     )
 
 
@@ -42,7 +47,7 @@ def episode_history(lines: Sequence[LineFacts], context: CueContext) -> tuple[Sa
     turns: list[SavedTurn] = []
     for index, line in enumerate(lines):
         if line.is_host:
-            turns.append(_cue_turn(index, stored_cue(lines, index), context))
+            turns.append(_cue_turn(index, stored_cue(lines, index, context.cast), context))
             turns.append(_host_turn(line, context))
         else:
             text = f"{context.learner_label}: {line.text}"
