@@ -6,19 +6,26 @@ re-measured on an idle machine at both context sizes.
 
 ## SC-011: time to the first sentence's audio (T062 latency benchmark, 20 Continues per length)
 
-| Host lines | p90 to first part's audio | Target | Result |
-|---|---|---|---|
-| Short | 4.45 s | ≤ 5 s | met |
-| Medium | 5.19 s | ≤ 5 s | **missed** |
-| Long | 5.65 s | ≤ 5 s | **missed** |
+| Host lines | First run (4,096 tokens, busy machine) | 4,096 tokens, idle | 8,192 tokens, idle | Target |
+|---|---|---|---|---|
+| Short | 4.45 s | 5.26 s | 5.71 s | ≤ 5 s |
+| Medium | 5.19 s | 4.38 s | 5.83 s | ≤ 5 s |
+| Long | 5.65 s | 7.34 s | 7.54 s | ≤ 5 s |
 
-T063's rule: "If SC-011 misses (p90 > 5 s for any length), stop and report before US2."
+p90 over 20 Continues; the runs are noisy (Short slower than Medium at 4,096). **Missed, and accepted
+by the learner (2026-11-04)**; configured talk ships as experimental (T131).
 
 ## R18: context size
 
-`prompt_eval_count` at the end of a Long episode of Long lines: **4094**. That is Ollama's default
-context of 4096 tokens, so the prompt is very likely being truncated. Record in
-`docs/architecture.md` § "Open items" with the configurable `num_ctx` option (T131).
+| Context | `prompt_eval_count`, end of a Long episode of Long lines | Model on the GPU (`ollama ps`) |
+|---|---|---|
+| 4,096 (Ollama's default) | 4,094 first run, 4,077 idle run | 86% (5.6 GB) |
+| 8,192 (011's window for small models) | 3,882 | 78% (6.2 GB) |
+
+At 4,096 tokens a Long episode reaches the limit, so its start is cut. At the learner's request
+(2026-11-04) models up to 10 GB on disk now ask for 8,192 tokens on every request
+(`OPEN_LANGUAGE_OLLAMA_SMALL_MODEL_MAX_GB`, `OPEN_LANGUAGE_OLLAMA_SMALL_MODEL_CONTEXT`). On the 8 GB
+card that moves 8 more points of `llama3.1:8b` onto the CPU, which costs about 0.2 to 1.5 s at p90.
 
 ## Host talk, full run (T063): 20 Medium One host + 20 Medium Panel, Beginner, defaults
 
