@@ -65,6 +65,7 @@ class SpokenParts:
         self._cache_dir = cache_dir
         self._streams: dict[str, _Stream] = {}
         self._lock = threading.Lock()
+        self._is_open = True
 
     def begin(
         self,
@@ -116,8 +117,13 @@ class SpokenParts:
         _join([path for path, _spoken in stream.parts], line_audio)
         return line_audio
 
+    @property
+    def is_open(self) -> bool:
+        return self._is_open
+
     def close(self) -> None:
         """Stop the speaking worker, when the app shuts down."""
+        self._is_open = False
         self._worker.shutdown(wait=False, cancel_futures=True)
 
     def discard(self, stream_id: str) -> None:

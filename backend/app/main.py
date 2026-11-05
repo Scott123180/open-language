@@ -17,7 +17,7 @@ from app.podcasts import router as podcasts_router
 from app.routers import audio, chat, conversations, learning, scenarios, vocabulary
 from app.routers import settings as settings_router
 from app.services.conversation import SESSION_REAPER_INTERVAL_SECONDS, run_session_reaper
-from app.services.factory import get_conversation_engine, get_spoken_parts
+from app.services.factory import close_spoken_parts, get_conversation_engine
 from app.services.llm.base import LLMError
 from app.services.tts.base import VoiceUnavailable
 
@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
         await reaper
     # No conversation session, and so no `claude` process, outlives the backend.
     engine.close()
-    get_spoken_parts().close()
+    close_spoken_parts()
 
 
 app = FastAPI(title="Open Language", lifespan=lifespan)

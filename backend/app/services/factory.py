@@ -294,6 +294,13 @@ def get_spoken_parts() -> SpokenParts:
     return SpokenParts(ThreadPoolExecutor(max_workers=1), time.monotonic, TTS_CACHE_DIR)
 
 
+def close_spoken_parts() -> None:
+    """Stop the speaking worker at shutdown, and forget it, so an app started again in the same
+    process (tests, benchmarks) gets a new one."""
+    get_spoken_parts().close()
+    get_spoken_parts.cache_clear()
+
+
 def get_subject_check(
     structured_llm: StructuredLLMProvider = Depends(get_structured_llm),
 ) -> SubjectCheck:

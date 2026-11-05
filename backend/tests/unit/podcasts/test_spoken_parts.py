@@ -211,3 +211,11 @@ def test_a_line_whose_parts_are_not_all_spoken_is_not_joined(tmp_path, clock, sp
     parts.add(STREAM, "Uno.")
 
     assert parts.assemble(STREAM, message_id=402) is None
+
+
+def test_parts_are_open_until_closed(tmp_path):
+    parts = SpokenParts(SynchronousExecutor(), lambda: 0.0, tmp_path)
+
+    assert parts.is_open
+    parts.close()
+    assert not parts.is_open

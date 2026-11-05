@@ -64,3 +64,18 @@ def test_shutdown_cancels_the_reaper_then_closes_the_engine_once(lifecycle):
         assert lifecycle["events"] == []
 
     assert lifecycle["events"] == ["reaper cancelled", "engine closed"]
+
+
+def test_a_restarted_app_speaks_streamed_parts_with_a_fresh_worker(lifecycle):
+    """011: shutdown stops the parts' speaking worker; the next start gets a new one."""
+    from app.services.factory import get_spoken_parts
+
+    with TestClient(main_module.app):
+        first = get_spoken_parts()
+    with TestClient(main_module.app):
+        second = get_spoken_parts()
+        is_open_while_running = second.is_open
+
+    assert second is not first
+    assert is_open_while_running
+    assert not first.is_open
